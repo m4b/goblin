@@ -73,8 +73,6 @@ impl Elf {
                 }
             }
 
-            //            let mut strtab = None;
-            //            let mut symtab = None;
             let mut soname = None;
             let mut libraries = vec![];
             let mut symtab = vec![];

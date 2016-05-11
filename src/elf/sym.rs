@@ -1,7 +1,13 @@
+use std::fs::File;
+use std::io::Read;
+use std::io::Seek;
+use std::io::SeekFrom::Start;
+use std::io;
 use std::fmt;
 use std::slice;
 
 #[repr(C)]
+#[derive(Clone, PartialEq)]
 pub struct Sym {
     pub st_name: u32, // Symbol name (string tbl index)
     pub st_info: u8, // Symbol type and binding
@@ -100,6 +106,17 @@ impl fmt::Debug for Sym {
     }
 }
 
-pub unsafe fn from_raw <'a>(symp: *const Sym, count: usize) -> &'a [Sym] {
+pub unsafe fn from_raw<'a>(symp: *const Sym, count: usize) -> &'a [Sym] {
     slice::from_raw_parts(symp, count)
+}
+
+pub fn from_fd<'a>(fd: &mut File, offset: usize, count: usize) -> io::Result<Vec<Sym>> {
+    let mut bytes = vec![0u8; count * SIZEOF_SYM];
+    try!(fd.seek(Start(offset as u64)));
+    try!(fd.read(&mut bytes));
+    let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Sym, count) };
+    let mut syms = Vec::with_capacity(count);
+    syms.extend_from_slice(bytes);
+    syms.dedup();
+    Ok(syms)
 }

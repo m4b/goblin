@@ -172,21 +172,22 @@ impl fmt::Debug for Rela {
     }
 }
 
-/// Gets the rela entries given a rela u64, the size of the rela section in the binary.  Works for regular rela and the pltrela table.
+/// Gets the rela entries given a rela u64 and the _size_ of the rela section in the binary, in bytes.  Works for regular rela and the pltrela table.
 /// Assumes the pointer is valid and can safely return a slice of memory pointing to the relas because:
 /// 1. `rela` points to memory received from the kernel (i.e., it loaded the executable), _or_
 /// 2. The binary has already been mmapped (i.e., it's a `SharedObject`), and hence it's safe to return a slice of that memory.
-pub unsafe fn from_raw<'a>(offset: usize, count: usize) -> &'a [Rela] {
-    slice::from_raw_parts(offset as *const Rela, count / SIZEOF_RELA)
+/// 3. Or if you obtained the pointer in some other lawful manner
+pub unsafe fn from_raw<'a>(ptr: *const Rela, size: usize) -> &'a [Rela] {
+    slice::from_raw_parts(ptr, size / SIZEOF_RELA)
 }
 
-pub fn from_fd(fd: &mut File, offset: usize, count: usize) -> io::Result<Vec<Rela>> {
-    let mut bytes = vec![0u8; count * SIZEOF_RELA];
+pub fn from_fd(fd: &mut File, offset: usize, size: usize) -> io::Result<Vec<Rela>> {
+    let count = size / SIZEOF_RELA;
+    let mut bytes = vec![0u8; size];
     try!(fd.seek(Start(offset as u64)));
     try!(fd.read(&mut bytes));
     let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Rela, count) };
     let mut res = Vec::with_capacity(count);
     res.extend_from_slice(bytes);
-    res.dedup();
     Ok(res)
 }

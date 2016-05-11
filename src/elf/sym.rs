@@ -111,7 +111,7 @@ pub unsafe fn from_raw<'a>(symp: *const Sym, count: usize) -> &'a [Sym] {
 }
 
 pub fn from_fd<'a>(fd: &mut File, offset: usize, count: usize) -> io::Result<Vec<Sym>> {
-    let mut bytes = vec![0u8; count * SIZEOF_SYM];
+    let mut bytes = vec![0u8; count * SIZEOF_SYM]; // afaik this shouldn't work, since i pass in a byte size...
     try!(fd.seek(Start(offset as u64)));
     try!(fd.read(&mut bytes));
     let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Sym, count) };

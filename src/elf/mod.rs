@@ -98,7 +98,7 @@ impl Elf {
                 let num_syms = (link_info.strtab - link_info.symtab) / link_info.syment; // old caveat about how this is probably not safe but rdr has been doing it with tons of binaries and never any problems
                 symtab = try!(sym::from_fd(&mut fd, link_info.symtab, num_syms));
 
-                rela = try!(rela::from_fd(&mut fd, link_info.rela, link_info.relacount));
+                rela = try!(rela::from_fd(&mut fd, link_info.rela, link_info.relasz));
                 pltrela = try!(rela::from_fd(&mut fd, link_info.jmprel, link_info.pltrelsz));
 
             }

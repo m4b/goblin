@@ -186,7 +186,7 @@ pub fn get_needed<'a, 'b>(dyns: &'a [Dyn], strtab: &'b Strtab<'a>, count: usize)
 /// Important dynamic LinkInfo generated via a single pass through the _DYNAMIC array
 pub struct LinkInfo {
     pub rela: usize,
-    pub relasz: u64, // TODO: make this a usize?
+    pub relasz: usize,
     pub relaent: u64,
     pub relacount: usize,
     pub gnu_hash: u64,
@@ -247,7 +247,7 @@ impl LinkInfo {
         for dyn in dynamic {
             match dyn.d_tag {
                 DT_RELA => rela = dyn.d_val.wrapping_add(bias) as usize, // .rela.dyn
-                DT_RELASZ => relasz = dyn.d_val,
+                DT_RELASZ => relasz = dyn.d_val as usize,
                 DT_RELAENT => relaent = dyn.d_val,
                 DT_RELACOUNT => relacount = dyn.d_val as usize,
                 DT_GNU_HASH => gnu_hash = dyn.d_val.wrapping_add(bias),

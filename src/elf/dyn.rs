@@ -196,9 +196,9 @@ pub struct LinkInfo {
     pub symtab: usize,
     pub syment: usize,
     pub pltgot: u64,
-    pub pltrelsz: u64,
+    pub pltrelsz: usize,
     pub pltrel: u64,
-    pub jmprel: u64,
+    pub jmprel: usize,
     pub verneed: u64,
     pub verneednum: u64,
     pub versym: u64,
@@ -257,9 +257,9 @@ impl LinkInfo {
                 DT_SYMTAB => symtab = dyn.d_val.wrapping_add(bias) as usize,
                 DT_SYMENT => syment = dyn.d_val as usize,
                 DT_PLTGOT => pltgot = dyn.d_val.wrapping_add(bias),
-                DT_PLTRELSZ => pltrelsz = dyn.d_val,
+                DT_PLTRELSZ => pltrelsz = dyn.d_val as usize,
                 DT_PLTREL => pltrel = dyn.d_val,
-                DT_JMPREL => jmprel = dyn.d_val.wrapping_add(bias), // .rela.plt
+                DT_JMPREL => jmprel = dyn.d_val.wrapping_add(bias) as usize, // .rela.plt
                 DT_VERNEED => verneed = dyn.d_val.wrapping_add(bias),
                 DT_VERNEEDNUM => verneednum = dyn.d_val,
                 DT_VERSYM => versym = dyn.d_val.wrapping_add(bias),

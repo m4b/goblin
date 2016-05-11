@@ -20,6 +20,7 @@ pub struct Elf {
     pub dynamic: Option<Vec<dyn::Dyn>>,
     pub symtab: Vec<sym::Sym>,
     pub rela: Vec<rela::Rela>,
+    pub pltrela: Vec<rela::Rela>,
     pub soname: Option<String>,
     pub interpreter: Option<String>,
     pub libraries: Vec<String>,
@@ -78,6 +79,7 @@ impl Elf {
             let mut libraries = vec![];
             let mut symtab = vec![];
             let mut rela = vec![];
+            let mut pltrela = vec![];
             if let Some(ref dynamic) = dynamic {
                 let link_info = dyn::LinkInfo::new(&dynamic, bias); // we explicitly overflow the values here with our bias
                 let strtab = try!(strtab::Strtab::from_fd(&mut fd,
@@ -97,6 +99,7 @@ impl Elf {
                 symtab = try!(sym::from_fd(&mut fd, link_info.symtab, num_syms));
 
                 rela = try!(rela::from_fd(&mut fd, link_info.rela, link_info.relacount));
+                pltrela = try!(rela::from_fd(&mut fd, link_info.jmprel, link_info.pltrelsz));
 
             }
 
@@ -106,6 +109,7 @@ impl Elf {
                 dynamic: dynamic,
                 symtab: symtab,
                 rela: rela,
+                pltrela: pltrela,
                 soname: soname,
                 interpreter: interpreter,
                 libraries: libraries,

@@ -39,7 +39,11 @@
 /// the value used in this relocation is the program address returned by the function,
 /// which takes no arguments, at the address of the result of the corresponding
 /// R_X86_64_RELATIVE relocation.
-
+use std::fs::File;
+use std::io::Read;
+use std::io::Seek;
+use std::io::SeekFrom::Start;
+use std::io;
 use std::fmt;
 use std::slice;
 
@@ -131,6 +135,7 @@ pub fn type_to_str(typ: u64) -> &'static str {
 }
 
 #[repr(C)]
+#[derive(Clone, PartialEq)]
 pub struct Rela {
     pub r_offset: u64, // Address
     pub r_info: u64, // Relocation type and symbol index
@@ -167,12 +172,11 @@ impl fmt::Debug for Rela {
     }
 }
 
-/// TODO: consider different name, like `from_memory` or `from_raw_parts`
 /// Gets the rela entries given a rela u64, the size of the rela section in the binary, the size of a rela entry, and a count of how many.
 /// Assumes the pointer is valid and can safely return a slice of memory pointing to the relas because:
 /// 1. `rela` points to memory received from the kernel (i.e., it loaded the executable), _or_
 /// 2. The binary has already been mmapped (i.e., it's a `SharedObject`), and hence it's safe to return a slice of that memory.
-pub unsafe fn get<'a>(rela: u64, relasz: usize, relaent: usize, relacount: usize) -> &'a [Rela] {
+pub unsafe fn from_raw<'a>(rela: u64, relasz: usize, relaent: usize, relacount: usize) -> &'a [Rela] {
     // TODO: validate relaent, using relacount
     if relaent == 0 {
         &[]
@@ -182,6 +186,17 @@ pub unsafe fn get<'a>(rela: u64, relasz: usize, relaent: usize, relacount: usize
     }
 }
 
-pub unsafe fn get_plt<'a>(jmprel: u64, pltrelsz: usize) -> &'a [Rela] {
+pub fn from_fd(fd: &mut File, offset: usize, count: usize) -> io::Result<Vec<Rela>> {
+    let mut bytes = vec![0u8; count * SIZEOF_RELA];
+    try!(fd.seek(Start(offset as u64)));
+    try!(fd.read(&mut bytes));
+    let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Rela, count) };
+    let mut res = Vec::with_capacity(count);
+    res.extend_from_slice(bytes);
+    res.dedup();
+    Ok(res)
+}
+
+pub unsafe fn from_raw_plt<'a>(jmprel: u64, pltrelsz: usize) -> &'a [Rela] {
     slice::from_raw_parts(jmprel as *const Rela, pltrelsz / SIZEOF_RELA)
 }

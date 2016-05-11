@@ -18,8 +18,8 @@ pub struct Elf {
     pub header: header::Header,
     pub program_headers: Vec<program_header::ProgramHeader>,
     pub dynamic: Option<Vec<dyn::Dyn>>,
-    pub symbol_table: Vec<sym::Sym>,
-    pub relocations: Vec<rela::Rela>,
+    pub symtab: Vec<sym::Sym>,
+    pub rela: Vec<rela::Rela>,
     pub soname: Option<String>,
     pub interpreter: Option<String>,
     pub libraries: Vec<String>,
@@ -77,6 +77,7 @@ impl Elf {
             let mut soname = None;
             let mut libraries = vec![];
             let mut symtab = vec![];
+            let mut rela = vec![];
             if let Some(ref dynamic) = dynamic {
                 let link_info = dyn::LinkInfo::new(&dynamic, bias); // we explicitly overflow the values here with our bias
                 let strtab = try!(strtab::Strtab::from_fd(&mut fd,
@@ -95,14 +96,16 @@ impl Elf {
                 let num_syms = (link_info.strtab - link_info.symtab) / link_info.syment; // old caveat about how this is probably not safe but rdr has been doing it with tons of binaries and never any problems
                 symtab = try!(sym::from_fd(&mut fd, link_info.symtab, num_syms));
 
+                rela = try!(rela::from_fd(&mut fd, link_info.rela, link_info.relacount));
+
             }
 
             let elf = Elf {
                 header: header,
                 program_headers: program_headers,
                 dynamic: dynamic,
-                symbol_table: symtab,
-                relocations: Vec::new(),
+                symtab: symtab,
+                rela: rela,
                 soname: soname,
                 interpreter: interpreter,
                 libraries: libraries,

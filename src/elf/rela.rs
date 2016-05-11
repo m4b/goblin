@@ -176,7 +176,7 @@ impl fmt::Debug for Rela {
 /// Assumes the pointer is valid and can safely return a slice of memory pointing to the relas because:
 /// 1. `rela` points to memory received from the kernel (i.e., it loaded the executable), _or_
 /// 2. The binary has already been mmapped (i.e., it's a `SharedObject`), and hence it's safe to return a slice of that memory.
-pub unsafe fn from_raw<'a>(rela: u64, relasz: usize, relaent: usize, relacount: usize) -> &'a [Rela] {
+pub unsafe fn from_raw<'a>(rela: usize, relasz: usize, relaent: usize, relacount: usize) -> &'a [Rela] {
     // TODO: validate relaent, using relacount
     if relaent == 0 {
         &[]

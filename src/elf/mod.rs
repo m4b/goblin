@@ -101,7 +101,7 @@ impl Elf {
 
                 rela = try!(rela::from_fd(&mut fd, link_info.rela, link_info.relasz));
                 pltrela = try!(rela::from_fd(&mut fd, link_info.jmprel, link_info.pltrelsz));
-                strtabv = strtab.as_vec();
+                strtabv = strtab.to_vec();
 
             }
 

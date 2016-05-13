@@ -66,7 +66,7 @@ impl<'a> Strtab<'a> {
         get_str(idx, self.bytes)
     }
 
-    pub fn as_vec(self) -> Vec<String> {
+    pub fn to_vec(self) -> Vec<String> {
         let len = self.bytes.len();
         let mut strings = Vec::with_capacity(len);
         let mut i = 0;
@@ -83,14 +83,14 @@ impl<'a> Strtab<'a> {
 fn as_vec_test_no_final_null() {
     let bytes = b"\0printf\0memmove\0busta";
     let strtab = unsafe { Strtab::from_raw (bytes.as_ptr(), bytes.len()) };
-    let vec = strtab.as_vec();
+    let vec = strtab.to_vec();
     assert_eq!(vec.len(), 4);
 }
 
 #[test]
-fn as_vec_test_final_null() {
+fn to_vec_test_final_null() {
     let bytes = b"\0printf\0memmove\0busta\0";
     let strtab = unsafe { Strtab::from_raw (bytes.as_ptr(), bytes.len()) };
-    let vec = strtab.as_vec();
+    let vec = strtab.to_vec();
     assert_eq!(vec.len(), 4);
 }

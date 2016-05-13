@@ -4,7 +4,7 @@
 
 Libgoblin is _most_ of the ELF binary parser and loader which [dryad](http://github.com/m4b) implemented, and which has now been extracted into a crate, so that:
 
-1. the the Rust ecosystem can have yet another ELF parsing library,
+1. the Rust ecosystem can have yet another ELF parsing library,
 2. I can use this most excellent parser and loader for other, future projects.
 
 Essentially, it follows closely the work I did on [rdr](http://github.com/m4b/rdr).  In time, I'll add mach and PE targets - for now, you'll just have to be patient, as I have a lot of work to do.

@@ -1,0 +1,17 @@
+ELF = $(wildcard src/elf/*.rs)
+MACH = $(wildcard src/mach/*.rs)
+PE = $(wildcard src/pe/*.rs)
+SRC = $(wildcard src/*.rs) $(ELF) $(MACH) $(PE)
+
+ARTIFACTS = $(addprefix target/debug/, libgoblin.rlib libgoblin.so)
+
+$(ARTIFACTS): $(SRC)
+	cargo build
+
+clean:
+	cargo clean
+
+test:
+	RUST_BACKTRACE=1 cargo test
+
+.PHONY: clean test

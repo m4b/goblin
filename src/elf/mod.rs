@@ -21,6 +21,7 @@ pub struct Elf {
     pub symtab: Vec<sym::Sym>,
     pub rela: Vec<rela::Rela>,
     pub pltrela: Vec<rela::Rela>,
+    pub strtab: Vec<String>,
     pub soname: Option<String>,
     pub interpreter: Option<String>,
     pub libraries: Vec<String>,
@@ -78,19 +79,21 @@ impl Elf {
             let mut symtab = vec![];
             let mut rela = vec![];
             let mut pltrela = vec![];
+            let mut strtabv = vec![];
             if let Some(ref dynamic) = dynamic {
                 let link_info = dyn::LinkInfo::new(&dynamic, bias); // we explicitly overflow the values here with our bias
                 let strtab = try!(strtab::Strtab::from_fd(&mut fd,
                                                           link_info.strtab,
                                                           link_info.strsz));
-                let soname_ = strtab.get(link_info.soname).to_owned();
-                if soname_ != "" {
-                    soname = Some(soname_)
+                if link_info.soname != 0 {
+                    soname = Some(strtab.get(link_info.soname).to_owned())
                 }
-                let needed = dyn::get_needed(dynamic, &strtab, link_info.needed_count);
-                libraries = Vec::with_capacity(link_info.needed_count);
-                for lib in needed {
-                    libraries.push(lib.to_owned());
+                if link_info.needed_count > 0 {
+                    let needed = dyn::get_needed(dynamic, &strtab, link_info.needed_count);
+                    libraries = Vec::with_capacity(link_info.needed_count);
+                    for lib in needed {
+                        libraries.push(lib.to_owned());
+                    }
                 }
 
                 let num_syms = (link_info.strtab - link_info.symtab) / link_info.syment; // old caveat about how this is probably not safe but rdr has been doing it with tons of binaries and never any problems
@@ -98,6 +101,7 @@ impl Elf {
 
                 rela = try!(rela::from_fd(&mut fd, link_info.rela, link_info.relasz));
                 pltrela = try!(rela::from_fd(&mut fd, link_info.jmprel, link_info.pltrelsz));
+                strtabv = strtab.as_vec();
 
             }
 
@@ -108,6 +112,7 @@ impl Elf {
                 symtab: symtab,
                 rela: rela,
                 pltrela: pltrela,
+                strtab: strtabv,
                 soname: soname,
                 interpreter: interpreter,
                 libraries: libraries,

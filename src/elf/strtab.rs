@@ -13,7 +13,7 @@ pub struct Strtab<'a> {
 }
 
 #[inline(always)]
-fn get_str<'a>(idx: usize, bytes: &'a [u8]) -> &str {
+fn get_str(idx: usize, bytes: &[u8]) -> &str {
     let mut i = idx;
     let len = bytes.len();
     // hmmm, once exceptions are working correctly, maybe we should let this fail with i >= len?
@@ -21,13 +21,12 @@ fn get_str<'a>(idx: usize, bytes: &'a [u8]) -> &str {
         return "";
     }
     let mut byte = bytes[i];
-    while byte != 0 && i < bytes.len() {
+    while byte != 0 && i < len {
         byte = bytes[i];
         i += 1;
     }
-    if i > 0 {
-        i -= 1;
-    } // this isn't still quite right
+    // we drop the null terminator unless we're at the end and the byte isn't a null terminator
+    if i < len || bytes[i-1] == 0 { i -= 1; }
     str::from_utf8(&bytes[idx..i]).unwrap()
 }
 
@@ -54,11 +53,44 @@ impl<'a> Strtab<'a> {
         let mut bytes = vec![0u8; len];
         try!(fd.seek(Start(offset as u64)));
         try!(fd.read(&mut bytes));
-        Ok(Strtab { bytes: unsafe { slice::from_raw_parts(bytes.as_ptr(), len) } })
+        // TODO: this creates a memory leak; if we don't forget the bytes (and not the reference), then the memory is dropped and we crash later
+        // the problem is the strtab was meant to be used with mmap'd elements, and slices are easier to work with, but now we're expanding to an fd api with all-heap allocations...
+        let ptr = bytes.as_ptr();
+        ::std::mem::forget(bytes);
+        let slice = unsafe { slice::from_raw_parts(ptr, len) };
+        Ok(Strtab { bytes: slice })
     }
 
     /// Thanks to reem on #rust for this suggestion
     pub fn get(&self, idx: usize) -> &'a str {
         get_str(idx, self.bytes)
     }
+
+    pub fn as_vec(self) -> Vec<String> {
+        let len = self.bytes.len();
+        let mut strings = Vec::with_capacity(len);
+        let mut i = 0;
+        while i < len {
+            let string = self.get(i);
+            i = i + string.len() + 1;
+            strings.push(string.to_string());
+        }
+        strings
+    }
+}
+
+#[test]
+fn as_vec_test_no_final_null() {
+    let bytes = b"\0printf\0memmove\0busta";
+    let strtab = unsafe { Strtab::from_raw (bytes.as_ptr(), bytes.len()) };
+    let vec = strtab.as_vec();
+    assert_eq!(vec.len(), 4);
+}
+
+#[test]
+fn as_vec_test_final_null() {
+    let bytes = b"\0printf\0memmove\0busta\0";
+    let strtab = unsafe { Strtab::from_raw (bytes.as_ptr(), bytes.len()) };
+    let vec = strtab.as_vec();
+    assert_eq!(vec.len(), 4);
 }

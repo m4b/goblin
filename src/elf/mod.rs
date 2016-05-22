@@ -40,19 +40,11 @@ impl Elf {
                                                path.as_os_str()));
             Err(error)
         } else {
-            let mut elf_header = [0; header::EHDR_SIZE];
-            try!(fd.read(&mut elf_header));
-
-            let header = header::Header::from_bytes(&elf_header);
+            let header = try!(header::Header::from_fd(&mut fd));
             let entry = header.e_entry as usize;
             let is_lib = header.e_type == header::ET_DYN;
 
-            let mut bytes = vec![0u8; ((header.e_phnum * header.e_phentsize) as usize)];
-            try!(fd.seek(Start(header.e_phoff)));
-            try!(fd.read(&mut bytes));
-
-            let program_headers =
-                program_header::ProgramHeader::from_bytes(bytes, header.e_phnum as usize);
+            let program_headers = try!(program_header::ProgramHeader::from_fd(&mut fd, header.e_phoff, header.e_phnum as usize));
 
             let dynamic = try!(dyn::from_fd(&mut fd, &program_headers));
 

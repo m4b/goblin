@@ -1,5 +1,8 @@
 use std::mem;
 use std::fmt;
+use std::fs::File;
+use std::io::Read;
+use std::io;
 
 pub const EHDR_SIZE: usize = 64;
 
@@ -71,5 +74,11 @@ impl Header {
         // this is not unsafe because the header's size is encoded in the function, although the header can be semantically invalid
         let header: &Header = unsafe { mem::transmute(bytes) };
         header.clone()
+    }
+
+    pub fn from_fd(fd: &mut File) -> io::Result<Header> {
+        let mut elf_header = [0; EHDR_SIZE];
+        try!(fd.read(&mut elf_header));
+        Ok(Header::from_bytes(&elf_header))
     }
 }

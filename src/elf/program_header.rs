@@ -1,7 +1,12 @@
 use std::slice;
 use std::fmt;
+use std::fs::File;
+use std::io::Read;
+use std::io::Seek;
+use std::io::SeekFrom::Start;
+use std::io;
 
-pub const PHDR_SIZE: u64 = 64;
+pub const PHDR_SIZE: usize = 64;
 
 pub const PT_NULL: u32 = 0;
 pub const PT_LOAD: u32 = 1;
@@ -98,5 +103,12 @@ impl ProgramHeader {
                                      phnum: usize)
                                      -> &'a [ProgramHeader] {
         slice::from_raw_parts(phdrp, phnum)
+    }
+
+    pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> io::Result<Vec<ProgramHeader>> {
+        let mut phdrs: Vec<u8> = vec![0; count * PHDR_SIZE];
+        try!(fd.seek(Start(offset)));
+        try!(fd.read(&mut phdrs));
+        Ok(ProgramHeader::from_bytes(phdrs, count))
     }
 }

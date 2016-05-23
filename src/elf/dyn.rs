@@ -155,17 +155,22 @@ pub fn from_fd(mut fd: &File, phdrs: &[ProgramHeader]) -> io::Result<Option<Vec<
     Ok(None)
 }
 
+/// Given a bias and a memory address (typically for a _correctly_ mmap'd binary in memory), returns the `_DYNAMIC` array as a slice of that memory
+pub unsafe fn from_raw<'a>(bias: u64, vaddr: u64) -> &'a [Dyn] {
+    let dynp = vaddr.wrapping_add(bias) as *const Dyn;
+    let mut idx = 0;
+    while (*dynp.offset(idx)).d_tag != DT_NULL {
+        idx += 1;
+    }
+    slice::from_raw_parts(dynp, idx as usize)
+}
+
 /// Maybe gets and returns the dynamic array with the same lifetime as the [phdrs], using the provided bias with wrapping addition.
 /// If the bias is wrong, it will either segfault or give you incorrect values, beware
-pub unsafe fn get_dynamic_array<'a>(bias: u64, phdrs: &'a [ProgramHeader]) -> Option<&'a [Dyn]> {
+pub unsafe fn from_phdrs<'a>(bias: u64, phdrs: &'a [ProgramHeader]) -> Option<&'a [Dyn]> {
     for phdr in phdrs {
         if phdr.p_type == PT_DYNAMIC {
-            let dynp = phdr.p_vaddr.wrapping_add(bias) as *const Dyn;
-            let mut idx = 0;
-            while (*dynp.offset(idx)).d_tag != DT_NULL {
-                idx += 1;
-            }
-            return Some(slice::from_raw_parts(dynp, idx as usize));
+            return Some(from_raw(bias, phdr.p_vaddr));
         }
     }
     None

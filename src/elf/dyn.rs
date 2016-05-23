@@ -194,13 +194,13 @@ pub struct LinkInfo {
     pub relasz: usize,
     pub relaent: u64,
     pub relacount: usize,
-    pub gnu_hash: u64,
-    pub hash: u64,
+    pub gnu_hash: Option<u64>,
+    pub hash: Option<u64>,
     pub strtab: usize,
     pub strsz: usize,
     pub symtab: usize,
     pub syment: usize,
-    pub pltgot: u64,
+    pub pltgot: Option<u64>,
     pub pltrelsz: usize,
     pub pltrel: u64,
     pub jmprel: usize,
@@ -226,13 +226,13 @@ impl LinkInfo {
         let mut relasz = 0;
         let mut relaent = 0;
         let mut relacount = 0;
-        let mut gnu_hash = 0;
-        let mut hash = 0;
+        let mut gnu_hash = None;
+        let mut hash = None;
         let mut strtab = 0;
         let mut strsz = 0;
         let mut symtab = 0;
         let mut syment = 0;
-        let mut pltgot = 0;
+        let mut pltgot = None;
         let mut pltrelsz = 0;
         let mut pltrel = 0;
         let mut jmprel = 0;
@@ -255,13 +255,13 @@ impl LinkInfo {
                 DT_RELASZ => relasz = dyn.d_val as usize,
                 DT_RELAENT => relaent = dyn.d_val,
                 DT_RELACOUNT => relacount = dyn.d_val as usize,
-                DT_GNU_HASH => gnu_hash = dyn.d_val.wrapping_add(bias),
-                DT_HASH => hash = dyn.d_val.wrapping_add(bias),
+                DT_GNU_HASH => gnu_hash = Some(dyn.d_val.wrapping_add(bias)),
+                DT_HASH => hash = Some(dyn.d_val.wrapping_add(bias)),
                 DT_STRTAB => strtab = dyn.d_val.wrapping_add(bias) as usize,
                 DT_STRSZ => strsz = dyn.d_val as usize,
                 DT_SYMTAB => symtab = dyn.d_val.wrapping_add(bias) as usize,
                 DT_SYMENT => syment = dyn.d_val as usize,
-                DT_PLTGOT => pltgot = dyn.d_val.wrapping_add(bias),
+                DT_PLTGOT => pltgot = Some(dyn.d_val.wrapping_add(bias)),
                 DT_PLTRELSZ => pltrelsz = dyn.d_val as usize,
                 DT_PLTREL => pltrel = dyn.d_val,
                 DT_JMPREL => jmprel = dyn.d_val.wrapping_add(bias) as usize, // .rela.plt
@@ -316,18 +316,21 @@ impl LinkInfo {
 
 impl fmt::Debug for LinkInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let gnu_hash = if let Some(addr) = self.gnu_hash { addr } else { 0 };
+        let hash = if let Some(addr) = self.hash { addr } else { 0 };
+        let pltgot = if let Some(addr) = self.pltgot { addr } else { 0 };
         write!(f, "rela: 0x{:x} relasz: {} relaent: {} relacount: {} gnu_hash: 0x{:x} hash: 0x{:x} strtab: 0x{:x} strsz: {} symtab: 0x{:x} syment: {} pltgot: 0x{:x} pltrelsz: {} pltrel: {} jmprel: 0x{:x} verneed: 0x{:x} verneednum: {} versym: 0x{:x} init: 0x{:x} fini: 0x{:x} needed_count: {}",
                self.rela,
                self.relasz,
                self.relaent,
                self.relacount,
-               self.gnu_hash,
-               self.hash,
+               gnu_hash,
+               hash,
                self.strtab,
                self.strsz,
                self.symtab,
                self.syment,
-               self.pltgot,
+               pltgot,
                self.pltrelsz,
                self.pltrel,
                self.jmprel,

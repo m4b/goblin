@@ -137,6 +137,7 @@ impl fmt::Debug for Dyn {
     }
 }
 
+/// Returns a vector of dynamic entries from the given fd and program headers
 pub fn from_fd(mut fd: &File, phdrs: &[ProgramHeader]) -> io::Result<Option<Vec<Dyn>>> {
     for phdr in phdrs {
         if phdr.p_type == PT_DYNAMIC {
@@ -176,7 +177,7 @@ pub unsafe fn from_phdrs<'a>(bias: u64, phdrs: &'a [ProgramHeader]) -> Option<&'
     None
 }
 
-/// Gets the needed libraries from the `_DYNAMIC` array, with the str slices lifetime tied to the dynamic arrays lifetime
+/// Gets the needed libraries from the `_DYNAMIC` array, with the str slices lifetime tied to the dynamic array/strtab's lifetime(s)
 pub fn get_needed<'a, 'b>(dyns: &'a [Dyn], strtab: &'b Strtab<'a>, count: usize) -> Vec<&'a str> {
     let mut needed = Vec::with_capacity(count);
     for dyn in dyns {
@@ -344,41 +345,37 @@ impl fmt::Debug for LinkInfo {
     }
 }
 
-// TODO add these
-// Values of `d_un.d_val' in the DT_FLAGS entry.  */
-// #define DF_ORIGIN	0x00000001	/* Object may use DF_ORIGIN */
-// #define DF_SYMBOLIC	0x00000002	/* Symbol resolutions starts here */
-// #define DF_TEXTREL	0x00000004	/* Object contains text relocations */
-// #define DF_BIND_NOW	0x00000008	/* No lazy binding for this object */
-// #define DF_STATIC_TLS	0x00000010	/* Module uses the static TLS model */
-//
-// State flags selectable in the `d_un.d_val' element of the DT_FLAGS_1
-// entry in the dynamic section.  */
-// #define DF_1_NOW	0x00000001	/* Set RTLD_NOW for this object.  */
-// #define DF_1_GLOBAL	0x00000002	/* Set RTLD_GLOBAL for this object.  */
-// #define DF_1_GROUP	0x00000004	/* Set RTLD_GROUP for this object.  */
-// #define DF_1_NODELETE	0x00000008	/* Set RTLD_NODELETE for this object.*/
-// #define DF_1_LOADFLTR	0x00000010	/* Trigger filtee loading at runtime.*/
-// #define DF_1_INITFIRST	0x00000020	/* Set RTLD_INITFIRST for this object*/
-// #define DF_1_NOOPEN	0x00000040	/* Set RTLD_NOOPEN for this object.  */
-// #define DF_1_ORIGIN	0x00000080	/* $ORIGIN must be handled.  */
-// #define DF_1_DIRECT	0x00000100	/* Direct binding enabled.  */
-// #define DF_1_TRANS	0x00000200
-// #define DF_1_INTERPOSE	0x00000400	/* Object is used to interpose.  */
-// #define DF_1_NODEFLIB	0x00000800	/* Ignore default lib search path.  */
-// #define DF_1_NODUMP	0x00001000	/* Object can't be dldump'ed.  */
-// #define DF_1_CONFALT	0x00002000	/* Configuration alternative created.*/
-// #define DF_1_ENDFILTEE	0x00004000	/* Filtee terminates filters search. */
-// #define	DF_1_DISPRELDNE	0x00008000	/* Disp reloc applied at build time. */
-// #define	DF_1_DISPRELPND	0x00010000	/* Disp reloc applied at run-time.  */
-// #define	DF_1_NODIRECT	0x00020000	/* Object has no-direct binding. */
-// #define	DF_1_IGNMULDEF	0x00040000
-// #define	DF_1_NOKSYMS	0x00080000
-// #define	DF_1_NOHDR	0x00100000
-// #define	DF_1_EDITED	0x00200000	/* Object is modified after built.  */
-// #define	DF_1_NORELOC	0x00400000
-// #define	DF_1_SYMINTPOSE	0x00800000	/* Object has individual interposers.  */
-// #define	DF_1_GLOBAUDIT	0x01000000	/* Global auditing required.  */
-// #define	DF_1_SINGLETON	0x02000000	/* Singleton symbols are used.  */
-//
-//
+// Values of `d_un.d_val` in the DT_FLAGS entry
+pub const DF_ORIGIN: u64 = 0x00000001; // Object may use DF_ORIGIN
+pub const DF_SYMBOLIC: u64 = 0x00000002; // Symbol resolutions starts here
+pub const DF_TEXTREL: u64 = 0x00000004; // Object contains text relocations
+pub const DF_BIND_NOW: u64 = 0x00000008; // No lazy binding for this object
+pub const DF_STATIC_TLS: u64 = 0x00000010; // Module uses the static TLS model
+
+// State flags selectable in the `d_un.d_val` element of the DT_FLAGS_1 entry in the dynamic section.
+pub const DF_1_NOW: u64 = 0x00000001; // Set RTLD_NOW for this object
+pub const DF_1_GLOBAL: u64 = 0x00000002; // Set RTLD_GLOBAL for this object
+pub const DF_1_GROUP: u64 = 0x00000004; // Set RTLD_GROUP for this object
+pub const DF_1_NODELETE: u64 = 0x00000008; // Set RTLD_NODELETE for this object
+pub const DF_1_LOADFLTR: u64 = 0x00000010; // Trigger filtee loading at runtime
+pub const DF_1_INITFIRST: u64 = 0x00000020; // Set RTLD_INITFIRST for this object
+pub const DF_1_NOOPEN: u64 = 0x00000040; // Set RTLD_NOOPEN for this object
+pub const DF_1_ORIGIN: u64 = 0x00000080; // $ORIGIN must be handled
+pub const DF_1_DIRECT: u64 = 0x00000100; // Direct binding enabled
+pub const DF_1_TRANS: u64 = 0x00000200;
+pub const DF_1_INTERPOSE: u64 = 0x00000400; // Object is used to interpose
+pub const DF_1_NODEFLIB: u64 = 0x00000800; // Ignore default lib search path
+pub const DF_1_NODUMP: u64 = 0x00001000; // Object can't be dldump'ed
+pub const DF_1_CONFALT: u64 = 0x00002000; // Configuration alternative created
+pub const DF_1_ENDFILTEE: u64 = 0x00004000; // Filtee terminates filters search
+pub const DF_1_DISPRELDNE: u64 = 0x00008000; // Disp reloc applied at build time
+pub const DF_1_DISPRELPND: u64 = 0x00010000; // Disp reloc applied at run-time
+pub const DF_1_NODIRECT: u64 = 0x00020000; // Object has no-direct binding
+pub const DF_1_IGNMULDEF: u64 = 0x00040000;
+pub const DF_1_NOKSYMS: u64 = 0x00080000;
+pub const DF_1_NOHDR: u64 = 0x00100000;
+pub const DF_1_EDITED: u64 = 0x00200000; // Object is modified after built
+pub const DF_1_NORELOC: u64 = 0x00400000;
+pub const DF_1_SYMINTPOSE: u64 = 0x00800000; // Object has individual interposers
+pub const DF_1_GLOBAUDIT: u64 = 0x01000000; // Global auditing required
+pub const DF_1_SINGLETON: u64 = 0x02000000; // Singleton symbols are used

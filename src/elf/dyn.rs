@@ -1,5 +1,3 @@
-/// TODO: need to add the DF_1* and DF_* flags here...
-
 use std::fs::File;
 use std::io::Read;
 use std::io::Seek;

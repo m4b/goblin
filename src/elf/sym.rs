@@ -7,7 +7,7 @@ use std::fmt;
 use std::slice;
 
 #[repr(C)]
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct Sym {
     pub st_name: u32, // Symbol name (string tbl index)
     pub st_info: u8, // Symbol type and binding

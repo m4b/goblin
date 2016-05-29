@@ -66,10 +66,9 @@ impl<'process> GnuHash<'process> {
     fn lookup(&self,
               hash: u32,
               symbol: &str,
-              bias: u64,
               strtab: &'process strtab::Strtab,
               symtab: &'process [sym::Sym])
-              -> Option<u64> {
+              -> Option<sym::Sym> {
         let mut idx = self.buckets[(hash % self.nbuckets) as usize] as usize;
         // println!("lookup idx = buckets[hash % nbuckets] = {}", idx);
         if idx == 0 {
@@ -87,7 +86,7 @@ impl<'process> GnuHash<'process> {
             // println!("{}: h2 0x{:x} resolves to: {}", i, h2, name);
             if hash == (h2 & !1) && name == symbol {
                 // println!("lookup match for {} at: 0x{:x}", symbol, symbol_.st_value);
-                return Some(symbol_.st_value + bias);
+                return Some(symbol_.clone());
             }
             if h2 & 1 == 1 {
                 break;
@@ -106,19 +105,17 @@ impl<'process> GnuHash<'process> {
         filter & (bitmask as usize) != (bitmask as usize) // if true, def _don't have_
     }
 
-    /// Provide a name, a hash of that name, and the so to look in (which should have a reference to this self) -
-    /// and we'll return an address option.
+    /// Given a name, a hash of that name, a strtab and corresponding symtab to look in, maybe returns a Sym
     pub fn find(&self,
-                hash: u32,
                 name: &str,
-                bias: u64,
+                hash: u32,
                 strtab: &'process strtab::Strtab,
                 symtab: &'process [sym::Sym])
-                -> Option<u64> {
+                -> Option<sym::Sym> {
         if self.filter(hash) {
             None
         } else {
-            self.lookup(hash, name, bias, strtab, symtab)
+            self.lookup(hash, name, strtab, symtab)
         }
     }
 }

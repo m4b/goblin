@@ -73,7 +73,7 @@ impl Elf {
             let mut pltrela = vec![];
             let mut strtabv = vec![];
             if let Some(ref dynamic) = dynamic {
-                let link_info = dyn::LinkInfo::new(&dynamic, bias); // we explicitly overflow the values here with our bias
+                let link_info = dyn::DynamicInfo::new(&dynamic, bias); // we explicitly overflow the values here with our bias
                 let strtab = try!(strtab::Strtab::from_fd(&mut fd,
                                                           link_info.strtab,
                                                           link_info.strsz));

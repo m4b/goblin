@@ -187,8 +187,8 @@ pub fn get_needed<'a, 'b>(dyns: &'a [Dyn], strtab: &'b Strtab<'a>, count: usize)
     needed
 }
 
-/// Important dynamic LinkInfo generated via a single pass through the _DYNAMIC array
-pub struct LinkInfo {
+/// Important dynamic linking info generated via a single pass through the _DYNAMIC array
+pub struct DynamicInfo {
     pub rela: usize,
     pub relasz: usize,
     pub relaent: u64,
@@ -218,8 +218,8 @@ pub struct LinkInfo {
     pub soname: usize,
 }
 
-impl LinkInfo {
-    pub fn new(dynamic: &[Dyn], bias: usize) -> LinkInfo {
+impl DynamicInfo {
+    pub fn new(dynamic: &[Dyn], bias: usize) -> DynamicInfo {
         let bias = bias as u64;
         let mut rela = 0;
         let mut relasz = 0;
@@ -281,7 +281,7 @@ impl LinkInfo {
             }
         }
 
-        LinkInfo {
+        DynamicInfo {
             rela: rela,
             relasz: relasz,
             relaent: relaent,
@@ -313,7 +313,7 @@ impl LinkInfo {
     }
 }
 
-impl fmt::Debug for LinkInfo {
+impl fmt::Debug for DynamicInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let gnu_hash = if let Some(addr) = self.gnu_hash { addr } else { 0 };
         let hash = if let Some(addr) = self.hash { addr } else { 0 };

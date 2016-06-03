@@ -14,4 +14,7 @@ clean:
 test:
 	RUST_BACKTRACE=1 cargo test
 
+example:
+	cargo run --example=rdr -- /bin/ls
+
 .PHONY: clean test

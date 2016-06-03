@@ -76,9 +76,23 @@ impl Header {
         header.clone()
     }
 
+#[cfg(not(feature = "no_endian_fd"))]
+    pub fn from_fd(fd: &mut File) -> io::Result<Header> {
+        let mut elf_header = [0; EHDR_SIZE];
+        use std::io::Cursor;
+        use byteorder::{BigEndian, ReadBytesExt};
+        let mut rdr = Cursor::new(vec![2, 5, 3, 0]);
+        assert_eq!(517, rdr.read_u16::<BigEndian>().unwrap());
+        assert_eq!(768, rdr.read_u16::<BigEndian>().unwrap());
+        try!(fd.read(&mut elf_header));
+        Ok(Header::from_bytes(&elf_header))
+    }
+
+#[cfg(feature = "no_endian_fd")]
     pub fn from_fd(fd: &mut File) -> io::Result<Header> {
         let mut elf_header = [0; EHDR_SIZE];
         try!(fd.read(&mut elf_header));
         Ok(Header::from_bytes(&elf_header))
     }
+
 }

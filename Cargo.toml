@@ -11,8 +11,12 @@ description = "An impish, cross-platform binary parsing and loading crate"
 [lib]
 crate-type = ["rlib", "dylib"]
 
+[dependencies.byteorder]
+version = "0.5"
+optional = true
+
 [features]
-default = []
+default = ["byteorder"]
 no_elf32 = []
 no_elf = []
 no_mach = []
@@ -20,3 +24,4 @@ no_mach32 = []
 no_pe = []
 no_pe32 = []
 no_goblin = []
+no_endian_fd = []

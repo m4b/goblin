@@ -1,2 +1,5 @@
-#[cfg(any(feature = "elf", not(any(feature = "elf", feature = "elf32"))))]
+// for now only switches on elf 64 bit variants; need to figure that out
+// do _not_ want namespaced elf::elf64::header nonsense, just want
+// this kind of nonsense: elf::header32
+#[cfg(not(feature = "no_elf"))]
 pub mod elf;

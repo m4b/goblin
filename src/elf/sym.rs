@@ -35,6 +35,11 @@ pub fn is_import(sym: &Sym) -> bool {
     binding == STB_GLOBAL && sym.st_value == 0
 }
 
+/// Convenience function to get the &'static str type of this symbol
+pub fn get_type(sym: &Sym) -> &'static str {
+    type_to_str(st_type(sym.st_info))
+}
+
 // sym bindings
 pub const STB_LOCAL: u8 = 0; // Local symbol
 pub const STB_GLOBAL: u8 = 1; // Global symbol

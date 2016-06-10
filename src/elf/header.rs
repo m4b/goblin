@@ -13,6 +13,11 @@ pub const ET_DYN: u16 = 3; // Shared object file
 pub const ET_CORE: u16 = 4; // Core file
 pub const ET_NUM: u16 = 5; // Number of defined types
 
+pub const EI_DATA: usize = 5; /* Data encoding byte index */
+pub const ELFDATANONE: u8 = 0; /* Invalid data encoding */
+pub const ELFDATA2LSB: u8 = 1; /* 2's complement, little endian */
+pub const ELFDATA2MSB: u8 = 2; /* 2's complement, big endian */
+
 #[inline]
 fn et_to_str(et: u16) -> &'static str {
     match et {
@@ -27,7 +32,7 @@ fn et_to_str(et: u16) -> &'static str {
 }
 
 #[repr(C)]
-#[derive(Clone)]
+#[derive(Clone,Default)]
 pub struct Header {
     pub e_ident: [u8; 16],
     pub e_type: u16,
@@ -78,14 +83,47 @@ impl Header {
 
 #[cfg(not(feature = "no_endian_fd"))]
     pub fn from_fd(fd: &mut File) -> io::Result<Header> {
-        let mut elf_header = [0; EHDR_SIZE];
-        use std::io::Cursor;
-        use byteorder::{BigEndian, ReadBytesExt};
-        let mut rdr = Cursor::new(vec![2, 5, 3, 0]);
-        assert_eq!(517, rdr.read_u16::<BigEndian>().unwrap());
-        assert_eq!(768, rdr.read_u16::<BigEndian>().unwrap());
-        try!(fd.read(&mut elf_header));
-        Ok(Header::from_bytes(&elf_header))
+        use byteorder::{LittleEndian,BigEndian,ReadBytesExt};
+        let mut elf_header = Header::default();
+
+        elf_header.e_ident = [0; 16];
+        try!(fd.read(&mut elf_header.e_ident));
+
+        match elf_header.e_ident[EI_DATA] {
+            ELFDATA2LSB => {
+                elf_header.e_type = try!(fd.read_u16::<LittleEndian>());
+                elf_header.e_machine = try!(fd.read_u16::<LittleEndian>());
+                elf_header.e_version = try!(fd.read_u32::<LittleEndian>());
+                elf_header.e_entry = try!(fd.read_u64::<LittleEndian>());
+                elf_header.e_phoff = try!(fd.read_u64::<LittleEndian>());
+                elf_header.e_shoff = try!(fd.read_u64::<LittleEndian>());
+                elf_header.e_flags = try!(fd.read_u32::<LittleEndian>());
+                elf_header.e_ehsize = try!(fd.read_u16::<LittleEndian>());
+                elf_header.e_phentsize = try!(fd.read_u16::<LittleEndian>());
+                elf_header.e_phnum = try!(fd.read_u16::<LittleEndian>());
+                elf_header.e_shentsize = try!(fd.read_u16::<LittleEndian>());
+                elf_header.e_shnum = try!(fd.read_u16::<LittleEndian>());
+                elf_header.e_shstrndx = try!(fd.read_u16::<LittleEndian>());
+                Ok(elf_header)
+            },
+            ELFDATA2MSB => {
+                elf_header.e_type = try!(fd.read_u16::<BigEndian>());
+                elf_header.e_machine = try!(fd.read_u16::<BigEndian>());
+                elf_header.e_version = try!(fd.read_u32::<BigEndian>());
+                elf_header.e_entry = try!(fd.read_u64::<BigEndian>());
+                elf_header.e_phoff = try!(fd.read_u64::<BigEndian>());
+                elf_header.e_shoff = try!(fd.read_u64::<BigEndian>());
+                elf_header.e_flags = try!(fd.read_u32::<BigEndian>());
+                elf_header.e_ehsize = try!(fd.read_u16::<BigEndian>());
+                elf_header.e_phentsize = try!(fd.read_u16::<BigEndian>());
+                elf_header.e_phnum = try!(fd.read_u16::<BigEndian>());
+                elf_header.e_shentsize = try!(fd.read_u16::<BigEndian>());
+                elf_header.e_shnum = try!(fd.read_u16::<BigEndian>());
+                elf_header.e_shstrndx = try!(fd.read_u16::<BigEndian>());
+                Ok(elf_header)
+            },
+            d => Err(io::Error::new(io::ErrorKind::Other, format!("Invalid ELF DATA type {:x}",d))),
+        }
     }
 
 #[cfg(feature = "no_endian_fd")]

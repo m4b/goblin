@@ -40,7 +40,6 @@
 /// which takes no arguments, at the address of the result of the corresponding
 /// R_X86_64_RELATIVE relocation.
 use std::fs::File;
-use std::io::Read;
 use std::io::Seek;
 use std::io::SeekFrom::Start;
 use std::io;
@@ -135,7 +134,7 @@ pub fn type_to_str(typ: u64) -> &'static str {
 }
 
 #[repr(C)]
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq,Default)]
 pub struct Rela {
     pub r_offset: u64, // Address
     pub r_info: u64, // Relocation type and symbol index
@@ -181,7 +180,36 @@ pub unsafe fn from_raw<'a>(ptr: *const Rela, size: usize) -> &'a [Rela] {
     slice::from_raw_parts(ptr, size / SIZEOF_RELA)
 }
 
-pub fn from_fd(fd: &mut File, offset: usize, size: usize) -> io::Result<Vec<Rela>> {
+#[cfg(not(feature = "no_endian_fd"))]
+pub fn from_fd(fd: &mut File, offset: usize, size: usize, is_lsb: bool) -> io::Result<Vec<Rela>> {
+    use byteorder::{LittleEndian,BigEndian,ReadBytesExt};
+    let count = size / SIZEOF_RELA;
+    let mut res = Vec::with_capacity(count);
+
+    try!(fd.seek(Start(offset as u64)));
+    for _ in 0..count {
+        let mut rela = Rela::default();
+
+        if is_lsb {
+            rela.r_offset = try!(fd.read_u64::<LittleEndian>());
+            rela.r_info = try!(fd.read_u64::<LittleEndian>());
+            rela.r_addend = try!(fd.read_i64::<LittleEndian>());
+        } else {
+            rela.r_offset = try!(fd.read_u64::<BigEndian>());
+            rela.r_info = try!(fd.read_u64::<BigEndian>());
+            rela.r_addend = try!(fd.read_i64::<BigEndian>());
+        }
+
+        res.push(rela);
+    }
+
+    res.dedup();
+    Ok(res)
+}
+
+#[cfg(feature = "no_endian_fd")]
+pub fn from_fd(fd: &mut File, offset: usize, size: usize, _: bool) -> io::Result<Vec<Rela>> {
+    use std::io::Read;
     let count = size / SIZEOF_RELA;
     let mut bytes = vec![0u8; size];
     try!(fd.seek(Start(offset as u64)));

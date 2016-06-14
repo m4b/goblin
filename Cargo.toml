@@ -1,7 +1,7 @@
 [package]
 name = "goblin"
-version = "0.0.0"
-authors = ["m4b <m4b.github.io@gmail.com>"]
+version = "0.0.1"
+authors = ["m4b <m4b.github.io@gmail.com>", "seu <seu@panopticon.re>"]
 readme = "README.md"
 keywords = ["binary", "elf", "mach", "pe", "cross-platform"]
 repository = "https://github.com/m4b/goblin"
@@ -11,8 +11,12 @@ description = "An impish, cross-platform binary parsing and loading crate"
 [lib]
 crate-type = ["rlib", "dylib"]
 
+[dependencies.byteorder]
+version = "0.5"
+optional = true
+
 [features]
-default = []
+default = ["byteorder"]
 no_elf32 = []
 no_elf = []
 no_mach = []
@@ -20,3 +24,4 @@ no_mach32 = []
 no_pe = []
 no_pe32 = []
 no_goblin = []
+no_endian_fd = []

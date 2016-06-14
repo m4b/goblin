@@ -43,10 +43,11 @@ impl Elf {
             let header = try!(header::Header::from_fd(&mut fd));
             let entry = header.e_entry as usize;
             let is_lib = header.e_type == header::ET_DYN;
+            let is_lsb = header.e_ident[header::EI_DATA] == header::ELFDATA2LSB;
 
-            let program_headers = try!(program_header::ProgramHeader::from_fd(&mut fd, header.e_phoff, header.e_phnum as usize));
+            let program_headers = try!(program_header::ProgramHeader::from_fd(&mut fd, header.e_phoff, header.e_phnum as usize, is_lsb));
 
-            let dynamic = try!(dyn::from_fd(&mut fd, &program_headers));
+            let dynamic = try!(dyn::from_fd(&mut fd, &program_headers, is_lsb));
 
             let mut bias: usize = 0;
             for ph in &program_headers {
@@ -89,10 +90,10 @@ impl Elf {
                 }
 
                 let num_syms = (link_info.strtab - link_info.symtab) / link_info.syment; // old caveat about how this is probably not safe but rdr has been doing it with tons of binaries and never any problems
-                symtab = try!(sym::from_fd(&mut fd, link_info.symtab, num_syms));
+                symtab = try!(sym::from_fd(&mut fd, link_info.symtab, num_syms, is_lsb));
 
-                rela = try!(rela::from_fd(&mut fd, link_info.rela, link_info.relasz));
-                pltrela = try!(rela::from_fd(&mut fd, link_info.jmprel, link_info.pltrelsz));
+                rela = try!(rela::from_fd(&mut fd, link_info.rela, link_info.relasz, is_lsb));
+                pltrela = try!(rela::from_fd(&mut fd, link_info.jmprel, link_info.pltrelsz, is_lsb));
                 strtabv = strtab.to_vec();
 
             }

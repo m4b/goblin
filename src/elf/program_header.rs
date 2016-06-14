@@ -1,7 +1,6 @@
 use std::slice;
 use std::fmt;
 use std::fs::File;
-use std::io::Read;
 use std::io::Seek;
 use std::io::SeekFrom::Start;
 use std::io;
@@ -105,7 +104,42 @@ impl ProgramHeader {
         slice::from_raw_parts(phdrp, phnum)
     }
 
-    pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> io::Result<Vec<ProgramHeader>> {
+#[cfg(not(feature = "no_endian_fd"))]
+    pub fn from_fd(fd: &mut File, offset: u64, count: usize, is_lsb: bool) -> io::Result<Vec<ProgramHeader>> {
+        use byteorder::{LittleEndian,BigEndian,ReadBytesExt};
+
+        let mut phdrs = vec![];
+        try!(fd.seek(Start(offset)));
+        for _ in 0..count {
+            let mut phdr = ProgramHeader::default();
+            if is_lsb {
+                phdr.p_type = try!(fd.read_u32::<LittleEndian>());
+                phdr.p_flags = try!(fd.read_u32::<LittleEndian>());
+                phdr.p_offset = try!(fd.read_u64::<LittleEndian>());
+                phdr.p_vaddr = try!(fd.read_u64::<LittleEndian>());
+                phdr.p_paddr = try!(fd.read_u64::<LittleEndian>());
+                phdr.p_filesz = try!(fd.read_u64::<LittleEndian>());
+                phdr.p_memsz = try!(fd.read_u64::<LittleEndian>());
+                phdr.p_align = try!(fd.read_u64::<LittleEndian>());
+            } else {
+                phdr.p_type = try!(fd.read_u32::<BigEndian>());
+                phdr.p_flags = try!(fd.read_u32::<BigEndian>());
+                phdr.p_offset = try!(fd.read_u64::<BigEndian>());
+                phdr.p_vaddr = try!(fd.read_u64::<BigEndian>());
+                phdr.p_paddr = try!(fd.read_u64::<BigEndian>());
+                phdr.p_filesz = try!(fd.read_u64::<BigEndian>());
+                phdr.p_memsz = try!(fd.read_u64::<BigEndian>());
+                phdr.p_align = try!(fd.read_u64::<BigEndian>());
+            }
+            phdrs.push(phdr);
+        }
+
+        Ok(phdrs)
+    }
+
+#[cfg(feature = "no_endian_fd")]
+    pub fn from_fd(fd: &mut File, offset: u64, count: usize, _: bool) -> io::Result<Vec<ProgramHeader>> {
+        use std::io::Read;
         let mut phdrs: Vec<u8> = vec![0; count * PHDR_SIZE];
         try!(fd.seek(Start(offset)));
         try!(fd.read(&mut phdrs));

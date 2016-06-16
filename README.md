@@ -2,6 +2,8 @@
 
 ![say the right words](https://s-media-cache-ak0.pinimg.com/736x/1b/6a/aa/1b6aaa2bae005e2fed84b1a7c32ecb1b.jpg)
 
+**UPDATE**: will slowly be adding mach-o binary support; stay tuned
+
 Libgoblin is _most_ of the ELF binary parser and loader which [dryad](http://github.com/m4b) implemented, and which has now been extracted into a crate, so that:
 
 1. the Rust ecosystem can have yet another ELF parsing library,
@@ -11,4 +13,3 @@ Essentially, it follows closely the work I did on [rdr](http://github.com/m4b/rd
 
 I will also eventually add an ELF32 target, which will support feature based compilation (since dryad needs as little symbols, and hence relocations, as possible).
 
-More to come (maybe).

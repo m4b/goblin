@@ -8,3 +8,6 @@ extern crate byteorder;
 // this kind of nonsense: elf::header32
 #[cfg(not(feature = "no_elf"))]
 pub mod elf;
+
+#[cfg(not(feature = "no_mach"))]
+pub mod mach;

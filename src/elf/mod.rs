@@ -34,7 +34,7 @@ impl Elf {
     pub fn from_path<'a>(path: &Path) -> io::Result<Elf> {
         let mut fd = try!(File::open(&path));
         let metadata = fd.metadata().unwrap();
-        if metadata.len() < header::EHDR_SIZE as u64 {
+        if metadata.len() < header::SIZEOF_EHDR as u64 {
             let error = io::Error::new(io::ErrorKind::Other,
                                        format!("Error: {:?} size is smaller than an ELF header",
                                                path.as_os_str()));
@@ -52,7 +52,8 @@ impl Elf {
             let mut bias: usize = 0;
             for ph in &program_headers {
                 if ph.p_type == program_header::PT_LOAD {
-                    bias = ((::std::u64::MAX - ph.p_vaddr).wrapping_add(1)) as usize; // my name's David
+                    // this is an overflow hack that allows us to use virtual memory addresses as though they're in the file by generating a fake load bias which is then used to overflow the values in the dynamic array, and in a few other places (see Dyn::DynamicInfo), to generate actual file offsets; you may have to marinate a bit on why this works. i am unsure whether it works in every conceivable case. i learned this trick from reading too much dynamic linker C code (a whole other class of C code) and having to deal with broken older kernels on VMs. enjoi
+                    bias = ((::std::u64::MAX - ph.p_vaddr).wrapping_add(1)) as usize;
                     break;
                 }
             }

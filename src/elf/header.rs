@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::Read;
 use std::io;
 
-pub const EHDR_SIZE: usize = 64;
+pub const SIZEOF_EHDR: usize = 64;
 
 pub const ET_NONE: u16 = 0; // No file type
 pub const ET_REL: u16 = 1; // Relocatable file
@@ -13,10 +13,10 @@ pub const ET_DYN: u16 = 3; // Shared object file
 pub const ET_CORE: u16 = 4; // Core file
 pub const ET_NUM: u16 = 5; // Number of defined types
 
-pub const EI_DATA: usize = 5; /* Data encoding byte index */
-pub const ELFDATANONE: u8 = 0; /* Invalid data encoding */
-pub const ELFDATA2LSB: u8 = 1; /* 2's complement, little endian */
-pub const ELFDATA2MSB: u8 = 2; /* 2's complement, big endian */
+pub const EI_DATA: usize = 5; // Data encoding byte index
+pub const ELFDATANONE: u8 = 0; // Invalid data encoding
+pub const ELFDATA2LSB: u8 = 1; // 2's complement, little endian
+pub const ELFDATA2MSB: u8 = 2; // 2's complement, big endian
 
 #[inline]
 fn et_to_str(et: u16) -> &'static str {
@@ -32,7 +32,7 @@ fn et_to_str(et: u16) -> &'static str {
 }
 
 #[repr(C)]
-#[derive(Clone,Default)]
+#[derive(Clone, Default)]
 pub struct Header {
     pub e_ident: [u8; 16],
     pub e_type: u16,
@@ -75,7 +75,7 @@ impl fmt::Debug for Header {
 
 impl Header {
     /// Returns the corresponding ELF header from the given byte array
-    pub fn from_bytes(bytes: &[u8; EHDR_SIZE]) -> Header {
+    pub fn from_bytes(bytes: &[u8; SIZEOF_EHDR]) -> Header {
         // this is not unsafe because the header's size is encoded in the function, although the header can be semantically invalid
         let header: &Header = unsafe { mem::transmute(bytes) };
         header.clone()
@@ -128,7 +128,7 @@ impl Header {
 
 #[cfg(feature = "no_endian_fd")]
     pub fn from_fd(fd: &mut File) -> io::Result<Header> {
-        let mut elf_header = [0; EHDR_SIZE];
+        let mut elf_header = [0; SIZEOF_EHDR];
         try!(fd.read(&mut elf_header));
         Ok(Header::from_bytes(&elf_header))
     }

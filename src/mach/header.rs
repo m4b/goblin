@@ -113,7 +113,8 @@ pub struct Header {
     magic: u32,
     cputype: u32,
     cpusubtype: u8,
-    padding: u16,
+    padding1: u8,
+    padding2: u8,
     caps: u8,
     filetype: u32,
     ncmds: u32,
@@ -126,12 +127,12 @@ pub const SIZEOF_MACH_HEADER: usize = 32;
 
 impl fmt::Debug for Header {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "0x{:x} {} {} 0x{:x} {} {} {} 0x{:x} {:x}",
+        write!(f, "0x{:x} {} {} 0x{:x} {} {} {} 0x{:x} 0x{:x}",
                self.magic,
                self.cputype,
                self.cpusubtype,
                self.caps,
-               self.filetype,
+               filetype_to_str(self.filetype),
                self.ncmds,
                self.sizeofcmds,
                self.flags,

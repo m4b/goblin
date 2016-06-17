@@ -1,8 +1,8 @@
 use std::mem;
 use std::fmt;
 use std::fs::File;
-use std::io::Read;
-use std::io;
+use std::io::{self, Seek, Read};
+use std::io::SeekFrom::Start;
 
 // Constants for the flags field of the mach_header
 pub const MH_NOUNDEFS: u32 = 0x1; // the object file has no undefined references
@@ -148,8 +148,9 @@ impl Header {
     }
 
     //#[cfg(feature = "no_endian_fd")]
-    pub fn from_fd(fd: &mut File) -> io::Result<Header> {
+    pub fn from_fd(fd: &mut File, offset: u64) -> io::Result<Header> {
         let mut header = [0; SIZEOF_MACH_HEADER];
+        try!(fd.seek(Start(offset)));
         try!(fd.read(&mut header));
         Ok(Header::from_bytes(&header))
     }

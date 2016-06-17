@@ -48,7 +48,7 @@ impl Mach {
             fat::FAT_CIGAM => {
                 let arches = try!(fat::FatArch::from_path(path));
                 println!("{:?}", arches);
-                if let Some(arch) = fat::FatArch::find_cputype(&arches, constants::cputype::CPU_TYPE_X86_64) {
+                if let Some(arch) = fat::FatArch::find_64(&arches) {
                     Self::get_header(fd, arch.offset as u64, arch.size as usize, path_str)
                 } else {
                     let error = io::Error::new(io::ErrorKind::Other, format!("{:?} does not contain an x86_64 binary", path_str));

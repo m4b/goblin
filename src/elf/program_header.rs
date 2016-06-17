@@ -143,6 +143,6 @@ impl ProgramHeader {
         let mut phdrs = [0u8; count * PHDR_SIZE];
         try!(fd.seek(Start(offset)));
         try!(fd.read(&mut phdrs));
-        Ok(ProgramHeader::from_bytes(&mut phdrs, count))
+        Ok(ProgramHeader::from_bytes(&phdrs, count))
     }
 }

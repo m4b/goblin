@@ -91,7 +91,7 @@ impl fmt::Debug for ProgramHeader {
 }
 
 impl ProgramHeader {
-    pub fn from_bytes(bytes: Vec<u8>, phnum: usize) -> Vec<ProgramHeader> {
+    pub fn from_bytes(bytes: &[u8], phnum: usize) -> Vec<ProgramHeader> {
         let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut ProgramHeader, phnum) };
         let mut phdrs = Vec::with_capacity(phnum);
         phdrs.extend_from_slice(bytes);
@@ -140,9 +140,9 @@ impl ProgramHeader {
 #[cfg(feature = "no_endian_fd")]
     pub fn from_fd(fd: &mut File, offset: u64, count: usize, _: bool) -> io::Result<Vec<ProgramHeader>> {
         use std::io::Read;
-        let mut phdrs: Vec<u8> = vec![0; count * PHDR_SIZE];
+        let mut phdrs = [0u8; count * PHDR_SIZE];
         try!(fd.seek(Start(offset)));
         try!(fd.read(&mut phdrs));
-        Ok(ProgramHeader::from_bytes(phdrs, count))
+        Ok(ProgramHeader::from_bytes(&mut phdrs, count))
     }
 }

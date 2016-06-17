@@ -133,3 +133,24 @@ pub const SEG_LINKEDIT: &'static str = "__LINKEDIT"; // the segment containing a
 pub const SEG_UNIXSTACK: &'static str = "__UNIXSTACK"; // the unix stack segment
 
 pub const SEG_IMPORT: &'static str = "__IMPORT"; // the segment for the self (dyld) modifing code stubs that has read, write and execute permissions
+
+pub mod cputype {
+
+    pub const CPU_ARCH_MASK: u32 = 0xff000000;
+    pub const CPU_ARCH_ABI64: u32 = 0x01000000;
+    pub const CPU_TYPE_X86: u32 = 7;
+    pub const CPU_TYPE_ARM: u32 = 12;
+    pub const CPU_TYPE_X86_64: u32 = CPU_TYPE_X86 | CPU_ARCH_ABI64;
+    pub const CPU_TYPE_ARM64: u32 = CPU_TYPE_ARM | CPU_ARCH_ABI64;
+
+    #[inline(always)]
+    pub fn cpu_type_to_str(cputype: u32) -> &'static str {
+        match cputype {
+            CPU_TYPE_ARM64 => "ARM64",
+            CPU_TYPE_X86_64 => "x86-64",
+            CPU_TYPE_ARM => "ARM",
+            CPU_TYPE_X86 => "x86",
+            _ => "UNIMPLEMENTED CPUTYPE",
+        }
+    }
+}

@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::Read;
 use std::io;
 
-pub const SIZEOF_EHDR: usize = 64;
+mod consts {
 
 pub const ET_NONE: u16 = 0; // No file type
 pub const ET_REL: u16 = 1; // Relocatable file
@@ -13,10 +13,20 @@ pub const ET_DYN: u16 = 3; // Shared object file
 pub const ET_CORE: u16 = 4; // Core file
 pub const ET_NUM: u16 = 5; // Number of defined types
 
+pub const EI_CLASS: u8 = 4; // File class byte index
+pub const ELFCLASSNONE: u8 = 0; // Invalid class
+pub const ELFCLASS32: u8 = 1; //32-bit objects
+pub const ELFCLASS64: u8 = 2; // 64-bit objects
+pub const ELFCLASSNUM: u8 = 3;
+
 pub const EI_DATA: usize = 5; // Data encoding byte index
 pub const ELFDATANONE: u8 = 0; // Invalid data encoding
 pub const ELFDATA2LSB: u8 = 1; // 2's complement, little endian
 pub const ELFDATA2MSB: u8 = 2; // 2's complement, big endian
+
+}
+
+pub use self::consts::*;
 
 #[inline]
 fn et_to_str(et: u16) -> &'static str {
@@ -49,6 +59,8 @@ pub struct Header {
     pub e_shnum: u16,
     pub e_shstrndx: u16,
 }
+
+pub const SIZEOF_EHDR: usize = 64;
 
 impl fmt::Debug for Header {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -89,7 +101,7 @@ impl Header {
         elf_header.e_ident = [0; 16];
         try!(fd.read(&mut elf_header.e_ident));
 
-        match elf_header.e_ident[EI_DATA] {
+        match elf_header.e_ident[consts::EI_DATA] {
             ELFDATA2LSB => {
                 elf_header.e_type = try!(fd.read_u16::<LittleEndian>());
                 elf_header.e_machine = try!(fd.read_u16::<LittleEndian>());

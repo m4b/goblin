@@ -5,7 +5,7 @@ use std::io::Seek;
 use std::io::SeekFrom::Start;
 use std::io;
 
-pub const PHDR_SIZE: usize = 64;
+pub const SIZEOF_PHDR: usize = 64;
 
 pub const PT_NULL: u32 = 0;
 pub const PT_LOAD: u32 = 1;
@@ -140,7 +140,7 @@ impl ProgramHeader {
 #[cfg(feature = "no_endian_fd")]
     pub fn from_fd(fd: &mut File, offset: u64, count: usize, _: bool) -> io::Result<Vec<ProgramHeader>> {
         use std::io::Read;
-        let mut phdrs = [0u8; count * PHDR_SIZE];
+        let mut phdrs = vec![0u8; count * SIZEOF_PHDR];
         try!(fd.seek(Start(offset)));
         try!(fd.read(&mut phdrs));
         Ok(ProgramHeader::from_bytes(&phdrs, count))

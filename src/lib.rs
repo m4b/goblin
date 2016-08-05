@@ -3,13 +3,19 @@
 #[cfg(not(feature = "no_endian_fd"))]
 extern crate byteorder;
 
-// for now only switches on elf 64 bit variants; need to figure that out
-// this kind of nonsense: elf::header32
+// disjunkt so hard
+#[cfg(any(not(feature = "no_elf"), not(feature = "no_elf32")))]
+mod elves;
+
 #[cfg(not(feature = "no_elf"))]
-pub mod elf;
+pub mod elf64 {
+    pub use elves::_64::*;
+}
+
+#[cfg(not(feature = "no_elf32"))]
+pub mod elf32 {
+    pub use elves::_32::*;
+}
 
 #[cfg(not(feature = "no_mach"))]
 pub mod mach;
-
-#[cfg(not(feature = "no_elf32"))]
-pub mod elf32;

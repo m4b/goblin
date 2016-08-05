@@ -1,6 +1,6 @@
 extern crate goblin;
 
-use goblin::elf;
+use goblin::elf64 as elf;
 use goblin::mach;
 use std::path::Path;
 use std::env;

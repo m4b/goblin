@@ -4,8 +4,8 @@ use std::io::SeekFrom::Start;
 use std::io;
 use std::fmt;
 use std::slice;
-use elf::program_header::{ProgramHeader, PT_DYNAMIC};
-use elf::strtab::Strtab;
+use super::program_header::{ProgramHeader, PT_DYNAMIC};
+use super::strtab::Strtab;
 
 // I decided to use u64 instead of u32 due to pattern matching use case
 // seems safer to cast the elf32's d_tag from u32 -> u64 at runtime

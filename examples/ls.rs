@@ -1,6 +1,6 @@
 extern crate goblin;
 
-use goblin::elf;
+use goblin::elf64 as elf;
 use std::path::Path;
 
 pub fn main () {

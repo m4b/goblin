@@ -1,6 +1,6 @@
 use std::slice;
-use elf::strtab;
-use elf::sym;
+use super::strtab;
+use super::sym;
 
 static HASH_SEED: u32 = 5381;
 

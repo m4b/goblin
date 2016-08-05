@@ -123,9 +123,8 @@ impl Elf {
 #[cfg(test)]
 mod tests {
     use std::path::Path;
-    use elf;
     #[test]
     fn read_ls() {
-        let _ = elf::Elf::from_path(Path::new("/bin/ls"));
+        let _ = super::Elf::from_path(Path::new("/bin/ls"));
     }
 }

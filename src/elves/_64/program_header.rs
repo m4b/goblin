@@ -5,37 +5,7 @@ use std::io::Seek;
 use std::io::SeekFrom::Start;
 use std::io;
 
-pub const SIZEOF_PHDR: usize = 64;
-
-pub const PT_NULL: u32 = 0;
-pub const PT_LOAD: u32 = 1;
-pub const PT_DYNAMIC: u32 = 2;
-pub const PT_INTERP: u32 = 3;
-pub const PT_NOTE: u32 = 4;
-pub const PT_SHLIB: u32 = 5;
-pub const PT_PHDR: u32 = 6;
-pub const PT_TLS: u32 = 7;
-pub const PT_NUM: u32 = 8;
-pub const PT_LOOS: u32 = 0x60000000;
-pub const PT_GNU_EH_FRAME: u32 = 0x6474e550;
-pub const PT_GNU_STACK: u32 = 0x6474e551;
-pub const PT_GNU_RELRO: u32 = 0x6474e552;
-pub const PT_LOSUNW: u32 = 0x6ffffffa;
-pub const PT_SUNWBSS: u32 = 0x6ffffffa;
-pub const PT_SUNWSTACK: u32 = 0x6ffffffb;
-pub const PT_HISUNW: u32 = 0x6fffffff;
-pub const PT_HIOS: u32 = 0x6fffffff;
-pub const PT_LOPROC: u32 = 0x70000000;
-pub const PT_HIPROC: u32 = 0x7fffffff;
-
-/// Segment is executable
-pub const PF_X: u32 = 1 << 0;
-
-/// Segment is writable
-pub const PF_W: u32 = 1 << 1;
-
-/// Segment is readable
-pub const PF_R: u32 = 1 << 2;
+pub use super::super::program_header::*;
 
 #[repr(C)]
 #[derive(Clone, PartialEq, Default)]
@@ -50,29 +20,7 @@ pub struct ProgramHeader {
     pub p_align: u64,
 }
 
-fn pt_to_str(pt: u32) -> &'static str {
-    match pt {
-        PT_NULL => "PT_NULL",
-        PT_LOAD => "PT_LOAD",
-        PT_DYNAMIC => "PT_DYNAMIC",
-        PT_INTERP => "PT_INTERP",
-        PT_NOTE => "PT_NOTE",
-        PT_SHLIB => "PT_SHLIB",
-        PT_PHDR => "PT_PHDR",
-        PT_TLS => "PT_TLS",
-        PT_NUM => "PT_NUM",
-        PT_LOOS => "PT_LOOS",
-        PT_GNU_EH_FRAME => "PT_GNU_EH_FRAME",
-        PT_GNU_STACK => "PT_GNU_STACK",
-        PT_GNU_RELRO => "PT_GNU_RELRO",
-        PT_SUNWBSS => "PT_SUNWBSS",
-        PT_SUNWSTACK => "PT_SUNWSTACK",
-        PT_HIOS => "PT_HIOS",
-        PT_LOPROC => "PT_LOPROC",
-        PT_HIPROC => "PT_HIPROC",
-        _ => "UNKNOWN_PT",
-    }
-}
+pub const SIZEOF_PHDR: usize = 64;
 
 impl fmt::Debug for ProgramHeader {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

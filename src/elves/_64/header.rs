@@ -6,19 +6,6 @@ use std::io;
 
 pub use super::super::header::*;
 
-#[inline]
-fn et_to_str(et: u16) -> &'static str {
-    match et {
-        ET_NONE => "NONE",
-        ET_REL => "REL",
-        ET_EXEC => "EXEC",
-        ET_DYN => "DYN",
-        ET_CORE => "CORE",
-        ET_NUM => "NUM",
-        _ => "UNKNOWN_ET",
-    }
-}
-
 #[repr(C)]
 #[derive(Clone, Default)]
 pub struct Header {
@@ -71,7 +58,7 @@ impl Header {
         header.clone()
     }
 
-#[cfg(not(feature = "no_endian_fd"))]
+    #[cfg(not(feature = "no_endian_fd"))]
     pub fn from_fd(fd: &mut File) -> io::Result<Header> {
         use byteorder::{LittleEndian,BigEndian,ReadBytesExt};
         let mut elf_header = Header::default();
@@ -116,7 +103,7 @@ impl Header {
         }
     }
 
-#[cfg(feature = "no_endian_fd")]
+    #[cfg(feature = "no_endian_fd")]
     pub fn from_fd(fd: &mut File) -> io::Result<Header> {
         let mut elf_header = [0; SIZEOF_EHDR];
         try!(fd.read(&mut elf_header));

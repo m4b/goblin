@@ -9,7 +9,7 @@ pub use super::super::header::*;
 #[repr(C)]
 #[derive(Clone, Default)]
 pub struct Header {
-    pub e_ident: [u8; 16],
+    pub e_ident: [u8; SIZEOF_IDENT],
     pub e_type: u16,
     pub e_machine: u16,
     pub e_version: u32,
@@ -63,7 +63,7 @@ impl Header {
         use byteorder::{LittleEndian,BigEndian,ReadBytesExt};
         let mut elf_header = Header::default();
 
-        elf_header.e_ident = [0; 16];
+        elf_header.e_ident = [0; SIZEOF_IDENT];
         try!(fd.read(&mut elf_header.e_ident));
 
         match elf_header.e_ident[EI_DATA] {

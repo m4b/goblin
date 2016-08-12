@@ -2,7 +2,7 @@ pub use super::super::program_header::*;
 
 #[repr(C)]
 #[derive(Clone, PartialEq, Default)]
-#[derive(Debug)]
+#[cfg_attr(not(feature = "pure"), derive(Debug))]
 pub struct ProgramHeader {
     pub p_type: u32,
     pub p_offset: u32,

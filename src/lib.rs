@@ -3,9 +3,11 @@
 #[cfg(not(feature = "no_endian_fd"))]
 extern crate byteorder;
 
+#[macro_use] mod macros;
+
 // disjunkt so hard
 #[cfg(any(not(feature = "no_elf"), not(feature = "no_elf32")))]
-mod elves;
+pub mod elves;
 
 #[cfg(not(feature = "no_elf"))]
 pub mod elf64 {

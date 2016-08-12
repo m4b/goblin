@@ -19,6 +19,7 @@ pub struct Dyn {
 
 pub const SIZEOF_DYN: usize = 16;
 
+#[cfg(not(feature = "pure"))]
 impl fmt::Debug for Dyn {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f,

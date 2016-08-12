@@ -1,6 +1,6 @@
 extern crate goblin;
 
-use goblin::elf64 as elf;
+use goblin::elves;
 use goblin::mach;
 use std::path::Path;
 use std::env;
@@ -10,7 +10,7 @@ pub fn main () {
         if i == 1 {
             let path = Path::new(arg.as_str());
             // we hackin' for now
-            match elf::Elf::from_path(path) {
+            match elves::parse(path) {
                 Ok(elf) => println!("{:#?}", elf),
                 Err(_) => {
                     match mach::Mach::from_path(path) {

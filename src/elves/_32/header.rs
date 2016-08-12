@@ -2,9 +2,9 @@ pub use super::super::header::*;
 
 #[repr(C)]
 #[derive(Clone, Default)]
-#[derive(Debug)]
+#[cfg_attr(not(feature = "pure"), derive(Debug))]
 pub struct Header {
-    pub e_ident: [u8; 16],
+    pub e_ident: [u8; SIZEOF_IDENT],
     pub e_type: u16,
     pub e_machine: u16,
     pub e_version: u32,

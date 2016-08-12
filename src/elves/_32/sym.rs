@@ -2,7 +2,7 @@ pub use super::super::sym::*;
 
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, Default)]
-#[derive(Debug)]
+#[cfg_attr(not(feature = "pure"), derive(Debug))]
 pub struct Sym {
     pub st_name: u32, // Symbol name (string tbl index)
     pub st_value: u32, // Symbol value

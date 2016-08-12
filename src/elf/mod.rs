@@ -1,7 +1,14 @@
-#[cfg(not(feature = "no_elf"))]
-pub mod _64;
-#[cfg(not(feature = "no_elf32"))]
-pub mod _32;
+//! Access ELF constants, other helper functions, which are independent of ELF bithood.
+//! Also provides simple parser which returns an Elf64 or Elf32 "pre-built" binary.
+//! **WARNING**: to use the automagic ELF datatype union parser, you _must_ enable both elf and elf32 features - i.e., do not use `no_elf` **NOR** `no_elf32`, otherwise you'll get obscure errors about [goblin::elf::from_fd](fn.from_fd.html) missing.
+
+// #[doc(hidden)]
+// #[cfg(not(feature = "no_elf"))]
+// mod _64;
+
+// #[doc(hidden)]
+// #[cfg(not(feature = "no_elf32"))]
+// mod _32;
 
 // These are shareable values for the 32/64 bit implementations
 // They are publicly re-exported by the pub-using module
@@ -64,7 +71,7 @@ pub mod header {
     }
 }
 
-mod sym {
+pub mod sym {
     // sym bindings
     pub const STB_LOCAL: u8 = 0; // Local symbol
     pub const STB_GLOBAL: u8 = 1; // Global symbol
@@ -140,7 +147,7 @@ mod sym {
     }
 }
 
-mod program_header {
+pub mod program_header {
     pub const PT_NULL: u32 = 0;
     pub const PT_LOAD: u32 = 1;
     pub const PT_DYNAMIC: u32 = 2;
@@ -196,7 +203,7 @@ mod program_header {
     }
 }
 
-mod dyn {
+pub mod dyn {
     // TODO: figure out what's the best, most friendly + safe API choice here - u32s or u64s
     // remember that DT_TAG is "pointer sized"/used as address sometimes
     // Original rationale: I decided to use u64 instead of u32 due to pattern matching use case
@@ -437,7 +444,7 @@ pub mod rela {
 pub use self::impure::*;
 
 #[cfg(all(not(feature = "pure"), not(feature = "no_elf32"), not(feature = "no_elf")))]
-pub mod impure {
+mod impure {
 
     use std::fs::File;
     use std::io;
@@ -447,19 +454,19 @@ pub mod impure {
     use super::header;
     use super::header::impure::*;
 
-    use super::_32::impure::Elf32 as Elf32;
-    use super::_64::Elf as Elf64;
+    use super::super::elf32;
+    use super::super::elf64;
 
     #[derive(Debug)]
-    pub enum Elf {
-        Elf32(Elf32),
-        Elf64(Elf64),
+    pub enum Binary {
+        Elf32(elf32::Binary),
+        Elf64(elf64::Binary),
     }
 
-    pub fn from_fd (fd: &mut File) -> io::Result<Elf> {
+    pub fn from_fd (fd: &mut File) -> io::Result<Binary> {
         match try!(peek(fd)) {
             (header::ELFCLASS64, _is_lsb) => {
-                Ok(Elf::Elf64(try!(Elf64::from_fd(fd))))
+                Ok(Binary::Elf64(try!(elf64::Binary::from_fd(fd))))
             },
             (header::ELFCLASS32, _is_lsb) => {
                 unimplemented!()

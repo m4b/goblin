@@ -1,4 +1,4 @@
-pub use super::super::dyn::*;
+pub use super::super::elf::dyn::*;
 
 #[derive(Copy, Clone, PartialEq)]
 #[cfg_attr(not(feature = "pure"), derive(Debug))]

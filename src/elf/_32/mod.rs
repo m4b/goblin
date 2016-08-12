@@ -4,11 +4,14 @@ pub mod program_header;
 pub mod dyn;
 
 #[cfg(not(feature = "pure"))]
-pub mod impure {
-    pub use super::*;
+pub use self::impure::*;
+
+#[cfg(not(feature = "pure"))]
+mod impure {
+    use super::*;
 
     #[derive(Debug)]
-    pub struct Elf32 {
+    pub struct Binary {
         pub header: header::Header,
         pub program_headers: Vec<program_header::ProgramHeader>,
         pub dynamic: Option<Vec<dyn::Dyn>>,

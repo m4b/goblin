@@ -7,7 +7,7 @@ use std::slice;
 use super::program_header::{ProgramHeader, PT_DYNAMIC};
 use super::strtab::Strtab;
 
-pub use super::super::dyn::*;
+pub use super::super::elf::dyn::*;
 
 /// An entry in the dynamic array
 #[repr(C)]

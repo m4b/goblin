@@ -46,7 +46,7 @@ use std::io;
 use std::fmt;
 use std::slice;
 
-pub use super::super::rela::*;
+pub use super::super::elf::rela::*;
 
 #[repr(C)]
 #[derive(Clone, PartialEq, Default)]

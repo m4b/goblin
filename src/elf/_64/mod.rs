@@ -14,7 +14,7 @@ use std::io::Seek;
 use std::io::SeekFrom::Start;
 
 #[derive(Debug)]
-pub struct Elf {
+pub struct Binary {
     pub header: header::Header,
     pub program_headers: Vec<program_header::ProgramHeader>,
     pub dynamic: Option<Vec<dyn::Dyn>>,
@@ -30,8 +30,8 @@ pub struct Elf {
     pub entry: usize,
 }
 
-impl Elf {
-    pub fn from_fd (fd: &mut File) -> io::Result<Elf> {
+impl Binary {
+    pub fn from_fd (fd: &mut File) -> io::Result<Binary> {
         let header = try!(header::Header::from_fd(fd));
         let entry = header.e_entry as usize;
         let is_lib = header.e_type == header::ET_DYN;
@@ -90,7 +90,7 @@ impl Elf {
 
         }
 
-        let elf = Elf {
+        let elf = Binary {
             header: header,
             program_headers: program_headers,
             dynamic: dynamic,
@@ -109,7 +109,7 @@ impl Elf {
         Ok(elf)
     }
 
-    pub fn from_path<'a>(path: &Path) -> io::Result<Elf> {
+    pub fn from_path<'a>(path: &Path) -> io::Result<Binary> {
         let mut fd = try!(File::open(&path));
         let metadata = fd.metadata().unwrap();
         if metadata.len() < header::SIZEOF_EHDR as u64 {
@@ -123,8 +123,9 @@ impl Elf {
 #[cfg(test)]
 mod tests {
     use std::path::Path;
+
     #[test]
     fn read_ls() {
-        let _ = super::Elf::from_path(Path::new("/bin/ls"));
+        assert!(super::Binary::from_path(Path::new("/bin/ls")).is_ok());
     }
 }

@@ -5,7 +5,7 @@ use std::io::Seek;
 use std::io::SeekFrom::Start;
 use std::io;
 
-pub use super::super::program_header::*;
+pub use super::super::elf::program_header::*;
 
 #[repr(C)]
 #[derive(Clone, PartialEq, Default)]

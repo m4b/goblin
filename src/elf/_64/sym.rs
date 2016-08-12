@@ -6,7 +6,7 @@ use std::io;
 use std::fmt;
 use std::slice;
 
-pub use super::super::sym::*;
+pub use super::super::elf::sym::*;
 
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, Default)]

@@ -2,9 +2,11 @@ use std::mem;
 use std::fmt;
 use std::fs::File;
 use std::io::Read;
+use std::io::Seek;
+use std::io::SeekFrom::Start;
 use std::io;
 
-pub use super::super::header::*;
+pub use super::super::elf::header::*;
 
 #[repr(C)]
 #[derive(Clone, Default)]
@@ -64,6 +66,7 @@ impl Header {
         let mut elf_header = Header::default();
 
         elf_header.e_ident = [0; SIZEOF_IDENT];
+        try!(fd.seek(Start(0)));
         try!(fd.read(&mut elf_header.e_ident));
 
         match elf_header.e_ident[EI_DATA] {

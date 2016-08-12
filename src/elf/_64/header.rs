@@ -2,8 +2,6 @@ use std::mem;
 use std::fmt;
 use std::fs::File;
 use std::io::Read;
-use std::io::Seek;
-use std::io::SeekFrom::Start;
 use std::io;
 
 pub use super::super::elf::header::*;
@@ -63,6 +61,8 @@ impl Header {
     #[cfg(not(feature = "no_endian_fd"))]
     pub fn from_fd(fd: &mut File) -> io::Result<Header> {
         use byteorder::{LittleEndian,BigEndian,ReadBytesExt};
+        use std::io::Seek;
+        use std::io::SeekFrom::Start;
         let mut elf_header = Header::default();
 
         elf_header.e_ident = [0; SIZEOF_IDENT];

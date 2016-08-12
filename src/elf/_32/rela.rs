@@ -1,4 +1,4 @@
-pub use super::super::rela::*;
+pub use super::super::elf::rela::*;
 
 // Stupid 32 bit binaries have Rel too, because 4 extra bytes for every relocation for an addend of 0 was prohibitive back in 1906.
 // I think 32-bit binaries are stupid relics from the past in case that wasn't clear

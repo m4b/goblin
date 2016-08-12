@@ -2,6 +2,7 @@ pub mod header;
 pub mod sym;
 pub mod program_header;
 pub mod dyn;
+pub mod rela;
 
 #[cfg(not(feature = "pure"))]
 pub use self::impure::*;
@@ -16,9 +17,9 @@ mod impure {
         pub program_headers: Vec<program_header::ProgramHeader>,
         pub dynamic: Option<Vec<dyn::Dyn>>,
         pub symtab: Vec<sym::Sym>,
-//        pub rela: Vec<rela::Rela>,
-//        pub pltrela: Vec<rela::Rela>,
-//        pub strtab: Vec<String>,
+        pub rela: Vec<rela::Rela>,
+        pub pltrela: Vec<rela::Rela>,
+        pub strtab: Vec<String>,
         pub soname: Option<String>,
         pub interpreter: Option<String>,
         pub libraries: Vec<String>,

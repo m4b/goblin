@@ -61,7 +61,7 @@ impl<'a> Strtab<'a> {
         Ok(Strtab { bytes: slice })
     }
 
-    /// Thanks to reem on #rust for this suggestion
+    // Thanks to reem on #rust for this suggestion
     pub fn get(&self, idx: usize) -> &'a str {
         get_str(idx, self.bytes)
     }

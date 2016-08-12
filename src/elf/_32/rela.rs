@@ -6,8 +6,8 @@ pub use super::super::elf::rela::*;
 #[derive(Clone, PartialEq, Default)]
 #[cfg_attr(not(feature = "pure"), derive(Debug))]
 pub struct Rel {
-    r_offset: u32, // address
-    r_info: u32, // relocation type and symbol address
+    pub r_offset: u32, // address
+    pub r_info: u32, // relocation type and symbol address
 }
 
 #[repr(C)]

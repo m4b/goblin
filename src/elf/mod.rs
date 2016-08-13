@@ -203,6 +203,76 @@ pub mod program_header {
     }
 }
 
+pub mod section_header {
+    pub const SHN_UNDEF: u32 = 0; // Undefined section
+    pub const SHN_LORESERVE: u32 = 0xff00; // Start of reserved indices
+    pub const SHN_LOPROC: u32 = 0xff00; // Start of processor-specific
+    pub const SHN_BEFORE: u32 = 0xff00; // Order section before all others (Solaris)
+    pub const SHN_AFTER: u32 = 0xff01; // Order section after all others (Solaris)
+    pub const SHN_HIPROC: u32 = 0xff1f; // End of processor-specific
+    pub const SHN_LOOS: u32 = 0xff20; // Start of OS-specific
+    pub const SHN_HIOS: u32 = 0xff3f; // End of OS-specific
+    pub const SHN_ABS: u32 = 0xfff1; // Associated symbol is absolute
+    pub const SHN_COMMON: u32 = 0xfff2; // Associated symbol is common
+    pub const SHN_XINDEX: u32 = 0xffff; // Index is in extra table
+    pub const SHN_HIRESERVE: u32 = 0xffff; // End of reserved indices
+
+    // Legal values for sh_type (section type).
+    pub const SHT_NULL: u32 = 0; // Section header table entry unused
+    pub const SHT_PROGBITS: u32 = 1; // Program data
+    pub const SHT_SYMTAB: u32 = 2; // Symbol table
+    pub const SHT_STRTAB: u32 = 3; // String table
+    pub const SHT_RELA: u32 = 4; // Relocation entries with addends
+    pub const SHT_HASH: u32 = 5; // Symbol hash table
+    pub const SHT_DYNAMIC: u32 = 6; // Dynamic linking information
+    pub const SHT_NOTE: u32 = 7; // Notes
+    pub const SHT_NOBITS: u32 = 8; // Program space with no data (bss)
+    pub const SHT_REL: u32 = 9; // Relocation entries, no addends
+    pub const SHT_SHLIB: u32 = 10; // Reserved
+    pub const SHT_DYNSYM: u32 = 11; // Dynamic linker symbol table
+    pub const SHT_INIT_ARRAY: u32 = 14; // Array of constructors
+    pub const SHT_FINI_ARRAY: u32 = 15; // Array of destructors
+    pub const SHT_PREINIT_ARRAY: u32 = 16; // Array of pre-constructors
+    pub const SHT_GROUP: u32 = 17; // Section group
+    pub const SHT_SYMTAB_SHNDX: u32 = 18; // Extended section indeces
+    pub const SHT_NUM: u32 = 19; // Number of defined types
+    pub const SHT_LOOS: u32 = 0x60000000; // Start OS-specific
+    pub const SHT_GNU_ATTRIBUTES: u32 = 0x6ffffff5; // Object attributes
+    pub const SHT_GNU_HASH: u32 = 0x6ffffff6; // GNU-style hash table
+    pub const SHT_GNU_LIBLIST: u32 = 0x6ffffff7; // Prelink library list
+    pub const SHT_CHECKSUM: u32 = 0x6ffffff8; // Checksum for DSO content
+    pub const SHT_LOSUNW: u32 = 0x6ffffffa; // Sun-specific low bound
+    pub const SHT_SUNW_MOVE: u32 = 0x6ffffffa;
+    pub const SHT_SUNW_COMDAT: u32 = 0x6ffffffb;
+    pub const SHT_SUNW_SYMINFO: u32 = 0x6ffffffc;
+    pub const SHT_GNU_VERDEF: u32 = 0x6ffffffd; // Version definition section
+    pub const SHT_GNU_VERNEED: u32 = 0x6ffffffe; // Version needs section
+    pub const SHT_GNU_VERSYM: u32 = 0x6fffffff; // Version symbol table
+    pub const SHT_HISUNW: u32 = 0x6fffffff; // Sun-specific high bound
+    pub const SHT_HIOS: u32 = 0x6fffffff; // End OS-specific type
+    pub const SHT_LOPROC: u32 = 0x70000000; // Start of processor-specific
+    pub const SHT_HIPROC: u32 = 0x7fffffff; // End of processor-specific
+    pub const SHT_LOUSER: u32 = 0x80000000; // Start of application-specific
+    pub const SHT_HIUSER: u32 = 0x8fffffff; // End of application-specific
+
+    // Legal values for sh_flags (section flags)
+    pub const SHF_WRITE: u32 = 1 << 0; // Writable
+    pub const SHF_ALLOC: u32 = 1 << 1; // Occupies memory during execution
+    pub const SHF_EXECINSTR: u32 = 1 << 2; // Executable
+    pub const SHF_MERGE: u32 = 1 << 4; // Might be merged
+    pub const SHF_STRINGS: u32 = 1 << 5; // Contains nul-terminated strings
+    pub const SHF_INFO_LINK: u32 = 1 << 6; // `sh_info' contains SHT index
+    pub const SHF_LINK_ORDER: u32 = 1 << 7; // Preserve order after combining
+    pub const SHF_OS_NONCONFORMING: u32 = 1 << 8; // Non-standard OS specific handling required
+    pub const SHF_GROUP: u32 = 1 << 9; // Section is member of a group
+    pub const SHF_TLS: u32 = 1 << 10; // Section hold thread-local data
+    pub const SHF_COMPRESSED: u32 = 1 << 11; // Section with compressed data
+    pub const SHF_MASKOS: u32 = 0x0ff00000; // OS-specific.
+    pub const SHF_MASKPROC: u32 = 0xf0000000; // Processor-specific
+    pub const SHF_ORDERED: u32 = 1 << 30; // Special ordering requirement (Solaris)
+    //pub const SHF_EXCLUDE: u32 = 1U << 31; // Section is excluded unless referenced or allocated (Solaris)
+}
+
 pub mod dyn {
     // TODO: figure out what's the best, most friendly + safe API choice here - u32s or u64s
     // remember that DT_TAG is "pointer sized"/used as address sometimes

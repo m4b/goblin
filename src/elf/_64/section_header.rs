@@ -1,4 +1,8 @@
+pub use super::super::elf::section_header::*;
+
 #[repr(C)]
+#[derive(Clone, PartialEq, Default)]
+#[cfg_attr(not(feature = "pure"), derive(Debug))]
 pub struct SectionHeader {
     pub sh_name: u64,
     pub sh_type: u64,

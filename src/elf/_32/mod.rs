@@ -1,6 +1,7 @@
 pub mod header;
 pub mod sym;
 pub mod program_header;
+pub mod section_header;
 pub mod dyn;
 pub mod rela;
 

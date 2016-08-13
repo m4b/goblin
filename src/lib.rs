@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "pure", no_std)]
+
 // if the no_endian feature flag is set the libary will only be able to
 // process files with the same endianess as the machine.
 #[cfg(not(feature = "no_endian_fd"))]

@@ -3,7 +3,6 @@ pub mod program_header;
 pub mod dyn;
 pub mod rela;
 pub mod sym;
-pub mod strtab;
 pub mod gnu_hash;
 
 use std::path::Path;
@@ -12,6 +11,8 @@ use std::io;
 use std::io::Read;
 use std::io::Seek;
 use std::io::SeekFrom::Start;
+
+pub use super::elf::strtab;
 
 #[derive(Debug)]
 pub struct Binary {

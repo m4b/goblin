@@ -10,6 +10,9 @@
 // #[cfg(not(feature = "no_elf32"))]
 // mod _32;
 
+#[cfg(not(feature = "pure"))]
+pub mod strtab;
+
 // These are shareable values for the 32/64 bit implementations
 // They are publicly re-exported by the pub-using module
 pub mod header {

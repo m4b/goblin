@@ -10,7 +10,9 @@ pub use self::impure::*;
 
 #[cfg(not(feature = "pure"))]
 mod impure {
-    use super::*;
+    pub use super::super::elf::strtab;
+
+    use super::{header, program_header, dyn, sym, rela};
 
     #[derive(Debug)]
     pub struct Binary {

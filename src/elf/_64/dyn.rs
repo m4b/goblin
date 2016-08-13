@@ -5,7 +5,7 @@ use std::io;
 use std::fmt;
 use std::slice;
 use super::program_header::{ProgramHeader, PT_DYNAMIC};
-use super::strtab::Strtab;
+use super::super::elf::strtab::Strtab;
 
 pub use super::super::elf::dyn::*;
 

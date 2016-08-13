@@ -1,10 +1,23 @@
+//! TODO add proper writeup for how this is constructed, how it resolves symbols, and how it works, see: https://blogs.oracle.com/ali/entry/gnu_hash_elf_sections
+//! A Gnu Hash table as 4 sections:
+//!   1. Header
+//!   2. Bloom Filter
+//!   3. Hash Buckets
+//!   4. Hash Values
+//!
+//! The header has is an array of four (4) u32s:
+//!   a. nbuckets
+//!   b. symndx
+//!   c. maskwords
+//!   d. shift2
+
 use std::slice;
-use super::strtab;
+use super::super::elf::strtab;
 use super::sym;
 
-static HASH_SEED: u32 = 5381;
+const HASH_SEED: u32 = 5381;
 
-/// GNU hash function
+/// GNU hash function: takes a string and returns the u32 hash of that string
 pub fn hash(symbol: &str) -> u32 {
     let bytes = symbol.as_bytes();
     let mut hash = HASH_SEED;
@@ -14,17 +27,6 @@ pub fn hash(symbol: &str) -> u32 {
     hash
 }
 
-/// TODO add proper writeup for how this is constructed, how it resolves symbols, and how it works, see: https://blogs.oracle.com/ali/entry/gnu_hash_elf_sections
-/// A Gnu Hash table as 4 sections:
-/// 1. Header
-/// 2. Bloom Filter
-/// 3. Hash Buckets
-/// 4. Hash Values
-/// The header has is an array of four (4) u32s:
-/// a. nbuckets
-/// b. symndx
-/// c. maskwords
-/// d. shift2
 pub struct GnuHash<'process> {
     nbuckets: u32,
     symindex: usize,
@@ -53,7 +55,7 @@ impl<'process> GnuHash<'process> {
                 nbuckets: nbuckets,
                 symindex: symindex,
                 shift2: shift2,
-                maskbits: 64, // because we don't have a compile time sizeof(usize) yet...
+                maskbits: ::std::mem::size_of::<usize>() as u32,
                 bloomwords: bloomwords,
                 hashvalues: hashvalues,
                 buckets: buckets,

@@ -21,3 +21,4 @@ pub struct Header {
 }
 
 pub const SIZEOF_EHDR: usize = 48;
+pub const ELFCLASS: u8 = ELFCLASS32;

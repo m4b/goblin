@@ -18,6 +18,6 @@ fn main() {
     let header: header::Header = Default::default();
     let sym: sym::Sym = Default::default();
     println!("header: {:?}, sym: {:?}", header, sym);
-    println!("sizeof header: {}", elf::header::SIZEOF_EHDR);
-    println!("sizeof sym: {}", elf::sym::SIZEOF_SYM);
+    println!("sizeof header: {}", header::SIZEOF_EHDR);
+    println!("sizeof sym: {}", sym::SIZEOF_SYM);
 }

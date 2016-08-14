@@ -26,6 +26,7 @@ pub struct Header {
 }
 
 pub const SIZEOF_EHDR: usize = 64;
+pub const ELFCLASS: u8 = ELFCLASS64;
 
 impl fmt::Debug for Header {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

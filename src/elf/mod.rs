@@ -23,6 +23,9 @@ pub mod header {
     pub const ET_CORE: u16 = 4; // Core file
     pub const ET_NUM: u16 = 5; // Number of defined types
 
+    pub const ELFMAG: &'static [u8; 4] = b"\x7FELF";
+    pub const SELFMAG: usize = 4;
+
     pub const EI_CLASS: usize = 4; // File class byte index
     pub const ELFCLASSNONE: u8 = 0; // Invalid class
     pub const ELFCLASS32: u8 = 1; //32-bit objects

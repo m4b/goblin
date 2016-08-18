@@ -110,17 +110,17 @@ pub fn filetype_to_str(filetype: u32) -> &'static str {
 #[repr(C)]
 #[derive(Clone, Copy, Default)]
 pub struct Header {
-    magic: u32,
-    cputype: u32,
-    cpusubtype: u8,
-    padding1: u8,
-    padding2: u8,
-    caps: u8,
-    filetype: u32,
-    ncmds: u32,
-    sizeofcmds: u32,
-    flags: u32,
-    reserved: u32,
+    pub magic: u32,
+    pub cputype: u32,
+    pub cpusubtype: u8,
+    pub padding1: u8,
+    pub padding2: u8,
+    pub caps: u8,
+    pub filetype: u32,
+    pub ncmds: u32,
+    pub sizeofcmds: u32,
+    pub flags: u32,
+    pub reserved: u32,
 }
 
 pub const SIZEOF_MACH_HEADER: usize = 32;

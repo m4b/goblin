@@ -1,3 +1,5 @@
+//! The ELF 32-bit struct definitions and associated values
+
 pub mod header;
 pub mod sym;
 pub mod program_header;

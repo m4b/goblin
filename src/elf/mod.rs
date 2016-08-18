@@ -53,7 +53,10 @@ pub mod header {
     }
 
     #[cfg(not(feature = "pure"))]
-    pub mod impure {
+    pub use self::impure::*;
+
+    #[cfg(not(feature = "pure"))]
+    mod impure {
         use super::*;
 
         use std::fs::File;
@@ -528,7 +531,6 @@ mod impure {
     //use std::io::SeekFrom::Start;
 
     use super::header;
-    use super::header::impure::*;
 
     use super::super::elf32;
     use super::super::elf64;
@@ -540,7 +542,7 @@ mod impure {
     }
 
     pub fn from_fd (fd: &mut File) -> io::Result<Binary> {
-        match try!(peek(fd)) {
+        match try!(header::peek(fd)) {
             (header::ELFCLASS64, _is_lsb) => {
                 Ok(Binary::Elf64(try!(elf64::Binary::from_fd(fd))))
             },

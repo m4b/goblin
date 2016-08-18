@@ -1,12 +1,3 @@
-use std::fs::File;
-use std::io::Seek;
-use std::io::SeekFrom::Start;
-use std::io;
-use std::fmt;
-use std::slice;
-use super::program_header::{ProgramHeader, PT_DYNAMIC};
-use super::super::elf::strtab::Strtab;
-
 pub use super::super::elf::dyn::*;
 
 /// An entry in the dynamic array
@@ -20,101 +11,118 @@ pub struct Dyn {
 pub const SIZEOF_DYN: usize = 16;
 
 #[cfg(not(feature = "pure"))]
-impl fmt::Debug for Dyn {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,
-               "d_tag: {} d_val: 0x{:x}",
-               tag_to_str(self.d_tag),
-               self.d_val)
+pub use self::impure::*;
+
+#[cfg(not(feature = "pure"))]
+mod impure {
+
+    use std::fs::File;
+    use std::io::Seek;
+    use std::io::SeekFrom::Start;
+    use std::io;
+    use std::fmt;
+    use std::slice;
+    use super::super::program_header::{ProgramHeader, PT_DYNAMIC};
+    use super::super::super::elf::strtab::Strtab;
+
+    use super::*;
+
+    impl fmt::Debug for Dyn {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f,
+                   "d_tag: {} d_val: 0x{:x}",
+                   tag_to_str(self.d_tag),
+                   self.d_val)
+        }
     }
-}
 
-#[cfg(not(feature = "no_endian_fd"))]
-/// Returns a vector of dynamic entries from the given fd and program headers
-pub fn from_fd(mut fd: &File, phdrs: &[ProgramHeader], is_lsb: bool) -> io::Result<Option<Vec<Dyn>>> {
-    use byteorder::{LittleEndian,BigEndian,ReadBytesExt};
-    for phdr in phdrs {
-        if phdr.p_type == PT_DYNAMIC {
-            let filesz = phdr.p_filesz as usize;
-            let dync = filesz / SIZEOF_DYN;
-            let mut dyns = Vec::with_capacity(dync);
+    #[cfg(not(feature = "no_endian_fd"))]
+    /// Returns a vector of dynamic entries from the given fd and program headers
+    pub fn from_fd(mut fd: &File, phdrs: &[ProgramHeader], is_lsb: bool) -> io::Result<Option<Vec<Dyn>>> {
+        use byteorder::{LittleEndian,BigEndian,ReadBytesExt};
+        for phdr in phdrs {
+            if phdr.p_type == PT_DYNAMIC {
+                let filesz = phdr.p_filesz as usize;
+                let dync = filesz / SIZEOF_DYN;
+                let mut dyns = Vec::with_capacity(dync);
 
-            try!(fd.seek(Start(phdr.p_offset)));
-            for _ in 0..dync {
-                let mut dyn = Dyn::default();
+                try!(fd.seek(Start(phdr.p_offset)));
+                for _ in 0..dync {
+                    let mut dyn = Dyn::default();
 
-                if is_lsb {
-                    dyn.d_tag = try!(fd.read_u64::<LittleEndian>());
-                    dyn.d_val = try!(fd.read_u64::<LittleEndian>());
-                } else {
-                    dyn.d_tag = try!(fd.read_u64::<BigEndian>());
-                    dyn.d_val = try!(fd.read_u64::<BigEndian>());
+                    if is_lsb {
+                        dyn.d_tag = try!(fd.read_u64::<LittleEndian>());
+                        dyn.d_val = try!(fd.read_u64::<LittleEndian>());
+                    } else {
+                        dyn.d_tag = try!(fd.read_u64::<BigEndian>());
+                        dyn.d_val = try!(fd.read_u64::<BigEndian>());
+                    }
+
+                    dyns.push(dyn);
                 }
 
-                dyns.push(dyn);
+                dyns.dedup();
+                return Ok(Some(dyns));
             }
-
-            dyns.dedup();
-            return Ok(Some(dyns));
         }
+        Ok(None)
     }
-    Ok(None)
-}
 
-#[cfg(feature = "no_endian_fd")]
-/// Returns a vector of dynamic entries from the given fd and program headers
-pub fn from_fd(mut fd: &File, phdrs: &[ProgramHeader], _: bool) -> io::Result<Option<Vec<Dyn>>> {
-    use std::io::Read;
-    for phdr in phdrs {
-        if phdr.p_type == PT_DYNAMIC {
-            let filesz = phdr.p_filesz as usize;
-            let dync = filesz / SIZEOF_DYN;
-            let mut bytes = vec![0u8; filesz];
-            try!(fd.seek(Start(phdr.p_offset)));
-            try!(fd.read(&mut bytes));
-            let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Dyn, dync) };
-            let mut dyns = Vec::with_capacity(dync);
-            dyns.extend_from_slice(bytes);
-            dyns.dedup();
-            return Ok(Some(dyns));
+    #[cfg(feature = "no_endian_fd")]
+    /// Returns a vector of dynamic entries from the given fd and program headers
+    pub fn from_fd(mut fd: &File, phdrs: &[ProgramHeader], _: bool) -> io::Result<Option<Vec<Dyn>>> {
+        use std::io::Read;
+        for phdr in phdrs {
+            if phdr.p_type == PT_DYNAMIC {
+                let filesz = phdr.p_filesz as usize;
+                let dync = filesz / SIZEOF_DYN;
+                let mut bytes = vec![0u8; filesz];
+                try!(fd.seek(Start(phdr.p_offset)));
+                try!(fd.read(&mut bytes));
+                let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Dyn, dync) };
+                let mut dyns = Vec::with_capacity(dync);
+                dyns.extend_from_slice(bytes);
+                dyns.dedup();
+                return Ok(Some(dyns));
+            }
         }
+        Ok(None)
     }
-    Ok(None)
-}
 
-/// Given a bias and a memory address (typically for a _correctly_ mmap'd binary in memory), returns the `_DYNAMIC` array as a slice of that memory
-pub unsafe fn from_raw<'a>(bias: u64, vaddr: u64) -> &'a [Dyn] {
-    let dynp = vaddr.wrapping_add(bias) as *const Dyn;
-    let mut idx = 0;
-    while (*dynp.offset(idx)).d_tag != DT_NULL {
-        idx += 1;
-    }
-    slice::from_raw_parts(dynp, idx as usize)
-}
-
-// TODO: these bare functions have always seemed awkward, but not sure where they should go...
-
-/// Maybe gets and returns the dynamic array with the same lifetime as the [phdrs], using the provided bias with wrapping addition.
-/// If the bias is wrong, it will either segfault or give you incorrect values, beware
-pub unsafe fn from_phdrs<'a>(bias: u64, phdrs: &'a [ProgramHeader]) -> Option<&'a [Dyn]> {
-    for phdr in phdrs {
-        if phdr.p_type == PT_DYNAMIC {
-            return Some(from_raw(bias, phdr.p_vaddr));
+    /// Given a bias and a memory address (typically for a _correctly_ mmap'd binary in memory), returns the `_DYNAMIC` array as a slice of that memory
+    pub unsafe fn from_raw<'a>(bias: u64, vaddr: u64) -> &'a [Dyn] {
+        let dynp = vaddr.wrapping_add(bias) as *const Dyn;
+        let mut idx = 0;
+        while (*dynp.offset(idx)).d_tag != DT_NULL {
+            idx += 1;
         }
+        slice::from_raw_parts(dynp, idx as usize)
     }
-    None
-}
 
-/// Gets the needed libraries from the `_DYNAMIC` array, with the str slices lifetime tied to the dynamic array/strtab's lifetime(s)
-pub fn get_needed<'a, 'b>(dyns: &'a [Dyn], strtab: &'b Strtab<'a>, count: usize) -> Vec<&'a str> {
-    let mut needed = Vec::with_capacity(count);
-    for dyn in dyns {
-        if dyn.d_tag == DT_NEEDED {
-            let lib = strtab.get(dyn.d_val as usize);
-            needed.push(lib);
+    // TODO: these bare functions have always seemed awkward, but not sure where they should go...
+
+    /// Maybe gets and returns the dynamic array with the same lifetime as the [phdrs], using the provided bias with wrapping addition.
+    /// If the bias is wrong, it will either segfault or give you incorrect values, beware
+    pub unsafe fn from_phdrs<'a>(bias: u64, phdrs: &'a [ProgramHeader]) -> Option<&'a [Dyn]> {
+        for phdr in phdrs {
+            if phdr.p_type == PT_DYNAMIC {
+                return Some(from_raw(bias, phdr.p_vaddr));
+            }
         }
+        None
     }
-    needed
+
+    /// Gets the needed libraries from the `_DYNAMIC` array, with the str slices lifetime tied to the dynamic array/strtab's lifetime(s)
+    pub fn get_needed<'a, 'b>(dyns: &'a [Dyn], strtab: &'b Strtab<'a>, count: usize) -> Vec<&'a str> {
+        let mut needed = Vec::with_capacity(count);
+        for dyn in dyns {
+            if dyn.d_tag == DT_NEEDED {
+                let lib = strtab.get(dyn.d_val as usize);
+                needed.push(lib);
+            }
+        }
+        needed
+    }
 }
 
 // TODO: make this portable in 32 bit world somehow?
@@ -244,8 +252,9 @@ impl DynamicInfo {
     }
 }
 
-impl fmt::Debug for DynamicInfo {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+#[cfg(not(feature = "pure"))]
+impl ::std::fmt::Debug for DynamicInfo {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         let gnu_hash = if let Some(addr) = self.gnu_hash { addr } else { 0 };
         let hash = if let Some(addr) = self.hash { addr } else { 0 };
         let pltgot = if let Some(addr) = self.pltgot { addr } else { 0 };

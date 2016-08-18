@@ -39,12 +39,6 @@
 /// the value used in this relocation is the program address returned by the function,
 /// which takes no arguments, at the address of the result of the corresponding
 /// R_X86_64_RELATIVE relocation.
-use std::fs::File;
-use std::io::Seek;
-use std::io::SeekFrom::Start;
-use std::io;
-use std::fmt;
-use std::slice;
 
 pub use super::super::elf::rela::*;
 
@@ -57,19 +51,6 @@ pub struct Rela {
 }
 
 pub const SIZEOF_RELA: usize = 8 + 8 + 8;
-
-impl fmt::Debug for Rela {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let sym = r_sym(self.r_info);
-        let typ = r_type(self.r_info);
-        write!(f,
-               "r_offset: {:x} {} @ {} r_addend: {:x}",
-               self.r_offset,
-               type_to_str(typ),
-               sym,
-               self.r_addend)
-    }
-}
 
 #[inline(always)]
 pub fn r_sym(info: u64) -> u64 {
@@ -86,51 +67,80 @@ pub fn r_info(sym: u64, typ: u64) -> u64 {
     (sym << 32) + typ
 }
 
-/// Gets the rela entries given a rela u64 and the _size_ of the rela section in the binary, in bytes.  Works for regular rela and the pltrela table.
-/// Assumes the pointer is valid and can safely return a slice of memory pointing to the relas because:
-/// 1. `rela` points to memory received from the kernel (i.e., it loaded the executable), _or_
-/// 2. The binary has already been mmapped (i.e., it's a `SharedObject`), and hence it's safe to return a slice of that memory.
-/// 3. Or if you obtained the pointer in some other lawful manner
-pub unsafe fn from_raw<'a>(ptr: *const Rela, size: usize) -> &'a [Rela] {
-    slice::from_raw_parts(ptr, size / SIZEOF_RELA)
-}
+#[cfg(not(feature = "pure"))]
+pub use self::impure::*;
 
-#[cfg(not(feature = "no_endian_fd"))]
-pub fn from_fd(fd: &mut File, offset: usize, size: usize, is_lsb: bool) -> io::Result<Vec<Rela>> {
-    use byteorder::{LittleEndian,BigEndian,ReadBytesExt};
-    let count = size / SIZEOF_RELA;
-    let mut res = Vec::with_capacity(count);
+#[cfg(not(feature = "pure"))]
+mod impure {
 
-    try!(fd.seek(Start(offset as u64)));
-    for _ in 0..count {
-        let mut rela = Rela::default();
+    use super::*;
 
-        if is_lsb {
-            rela.r_offset = try!(fd.read_u64::<LittleEndian>());
-            rela.r_info = try!(fd.read_u64::<LittleEndian>());
-            rela.r_addend = try!(fd.read_i64::<LittleEndian>());
-        } else {
-            rela.r_offset = try!(fd.read_u64::<BigEndian>());
-            rela.r_info = try!(fd.read_u64::<BigEndian>());
-            rela.r_addend = try!(fd.read_i64::<BigEndian>());
+    use std::fs::File;
+    use std::io::Seek;
+    use std::io::SeekFrom::Start;
+    use std::io;
+    use std::fmt;
+    use std::slice;
+
+    impl fmt::Debug for Rela {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            let sym = r_sym(self.r_info);
+            let typ = r_type(self.r_info);
+            write!(f,
+                   "r_offset: {:x} {} @ {} r_addend: {:x}",
+                   self.r_offset,
+                   type_to_str(typ),
+                   sym,
+                   self.r_addend)
         }
-
-        res.push(rela);
     }
 
-    res.dedup();
-    Ok(res)
-}
+    /// Gets the rela entries given a rela u64 and the _size_ of the rela section in the binary, in bytes.  Works for regular rela and the pltrela table.
+    /// Assumes the pointer is valid and can safely return a slice of memory pointing to the relas because:
+    /// 1. `rela` points to memory received from the kernel (i.e., it loaded the executable), _or_
+    /// 2. The binary has already been mmapped (i.e., it's a `SharedObject`), and hence it's safe to return a slice of that memory.
+    /// 3. Or if you obtained the pointer in some other lawful manner
+    pub unsafe fn from_raw<'a>(ptr: *const Rela, size: usize) -> &'a [Rela] {
+        slice::from_raw_parts(ptr, size / SIZEOF_RELA)
+    }
 
-#[cfg(feature = "no_endian_fd")]
-pub fn from_fd(fd: &mut File, offset: usize, size: usize, _: bool) -> io::Result<Vec<Rela>> {
-    use std::io::Read;
-    let count = size / SIZEOF_RELA;
-    let mut bytes = vec![0u8; size];
-    try!(fd.seek(Start(offset as u64)));
-    try!(fd.read(&mut bytes));
-    let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Rela, count) };
-    let mut res = Vec::with_capacity(count);
-    res.extend_from_slice(bytes);
-    Ok(res)
+    #[cfg(not(feature = "no_endian_fd"))]
+    pub fn from_fd(fd: &mut File, offset: usize, size: usize, is_lsb: bool) -> io::Result<Vec<Rela>> {
+        use byteorder::{LittleEndian,BigEndian,ReadBytesExt};
+        let count = size / SIZEOF_RELA;
+        let mut res = Vec::with_capacity(count);
+
+        try!(fd.seek(Start(offset as u64)));
+        for _ in 0..count {
+            let mut rela = Rela::default();
+
+            if is_lsb {
+                rela.r_offset = try!(fd.read_u64::<LittleEndian>());
+                rela.r_info = try!(fd.read_u64::<LittleEndian>());
+                rela.r_addend = try!(fd.read_i64::<LittleEndian>());
+            } else {
+                rela.r_offset = try!(fd.read_u64::<BigEndian>());
+                rela.r_info = try!(fd.read_u64::<BigEndian>());
+                rela.r_addend = try!(fd.read_i64::<BigEndian>());
+            }
+
+            res.push(rela);
+        }
+
+        res.dedup();
+        Ok(res)
+    }
+
+    #[cfg(feature = "no_endian_fd")]
+    pub fn from_fd(fd: &mut File, offset: usize, size: usize, _: bool) -> io::Result<Vec<Rela>> {
+        use std::io::Read;
+        let count = size / SIZEOF_RELA;
+        let mut bytes = vec![0u8; size];
+        try!(fd.seek(Start(offset as u64)));
+        try!(fd.read(&mut bytes));
+        let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Rela, count) };
+        let mut res = Vec::with_capacity(count);
+        res.extend_from_slice(bytes);
+        Ok(res)
+    }
 }

@@ -1,3 +1,5 @@
+//! The mach module: Work in Progress!
+
 pub mod header;
 pub mod constants;
 pub mod fat;

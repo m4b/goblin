@@ -547,7 +547,7 @@ mod impure {
                 Ok(Binary::Elf64(try!(elf64::Binary::from_fd(fd))))
             },
             (header::ELFCLASS32, _is_lsb) => {
-                unimplemented!()
+                io_error!("ELF32 from_fd unimplemented")
             },
             (class, is_lsb) => {
                 io_error!("Unknown values in ELF ident header: class: {} is_lsb: {}", class, is_lsb)

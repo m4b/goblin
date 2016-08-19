@@ -26,7 +26,9 @@ fn get_str(idx: usize, bytes: &[u8]) -> &str {
         i += 1;
     }
     // we drop the null terminator unless we're at the end and the byte isn't a null terminator
-    if i < len || bytes[i-1] == 0 { i -= 1; }
+    if i < len || bytes[i - 1] == 0 {
+        i -= 1;
+    }
     str::from_utf8(&bytes[idx..i]).unwrap()
 }
 
@@ -82,7 +84,7 @@ impl<'a> Strtab<'a> {
 #[test]
 fn as_vec_test_no_final_null() {
     let bytes = b"\0printf\0memmove\0busta";
-    let strtab = unsafe { Strtab::from_raw (bytes.as_ptr(), bytes.len()) };
+    let strtab = unsafe { Strtab::from_raw(bytes.as_ptr(), bytes.len()) };
     let vec = strtab.to_vec();
     assert_eq!(vec.len(), 4);
 }
@@ -90,7 +92,7 @@ fn as_vec_test_no_final_null() {
 #[test]
 fn to_vec_test_final_null() {
     let bytes = b"\0printf\0memmove\0busta\0";
-    let strtab = unsafe { Strtab::from_raw (bytes.as_ptr(), bytes.len()) };
+    let strtab = unsafe { Strtab::from_raw(bytes.as_ptr(), bytes.len()) };
     let vec = strtab.to_vec();
     assert_eq!(vec.len(), 4);
 }

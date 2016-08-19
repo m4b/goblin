@@ -12,5 +12,5 @@ pub use self::impure::*;
 
 #[cfg(not(feature = "pure"))]
 mod impure {
-    elf_from_fd!(::std::u32::MAX);
+    elf_from_fd!(!0);
 }

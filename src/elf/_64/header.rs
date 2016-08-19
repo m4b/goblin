@@ -22,52 +22,10 @@ pub struct Header {
 pub const SIZEOF_EHDR: usize = 64;
 pub const ELFCLASS: u8 = ELFCLASS64;
 
-#[cfg(not(feature = "pure"))]
-pub use self::impure::*;
-
-#[cfg(not(feature = "pure"))]
-mod impure {
-
-    use super::*;
-
-    use std::mem;
-    use std::fmt;
-    use std::fs::File;
-    use std::io::Read;
-    use std::io;
-
-
-    impl fmt::Debug for Header {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f,
-                   "e_ident: {:?} e_type: {} e_machine: 0x{:x} e_version: 0x{:x} e_entry: 0x{:x} \
-                    e_phoff: 0x{:x} e_shoff: 0x{:x} e_flags: {:x} e_ehsize: {} e_phentsize: {} \
-                    e_phnum: {} e_shentsize: {} e_shnum: {} e_shstrndx: {}",
-                   self.e_ident,
-                   et_to_str(self.e_type),
-                   self.e_machine,
-                   self.e_version,
-                   self.e_entry,
-                   self.e_phoff,
-                   self.e_shoff,
-                   self.e_flags,
-                   self.e_ehsize,
-                   self.e_phentsize,
-                   self.e_phnum,
-                   self.e_shentsize,
-                   self.e_shnum,
-                   self.e_shstrndx)
-        }
-    }
-
+elf_header_impure_impl!(
     impl Header {
-        /// Returns the corresponding ELF header from the given byte array
-        pub fn from_bytes(bytes: &[u8; SIZEOF_EHDR]) -> Header {
-            // this is not unsafe because the header's size is encoded in the function, although the header can be semantically invalid
-            let header: &Header = unsafe { mem::transmute(bytes) };
-            header.clone()
-        }
-
+        elf_header_from_bytes!();
+        elf_header_from_fd!();
         #[cfg(not(feature = "no_endian_fd"))]
         pub fn from_fd(fd: &mut File) -> io::Result<Header> {
             use byteorder::{LittleEndian,BigEndian,ReadBytesExt};
@@ -112,16 +70,7 @@ mod impure {
                     elf_header.e_shstrndx = try!(fd.read_u16::<BigEndian>());
                     Ok(elf_header)
                 },
-                d => Err(io::Error::new(io::ErrorKind::Other, format!("Invalid ELF DATA type {:x}",d))),
+                d => io_error!("Invalid ELF DATA type {:x}", d),
             }
         }
-
-        #[cfg(feature = "no_endian_fd")]
-        pub fn from_fd(fd: &mut File) -> io::Result<Header> {
-            let mut elf_header = [0; SIZEOF_EHDR];
-            try!(fd.read(&mut elf_header));
-            Ok(Header::from_bytes(&elf_header))
-        }
-
-    }
-}
+    });

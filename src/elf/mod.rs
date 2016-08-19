@@ -2,20 +2,12 @@
 //! Also provides simple parser which returns an Elf64 or Elf32 "pre-built" binary.
 //! **WARNING**: to use the automagic ELF datatype union parser, you _must_ enable both elf and elf32 features - i.e., do not use `no_elf` **NOR** `no_elf32`, otherwise you'll get obscure errors about [goblin::elf::from_fd](fn.from_fd.html) missing.
 
-// #[doc(hidden)]
-// #[cfg(not(feature = "no_elf"))]
-// mod _64;
-
-// #[doc(hidden)]
-// #[cfg(not(feature = "no_elf32"))]
-// mod _32;
-
 #[cfg(not(feature = "pure"))]
 pub mod strtab;
 
 // These are shareable values for the 32/64 bit implementations
 // They are publicly re-exported by the pub-using module
-pub mod header {
+#[macro_use] pub mod header {
     pub const ET_NONE: u16 = 0; // No file type
     pub const ET_REL: u16 = 1; // Relocatable file
     pub const ET_EXEC: u16 = 2; // Executable file
@@ -78,9 +70,264 @@ pub mod header {
             }
         }
     }
+
+    macro_rules! elf_header_from_bytes { () => {
+        /// Returns the corresponding ELF header from the given byte array
+        pub fn from_bytes(bytes: &[u8; SIZEOF_EHDR]) -> Header {
+            // this is not unsafe because the header's size is encoded in the function, although the header can be semantically invalid
+            let header: &Header = unsafe { mem::transmute(bytes) };
+            header.clone()
+        }
+    };}
+
+    macro_rules! elf_header_from_fd { () => {
+        #[cfg(feature = "no_endian_fd")]
+        pub fn from_fd(fd: &mut File) -> io::Result<Header> {
+            let mut elf_header = [0; SIZEOF_EHDR];
+            try!(fd.read(&mut elf_header));
+            Ok(Header::from_bytes(&elf_header))
+        }
+    };}
+
+    macro_rules! elf_header_impure_impl { ($header:item) => {
+
+        #[cfg(not(feature = "pure"))]
+        pub use self::impure::*;
+
+        #[cfg(not(feature = "pure"))]
+        mod impure {
+
+            use super::*;
+
+            use std::mem;
+            use std::fmt;
+            use std::fs::File;
+            use std::io::Read;
+            use std::io;
+
+            impl fmt::Debug for Header {
+                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    write!(f,
+                           "e_ident: {:?} e_type: {} e_machine: 0x{:x} e_version: 0x{:x} e_entry: 0x{:x} \
+                            e_phoff: 0x{:x} e_shoff: 0x{:x} e_flags: {:x} e_ehsize: {} e_phentsize: {} \
+                            e_phnum: {} e_shentsize: {} e_shnum: {} e_shstrndx: {}",
+                           self.e_ident,
+                           et_to_str(self.e_type),
+                           self.e_machine,
+                           self.e_version,
+                           self.e_entry,
+                           self.e_phoff,
+                           self.e_shoff,
+                           self.e_flags,
+                           self.e_ehsize,
+                           self.e_phentsize,
+                           self.e_phnum,
+                           self.e_shentsize,
+                           self.e_shnum,
+                           self.e_shstrndx)
+                }
+            }
+
+            $header
+        }
+    };}
+
 }
 
-pub mod sym {
+#[macro_use] pub mod program_header {
+    pub const PT_NULL: u32 = 0;
+    pub const PT_LOAD: u32 = 1;
+    pub const PT_DYNAMIC: u32 = 2;
+    pub const PT_INTERP: u32 = 3;
+    pub const PT_NOTE: u32 = 4;
+    pub const PT_SHLIB: u32 = 5;
+    pub const PT_PHDR: u32 = 6;
+    pub const PT_TLS: u32 = 7;
+    pub const PT_NUM: u32 = 8;
+    pub const PT_LOOS: u32 = 0x60000000;
+    pub const PT_GNU_EH_FRAME: u32 = 0x6474e550;
+    pub const PT_GNU_STACK: u32 = 0x6474e551;
+    pub const PT_GNU_RELRO: u32 = 0x6474e552;
+    pub const PT_LOSUNW: u32 = 0x6ffffffa;
+    pub const PT_SUNWBSS: u32 = 0x6ffffffa;
+    pub const PT_SUNWSTACK: u32 = 0x6ffffffb;
+    pub const PT_HISUNW: u32 = 0x6fffffff;
+    pub const PT_HIOS: u32 = 0x6fffffff;
+    pub const PT_LOPROC: u32 = 0x70000000;
+    pub const PT_HIPROC: u32 = 0x7fffffff;
+
+    /// Segment is executable
+    pub const PF_X: u32 = 1 << 0;
+
+    /// Segment is writable
+    pub const PF_W: u32 = 1 << 1;
+
+    /// Segment is readable
+    pub const PF_R: u32 = 1 << 2;
+
+    pub fn pt_to_str(pt: u32) -> &'static str {
+        match pt {
+            PT_NULL => "PT_NULL",
+            PT_LOAD => "PT_LOAD",
+            PT_DYNAMIC => "PT_DYNAMIC",
+            PT_INTERP => "PT_INTERP",
+            PT_NOTE => "PT_NOTE",
+            PT_SHLIB => "PT_SHLIB",
+            PT_PHDR => "PT_PHDR",
+            PT_TLS => "PT_TLS",
+            PT_NUM => "PT_NUM",
+            PT_LOOS => "PT_LOOS",
+            PT_GNU_EH_FRAME => "PT_GNU_EH_FRAME",
+            PT_GNU_STACK => "PT_GNU_STACK",
+            PT_GNU_RELRO => "PT_GNU_RELRO",
+            PT_SUNWBSS => "PT_SUNWBSS",
+            PT_SUNWSTACK => "PT_SUNWSTACK",
+            PT_HIOS => "PT_HIOS",
+            PT_LOPROC => "PT_LOPROC",
+            PT_HIPROC => "PT_HIPROC",
+            _ => "UNKNOWN_PT",
+        }
+    }
+
+    macro_rules! elf_program_header_from_bytes { () => {
+        pub fn from_bytes(bytes: &[u8], phnum: usize) -> Vec<ProgramHeader> {
+            let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut ProgramHeader, phnum) };
+            let mut phdrs = Vec::with_capacity(phnum);
+            phdrs.extend_from_slice(bytes);
+            phdrs
+        }};}
+
+    macro_rules! elf_program_header_from_raw_parts { () => {
+        pub unsafe fn from_raw_parts<'a>(phdrp: *const ProgramHeader,
+                                         phnum: usize)
+                                         -> &'a [ProgramHeader] {
+            slice::from_raw_parts(phdrp, phnum)
+        }};}
+
+    macro_rules! elf_program_header_from_fd { () => {
+        #[cfg(feature = "no_endian_fd")]
+        pub fn from_fd(fd: &mut File, offset: u64, count: usize, _: bool) -> io::Result<Vec<ProgramHeader>> {
+            use std::io::Read;
+            let mut phdrs = vec![0u8; count * SIZEOF_PHDR];
+            try!(fd.seek(Start(offset)));
+            try!(fd.read(&mut phdrs));
+            Ok(ProgramHeader::from_bytes(&phdrs, count))
+        }
+    };}
+
+    macro_rules! elf_program_header_from_fd_endian { ($from_fd_endian:item) => {
+        #[cfg(not(feature = "no_endian_fd"))]
+        $from_fd_endian
+    };}
+
+    macro_rules! elf_program_header_impure_impl { ($header:item) => {
+
+        #[cfg(not(feature = "pure"))]
+        pub use self::impure::*;
+
+        #[cfg(not(feature = "pure"))]
+        mod impure {
+
+            use super::*;
+
+            use std::slice;
+            use std::fmt;
+            use std::fs::File;
+            use std::io::Seek;
+            use std::io::SeekFrom::Start;
+            use std::io;
+
+            impl fmt::Debug for ProgramHeader {
+                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    write!(f,
+                           "p_type: {} p_flags 0x{:x} p_offset: 0x{:x} p_vaddr: 0x{:x} p_paddr: 0x{:x} \
+                            p_filesz: 0x{:x} p_memsz: 0x{:x} p_align: {}",
+                           pt_to_str(self.p_type),
+                           self.p_flags,
+                           self.p_offset,
+                           self.p_vaddr,
+                           self.p_paddr,
+                           self.p_filesz,
+                           self.p_memsz,
+                           self.p_align)
+                }
+            }
+            $header
+        }
+    };}
+}
+
+pub mod section_header {
+    pub const SHN_UNDEF: u32 = 0; // Undefined section
+    pub const SHN_LORESERVE: u32 = 0xff00; // Start of reserved indices
+    pub const SHN_LOPROC: u32 = 0xff00; // Start of processor-specific
+    pub const SHN_BEFORE: u32 = 0xff00; // Order section before all others (Solaris)
+    pub const SHN_AFTER: u32 = 0xff01; // Order section after all others (Solaris)
+    pub const SHN_HIPROC: u32 = 0xff1f; // End of processor-specific
+    pub const SHN_LOOS: u32 = 0xff20; // Start of OS-specific
+    pub const SHN_HIOS: u32 = 0xff3f; // End of OS-specific
+    pub const SHN_ABS: u32 = 0xfff1; // Associated symbol is absolute
+    pub const SHN_COMMON: u32 = 0xfff2; // Associated symbol is common
+    pub const SHN_XINDEX: u32 = 0xffff; // Index is in extra table
+    pub const SHN_HIRESERVE: u32 = 0xffff; // End of reserved indices
+
+    // Legal values for sh_type (section type).
+    pub const SHT_NULL: u32 = 0; // Section header table entry unused
+    pub const SHT_PROGBITS: u32 = 1; // Program data
+    pub const SHT_SYMTAB: u32 = 2; // Symbol table
+    pub const SHT_STRTAB: u32 = 3; // String table
+    pub const SHT_RELA: u32 = 4; // Relocation entries with addends
+    pub const SHT_HASH: u32 = 5; // Symbol hash table
+    pub const SHT_DYNAMIC: u32 = 6; // Dynamic linking information
+    pub const SHT_NOTE: u32 = 7; // Notes
+    pub const SHT_NOBITS: u32 = 8; // Program space with no data (bss)
+    pub const SHT_REL: u32 = 9; // Relocation entries, no addends
+    pub const SHT_SHLIB: u32 = 10; // Reserved
+    pub const SHT_DYNSYM: u32 = 11; // Dynamic linker symbol table
+    pub const SHT_INIT_ARRAY: u32 = 14; // Array of constructors
+    pub const SHT_FINI_ARRAY: u32 = 15; // Array of destructors
+    pub const SHT_PREINIT_ARRAY: u32 = 16; // Array of pre-constructors
+    pub const SHT_GROUP: u32 = 17; // Section group
+    pub const SHT_SYMTAB_SHNDX: u32 = 18; // Extended section indeces
+    pub const SHT_NUM: u32 = 19; // Number of defined types
+    pub const SHT_LOOS: u32 = 0x60000000; // Start OS-specific
+    pub const SHT_GNU_ATTRIBUTES: u32 = 0x6ffffff5; // Object attributes
+    pub const SHT_GNU_HASH: u32 = 0x6ffffff6; // GNU-style hash table
+    pub const SHT_GNU_LIBLIST: u32 = 0x6ffffff7; // Prelink library list
+    pub const SHT_CHECKSUM: u32 = 0x6ffffff8; // Checksum for DSO content
+    pub const SHT_LOSUNW: u32 = 0x6ffffffa; // Sun-specific low bound
+    pub const SHT_SUNW_MOVE: u32 = 0x6ffffffa;
+    pub const SHT_SUNW_COMDAT: u32 = 0x6ffffffb;
+    pub const SHT_SUNW_SYMINFO: u32 = 0x6ffffffc;
+    pub const SHT_GNU_VERDEF: u32 = 0x6ffffffd; // Version definition section
+    pub const SHT_GNU_VERNEED: u32 = 0x6ffffffe; // Version needs section
+    pub const SHT_GNU_VERSYM: u32 = 0x6fffffff; // Version symbol table
+    pub const SHT_HISUNW: u32 = 0x6fffffff; // Sun-specific high bound
+    pub const SHT_HIOS: u32 = 0x6fffffff; // End OS-specific type
+    pub const SHT_LOPROC: u32 = 0x70000000; // Start of processor-specific
+    pub const SHT_HIPROC: u32 = 0x7fffffff; // End of processor-specific
+    pub const SHT_LOUSER: u32 = 0x80000000; // Start of application-specific
+    pub const SHT_HIUSER: u32 = 0x8fffffff; // End of application-specific
+
+    // Legal values for sh_flags (section flags)
+    pub const SHF_WRITE: u32 = 1 << 0; // Writable
+    pub const SHF_ALLOC: u32 = 1 << 1; // Occupies memory during execution
+    pub const SHF_EXECINSTR: u32 = 1 << 2; // Executable
+    pub const SHF_MERGE: u32 = 1 << 4; // Might be merged
+    pub const SHF_STRINGS: u32 = 1 << 5; // Contains nul-terminated strings
+    pub const SHF_INFO_LINK: u32 = 1 << 6; // `sh_info' contains SHT index
+    pub const SHF_LINK_ORDER: u32 = 1 << 7; // Preserve order after combining
+    pub const SHF_OS_NONCONFORMING: u32 = 1 << 8; // Non-standard OS specific handling required
+    pub const SHF_GROUP: u32 = 1 << 9; // Section is member of a group
+    pub const SHF_TLS: u32 = 1 << 10; // Section hold thread-local data
+    pub const SHF_COMPRESSED: u32 = 1 << 11; // Section with compressed data
+    pub const SHF_MASKOS: u32 = 0x0ff00000; // OS-specific.
+    pub const SHF_MASKPROC: u32 = 0xf0000000; // Processor-specific
+    pub const SHF_ORDERED: u32 = 1 << 30; // Special ordering requirement (Solaris)
+    //pub const SHF_EXCLUDE: u32 = 1U << 31; // Section is excluded unless referenced or allocated (Solaris)
+}
+
+#[macro_use] pub mod sym {
     // sym bindings
     pub const STB_LOCAL: u8 = 0; // Local symbol
     pub const STB_GLOBAL: u8 = 1; // Global symbol
@@ -154,135 +401,65 @@ pub mod sym {
             _ => "UNKNOWN_STT",
         }
     }
-}
 
-pub mod program_header {
-    pub const PT_NULL: u32 = 0;
-    pub const PT_LOAD: u32 = 1;
-    pub const PT_DYNAMIC: u32 = 2;
-    pub const PT_INTERP: u32 = 3;
-    pub const PT_NOTE: u32 = 4;
-    pub const PT_SHLIB: u32 = 5;
-    pub const PT_PHDR: u32 = 6;
-    pub const PT_TLS: u32 = 7;
-    pub const PT_NUM: u32 = 8;
-    pub const PT_LOOS: u32 = 0x60000000;
-    pub const PT_GNU_EH_FRAME: u32 = 0x6474e550;
-    pub const PT_GNU_STACK: u32 = 0x6474e551;
-    pub const PT_GNU_RELRO: u32 = 0x6474e552;
-    pub const PT_LOSUNW: u32 = 0x6ffffffa;
-    pub const PT_SUNWBSS: u32 = 0x6ffffffa;
-    pub const PT_SUNWSTACK: u32 = 0x6ffffffb;
-    pub const PT_HISUNW: u32 = 0x6fffffff;
-    pub const PT_HIOS: u32 = 0x6fffffff;
-    pub const PT_LOPROC: u32 = 0x70000000;
-    pub const PT_HIPROC: u32 = 0x7fffffff;
+    macro_rules! elf_sym_impure_impl { ($from_fd_endian:item) => {
 
-    /// Segment is executable
-    pub const PF_X: u32 = 1 << 0;
+        #[cfg(not(feature = "pure"))]
+        pub use self::impure::*;
 
-    /// Segment is writable
-    pub const PF_W: u32 = 1 << 1;
+        #[cfg(not(feature = "pure"))]
+        mod impure {
 
-    /// Segment is readable
-    pub const PF_R: u32 = 1 << 2;
+            use std::fs::File;
+            use std::io::Read;
+            use std::io::Seek;
+            use std::io::SeekFrom::Start;
+            use std::io;
+            use std::fmt;
+            use std::slice;
 
-    pub fn pt_to_str(pt: u32) -> &'static str {
-        match pt {
-            PT_NULL => "PT_NULL",
-            PT_LOAD => "PT_LOAD",
-            PT_DYNAMIC => "PT_DYNAMIC",
-            PT_INTERP => "PT_INTERP",
-            PT_NOTE => "PT_NOTE",
-            PT_SHLIB => "PT_SHLIB",
-            PT_PHDR => "PT_PHDR",
-            PT_TLS => "PT_TLS",
-            PT_NUM => "PT_NUM",
-            PT_LOOS => "PT_LOOS",
-            PT_GNU_EH_FRAME => "PT_GNU_EH_FRAME",
-            PT_GNU_STACK => "PT_GNU_STACK",
-            PT_GNU_RELRO => "PT_GNU_RELRO",
-            PT_SUNWBSS => "PT_SUNWBSS",
-            PT_SUNWSTACK => "PT_SUNWSTACK",
-            PT_HIOS => "PT_HIOS",
-            PT_LOPROC => "PT_LOPROC",
-            PT_HIPROC => "PT_HIPROC",
-            _ => "UNKNOWN_PT",
+            use super::*;
+
+            impl fmt::Debug for Sym {
+                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    let bind = st_bind(self.st_info);
+                    let typ = st_type(self.st_info);
+                    write!(f,
+                           "st_name: {} {} {} st_other: {} st_shndx: {} st_value: {:x} st_size: {}",
+                           self.st_name,
+                           bind_to_str(bind),
+                           type_to_str(typ),
+                           self.st_other,
+                           self.st_shndx,
+                           self.st_value,
+                           self.st_size)
+                }
+            }
+
+            pub unsafe fn from_raw<'a>(symp: *const Sym, count: usize) -> &'a [Sym] {
+                slice::from_raw_parts(symp, count)
+            }
+
+            #[cfg(feature = "no_endian_fd")]
+            pub fn from_fd<'a>(fd: &mut File, offset: usize, count: usize, _: bool) -> io::Result<Vec<Sym>> {
+                let mut bytes = vec![0u8; count * SIZEOF_SYM]; // afaik this shouldn't work, since i pass in a byte size...
+                try!(fd.seek(Start(offset as u64)));
+                try!(fd.read(&mut bytes));
+                let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Sym, count) };
+                let mut syms = Vec::with_capacity(count);
+                syms.extend_from_slice(bytes);
+                syms.dedup();
+                Ok(syms)
+            }
+
+            #[cfg(not(feature = "no_endian_fd"))]
+            $from_fd_endian
+
         }
-    }
+    };}
 }
 
-pub mod section_header {
-    pub const SHN_UNDEF: u32 = 0; // Undefined section
-    pub const SHN_LORESERVE: u32 = 0xff00; // Start of reserved indices
-    pub const SHN_LOPROC: u32 = 0xff00; // Start of processor-specific
-    pub const SHN_BEFORE: u32 = 0xff00; // Order section before all others (Solaris)
-    pub const SHN_AFTER: u32 = 0xff01; // Order section after all others (Solaris)
-    pub const SHN_HIPROC: u32 = 0xff1f; // End of processor-specific
-    pub const SHN_LOOS: u32 = 0xff20; // Start of OS-specific
-    pub const SHN_HIOS: u32 = 0xff3f; // End of OS-specific
-    pub const SHN_ABS: u32 = 0xfff1; // Associated symbol is absolute
-    pub const SHN_COMMON: u32 = 0xfff2; // Associated symbol is common
-    pub const SHN_XINDEX: u32 = 0xffff; // Index is in extra table
-    pub const SHN_HIRESERVE: u32 = 0xffff; // End of reserved indices
-
-    // Legal values for sh_type (section type).
-    pub const SHT_NULL: u32 = 0; // Section header table entry unused
-    pub const SHT_PROGBITS: u32 = 1; // Program data
-    pub const SHT_SYMTAB: u32 = 2; // Symbol table
-    pub const SHT_STRTAB: u32 = 3; // String table
-    pub const SHT_RELA: u32 = 4; // Relocation entries with addends
-    pub const SHT_HASH: u32 = 5; // Symbol hash table
-    pub const SHT_DYNAMIC: u32 = 6; // Dynamic linking information
-    pub const SHT_NOTE: u32 = 7; // Notes
-    pub const SHT_NOBITS: u32 = 8; // Program space with no data (bss)
-    pub const SHT_REL: u32 = 9; // Relocation entries, no addends
-    pub const SHT_SHLIB: u32 = 10; // Reserved
-    pub const SHT_DYNSYM: u32 = 11; // Dynamic linker symbol table
-    pub const SHT_INIT_ARRAY: u32 = 14; // Array of constructors
-    pub const SHT_FINI_ARRAY: u32 = 15; // Array of destructors
-    pub const SHT_PREINIT_ARRAY: u32 = 16; // Array of pre-constructors
-    pub const SHT_GROUP: u32 = 17; // Section group
-    pub const SHT_SYMTAB_SHNDX: u32 = 18; // Extended section indeces
-    pub const SHT_NUM: u32 = 19; // Number of defined types
-    pub const SHT_LOOS: u32 = 0x60000000; // Start OS-specific
-    pub const SHT_GNU_ATTRIBUTES: u32 = 0x6ffffff5; // Object attributes
-    pub const SHT_GNU_HASH: u32 = 0x6ffffff6; // GNU-style hash table
-    pub const SHT_GNU_LIBLIST: u32 = 0x6ffffff7; // Prelink library list
-    pub const SHT_CHECKSUM: u32 = 0x6ffffff8; // Checksum for DSO content
-    pub const SHT_LOSUNW: u32 = 0x6ffffffa; // Sun-specific low bound
-    pub const SHT_SUNW_MOVE: u32 = 0x6ffffffa;
-    pub const SHT_SUNW_COMDAT: u32 = 0x6ffffffb;
-    pub const SHT_SUNW_SYMINFO: u32 = 0x6ffffffc;
-    pub const SHT_GNU_VERDEF: u32 = 0x6ffffffd; // Version definition section
-    pub const SHT_GNU_VERNEED: u32 = 0x6ffffffe; // Version needs section
-    pub const SHT_GNU_VERSYM: u32 = 0x6fffffff; // Version symbol table
-    pub const SHT_HISUNW: u32 = 0x6fffffff; // Sun-specific high bound
-    pub const SHT_HIOS: u32 = 0x6fffffff; // End OS-specific type
-    pub const SHT_LOPROC: u32 = 0x70000000; // Start of processor-specific
-    pub const SHT_HIPROC: u32 = 0x7fffffff; // End of processor-specific
-    pub const SHT_LOUSER: u32 = 0x80000000; // Start of application-specific
-    pub const SHT_HIUSER: u32 = 0x8fffffff; // End of application-specific
-
-    // Legal values for sh_flags (section flags)
-    pub const SHF_WRITE: u32 = 1 << 0; // Writable
-    pub const SHF_ALLOC: u32 = 1 << 1; // Occupies memory during execution
-    pub const SHF_EXECINSTR: u32 = 1 << 2; // Executable
-    pub const SHF_MERGE: u32 = 1 << 4; // Might be merged
-    pub const SHF_STRINGS: u32 = 1 << 5; // Contains nul-terminated strings
-    pub const SHF_INFO_LINK: u32 = 1 << 6; // `sh_info' contains SHT index
-    pub const SHF_LINK_ORDER: u32 = 1 << 7; // Preserve order after combining
-    pub const SHF_OS_NONCONFORMING: u32 = 1 << 8; // Non-standard OS specific handling required
-    pub const SHF_GROUP: u32 = 1 << 9; // Section is member of a group
-    pub const SHF_TLS: u32 = 1 << 10; // Section hold thread-local data
-    pub const SHF_COMPRESSED: u32 = 1 << 11; // Section with compressed data
-    pub const SHF_MASKOS: u32 = 0x0ff00000; // OS-specific.
-    pub const SHF_MASKPROC: u32 = 0xf0000000; // Processor-specific
-    pub const SHF_ORDERED: u32 = 1 << 30; // Special ordering requirement (Solaris)
-    //pub const SHF_EXCLUDE: u32 = 1U << 31; // Section is excluded unless referenced or allocated (Solaris)
-}
-
-pub mod dyn {
+#[macro_use] pub mod dyn {
     // TODO: figure out what's the best, most friendly + safe API choice here - u32s or u64s
     // remember that DT_TAG is "pointer sized"/used as address sometimes
     // Original rationale: I decided to use u64 instead of u32 due to pattern matching use case
@@ -428,9 +605,256 @@ pub mod dyn {
     pub const DF_1_GLOBAUDIT: u64 = 0x01000000; // Global auditing required
     pub const DF_1_SINGLETON: u64 = 0x02000000; // Singleton symbols are used
 
+    macro_rules! elf_dyn_impure_impl { ($size:ident, $from_fd_endian:item) => {
+
+        #[cfg(not(feature = "pure"))]
+        pub use self::impure::*;
+
+        #[cfg(not(feature = "pure"))]
+        mod impure {
+
+            use std::fs::File;
+            use std::io::Seek;
+            use std::io::SeekFrom::Start;
+            use std::io;
+            use std::fmt;
+            use std::slice;
+            use super::super::program_header::{ProgramHeader, PT_DYNAMIC};
+            use super::super::super::elf::strtab::Strtab;
+
+            use super::*;
+
+            impl fmt::Debug for Dyn {
+                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    write!(f,
+                           "d_tag: {} d_val: 0x{:x}",
+                           tag_to_str(self.d_tag as u64),
+                           self.d_val)
+                }
+            }
+
+            impl fmt::Debug for DynamicInfo {
+                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    let gnu_hash = if let Some(addr) = self.gnu_hash { addr } else { 0 };
+                    let hash = if let Some(addr) = self.hash { addr } else { 0 };
+                    let pltgot = if let Some(addr) = self.pltgot { addr } else { 0 };
+                    write!(f, "rela: 0x{:x} relasz: {} relaent: {} relacount: {} gnu_hash: 0x{:x} hash: 0x{:x} strtab: 0x{:x} strsz: {} symtab: 0x{:x} syment: {} pltgot: 0x{:x} pltrelsz: {} pltrel: {} jmprel: 0x{:x} verneed: 0x{:x} verneednum: {} versym: 0x{:x} init: 0x{:x} fini: 0x{:x} needed_count: {}",
+                           self.rela,
+                           self.relasz,
+                           self.relaent,
+                           self.relacount,
+                           gnu_hash,
+                           hash,
+                           self.strtab,
+                           self.strsz,
+                           self.symtab,
+                           self.syment,
+                           pltgot,
+                           self.pltrelsz,
+                           self.pltrel,
+                           self.jmprel,
+                           self.verneed,
+                           self.verneednum,
+                           self.versym,
+                           self.init,
+                           self.fini,
+                           self.needed_count,
+                           )
+                }
+            }
+
+            #[cfg(feature = "no_endian_fd")]
+            /// Returns a vector of dynamic entries from the given fd and program headers
+            pub fn from_fd(mut fd: &File, phdrs: &[ProgramHeader], _: bool) -> io::Result<Option<Vec<Dyn>>> {
+                use std::io::Read;
+                for phdr in phdrs {
+                    if phdr.p_type == PT_DYNAMIC {
+                        let filesz = phdr.p_filesz as usize;
+                        let dync = filesz / SIZEOF_DYN;
+                        let mut bytes = vec![0u8; filesz];
+                        try!(fd.seek(Start(phdr.p_offset as u64)));
+                        try!(fd.read(&mut bytes));
+                        let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Dyn, dync) };
+                        let mut dyns = Vec::with_capacity(dync);
+                        dyns.extend_from_slice(bytes);
+                        dyns.dedup();
+                        return Ok(Some(dyns));
+                    }
+                }
+                Ok(None)
+            }
+
+            /// Given a bias and a memory address (typically for a _correctly_ mmap'd binary in memory), returns the `_DYNAMIC` array as a slice of that memory
+            pub unsafe fn from_raw<'a>(bias: $size, vaddr: $size) -> &'a [Dyn] {
+                let dynp = vaddr.wrapping_add(bias) as *const Dyn;
+                let mut idx = 0;
+                while (*dynp.offset(idx)).d_tag as u64 != DT_NULL {
+                    idx += 1;
+                }
+                slice::from_raw_parts(dynp, idx as usize)
+            }
+
+            // TODO: these bare functions have always seemed awkward, but not sure where they should go...
+
+            /// Maybe gets and returns the dynamic array with the same lifetime as the [phdrs], using the provided bias with wrapping addition.
+            /// If the bias is wrong, it will either segfault or give you incorrect values, beware
+            pub unsafe fn from_phdrs<'a>(bias: $size, phdrs: &'a [ProgramHeader]) -> Option<&'a [Dyn]> {
+                for phdr in phdrs {
+                    // FIXME: change to casting to u64 similar to DT_*?
+                    if phdr.p_type as u32 == PT_DYNAMIC {
+                        return Some(from_raw(bias, phdr.p_vaddr));
+                    }
+                }
+                None
+            }
+
+            /// Gets the needed libraries from the `_DYNAMIC` array, with the str slices lifetime tied to the dynamic array/strtab's lifetime(s)
+            pub fn get_needed<'a, 'b>(dyns: &'a [Dyn], strtab: &'b Strtab<'a>, count: usize) -> Vec<&'a str> {
+                let mut needed = Vec::with_capacity(count);
+                for dyn in dyns {
+                    if dyn.d_tag as u64 == DT_NEEDED {
+                        let lib = strtab.get(dyn.d_val as usize);
+                        needed.push(lib);
+                    }
+                }
+                needed
+            }
+
+            #[cfg(not(feature = "no_endian_fd"))]
+            /// Returns a vector of dynamic entries from the given fd and program headers
+            $from_fd_endian
+
+        }
+
+        /// Important dynamic linking info generated via a single pass through the _DYNAMIC array
+        pub struct DynamicInfo {
+            pub rela: usize,
+            pub relasz: usize,
+            pub relaent: $size,
+            pub relacount: usize,
+            pub gnu_hash: Option<$size>,
+            pub hash: Option<$size>,
+            pub strtab: usize,
+            pub strsz: usize,
+            pub symtab: usize,
+            pub syment: usize,
+            pub pltgot: Option<$size>,
+            pub pltrelsz: usize,
+            pub pltrel: $size,
+            pub jmprel: usize,
+            pub verneed: $size,
+            pub verneednum: $size,
+            pub versym: $size,
+            pub init: $size,
+            pub fini: $size,
+            pub init_array: $size,
+            pub init_arraysz: usize,
+            pub fini_array: $size,
+            pub fini_arraysz: usize,
+            pub needed_count: usize,
+            pub flags: $size,
+            pub flags_1: $size,
+            pub soname: usize,
+        }
+
+        impl DynamicInfo {
+            pub fn new(dynamic: &[Dyn], bias: usize) -> DynamicInfo {
+                let bias = bias as $size;
+                let mut rela = 0;
+                let mut relasz = 0;
+                let mut relaent = 0;
+                let mut relacount = 0;
+                let mut gnu_hash = None;
+                let mut hash = None;
+                let mut strtab = 0;
+                let mut strsz = 0;
+                let mut symtab = 0;
+                let mut syment = 0;
+                let mut pltgot = None;
+                let mut pltrelsz = 0;
+                let mut pltrel = 0;
+                let mut jmprel = 0;
+                let mut verneed = 0;
+                let mut verneednum = 0;
+                let mut versym = 0;
+                let mut init = 0;
+                let mut fini = 0;
+                let mut init_array = 0;
+                let mut init_arraysz = 0;
+                let mut fini_array = 0;
+                let mut fini_arraysz = 0;
+                let mut needed_count = 0;
+                let mut flags = 0;
+                let mut flags_1 = 0;
+                let mut soname = 0;
+                for dyn in dynamic {
+                    match dyn.d_tag as u64 {
+                        DT_RELA => rela = dyn.d_val.wrapping_add(bias) as usize, // .rela.dyn
+                        DT_RELASZ => relasz = dyn.d_val as usize,
+                        DT_RELAENT => relaent = dyn.d_val,
+                        DT_RELACOUNT => relacount = dyn.d_val as usize,
+                        DT_GNU_HASH => gnu_hash = Some(dyn.d_val.wrapping_add(bias)),
+                        DT_HASH => hash = Some(dyn.d_val.wrapping_add(bias)),
+                        DT_STRTAB => strtab = dyn.d_val.wrapping_add(bias) as usize,
+                        DT_STRSZ => strsz = dyn.d_val as usize,
+                        DT_SYMTAB => symtab = dyn.d_val.wrapping_add(bias) as usize,
+                        DT_SYMENT => syment = dyn.d_val as usize,
+                        DT_PLTGOT => pltgot = Some(dyn.d_val.wrapping_add(bias)),
+                        DT_PLTRELSZ => pltrelsz = dyn.d_val as usize,
+                        DT_PLTREL => pltrel = dyn.d_val,
+                        DT_JMPREL => jmprel = dyn.d_val.wrapping_add(bias) as usize, // .rela.plt
+                        DT_VERNEED => verneed = dyn.d_val.wrapping_add(bias),
+                        DT_VERNEEDNUM => verneednum = dyn.d_val,
+                        DT_VERSYM => versym = dyn.d_val.wrapping_add(bias),
+                        DT_INIT => init = dyn.d_val.wrapping_add(bias),
+                        DT_FINI => fini = dyn.d_val.wrapping_add(bias),
+                        DT_INIT_ARRAY => init_array = dyn.d_val.wrapping_add(bias),
+                        DT_INIT_ARRAYSZ => init_arraysz = dyn.d_val,
+                        DT_FINI_ARRAY => fini_array = dyn.d_val.wrapping_add(bias),
+                        DT_FINI_ARRAYSZ => fini_arraysz = dyn.d_val,
+                        DT_NEEDED => needed_count += 1,
+                        DT_FLAGS => flags = dyn.d_val,
+                        DT_FLAGS_1 => flags_1 = dyn.d_val,
+                        DT_SONAME => soname = dyn.d_val,
+                        _ => (),
+                    }
+                }
+
+                DynamicInfo {
+                    rela: rela,
+                    relasz: relasz,
+                    relaent: relaent,
+                    relacount: relacount,
+                    gnu_hash: gnu_hash,
+                    hash: hash,
+                    strtab: strtab,
+                    strsz: strsz,
+                    symtab: symtab,
+                    syment: syment,
+                    pltgot: pltgot,
+                    pltrelsz: pltrelsz,
+                    pltrel: pltrel,
+                    jmprel: jmprel,
+                    verneed: verneed,
+                    verneednum: verneednum,
+                    versym: versym,
+                    init: init,
+                    fini: fini,
+                    init_array: init_array,
+                    init_arraysz: init_arraysz as usize,
+                    fini_array: fini_array,
+                    fini_arraysz: fini_arraysz as usize,
+                    needed_count: needed_count,
+                    flags: flags,
+                    flags_1: flags_1,
+                    soname: soname as usize,
+                }
+            }
+        }
+    };}
 }
 
-pub mod rela {
+#[macro_use] pub mod rela {
     pub const R_X86_64_NONE: u64 = 0; // No reloc
     pub const R_X86_64_64: u64 = 1; // Direct 64 bit
     pub const R_X86_64_PC32: u64 = 2; // PC relative 32 bit signed
@@ -517,13 +941,70 @@ pub mod rela {
             _ => "UNKNOWN_RELA_TYPE",
         }
     }
+
+    macro_rules! elf_rela_impure_impl { ($from_fd_endian:item) => {
+
+        #[cfg(not(feature = "pure"))]
+        pub use self::impure::*;
+
+        #[cfg(not(feature = "pure"))]
+        mod impure {
+
+            use super::*;
+
+            use std::fs::File;
+            use std::io::Seek;
+            use std::io::SeekFrom::Start;
+            use std::io;
+            use std::fmt;
+            use std::slice;
+
+            impl fmt::Debug for Rela {
+                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    let sym = r_sym(self.r_info);
+                    let typ = r_type(self.r_info);
+                    write!(f,
+                           "r_offset: {:x} {} @ {} r_addend: {:x}",
+                           self.r_offset,
+                           type_to_str(typ as u64),
+                           sym,
+                           self.r_addend)
+                }
+            }
+
+            /// Gets the rela entries given a rela u64 and the _size_ of the rela section in the binary, in bytes.  Works for regular rela and the pltrela table.
+            /// Assumes the pointer is valid and can safely return a slice of memory pointing to the relas because:
+            /// 1. `rela` points to memory received from the kernel (i.e., it loaded the executable), _or_
+            /// 2. The binary has already been mmapped (i.e., it's a `SharedObject`), and hence it's safe to return a slice of that memory.
+            /// 3. Or if you obtained the pointer in some other lawful manner
+            pub unsafe fn from_raw<'a>(ptr: *const Rela, size: usize) -> &'a [Rela] {
+                slice::from_raw_parts(ptr, size / SIZEOF_RELA)
+            }
+
+            #[cfg(feature = "no_endian_fd")]
+            pub fn from_fd(fd: &mut File, offset: usize, size: usize, _: bool) -> io::Result<Vec<Rela>> {
+                use std::io::Read;
+                let count = size / SIZEOF_RELA;
+                let mut bytes = vec![0u8; size];
+                try!(fd.seek(Start(offset as u64)));
+                try!(fd.read(&mut bytes));
+                let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Rela, count) };
+                let mut res = Vec::with_capacity(count);
+                res.extend_from_slice(bytes);
+                Ok(res)
+            }
+
+            #[cfg(not(feature = "no_endian_fd"))]
+            $from_fd_endian
+        }
+    };}
 }
 
 #[cfg(all(not(feature = "pure"), not(feature = "no_elf32"), not(feature = "no_elf")))]
 pub use self::impure::*;
 
 #[cfg(all(not(feature = "pure"), not(feature = "no_elf32"), not(feature = "no_elf")))]
-mod impure {
+#[macro_use] mod impure {
 
     use std::fs::File;
     use std::io;
@@ -547,7 +1028,7 @@ mod impure {
                 Ok(Binary::Elf64(try!(elf64::Binary::from_fd(fd))))
             },
             (header::ELFCLASS32, _is_lsb) => {
-                io_error!("ELF32 from_fd unimplemented")
+                Ok(Binary::Elf32(try!(elf32::Binary::from_fd(fd))))
             },
             (class, is_lsb) => {
                 io_error!("Unknown values in ELF ident header: class: {} is_lsb: {}", class, is_lsb)
@@ -555,3 +1036,122 @@ mod impure {
         }
     }
 }
+
+macro_rules! elf_from_fd { ($intmax:expr) => {
+    use std::path::Path;
+    use std::fs::File;
+    use std::io;
+    use std::io::Read;
+    use std::io::Seek;
+    use std::io::SeekFrom::Start;
+
+    pub use super::super::elf::strtab;
+    use super::{header, program_header, dyn, sym, rela};
+
+    #[derive(Debug)]
+    pub struct Binary {
+        pub header: header::Header,
+        pub program_headers: Vec<program_header::ProgramHeader>,
+        pub dynamic: Option<Vec<dyn::Dyn>>,
+        pub symtab: Vec<sym::Sym>,
+        pub rela: Vec<rela::Rela>,
+        pub pltrela: Vec<rela::Rela>,
+        pub strtab: Vec<String>,
+        pub soname: Option<String>,
+        pub interpreter: Option<String>,
+        pub libraries: Vec<String>,
+        pub is_lib: bool,
+        pub size: usize,
+        pub entry: usize,
+    }
+
+    impl Binary {
+        pub fn from_fd (fd: &mut File) -> io::Result<Binary> {
+            let header = try!(header::Header::from_fd(fd));
+            let entry = header.e_entry as usize;
+            let is_lib = header.e_type == header::ET_DYN;
+            let is_lsb = header.e_ident[header::EI_DATA] == header::ELFDATA2LSB;
+
+            let program_headers = try!(program_header::ProgramHeader::from_fd(fd, header.e_phoff as u64, header.e_phnum as usize, is_lsb));
+
+            let dynamic = try!(dyn::from_fd(fd, &program_headers, is_lsb));
+            let mut bias: usize = 0;
+            for ph in &program_headers {
+                if ph.p_type == program_header::PT_LOAD {
+                    // this is an overflow hack that allows us to use virtual memory addresses as though they're in the file by generating a fake load bias which is then used to overflow the values in the dynamic array, and in a few other places (see Dyn::DynamicInfo), to generate actual file offsets; you may have to marinate a bit on why this works. i am unsure whether it works in every conceivable case. i learned this trick from reading too much dynamic linker C code (a whole other class of C code) and having to deal with broken older kernels on VMs. enjoi
+                    bias = (($intmax - ph.p_vaddr).wrapping_add(1)) as usize;
+                    break;
+                }
+            }
+
+            let mut interpreter = None;
+            for ph in &program_headers {
+                if ph.p_type == program_header::PT_INTERP {
+                    let mut bytes = vec![0u8; (ph.p_filesz - 1) as usize];
+                    try!(fd.seek(Start(ph.p_offset as u64)));
+                    try!(fd.read(&mut bytes));
+                    interpreter = Some(String::from_utf8(bytes).unwrap())
+                }
+            }
+
+            let mut soname = None;
+            let mut libraries = vec![];
+            let mut symtab = vec![];
+            let mut rela = vec![];
+            let mut pltrela = vec![];
+            let mut strtabv = vec![];
+            if let Some(ref dynamic) = dynamic {
+                let link_info = dyn::DynamicInfo::new(&dynamic, bias); // we explicitly overflow the values here with our bias
+                let strtab = try!(strtab::Strtab::from_fd(fd,
+                                                          link_info.strtab,
+                                                          link_info.strsz));
+                if link_info.soname != 0 {
+                    soname = Some(strtab.get(link_info.soname).to_owned())
+                }
+                if link_info.needed_count > 0 {
+                    let needed = dyn::get_needed(dynamic, &strtab, link_info.needed_count);
+                    libraries = Vec::with_capacity(link_info.needed_count);
+                    for lib in needed {
+                        libraries.push(lib.to_owned());
+                    }
+                }
+
+                let num_syms = (link_info.strtab - link_info.symtab) / link_info.syment; // old caveat about how this is probably not safe but rdr has been doing it with tons of binaries and never any problems
+                symtab = try!(sym::from_fd(fd, link_info.symtab, num_syms, is_lsb));
+
+                rela = try!(rela::from_fd(fd, link_info.rela, link_info.relasz, is_lsb));
+                pltrela = try!(rela::from_fd(fd, link_info.jmprel, link_info.pltrelsz, is_lsb));
+                strtabv = strtab.to_vec();
+
+            }
+
+            let elf = Binary {
+                header: header,
+                program_headers: program_headers,
+                dynamic: dynamic,
+                symtab: symtab,
+                rela: rela,
+                pltrela: pltrela,
+                strtab: strtabv,
+                soname: soname,
+                interpreter: interpreter,
+                libraries: libraries,
+                is_lib: is_lib,
+                size: fd.metadata().unwrap().len() as usize,
+                entry: entry,
+            };
+
+            Ok(elf)
+        }
+
+        pub fn from_path<'a>(path: &Path) -> io::Result<Binary> {
+            let mut fd = try!(File::open(&path));
+            let metadata = fd.metadata().unwrap();
+            if metadata.len() < header::SIZEOF_EHDR as u64 {
+                io_error!("Error: {:?} size is smaller than an ELF header", path.as_os_str())
+            } else {
+                Self::from_fd(&mut fd)
+            }
+        }
+    }
+};}

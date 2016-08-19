@@ -25,7 +25,7 @@ extern crate byteorder;
 #[macro_use] mod macros;
 
 #[cfg(any(not(feature = "no_elf"), not(feature = "no_elf32")))]
-pub mod elf;
+#[macro_use] pub mod elf;
 
 // if racer gets path understanding, i think this is the way to go; it hides everything from the user w.r.t. module internals like _64, etc.
 // though i did like the more declarative version below, without using paths, i just for the life of me cannot get the compiler to reexport values two mods down while keeping the internal mod name private... and i don't see anyone else doing this

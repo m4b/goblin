@@ -5,7 +5,7 @@ use std::io::{self, Read, Seek};
 use std::io::SeekFrom::Start;
 use super::constants::cputype;
 
-use byteorder::{BigEndian,ReadBytesExt};
+use byteorder::{BigEndian, ReadBytesExt};
 
 pub const FAT_MAGIC: u32 = 0xcafebabe;
 pub const FAT_CIGAM: u32 = 0xbebafeca;
@@ -56,7 +56,10 @@ impl FatHeader {
         let mut cursor = Cursor::new(bytes);
         let magic = cursor.read_u32::<BigEndian>().unwrap();
         let nfat_arch = cursor.read_u32::<BigEndian>().unwrap();
-        FatHeader { magic: magic, nfat_arch: nfat_arch }
+        FatHeader {
+            magic: magic,
+            nfat_arch: nfat_arch,
+        }
     }
 
     pub fn from_fd(fd: &mut File) -> io::Result<FatHeader> {
@@ -67,7 +70,6 @@ impl FatHeader {
 }
 
 impl FatArch {
-
     pub fn new(bytes: &[u8; SIZEOF_FAT_ARCH]) -> FatArch {
         use std::io::Cursor;
         let mut cursor = Cursor::new(bytes);
@@ -76,7 +78,13 @@ impl FatArch {
         let offset = cursor.read_u32::<BigEndian>().unwrap();
         let size = cursor.read_u32::<BigEndian>().unwrap();
         let align = cursor.read_u32::<BigEndian>().unwrap();
-        FatArch {cputype: cputype, cpusubtype: cpusubtype, offset: offset, size: size, align: align}
+        FatArch {
+            cputype: cputype,
+            cpusubtype: cpusubtype,
+            offset: offset,
+            size: size,
+            align: align,
+        }
     }
 
     pub fn is_64(&self) -> bool {
@@ -106,10 +114,10 @@ impl FatArch {
     }
 
     pub fn find_cputype(arches: &[Self], cputype: u32) -> Option<&Self> {
-        arches.iter().find(| arch | arch.cputype == cputype)
+        arches.iter().find(|arch| arch.cputype == cputype)
     }
 
     pub fn find_64(arches: &[Self]) -> Option<&Self> {
-        arches.iter().find(| arch | arch.is_64())
+        arches.iter().find(|arch| arch.is_64())
     }
 }

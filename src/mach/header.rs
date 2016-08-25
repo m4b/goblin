@@ -39,7 +39,7 @@ pub const MH_NO_HEAP_EXECUTION: u32 = 0x1000000; // When this bit is set, the OS
 pub const MH_APP_EXTENSION_SAFE: u32 = 0x2000000; // The code was linked for use in an application extension.
 
 #[inline(always)]
-pub fn  flag_to_str(flag: u32) -> &'static str {
+pub fn flag_to_str(flag: u32) -> &'static str {
     match flag {
         MH_NOUNDEFS => "MH_NOUNDEFS",
         MH_INCRLINK => "MH_INCRLINK",
@@ -52,7 +52,7 @@ pub fn  flag_to_str(flag: u32) -> &'static str {
         MH_FORCE_FLAT => "MH_FORCE_FLAT",
         MH_NOMULTIDEFS => "MH_NOMULTIDEFS",
         MH_NOFIXPREBINDING => "MH_NOFIXPREBINDING",
-        MH_PREBINDABLE  => "MH_PREBINDABLE ",
+        MH_PREBINDABLE => "MH_PREBINDABLE ",
         MH_ALLMODSBOUND => "MH_ALLMODSBOUND",
         MH_SUBSECTIONS_VIA_SYMBOLS => "MH_SUBSECTIONS_VIA_SYMBOLS",
         MH_CANONICAL => "MH_CANONICAL",
@@ -67,7 +67,7 @@ pub fn  flag_to_str(flag: u32) -> &'static str {
         MH_HAS_TLV_DESCRIPTORS => "MH_HAS_TLV_DESCRIPTORS",
         MH_NO_HEAP_EXECUTION => "MH_NO_HEAP_EXECUTION",
         MH_APP_EXTENSION_SAFE => "MH_APP_EXTENSION_SAFE",
-        _ => "UNKNOWN FLAG"
+        _ => "UNKNOWN FLAG",
     }
 }
 
@@ -147,12 +147,11 @@ impl Header {
         *header
     }
 
-    //#[cfg(feature = "no_endian_fd")]
+    // #[cfg(feature = "no_endian_fd")]
     pub fn from_fd(fd: &mut File, offset: u64) -> io::Result<Header> {
         let mut header = [0; SIZEOF_MACH_HEADER];
         try!(fd.seek(Start(offset)));
         try!(fd.read(&mut header));
         Ok(Header::from_bytes(&header))
     }
-
 }

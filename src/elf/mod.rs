@@ -1,36 +1,59 @@
-//! Access ELF constants, other helper functions, which are independent of ELF bithood.
-//! Also provides simple parser which returns an Elf64 or Elf32 "pre-built" binary.
-//! **WARNING**: to use the automagic ELF datatype union parser, you _must_ enable both elf and elf32 features - i.e., do not use `no_elf` **NOR** `no_elf32`, otherwise you'll get obscure errors about [goblin::elf::from_fd](fn.from_fd.html) missing.
+//! Access ELF constants, other helper functions, which are independent of ELF bithood.  Also
+//! provides simple parser which returns an Elf64 or Elf32 "pre-built" binary.
+//!
+//! **WARNING**: to use the automagic ELF datatype union parser, you _must_ enable both elf and
+//! elf32 features - i.e., do not use `no_elf` **NOR** `no_elf32`, otherwise you'll get obscure
+//! errors about [goblin::elf::from_fd](fn.from_fd.html) missing.
 
 #[cfg(not(feature = "pure"))]
 pub mod strtab;
 
-// These are shareable values for the 32/64 bit implementations
+// These are shareable values for the 32/64 bit implementations.
+//
 // They are publicly re-exported by the pub-using module
-#[macro_use] pub mod header {
-    pub const ET_NONE: u16 = 0; // No file type
-    pub const ET_REL: u16 = 1; // Relocatable file
-    pub const ET_EXEC: u16 = 2; // Executable file
-    pub const ET_DYN: u16 = 3; // Shared object file
-    pub const ET_CORE: u16 = 4; // Core file
-    pub const ET_NUM: u16 = 5; // Number of defined types
+#[macro_use]
+pub mod header {
+    /// No file type.
+    pub const ET_NONE: u16 = 0;
+    /// Relocatable file.
+    pub const ET_REL: u16 = 1;
+    /// Executable file.
+    pub const ET_EXEC: u16 = 2;
+    /// Shared object file.
+    pub const ET_DYN: u16 = 3;
+    /// Core file.
+    pub const ET_CORE: u16 = 4;
+    /// Number of defined types.
+    pub const ET_NUM: u16 = 5;
 
+    /// The ELF magic number.
     pub const ELFMAG: &'static [u8; 4] = b"\x7FELF";
+    // SELF (Security-enhanced ELF) magic number.
     pub const SELFMAG: usize = 4;
 
-    pub const EI_CLASS: usize = 4; // File class byte index
-    pub const ELFCLASSNONE: u8 = 0; // Invalid class
-    pub const ELFCLASS32: u8 = 1; //32-bit objects
-    pub const ELFCLASS64: u8 = 2; // 64-bit objects
+    /// File class byte index.
+    pub const EI_CLASS: usize = 4;
+    /// Invalid class.
+    pub const ELFCLASSNONE: u8 = 0;
+    /// 32-bit objects.
+    pub const ELFCLASS32: u8 = 1;
+    /// 64-bit objects.
+    pub const ELFCLASS64: u8 = 2;
+    /// ELF class number.
     pub const ELFCLASSNUM: u8 = 3;
 
-    pub const EI_DATA: usize = 5; // Data encoding byte index
-    pub const ELFDATANONE: u8 = 0; // Invalid data encoding
-    pub const ELFDATA2LSB: u8 = 1; // 2's complement, little endian
-    pub const ELFDATA2MSB: u8 = 2; // 2's complement, big endian
-
+    /// Data encoding byte index.
+    pub const EI_DATA: usize = 5;
+    /// Invalid data encoding.
+    pub const ELFDATANONE: u8 = 0;
+    /// 2's complement, little endian.
+    pub const ELFDATA2LSB: u8 = 1;
+    /// 2's complement, big endian.
+    pub const ELFDATA2MSB: u8 = 2;
+    /// Number of bytes in an identifier.
     pub const SIZEOF_IDENT: usize = 16;
 
+    /// Convert an ET value to their associated string.
     #[inline]
     pub fn et_to_str(et: u16) -> &'static str {
         match et {
@@ -57,84 +80,98 @@ pub mod strtab;
         use std::io::Seek;
         use std::io::SeekFrom::Start;
 
+        /// Search forward in the stream.
         pub fn peek(fd: &mut File) -> io::Result<(u8, bool)> {
             let mut header = [0u8; SIZEOF_IDENT];
             try!(fd.seek(Start(0)));
+
             match try!(fd.read(&mut header)) {
                 SIZEOF_IDENT => {
                     let class = header[EI_CLASS];
                     let is_lsb = header[EI_DATA] == ELFDATA2LSB;
                     Ok((class, is_lsb))
                 }
-                count => { io_error!("Error: {:?} size is smaller than an ELF identication header", count) }
+                count => {
+                    io_error!("Error: {:?} size is smaller than an ELF identication header",
+                              count)
+                }
             }
         }
     }
 
-    macro_rules! elf_header_from_bytes { () => {
-        /// Returns the corresponding ELF header from the given byte array
-        pub fn from_bytes(bytes: &[u8; SIZEOF_EHDR]) -> Header {
-            // this is not unsafe because the header's size is encoded in the function, although the header can be semantically invalid
-            let header: &Header = unsafe { mem::transmute(bytes) };
-            header.clone()
-        }
-    };}
-
-    macro_rules! elf_header_from_fd { () => {
-        #[cfg(feature = "no_endian_fd")]
-        pub fn from_fd(fd: &mut File) -> io::Result<Header> {
-            let mut elf_header = [0; SIZEOF_EHDR];
-            try!(fd.read(&mut elf_header));
-            Ok(Header::from_bytes(&elf_header))
-        }
-    };}
-
-    macro_rules! elf_header_impure_impl { ($header:item) => {
-
-        #[cfg(not(feature = "pure"))]
-        pub use self::impure::*;
-
-        #[cfg(not(feature = "pure"))]
-        mod impure {
-
-            use super::*;
-
-            use std::mem;
-            use std::fmt;
-            use std::fs::File;
-            use std::io::Read;
-            use std::io;
-
-            impl fmt::Debug for Header {
-                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                    write!(f,
-                           "e_ident: {:?} e_type: {} e_machine: 0x{:x} e_version: 0x{:x} e_entry: 0x{:x} \
-                            e_phoff: 0x{:x} e_shoff: 0x{:x} e_flags: {:x} e_ehsize: {} e_phentsize: {} \
-                            e_phnum: {} e_shentsize: {} e_shnum: {} e_shstrndx: {}",
-                           self.e_ident,
-                           et_to_str(self.e_type),
-                           self.e_machine,
-                           self.e_version,
-                           self.e_entry,
-                           self.e_phoff,
-                           self.e_shoff,
-                           self.e_flags,
-                           self.e_ehsize,
-                           self.e_phentsize,
-                           self.e_phnum,
-                           self.e_shentsize,
-                           self.e_shnum,
-                           self.e_shstrndx)
-                }
+    /// Derive the `from_bytes` method for a header.
+    macro_rules! elf_header_from_bytes {
+        () => {
+            /// Returns the corresponding ELF header from the given byte array.
+            pub fn from_bytes(bytes: &[u8; SIZEOF_EHDR]) -> Header {
+                // This is not unsafe because the header's size is encoded in the function,
+                // although the header can be semantically invalid.
+                let header: &Header = unsafe { mem::transmute(bytes) };
+                header.clone()
             }
+        };
+    }
 
-            $header
-        }
-    };}
+    /// Derive the `from_fd` method for a header.
+    macro_rules! elf_header_from_fd {
+        () => {
+            /// Load a header from a file.
+            #[cfg(feature = "no_endian_fd")]
+            pub fn from_fd(fd: &mut File) -> io::Result<Header> {
+                let mut elf_header = [0; SIZEOF_EHDR];
+                try!(fd.read(&mut elf_header));
+                Ok(Header::from_bytes(&elf_header))
+            }
+        };
+    }
 
+    macro_rules! elf_header_impure_impl {
+        ($header:item) => {
+            #[cfg(not(feature = "pure"))]
+            pub use self::impure::*;
+
+            #[cfg(not(feature = "pure"))]
+            mod impure {
+
+                use super::*;
+
+                use std::mem;
+                use std::fmt;
+                use std::fs::File;
+                use std::io::Read;
+                use std::io;
+
+                impl fmt::Debug for Header {
+                    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                        write!(f,
+                               "e_ident: {:?} e_type: {} e_machine: 0x{:x} e_version: 0x{:x} e_entry: 0x{:x} \
+                               e_phoff: 0x{:x} e_shoff: 0x{:x} e_flags: {:x} e_ehsize: {} e_phentsize: {} \
+                            e_phnum: {} e_shentsize: {} e_shnum: {} e_shstrndx: {}",
+                            self.e_ident,
+                            et_to_str(self.e_type),
+                            self.e_machine,
+                            self.e_version,
+                            self.e_entry,
+                            self.e_phoff,
+                            self.e_shoff,
+                            self.e_flags,
+                            self.e_ehsize,
+                            self.e_phentsize,
+                            self.e_phnum,
+                            self.e_shentsize,
+                            self.e_shnum,
+                            self.e_shstrndx)
+                    }
+                }
+
+                $header
+            }
+        };
+    }
 }
 
-#[macro_use] pub mod program_header {
+#[macro_use]
+pub mod program_header {
     pub const PT_NULL: u32 = 0;
     pub const PT_LOAD: u32 = 1;
     pub const PT_DYNAMIC: u32 = 2;
@@ -258,122 +295,213 @@ pub mod strtab;
 }
 
 pub mod section_header {
-    pub const SHN_UNDEF: u32 = 0; // Undefined section
-    pub const SHN_LORESERVE: u32 = 0xff00; // Start of reserved indices
-    pub const SHN_LOPROC: u32 = 0xff00; // Start of processor-specific
-    pub const SHN_BEFORE: u32 = 0xff00; // Order section before all others (Solaris)
-    pub const SHN_AFTER: u32 = 0xff01; // Order section after all others (Solaris)
-    pub const SHN_HIPROC: u32 = 0xff1f; // End of processor-specific
-    pub const SHN_LOOS: u32 = 0xff20; // Start of OS-specific
-    pub const SHN_HIOS: u32 = 0xff3f; // End of OS-specific
-    pub const SHN_ABS: u32 = 0xfff1; // Associated symbol is absolute
-    pub const SHN_COMMON: u32 = 0xfff2; // Associated symbol is common
-    pub const SHN_XINDEX: u32 = 0xffff; // Index is in extra table
-    pub const SHN_HIRESERVE: u32 = 0xffff; // End of reserved indices
+    /// Undefined section.
+    pub const SHN_UNDEF: u32 = 0;
+    /// Start of reserved indices.
+    pub const SHN_LORESERVE: u32 = 0xff00;
+    /// Start of processor-specific.
+    pub const SHN_LOPROC: u32 = 0xff00;
+    /// Order section before all others (Solaris).
+    pub const SHN_BEFORE: u32 = 0xff00;
+    /// Order section after all others (Solaris).
+    pub const SHN_AFTER: u32 = 0xff01;
+    /// End of processor-specific.
+    pub const SHN_HIPROC: u32 = 0xff1f;
+    /// Start of OS-specific.
+    pub const SHN_LOOS: u32 = 0xff20;
+    /// End of OS-specific.
+    pub const SHN_HIOS: u32 = 0xff3f;
+    /// Associated symbol is absolute.
+    pub const SHN_ABS: u32 = 0xfff1;
+    /// Associated symbol is common.
+    pub const SHN_COMMON: u32 = 0xfff2;
+    /// Index is in extra table.
+    pub const SHN_XINDEX: u32 = 0xffff;
+    /// End of reserved indices.
+    pub const SHN_HIRESERVE: u32 = 0xffff;
 
-    // Legal values for sh_type (section type).
-    pub const SHT_NULL: u32 = 0; // Section header table entry unused
-    pub const SHT_PROGBITS: u32 = 1; // Program data
-    pub const SHT_SYMTAB: u32 = 2; // Symbol table
-    pub const SHT_STRTAB: u32 = 3; // String table
-    pub const SHT_RELA: u32 = 4; // Relocation entries with addends
-    pub const SHT_HASH: u32 = 5; // Symbol hash table
-    pub const SHT_DYNAMIC: u32 = 6; // Dynamic linking information
-    pub const SHT_NOTE: u32 = 7; // Notes
-    pub const SHT_NOBITS: u32 = 8; // Program space with no data (bss)
-    pub const SHT_REL: u32 = 9; // Relocation entries, no addends
-    pub const SHT_SHLIB: u32 = 10; // Reserved
-    pub const SHT_DYNSYM: u32 = 11; // Dynamic linker symbol table
-    pub const SHT_INIT_ARRAY: u32 = 14; // Array of constructors
-    pub const SHT_FINI_ARRAY: u32 = 15; // Array of destructors
-    pub const SHT_PREINIT_ARRAY: u32 = 16; // Array of pre-constructors
-    pub const SHT_GROUP: u32 = 17; // Section group
-    pub const SHT_SYMTAB_SHNDX: u32 = 18; // Extended section indeces
-    pub const SHT_NUM: u32 = 19; // Number of defined types
-    pub const SHT_LOOS: u32 = 0x60000000; // Start OS-specific
-    pub const SHT_GNU_ATTRIBUTES: u32 = 0x6ffffff5; // Object attributes
-    pub const SHT_GNU_HASH: u32 = 0x6ffffff6; // GNU-style hash table
-    pub const SHT_GNU_LIBLIST: u32 = 0x6ffffff7; // Prelink library list
-    pub const SHT_CHECKSUM: u32 = 0x6ffffff8; // Checksum for DSO content
-    pub const SHT_LOSUNW: u32 = 0x6ffffffa; // Sun-specific low bound
+    // === Legal values for sh_type (section type). ===
+    /// Section header table entry unused.
+    pub const SHT_NULL: u32 = 0;
+    /// Program data.
+    pub const SHT_PROGBITS: u32 = 1;
+    /// Symbol table.
+    pub const SHT_SYMTAB: u32 = 2;
+    /// String table.
+    pub const SHT_STRTAB: u32 = 3;
+    /// Relocation entries with addends.
+    pub const SHT_RELA: u32 = 4;
+    /// Symbol hash table.
+    pub const SHT_HASH: u32 = 5;
+    /// Dynamic linking information.
+    pub const SHT_DYNAMIC: u32 = 6;
+    /// Notes.
+    pub const SHT_NOTE: u32 = 7;
+    /// Program space with no data (bss).
+    pub const SHT_NOBITS: u32 = 8;
+    /// Relocation entries, no addends.
+    pub const SHT_REL: u32 = 9;
+    /// Reserved.
+    pub const SHT_SHLIB: u32 = 10;
+    /// Dynamic linker symbol table.
+    pub const SHT_DYNSYM: u32 = 11;
+    /// Array of constructors.
+    pub const SHT_INIT_ARRAY: u32 = 14;
+    /// Array of destructors.
+    pub const SHT_FINI_ARRAY: u32 = 15;
+    /// Array of pre-constructors.
+    pub const SHT_PREINIT_ARRAY: u32 = 16;
+    /// Section group.
+    pub const SHT_GROUP: u32 = 17;
+    /// Extended section indeces.
+    pub const SHT_SYMTAB_SHNDX: u32 = 18;
+    /// Number of defined types.
+    pub const SHT_NUM: u32 = 19;
+    /// Start OS-specific.
+    pub const SHT_LOOS: u32 = 0x60000000;
+    /// Object attributes.
+    pub const SHT_GNU_ATTRIBUTES: u32 = 0x6ffffff5;
+    /// GNU-style hash table.
+    pub const SHT_GNU_HASH: u32 = 0x6ffffff6;
+    /// Prelink library list.
+    pub const SHT_GNU_LIBLIST: u32 = 0x6ffffff7;
+    /// Checksum for DSO content.
+    pub const SHT_CHECKSUM: u32 = 0x6ffffff8;
+    /// Sun-specific low bound.
+    pub const SHT_LOSUNW: u32 = 0x6ffffffa;
     pub const SHT_SUNW_MOVE: u32 = 0x6ffffffa;
     pub const SHT_SUNW_COMDAT: u32 = 0x6ffffffb;
     pub const SHT_SUNW_SYMINFO: u32 = 0x6ffffffc;
-    pub const SHT_GNU_VERDEF: u32 = 0x6ffffffd; // Version definition section
-    pub const SHT_GNU_VERNEED: u32 = 0x6ffffffe; // Version needs section
-    pub const SHT_GNU_VERSYM: u32 = 0x6fffffff; // Version symbol table
-    pub const SHT_HISUNW: u32 = 0x6fffffff; // Sun-specific high bound
-    pub const SHT_HIOS: u32 = 0x6fffffff; // End OS-specific type
-    pub const SHT_LOPROC: u32 = 0x70000000; // Start of processor-specific
-    pub const SHT_HIPROC: u32 = 0x7fffffff; // End of processor-specific
-    pub const SHT_LOUSER: u32 = 0x80000000; // Start of application-specific
-    pub const SHT_HIUSER: u32 = 0x8fffffff; // End of application-specific
+    /// Version definition section.
+    pub const SHT_GNU_VERDEF: u32 = 0x6ffffffd;
+    /// Version needs section.
+    pub const SHT_GNU_VERNEED: u32 = 0x6ffffffe;
+    /// Version symbol table.
+    pub const SHT_GNU_VERSYM: u32 = 0x6fffffff;
+    /// Sun-specific high bound.
+    pub const SHT_HISUNW: u32 = 0x6fffffff;
+    /// End OS-specific type.
+    pub const SHT_HIOS: u32 = 0x6fffffff;
+    /// Start of processor-specific.
+    pub const SHT_LOPROC: u32 = 0x70000000;
+    /// End of processor-specific.
+    pub const SHT_HIPROC: u32 = 0x7fffffff;
+    /// Start of application-specific.
+    pub const SHT_LOUSER: u32 = 0x80000000;
+    /// End of application-specific.
+    pub const SHT_HIUSER: u32 = 0x8fffffff;
 
     // Legal values for sh_flags (section flags)
-    pub const SHF_WRITE: u32 = 1 << 0; // Writable
-    pub const SHF_ALLOC: u32 = 1 << 1; // Occupies memory during execution
-    pub const SHF_EXECINSTR: u32 = 1 << 2; // Executable
-    pub const SHF_MERGE: u32 = 1 << 4; // Might be merged
-    pub const SHF_STRINGS: u32 = 1 << 5; // Contains nul-terminated strings
-    pub const SHF_INFO_LINK: u32 = 1 << 6; // `sh_info' contains SHT index
-    pub const SHF_LINK_ORDER: u32 = 1 << 7; // Preserve order after combining
-    pub const SHF_OS_NONCONFORMING: u32 = 1 << 8; // Non-standard OS specific handling required
-    pub const SHF_GROUP: u32 = 1 << 9; // Section is member of a group
-    pub const SHF_TLS: u32 = 1 << 10; // Section hold thread-local data
-    pub const SHF_COMPRESSED: u32 = 1 << 11; // Section with compressed data
-    pub const SHF_MASKOS: u32 = 0x0ff00000; // OS-specific.
-    pub const SHF_MASKPROC: u32 = 0xf0000000; // Processor-specific
-    pub const SHF_ORDERED: u32 = 1 << 30; // Special ordering requirement (Solaris)
-    //pub const SHF_EXCLUDE: u32 = 1U << 31; // Section is excluded unless referenced or allocated (Solaris)
+    /// Writable.
+    pub const SHF_WRITE: u32 = 1 << 0;
+    /// Occupies memory during execution.
+    pub const SHF_ALLOC: u32 = 1 << 1;
+    /// Executable.
+    pub const SHF_EXECINSTR: u32 = 1 << 2;
+    /// Might be merged.
+    pub const SHF_MERGE: u32 = 1 << 4;
+    /// Contains nul-terminated strings.
+    pub const SHF_STRINGS: u32 = 1 << 5;
+    /// `sh_info' contains SHT index.
+    pub const SHF_INFO_LINK: u32 = 1 << 6;
+    /// Preserve order after combining.
+    pub const SHF_LINK_ORDER: u32 = 1 << 7;
+    /// Non-standard OS specific handling required.
+    pub const SHF_OS_NONCONFORMING: u32 = 1 << 8;
+    /// Section is member of a group.
+    pub const SHF_GROUP: u32 = 1 << 9;
+    /// Section hold thread-local data.
+    pub const SHF_TLS: u32 = 1 << 10;
+    /// Section with compressed data.
+    pub const SHF_COMPRESSED: u32 = 1 << 11;
+    /// OS-specific..
+    pub const SHF_MASKOS: u32 = 0x0ff00000;
+    /// Processor-specific.
+    pub const SHF_MASKPROC: u32 = 0xf0000000;
+    /// Special ordering requirement (Solaris).
+    pub const SHF_ORDERED: u32 = 1 << 30;
+    // /// Section is excluded unless referenced or allocated (Solaris).
+    // pub const SHF_EXCLUDE: u32 = 1U << 31;
 }
 
-#[macro_use] pub mod sym {
-    // sym bindings
-    pub const STB_LOCAL: u8 = 0; // Local symbol
-    pub const STB_GLOBAL: u8 = 1; // Global symbol
-    pub const STB_WEAK: u8 = 2; // Weak symbol
-    pub const STB_NUM: u8 = 3; // Number of defined types.
-    pub const STB_LOOS: u8 = 10; // Start of OS-specific
-    pub const STB_GNU_UNIQUE: u8 = 10; // Unique symbol.
-    pub const STB_HIOS: u8 = 12; // End of OS-specific
-    pub const STB_LOPROC: u8 = 13; // Start of processor-specific
-    pub const STB_HIPROC: u8 = 15; // End of processor-specific
-    // sym types
-    pub const STT_NOTYPE: u8 = 0; // Symbol type is unspecified
-    pub const STT_OBJECT: u8 = 1; // Symbol is a data object
-    pub const STT_FUNC: u8 = 2; // Symbol is a code object
-    pub const STT_SECTION: u8 = 3; // Symbol associated with a section
-    pub const STT_FILE: u8 = 4; // Symbol's name is file name
-    pub const STT_COMMON: u8 = 5; // Symbol is a common data object
-    pub const STT_TLS: u8 = 6; // Symbol is thread-local data object
-    pub const STT_NUM: u8 = 7; // Number of defined types
-    pub const STT_LOOS: u8 = 10; // Start of OS-specific
-    pub const STT_GNU_IFUNC: u8 = 10; // Symbol is indirect code object
-    pub const STT_HIOS: u8 = 12; // End of OS-specific
-    pub const STT_LOPROC: u8 = 13; // Start of processor-specific
-    pub const STT_HIPROC: u8 = 15; // End of processor-specific
+#[macro_use]
+pub mod sym {
+    // === Sym bindings ===
+    /// Local symbol.
+    pub const STB_LOCAL: u8 = 0;
+    /// Global symbol.
+    pub const STB_GLOBAL: u8 = 1;
+    /// Weak symbol.
+    pub const STB_WEAK: u8 = 2;
+    /// Number of defined types..
+    pub const STB_NUM: u8 = 3;
+    /// Start of OS-specific.
+    pub const STB_LOOS: u8 = 10;
+    /// Unique symbol..
+    pub const STB_GNU_UNIQUE: u8 = 10;
+    /// End of OS-specific.
+    pub const STB_HIOS: u8 = 12;
+    /// Start of processor-specific.
+    pub const STB_LOPROC: u8 = 13;
+    /// End of processor-specific.
+    pub const STB_HIPROC: u8 = 15;
+    /// === Sym types ===
+    /// Symbol type is unspecified.
+    pub const STT_NOTYPE: u8 = 0;
+    /// Symbol is a data object.
+    pub const STT_OBJECT: u8 = 1;
+    /// Symbol is a code object.
+    pub const STT_FUNC: u8 = 2;
+    /// Symbol associated with a section.
+    pub const STT_SECTION: u8 = 3;
+    /// Symbol's name is file name.
+    pub const STT_FILE: u8 = 4;
+    /// Symbol is a common data object.
+    pub const STT_COMMON: u8 = 5;
+    /// Symbol is thread-local data object.
+    pub const STT_TLS: u8 = 6;
+    /// Number of defined types.
+    pub const STT_NUM: u8 = 7;
+    /// Start of OS-specific.
+    pub const STT_LOOS: u8 = 10;
+    /// Symbol is indirect code object.
+    pub const STT_GNU_IFUNC: u8 = 10;
+    /// End of OS-specific.
+    pub const STT_HIOS: u8 = 12;
+    /// Start of processor-specific.
+    pub const STT_LOPROC: u8 = 13;
+    /// End of processor-specific.
+    pub const STT_HIPROC: u8 = 15;
 
-    #[inline(always)]
+    /// Get the ST binding.
+    ///
+    /// This is the first four bits of the byte.
+    #[inline]
     pub fn st_bind(info: u8) -> u8 {
         info >> 4
     }
 
-    #[inline(always)]
+    /// Get the ST type.
+    ///
+    /// This is the last four bits of the byte.
+    #[inline]
     pub fn st_type(info: u8) -> u8 {
         info & 0xf
     }
 
-    #[inline(always)]
+    /// Is this information defining an import?
+    #[inline]
     pub fn is_import(info: u8, value: u8) -> bool {
         let binding = st_bind(info);
         binding == STB_GLOBAL && value == 0
     }
 
-    /// Convenience function to get the &'static str type from the symbols st_info
+    /// Convenience function to get the &'static str type from the symbols `st_info`.
     pub fn get_type(info: u8) -> &'static str {
         type_to_str(st_type(info))
     }
 
+    /// Get the string for some binding.
     #[inline]
     pub fn bind_to_str(typ: u8) -> &'static str {
         match typ {
@@ -386,6 +514,7 @@ pub mod section_header {
         }
     }
 
+    /// Get the string for some type.
     #[inline]
     pub fn type_to_str(typ: u8) -> &'static str {
         match typ {
@@ -402,69 +531,74 @@ pub mod section_header {
         }
     }
 
-    macro_rules! elf_sym_impure_impl { ($from_fd_endian:item) => {
+    macro_rules! elf_sym_impure_impl {
+        ($from_fd_endian:item) => {
 
-        #[cfg(not(feature = "pure"))]
-        pub use self::impure::*;
+            #[cfg(not(feature = "pure"))]
+            pub use self::impure::*;
 
-        #[cfg(not(feature = "pure"))]
-        mod impure {
+            #[cfg(not(feature = "pure"))]
+            mod impure {
 
-            use std::fs::File;
-            use std::io::Read;
-            use std::io::Seek;
-            use std::io::SeekFrom::Start;
-            use std::io;
-            use std::fmt;
-            use std::slice;
+                use std::fs::File;
+                use std::io::Read;
+                use std::io::Seek;
+                use std::io::SeekFrom::Start;
+                use std::io;
+                use std::fmt;
+                use std::slice;
 
-            use super::*;
+                use super::*;
 
-            impl fmt::Debug for Sym {
-                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                    let bind = st_bind(self.st_info);
-                    let typ = st_type(self.st_info);
-                    write!(f,
-                           "st_name: {} {} {} st_other: {} st_shndx: {} st_value: {:x} st_size: {}",
-                           self.st_name,
-                           bind_to_str(bind),
-                           type_to_str(typ),
-                           self.st_other,
-                           self.st_shndx,
-                           self.st_value,
-                           self.st_size)
+                impl fmt::Debug for Sym {
+                    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                        let bind = st_bind(self.st_info);
+                        let typ = st_type(self.st_info);
+                        write!(f,
+                               "st_name: {} {} {} st_other: {} st_shndx: {} st_value: {:x} st_size: {}",
+                               self.st_name,
+                               bind_to_str(bind),
+                               type_to_str(typ),
+                               self.st_other,
+                               self.st_shndx,
+                               self.st_value,
+                               self.st_size)
+                    }
                 }
+
+                pub unsafe fn from_raw<'a>(symp: *const Sym, count: usize) -> &'a [Sym] {
+                    slice::from_raw_parts(symp, count)
+                }
+
+                #[cfg(feature = "no_endian_fd")]
+                pub fn from_fd<'a>(fd: &mut File, offset: usize, count: usize, _: bool) -> io::Result<Vec<Sym>> {
+                    // TODO: AFAIK this shouldn't work, since i pass in a byte size...
+                    let mut bytes = vec![0u8; count * SIZEOF_SYM];
+                    try!(fd.seek(Start(offset as u64)));
+                    try!(fd.read(&mut bytes));
+                    let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Sym, count) };
+                    let mut syms = Vec::with_capacity(count);
+                    syms.extend_from_slice(bytes);
+                    syms.dedup();
+                    Ok(syms)
+                }
+
+                #[cfg(not(feature = "no_endian_fd"))]
+                $from_fd_endian
+
             }
-
-            pub unsafe fn from_raw<'a>(symp: *const Sym, count: usize) -> &'a [Sym] {
-                slice::from_raw_parts(symp, count)
-            }
-
-            #[cfg(feature = "no_endian_fd")]
-            pub fn from_fd<'a>(fd: &mut File, offset: usize, count: usize, _: bool) -> io::Result<Vec<Sym>> {
-                let mut bytes = vec![0u8; count * SIZEOF_SYM]; // afaik this shouldn't work, since i pass in a byte size...
-                try!(fd.seek(Start(offset as u64)));
-                try!(fd.read(&mut bytes));
-                let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Sym, count) };
-                let mut syms = Vec::with_capacity(count);
-                syms.extend_from_slice(bytes);
-                syms.dedup();
-                Ok(syms)
-            }
-
-            #[cfg(not(feature = "no_endian_fd"))]
-            $from_fd_endian
-
-        }
-    };}
+        };
+    }
 }
 
-#[macro_use] pub mod dyn {
+#[macro_use]
+pub mod dyn {
     // TODO: figure out what's the best, most friendly + safe API choice here - u32s or u64s
-    // remember that DT_TAG is "pointer sized"/used as address sometimes
-    // Original rationale: I decided to use u64 instead of u32 due to pattern matching use case
-    // seems safer to cast the elf32's d_tag from u32 -> u64 at runtime
-    // instead of casting the elf64's d_tag from u64 -> u32 at runtime
+    // remember that DT_TAG is "pointer sized"/used as address sometimes Original rationale: I
+    // decided to use u64 instead of u32 due to pattern matching use case seems safer to cast the
+    // elf32's d_tag from u32 -> u64 at runtime instead of casting the elf64's d_tag from u64 ->
+    // u32 at runtime
+    // TODO: Documentation.
     pub const DT_NULL: u64 = 0;
     pub const DT_NEEDED: u64 = 1;
     pub const DT_PLTRELSZ: u64 = 2;
@@ -515,7 +649,7 @@ pub mod section_header {
     pub const DT_VERNEEDNUM: u64 = 0x6fffffff;
     pub const DT_FLAGS_1: u64 = 0x6ffffffb;
 
-    /// Converts a tag to its string representation
+    /// Converts a tag to its string representation.
     #[inline]
     pub fn tag_to_str(tag: u64) -> &'static str {
         match tag {
@@ -571,329 +705,344 @@ pub mod section_header {
     }
 
     // Values of `d_un.d_val` in the DT_FLAGS entry
-    pub const DF_ORIGIN: u64 = 0x00000001; // Object may use DF_ORIGIN
-    pub const DF_SYMBOLIC: u64 = 0x00000002; // Symbol resolutions starts here
-    pub const DF_TEXTREL: u64 = 0x00000004; // Object contains text relocations
-    pub const DF_BIND_NOW: u64 = 0x00000008; // No lazy binding for this object
-    pub const DF_STATIC_TLS: u64 = 0x00000010; // Module uses the static TLS model
+    /// Object may use DF_ORIGIN.
+    pub const DF_ORIGIN: u64 = 0x00000001;
+    /// Symbol resolutions starts here.
+    pub const DF_SYMBOLIC: u64 = 0x00000002;
+    /// Object contains text relocations.
+    pub const DF_TEXTREL: u64 = 0x00000004;
+    /// No lazy binding for this object.
+    pub const DF_BIND_NOW: u64 = 0x00000008;
+    /// Module uses the static TLS model.
+    pub const DF_STATIC_TLS: u64 = 0x00000010;
 
     // State flags selectable in the `d_un.d_val` element of the DT_FLAGS_1 entry in the dynamic section.
-    pub const DF_1_NOW: u64 = 0x00000001; // Set RTLD_NOW for this object
-    pub const DF_1_GLOBAL: u64 = 0x00000002; // Set RTLD_GLOBAL for this object
-    pub const DF_1_GROUP: u64 = 0x00000004; // Set RTLD_GROUP for this object
-    pub const DF_1_NODELETE: u64 = 0x00000008; // Set RTLD_NODELETE for this object
-    pub const DF_1_LOADFLTR: u64 = 0x00000010; // Trigger filtee loading at runtime
-    pub const DF_1_INITFIRST: u64 = 0x00000020; // Set RTLD_INITFIRST for this object
-    pub const DF_1_NOOPEN: u64 = 0x00000040; // Set RTLD_NOOPEN for this object
-    pub const DF_1_ORIGIN: u64 = 0x00000080; // $ORIGIN must be handled
-    pub const DF_1_DIRECT: u64 = 0x00000100; // Direct binding enabled
+    /// Set RTLD_NOW for this object.
+    pub const DF_1_NOW: u64 = 0x00000001;
+    /// Set RTLD_GLOBAL for this object.
+    pub const DF_1_GLOBAL: u64 = 0x00000002;
+    /// Set RTLD_GROUP for this object.
+    pub const DF_1_GROUP: u64 = 0x00000004;
+    /// Set RTLD_NODELETE for this object.
+    pub const DF_1_NODELETE: u64 = 0x00000008;
+    /// Trigger filtee loading at runtime.
+    pub const DF_1_LOADFLTR: u64 = 0x00000010;
+    /// Set RTLD_INITFIRST for this object.
+    pub const DF_1_INITFIRST: u64 = 0x00000020;
+    /// Set RTLD_NOOPEN for this object.
+    pub const DF_1_NOOPEN: u64 = 0x00000040;
+    /// $ORIGIN must be handled.
+    pub const DF_1_ORIGIN: u64 = 0x00000080;
+    /// Direct binding enabled.
+    pub const DF_1_DIRECT: u64 = 0x00000100;
     pub const DF_1_TRANS: u64 = 0x00000200;
-    pub const DF_1_INTERPOSE: u64 = 0x00000400; // Object is used to interpose
-    pub const DF_1_NODEFLIB: u64 = 0x00000800; // Ignore default lib search path
-    pub const DF_1_NODUMP: u64 = 0x00001000; // Object can't be dldump'ed
-    pub const DF_1_CONFALT: u64 = 0x00002000; // Configuration alternative created
-    pub const DF_1_ENDFILTEE: u64 = 0x00004000; // Filtee terminates filters search
-    pub const DF_1_DISPRELDNE: u64 = 0x00008000; // Disp reloc applied at build time
-    pub const DF_1_DISPRELPND: u64 = 0x00010000; // Disp reloc applied at run-time
-    pub const DF_1_NODIRECT: u64 = 0x00020000; // Object has no-direct binding
+    /// Object is used to interpose.
+    pub const DF_1_INTERPOSE: u64 = 0x00000400;
+    /// Ignore default lib search path.
+    pub const DF_1_NODEFLIB: u64 = 0x00000800;
+    /// Object can't be dldump'ed.
+    pub const DF_1_NODUMP: u64 = 0x00001000;
+    /// Configuration alternative created.
+    pub const DF_1_CONFALT: u64 = 0x00002000;
+    /// Filtee terminates filters search.
+    pub const DF_1_ENDFILTEE: u64 = 0x00004000;
+    /// Disp reloc applied at build time.
+    pub const DF_1_DISPRELDNE: u64 = 0x00008000;
+    /// Disp reloc applied at run-time.
+    pub const DF_1_DISPRELPND: u64 = 0x00010000;
+    /// Object has no-direct binding.
+    pub const DF_1_NODIRECT: u64 = 0x00020000;
     pub const DF_1_IGNMULDEF: u64 = 0x00040000;
     pub const DF_1_NOKSYMS: u64 = 0x00080000;
     pub const DF_1_NOHDR: u64 = 0x00100000;
-    pub const DF_1_EDITED: u64 = 0x00200000; // Object is modified after built
+    /// Object is modified after built.
+    pub const DF_1_EDITED: u64 = 0x00200000;
     pub const DF_1_NORELOC: u64 = 0x00400000;
-    pub const DF_1_SYMINTPOSE: u64 = 0x00800000; // Object has individual interposers
-    pub const DF_1_GLOBAUDIT: u64 = 0x01000000; // Global auditing required
-    pub const DF_1_SINGLETON: u64 = 0x02000000; // Singleton symbols are used
+    /// Object has individual interposers.
+    pub const DF_1_SYMINTPOSE: u64 = 0x00800000;
+    /// Global auditing required.
+    pub const DF_1_GLOBAUDIT: u64 = 0x01000000;
+    /// Singleton symbols are used.
+    pub const DF_1_SINGLETON: u64 = 0x02000000;
 
-    macro_rules! elf_dyn_impure_impl { ($size:ident, $from_fd_endian:item) => {
+    macro_rules! elf_dyn_impure_impl {
+        ($size:ident, $from_fd_endian:item) => {
 
-        #[cfg(not(feature = "pure"))]
-        pub use self::impure::*;
+            #[cfg(not(feature = "pure"))]
+            pub use self::impure::*;
 
-        #[cfg(not(feature = "pure"))]
-        mod impure {
+            #[cfg(not(feature = "pure"))]
+            mod impure {
 
-            use std::fs::File;
-            use std::io::Seek;
-            use std::io::SeekFrom::Start;
-            use std::io;
-            use std::fmt;
-            use std::slice;
-            use super::super::program_header::{ProgramHeader, PT_DYNAMIC};
-            use super::super::super::elf::strtab::Strtab;
+                use std::fs::File;
+                use std::io::Seek;
+                use std::io::SeekFrom::Start;
+                use std::io;
+                use std::fmt;
+                use std::slice;
+                use super::super::program_header::{ProgramHeader, PT_DYNAMIC};
+                use super::super::super::elf::strtab::Strtab;
 
-            use super::*;
+                use super::*;
 
-            impl fmt::Debug for Dyn {
-                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                    write!(f,
-                           "d_tag: {} d_val: 0x{:x}",
-                           tag_to_str(self.d_tag as u64),
-                           self.d_val)
-                }
-            }
-
-            impl fmt::Debug for DynamicInfo {
-                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                    let gnu_hash = if let Some(addr) = self.gnu_hash { addr } else { 0 };
-                    let hash = if let Some(addr) = self.hash { addr } else { 0 };
-                    let pltgot = if let Some(addr) = self.pltgot { addr } else { 0 };
-                    write!(f, "rela: 0x{:x} relasz: {} relaent: {} relacount: {} gnu_hash: 0x{:x} hash: 0x{:x} strtab: 0x{:x} strsz: {} symtab: 0x{:x} syment: {} pltgot: 0x{:x} pltrelsz: {} pltrel: {} jmprel: 0x{:x} verneed: 0x{:x} verneednum: {} versym: 0x{:x} init: 0x{:x} fini: 0x{:x} needed_count: {}",
-                           self.rela,
-                           self.relasz,
-                           self.relaent,
-                           self.relacount,
-                           gnu_hash,
-                           hash,
-                           self.strtab,
-                           self.strsz,
-                           self.symtab,
-                           self.syment,
-                           pltgot,
-                           self.pltrelsz,
-                           self.pltrel,
-                           self.jmprel,
-                           self.verneed,
-                           self.verneednum,
-                           self.versym,
-                           self.init,
-                           self.fini,
-                           self.needed_count,
-                           )
-                }
-            }
-
-            #[cfg(feature = "no_endian_fd")]
-            /// Returns a vector of dynamic entries from the given fd and program headers
-            pub fn from_fd(mut fd: &File, phdrs: &[ProgramHeader], _: bool) -> io::Result<Option<Vec<Dyn>>> {
-                use std::io::Read;
-                for phdr in phdrs {
-                    if phdr.p_type == PT_DYNAMIC {
-                        let filesz = phdr.p_filesz as usize;
-                        let dync = filesz / SIZEOF_DYN;
-                        let mut bytes = vec![0u8; filesz];
-                        try!(fd.seek(Start(phdr.p_offset as u64)));
-                        try!(fd.read(&mut bytes));
-                        let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Dyn, dync) };
-                        let mut dyns = Vec::with_capacity(dync);
-                        dyns.extend_from_slice(bytes);
-                        dyns.dedup();
-                        return Ok(Some(dyns));
-                    }
-                }
-                Ok(None)
-            }
-
-            /// Given a bias and a memory address (typically for a _correctly_ mmap'd binary in memory), returns the `_DYNAMIC` array as a slice of that memory
-            pub unsafe fn from_raw<'a>(bias: $size, vaddr: $size) -> &'a [Dyn] {
-                let dynp = vaddr.wrapping_add(bias) as *const Dyn;
-                let mut idx = 0;
-                while (*dynp.offset(idx)).d_tag as u64 != DT_NULL {
-                    idx += 1;
-                }
-                slice::from_raw_parts(dynp, idx as usize)
-            }
-
-            // TODO: these bare functions have always seemed awkward, but not sure where they should go...
-
-            /// Maybe gets and returns the dynamic array with the same lifetime as the [phdrs], using the provided bias with wrapping addition.
-            /// If the bias is wrong, it will either segfault or give you incorrect values, beware
-            pub unsafe fn from_phdrs<'a>(bias: $size, phdrs: &'a [ProgramHeader]) -> Option<&'a [Dyn]> {
-                for phdr in phdrs {
-                    // FIXME: change to casting to u64 similar to DT_*?
-                    if phdr.p_type as u32 == PT_DYNAMIC {
-                        return Some(from_raw(bias, phdr.p_vaddr));
-                    }
-                }
-                None
-            }
-
-            /// Gets the needed libraries from the `_DYNAMIC` array, with the str slices lifetime tied to the dynamic array/strtab's lifetime(s)
-            pub fn get_needed<'a, 'b>(dyns: &'a [Dyn], strtab: &'b Strtab<'a>, count: usize) -> Vec<&'a str> {
-                let mut needed = Vec::with_capacity(count);
-                for dyn in dyns {
-                    if dyn.d_tag as u64 == DT_NEEDED {
-                        let lib = strtab.get(dyn.d_val as usize);
-                        needed.push(lib);
-                    }
-                }
-                needed
-            }
-
-            #[cfg(not(feature = "no_endian_fd"))]
-            /// Returns a vector of dynamic entries from the given fd and program headers
-            $from_fd_endian
-
-        }
-
-        /// Important dynamic linking info generated via a single pass through the _DYNAMIC array
-        pub struct DynamicInfo {
-            pub rela: usize,
-            pub relasz: usize,
-            pub relaent: $size,
-            pub relacount: usize,
-            pub gnu_hash: Option<$size>,
-            pub hash: Option<$size>,
-            pub strtab: usize,
-            pub strsz: usize,
-            pub symtab: usize,
-            pub syment: usize,
-            pub pltgot: Option<$size>,
-            pub pltrelsz: usize,
-            pub pltrel: $size,
-            pub jmprel: usize,
-            pub verneed: $size,
-            pub verneednum: $size,
-            pub versym: $size,
-            pub init: $size,
-            pub fini: $size,
-            pub init_array: $size,
-            pub init_arraysz: usize,
-            pub fini_array: $size,
-            pub fini_arraysz: usize,
-            pub needed_count: usize,
-            pub flags: $size,
-            pub flags_1: $size,
-            pub soname: usize,
-        }
-
-        impl DynamicInfo {
-            pub fn new(dynamic: &[Dyn], bias: usize) -> DynamicInfo {
-                let bias = bias as $size;
-                let mut rela = 0;
-                let mut relasz = 0;
-                let mut relaent = 0;
-                let mut relacount = 0;
-                let mut gnu_hash = None;
-                let mut hash = None;
-                let mut strtab = 0;
-                let mut strsz = 0;
-                let mut symtab = 0;
-                let mut syment = 0;
-                let mut pltgot = None;
-                let mut pltrelsz = 0;
-                let mut pltrel = 0;
-                let mut jmprel = 0;
-                let mut verneed = 0;
-                let mut verneednum = 0;
-                let mut versym = 0;
-                let mut init = 0;
-                let mut fini = 0;
-                let mut init_array = 0;
-                let mut init_arraysz = 0;
-                let mut fini_array = 0;
-                let mut fini_arraysz = 0;
-                let mut needed_count = 0;
-                let mut flags = 0;
-                let mut flags_1 = 0;
-                let mut soname = 0;
-                for dyn in dynamic {
-                    match dyn.d_tag as u64 {
-                        DT_RELA => rela = dyn.d_val.wrapping_add(bias) as usize, // .rela.dyn
-                        DT_RELASZ => relasz = dyn.d_val as usize,
-                        DT_RELAENT => relaent = dyn.d_val,
-                        DT_RELACOUNT => relacount = dyn.d_val as usize,
-                        DT_GNU_HASH => gnu_hash = Some(dyn.d_val.wrapping_add(bias)),
-                        DT_HASH => hash = Some(dyn.d_val.wrapping_add(bias)),
-                        DT_STRTAB => strtab = dyn.d_val.wrapping_add(bias) as usize,
-                        DT_STRSZ => strsz = dyn.d_val as usize,
-                        DT_SYMTAB => symtab = dyn.d_val.wrapping_add(bias) as usize,
-                        DT_SYMENT => syment = dyn.d_val as usize,
-                        DT_PLTGOT => pltgot = Some(dyn.d_val.wrapping_add(bias)),
-                        DT_PLTRELSZ => pltrelsz = dyn.d_val as usize,
-                        DT_PLTREL => pltrel = dyn.d_val,
-                        DT_JMPREL => jmprel = dyn.d_val.wrapping_add(bias) as usize, // .rela.plt
-                        DT_VERNEED => verneed = dyn.d_val.wrapping_add(bias),
-                        DT_VERNEEDNUM => verneednum = dyn.d_val,
-                        DT_VERSYM => versym = dyn.d_val.wrapping_add(bias),
-                        DT_INIT => init = dyn.d_val.wrapping_add(bias),
-                        DT_FINI => fini = dyn.d_val.wrapping_add(bias),
-                        DT_INIT_ARRAY => init_array = dyn.d_val.wrapping_add(bias),
-                        DT_INIT_ARRAYSZ => init_arraysz = dyn.d_val,
-                        DT_FINI_ARRAY => fini_array = dyn.d_val.wrapping_add(bias),
-                        DT_FINI_ARRAYSZ => fini_arraysz = dyn.d_val,
-                        DT_NEEDED => needed_count += 1,
-                        DT_FLAGS => flags = dyn.d_val,
-                        DT_FLAGS_1 => flags_1 = dyn.d_val,
-                        DT_SONAME => soname = dyn.d_val,
-                        _ => (),
+                impl fmt::Debug for Dyn {
+                    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                        write!(f,
+                               "d_tag: {} d_val: 0x{:x}",
+                               tag_to_str(self.d_tag as u64),
+                               self.d_val)
                     }
                 }
 
-                DynamicInfo {
-                    rela: rela,
-                    relasz: relasz,
-                    relaent: relaent,
-                    relacount: relacount,
-                    gnu_hash: gnu_hash,
-                    hash: hash,
-                    strtab: strtab,
-                    strsz: strsz,
-                    symtab: symtab,
-                    syment: syment,
-                    pltgot: pltgot,
-                    pltrelsz: pltrelsz,
-                    pltrel: pltrel,
-                    jmprel: jmprel,
-                    verneed: verneed,
-                    verneednum: verneednum,
-                    versym: versym,
-                    init: init,
-                    fini: fini,
-                    init_array: init_array,
-                    init_arraysz: init_arraysz as usize,
-                    fini_array: fini_array,
-                    fini_arraysz: fini_arraysz as usize,
-                    needed_count: needed_count,
-                    flags: flags,
-                    flags_1: flags_1,
-                    soname: soname as usize,
+                impl fmt::Debug for DynamicInfo {
+                    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                        let gnu_hash = if let Some(addr) = self.gnu_hash { addr } else { 0 };
+                        let hash = if let Some(addr) = self.hash { addr } else { 0 };
+                        let pltgot = if let Some(addr) = self.pltgot { addr } else { 0 };
+                        write!(f, "rela: 0x{:x} relasz: {} relaent: {} relacount: {} gnu_hash: 0x{:x} hash: 0x{:x} strtab: 0x{:x} strsz: {} symtab: 0x{:x} syment: {} pltgot: 0x{:x} pltrelsz: {} pltrel: {} jmprel: 0x{:x} verneed: 0x{:x} verneednum: {} versym: 0x{:x} init: 0x{:x} fini: 0x{:x} needed_count: {}",
+                               self.rela,
+                               self.relasz,
+                               self.relaent,
+                               self.relacount,
+                               gnu_hash,
+                               hash,
+                               self.strtab,
+                               self.strsz,
+                               self.symtab,
+                               self.syment,
+                               pltgot,
+                               self.pltrelsz,
+                               self.pltrel,
+                               self.jmprel,
+                               self.verneed,
+                               self.verneednum,
+                               self.versym,
+                               self.init,
+                               self.fini,
+                               self.needed_count,
+                               )
+                    }
+                }
+
+                #[cfg(feature = "no_endian_fd")]
+                /// Returns a vector of dynamic entries from the given fd and program headers
+                pub fn from_fd(mut fd: &File, phdrs: &[ProgramHeader], _: bool) -> io::Result<Option<Vec<Dyn>>> {
+                    use std::io::Read;
+                    for phdr in phdrs {
+                        if phdr.p_type == PT_DYNAMIC {
+                            let filesz = phdr.p_filesz as usize;
+                            let dync = filesz / SIZEOF_DYN;
+                            let mut bytes = vec![0u8; filesz];
+                            try!(fd.seek(Start(phdr.p_offset as u64)));
+                            try!(fd.read(&mut bytes));
+                            let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Dyn, dync) };
+                            let mut dyns = Vec::with_capacity(dync);
+                            dyns.extend_from_slice(bytes);
+                            dyns.dedup();
+                            return Ok(Some(dyns));
+                        }
+                    }
+                    Ok(None)
+                }
+
+                /// Given a bias and a memory address (typically for a _correctly_ mmap'd binary in memory), returns the `_DYNAMIC` array as a slice of that memory
+                pub unsafe fn from_raw<'a>(bias: $size, vaddr: $size) -> &'a [Dyn] {
+                    let dynp = vaddr.wrapping_add(bias) as *const Dyn;
+                    let mut idx = 0;
+                    while (*dynp.offset(idx)).d_tag as u64 != DT_NULL {
+                        idx += 1;
+                    }
+                    slice::from_raw_parts(dynp, idx as usize)
+                }
+
+                // TODO: these bare functions have always seemed awkward, but not sure where they should go...
+
+                /// Maybe gets and returns the dynamic array with the same lifetime as the [phdrs], using the provided bias with wrapping addition.
+                /// If the bias is wrong, it will either segfault or give you incorrect values, beware
+                pub unsafe fn from_phdrs<'a>(bias: $size, phdrs: &'a [ProgramHeader]) -> Option<&'a [Dyn]> {
+                    for phdr in phdrs {
+                        // FIXME: change to casting to u64 similar to DT_*?
+                        if phdr.p_type as u32 == PT_DYNAMIC {
+                            return Some(from_raw(bias, phdr.p_vaddr));
+                        }
+                    }
+                    None
+                }
+
+                /// Gets the needed libraries from the `_DYNAMIC` array, with the str slices lifetime tied to the dynamic array/strtab's lifetime(s)
+                pub fn get_needed<'a, 'b>(dyns: &'a [Dyn], strtab: &'b Strtab<'a>, count: usize) -> Vec<&'a str> {
+                    let mut needed = Vec::with_capacity(count);
+                    for dyn in dyns {
+                        if dyn.d_tag as u64 == DT_NEEDED {
+                            let lib = strtab.get(dyn.d_val as usize);
+                            needed.push(lib);
+                        }
+                    }
+                    needed
+                }
+
+                #[cfg(not(feature = "no_endian_fd"))]
+                /// Returns a vector of dynamic entries from the given fd and program headers
+                $from_fd_endian
+
+            }
+
+            /// Important dynamic linking info generated via a single pass through the _DYNAMIC array
+            #[derive(Default)]
+            pub struct DynamicInfo {
+                pub rela: usize,
+                pub relasz: usize,
+                pub relaent: $size,
+                pub relacount: usize,
+                pub gnu_hash: Option<$size>,
+                pub hash: Option<$size>,
+                pub strtab: usize,
+                pub strsz: usize,
+                pub symtab: usize,
+                pub syment: usize,
+                pub pltgot: Option<$size>,
+                pub pltrelsz: usize,
+                pub pltrel: $size,
+                pub jmprel: usize,
+                pub verneed: $size,
+                pub verneednum: $size,
+                pub versym: $size,
+                pub init: $size,
+                pub fini: $size,
+                pub init_array: $size,
+                pub init_arraysz: usize,
+                pub fini_array: $size,
+                pub fini_arraysz: usize,
+                pub needed_count: usize,
+                pub flags: $size,
+                pub flags_1: $size,
+                pub soname: usize,
+            }
+
+            impl DynamicInfo {
+                pub fn new(dynamic: &[Dyn], bias: usize) -> DynamicInfo {
+                    let mut res = DynamicInfo::default();
+
+                    for dyn in dynamic {
+                        match dyn.d_tag as u64 {
+                            DT_RELA => res.rela = dyn.d_val.wrapping_add(bias as _) as usize, // .rela.dyn
+                            DT_RELASZ => res.relasz = dyn.d_val as usize,
+                            DT_RELAENT => res.relaent = dyn.d_val as _,
+                            DT_RELACOUNT => res.relacount = dyn.d_val as usize,
+                            DT_GNU_HASH => res.gnu_hash = Some(dyn.d_val.wrapping_add(bias as _)),
+                            DT_HASH => res.hash = Some(dyn.d_val.wrapping_add(bias as _)) as _,
+                            DT_STRTAB => res.strtab = dyn.d_val.wrapping_add(bias as _) as usize,
+                            DT_STRSZ => res.strsz = dyn.d_val as usize,
+                            DT_SYMTAB => res.symtab = dyn.d_val.wrapping_add(bias as _) as usize,
+                            DT_SYMENT => res.syment = dyn.d_val as usize,
+                            DT_PLTGOT => res.pltgot = Some(dyn.d_val.wrapping_add(bias as _)) as _,
+                            DT_PLTRELSZ => res.pltrelsz = dyn.d_val as usize,
+                            DT_PLTREL => res.pltrel = dyn.d_val as _,
+                            DT_JMPREL => res.jmprel = dyn.d_val.wrapping_add(bias as _) as usize, // .rela.plt
+                            DT_VERNEED => res.verneed = dyn.d_val.wrapping_add(bias as _) as _,
+                            DT_VERNEEDNUM => res.verneednum = dyn.d_val as _,
+                            DT_VERSYM => res.versym = dyn.d_val.wrapping_add(bias as _) as _,
+                            DT_INIT => res.init = dyn.d_val.wrapping_add(bias as _) as _,
+                            DT_FINI => res.fini = dyn.d_val.wrapping_add(bias as _) as _,
+                            DT_INIT_ARRAY => res.init_array = dyn.d_val.wrapping_add(bias as _) as _,
+                            DT_INIT_ARRAYSZ => res.init_arraysz = dyn.d_val as _,
+                            DT_FINI_ARRAY => res.fini_array = dyn.d_val.wrapping_add(bias as _) as _,
+                            DT_FINI_ARRAYSZ => res.fini_arraysz = dyn.d_val as _,
+                            DT_NEEDED => res.needed_count += 1,
+                            DT_FLAGS => res.flags = dyn.d_val as _,
+                            DT_FLAGS_1 => res.flags_1 = dyn.d_val as _,
+                            DT_SONAME => res.soname = dyn.d_val as _,
+                            _ => (),
+                        }
+                    }
+
+                    res
                 }
             }
-        }
-    };}
+        };
+    }
 }
 
-#[macro_use] pub mod rela {
-    pub const R_X86_64_NONE: u64 = 0; // No reloc
-    pub const R_X86_64_64: u64 = 1; // Direct 64 bit
-    pub const R_X86_64_PC32: u64 = 2; // PC relative 32 bit signed
-    pub const R_X86_64_GOT32: u64 = 3; // 32 bit GOT entry
-    pub const R_X86_64_PLT32: u64 = 4; // 32 bit PLT address
-    pub const R_X86_64_COPY: u64 = 5; // Copy symbol at runtime
-    pub const R_X86_64_GLOB_DAT: u64 = 6; // Create GOT entry
-    pub const R_X86_64_JUMP_SLOT: u64 = 7; // Create PLT entry
-    pub const R_X86_64_RELATIVE: u64 = 8; // Adjust by program base
-    pub const R_X86_64_GOTPCREL: u64 = 9; // 32 bit signed PC relative offset to GOT
-    pub const R_X86_64_32: u64 = 10; // Direct 32 bit zero extended
-    pub const R_X86_64_32S: u64 = 11; // Direct 32 bit sign extended
-    pub const R_X86_64_16: u64 = 12; // Direct 16 bit zero extended
-    pub const R_X86_64_PC16: u64 = 13; // 16 bit sign extended pc relative
-    pub const R_X86_64_8: u64 = 14; // Direct 8 bit sign extended
-    pub const R_X86_64_PC8: u64 = 15; // 8 bit sign extended pc relative
-    pub const R_X86_64_DTPMOD64: u64 = 16; // ID of module containing symbol
-    pub const R_X86_64_DTPOFF64: u64 = 17; // Offset in module's TLS block
-    pub const R_X86_64_TPOFF64: u64 = 18; // Offset in initial TLS block
-    pub const R_X86_64_TLSGD: u64 = 19; // 32 bit signed PC relative offset to two GOT entries for GD symbol
-    pub const R_X86_64_TLSLD: u64 = 20; // 32 bit signed PC relative offset to two GOT entries for LD symbol
-    pub const R_X86_64_DTPOFF32: u64 = 21; // Offset in TLS block
-    pub const R_X86_64_GOTTPOFF: u64 = 22; // 32 bit signed PC relative offset to GOT entry for IE symbol
-    pub const R_X86_64_TPOFF32: u64 = 23; // Offset in initial TLS block
-    pub const R_X86_64_PC64: u64 = 24; // PC relative 64 bit
-    pub const R_X86_64_GOTOFF64: u64 = 25; // 64 bit offset to GOT
-    pub const R_X86_64_GOTPC32: u64 = 26; // 32 bit signed pc relative offset to GOT
-    pub const R_X86_64_GOT64: u64 = 27; // 64-bit GOT entry offset
-    pub const R_X86_64_GOTPCREL64: u64 = 28; // 64-bit PC relative offset to GOT entry
-    pub const R_X86_64_GOTPC64: u64 = 29; // 64-bit PC relative offset to GOT
-    pub const R_X86_64_GOTPLT64: u64 = 30; // like GOT64, says PLT entry needed
-    pub const R_X86_64_PLTOFF64: u64 = 31; // 64-bit GOT relative offset to PLT entry
-    pub const R_X86_64_SIZE32: u64 = 32; // Size of symbol plus 32-bit addend
-    pub const R_X86_64_SIZE64: u64 = 33; // Size of symbol plus 64-bit addend
-    pub const R_X86_64_GOTPC32_TLSDESC: u64 = 34; // GOT offset for TLS descriptor.
-    pub const R_X86_64_TLSDESC_CALL: u64 = 35; // Marker for call through TLS descriptor.
-    pub const R_X86_64_TLSDESC: u64 = 36; // TLS descriptor.
-    pub const R_X86_64_IRELATIVE: u64 = 37; // Adjust indirectly by program base
-    pub const R_X86_64_RELATIVE64: u64 = 38; // 64-bit adjust by program base
+#[macro_use]
+pub mod rela {
+    /// No reloc.
+    pub const R_X86_64_NONE: u64 = 0;
+    /// Direct 64 bit.
+    pub const R_X86_64_64: u64 = 1;
+    /// PC relative 32 bit signed.
+    pub const R_X86_64_PC32: u64 = 2;
+    /// 32 bit GOT entry.
+    pub const R_X86_64_GOT32: u64 = 3;
+    /// 32 bit PLT address.
+    pub const R_X86_64_PLT32: u64 = 4;
+    /// Copy symbol at runtime.
+    pub const R_X86_64_COPY: u64 = 5;
+    /// Create GOT entry.
+    pub const R_X86_64_GLOB_DAT: u64 = 6;
+    /// Create PLT entry.
+    pub const R_X86_64_JUMP_SLOT: u64 = 7;
+    /// Adjust by program base.
+    pub const R_X86_64_RELATIVE: u64 = 8;
+    /// 32 bit signed PC relative offset to GOT.
+    pub const R_X86_64_GOTPCREL: u64 = 9;
+    /// Direct 32 bit zero extended.
+    pub const R_X86_64_32: u64 = 10;
+    /// Direct 32 bit sign extended.
+    pub const R_X86_64_32S: u64 = 11;
+    /// Direct 16 bit zero extended.
+    pub const R_X86_64_16: u64 = 12;
+    /// 16 bit sign extended pc relative.
+    pub const R_X86_64_PC16: u64 = 13;
+    /// Direct 8 bit sign extended.
+    pub const R_X86_64_8: u64 = 14;
+    /// 8 bit sign extended pc relative.
+    pub const R_X86_64_PC8: u64 = 15;
+    /// ID of module containing symbol.
+    pub const R_X86_64_DTPMOD64: u64 = 16;
+    /// Offset in module's TLS block.
+    pub const R_X86_64_DTPOFF64: u64 = 17;
+    /// Offset in initial TLS block.
+    pub const R_X86_64_TPOFF64: u64 = 18;
+    /// 32 bit signed PC relative offset to two GOT entries for GD symbol.
+    pub const R_X86_64_TLSGD: u64 = 19;
+    /// 32 bit signed PC relative offset to two GOT entries for LD symbol.
+    pub const R_X86_64_TLSLD: u64 = 20;
+    /// Offset in TLS block.
+    pub const R_X86_64_DTPOFF32: u64 = 21;
+    /// 32 bit signed PC relative offset to GOT entry for IE symbol.
+    pub const R_X86_64_GOTTPOFF: u64 = 22;
+    /// Offset in initial TLS block.
+    pub const R_X86_64_TPOFF32: u64 = 23;
+    /// PC relative 64 bit.
+    pub const R_X86_64_PC64: u64 = 24;
+    /// 64 bit offset to GOT.
+    pub const R_X86_64_GOTOFF64: u64 = 25;
+    /// 32 bit signed pc relative offset to GOT.
+    pub const R_X86_64_GOTPC32: u64 = 26;
+    /// 64-bit GOT entry offset.
+    pub const R_X86_64_GOT64: u64 = 27;
+    /// 64-bit PC relative offset to GOT entry.
+    pub const R_X86_64_GOTPCREL64: u64 = 28;
+    /// 64-bit PC relative offset to GOT.
+    pub const R_X86_64_GOTPC64: u64 = 29;
+    /// like GOT64, says PLT entry needed.
+    pub const R_X86_64_GOTPLT64: u64 = 30;
+    /// 64-bit GOT relative offset to PLT entry.
+    pub const R_X86_64_PLTOFF64: u64 = 31;
+    /// Size of symbol plus 32-bit addend.
+    pub const R_X86_64_SIZE32: u64 = 32;
+    /// Size of symbol plus 64-bit addend.
+    pub const R_X86_64_SIZE64: u64 = 33;
+    /// GOT offset for TLS descriptor..
+    pub const R_X86_64_GOTPC32_TLSDESC: u64 = 34;
+    /// Marker for call through TLS descriptor..
+    pub const R_X86_64_TLSDESC_CALL: u64 = 35;
+    /// TLS descriptor..
+    pub const R_X86_64_TLSDESC: u64 = 36;
+    /// Adjust indirectly by program base.
+    pub const R_X86_64_IRELATIVE: u64 = 37;
+    /// 64-bit adjust by program base.
+    pub const R_X86_64_RELATIVE64: u64 = 38;
     pub const R_X86_64_NUM: u64 = 39;
 
     #[inline]
@@ -972,11 +1121,11 @@ pub mod section_header {
                 }
             }
 
-            /// Gets the rela entries given a rela u64 and the _size_ of the rela section in the binary, in bytes.  Works for regular rela and the pltrela table.
-            /// Assumes the pointer is valid and can safely return a slice of memory pointing to the relas because:
-            /// 1. `rela` points to memory received from the kernel (i.e., it loaded the executable), _or_
-            /// 2. The binary has already been mmapped (i.e., it's a `SharedObject`), and hence it's safe to return a slice of that memory.
-            /// 3. Or if you obtained the pointer in some other lawful manner
+    /// Gets the rela entries given a rela u64 and the _size_ of the rela section in the binary, in bytes.  Works for regular rela and the pltrela table.
+    /// Assumes the pointer is valid and can safely return a slice of memory pointing to the relas because:
+    /// 1. `rela` points to memory received from the kernel (i.e., it loaded the executable), _or_
+    /// 2. The binary has already been mmapped (i.e., it's a `SharedObject`), and hence it's safe to return a slice of that memory.
+    /// 3. Or if you obtained the pointer in some other lawful manner
             pub unsafe fn from_raw<'a>(ptr: *const Rela, size: usize) -> &'a [Rela] {
                 slice::from_raw_parts(ptr, size / SIZEOF_RELA)
             }
@@ -1004,12 +1153,13 @@ pub mod section_header {
 pub use self::impure::*;
 
 #[cfg(all(not(feature = "pure"), not(feature = "no_elf32"), not(feature = "no_elf")))]
-#[macro_use] mod impure {
+#[macro_use]
+mod impure {
 
     use std::fs::File;
     use std::io;
-    //use std::io::Read;
-    //use std::io::SeekFrom::Start;
+    // use std::io::Read;
+    // use std::io::SeekFrom::Start;
 
     use super::header;
 
@@ -1022,16 +1172,14 @@ pub use self::impure::*;
         Elf64(elf64::Binary),
     }
 
-    pub fn from_fd (fd: &mut File) -> io::Result<Binary> {
+    pub fn from_fd(fd: &mut File) -> io::Result<Binary> {
         match try!(header::peek(fd)) {
-            (header::ELFCLASS64, _is_lsb) => {
-                Ok(Binary::Elf64(try!(elf64::Binary::from_fd(fd))))
-            },
-            (header::ELFCLASS32, _is_lsb) => {
-                Ok(Binary::Elf32(try!(elf32::Binary::from_fd(fd))))
-            },
+            (header::ELFCLASS64, _is_lsb) => Ok(Binary::Elf64(try!(elf64::Binary::from_fd(fd)))),
+            (header::ELFCLASS32, _is_lsb) => Ok(Binary::Elf32(try!(elf32::Binary::from_fd(fd)))),
             (class, is_lsb) => {
-                io_error!("Unknown values in ELF ident header: class: {} is_lsb: {}", class, is_lsb)
+                io_error!("Unknown values in ELF ident header: class: {} is_lsb: {}",
+                          class,
+                          is_lsb)
             }
         }
     }
@@ -1078,7 +1226,7 @@ macro_rules! elf_from_fd { ($intmax:expr) => {
             let mut bias: usize = 0;
             for ph in &program_headers {
                 if ph.p_type == program_header::PT_LOAD {
-                    // this is an overflow hack that allows us to use virtual memory addresses as though they're in the file by generating a fake load bias which is then used to overflow the values in the dynamic array, and in a few other places (see Dyn::DynamicInfo), to generate actual file offsets; you may have to marinate a bit on why this works. i am unsure whether it works in every conceivable case. i learned this trick from reading too much dynamic linker C code (a whole other class of C code) and having to deal with broken older kernels on VMs. enjoi
+// this is an overflow hack that allows us to use virtual memory addresses as though they're in the file by generating a fake load bias which is then used to overflow the values in the dynamic array, and in a few other places (see Dyn::DynamicInfo), to generate actual file offsets; you may have to marinate a bit on why this works. i am unsure whether it works in every conceivable case. i learned this trick from reading too much dynamic linker C code (a whole other class of C code) and having to deal with broken older kernels on VMs. enjoi
                     bias = (($intmax - ph.p_vaddr).wrapping_add(1)) as usize;
                     break;
                 }

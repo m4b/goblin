@@ -859,7 +859,7 @@ pub mod dyn {
 
                 /// Maybe gets and returns the dynamic array with the same lifetime as the [phdrs], using the provided bias with wrapping addition.
                 /// If the bias is wrong, it will either segfault or give you incorrect values, beware
-                pub unsafe fn from_phdrs<'a>(bias: $size, phdrs: &'a [ProgramHeader]) -> Option<&'a [Dyn]> {
+                pub unsafe fn from_phdrs(bias: $size, phdrs: &[ProgramHeader]) -> Option<&[Dyn]> {
                     for phdr in phdrs {
                         // FIXME: change to casting to u64 similar to DT_*?
                         if phdr.p_type as u32 == PT_DYNAMIC {
@@ -1292,7 +1292,7 @@ macro_rules! elf_from_fd { ($intmax:expr) => {
             Ok(elf)
         }
 
-        pub fn from_path<'a>(path: &Path) -> io::Result<Binary> {
+        pub fn from_path(path: &Path) -> io::Result<Binary> {
             let mut fd = try!(File::open(&path));
             let metadata = fd.metadata().unwrap();
             if metadata.len() < header::SIZEOF_EHDR as u64 {

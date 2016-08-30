@@ -88,7 +88,7 @@ impl<'process> GnuHash<'process> {
             // println!("{}: h2 0x{:x} resolves to: {}", i, h2, name);
             if hash == (h2 & !1) && name == symbol {
                 // println!("lookup match for {} at: 0x{:x}", symbol, symbol_.st_value);
-                return Some(symbol_.clone());
+                return Some(*symbol_);
             }
             if h2 & 1 == 1 {
                 break;

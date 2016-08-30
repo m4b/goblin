@@ -12,7 +12,7 @@ pub const FAT_CIGAM: u32 = 0xbebafeca;
 
 #[repr(C)]
 #[derive(Clone, Copy, Default)]
-/// The Mach-o FatHeader always has its data bigendian
+/// The Mach-o `FatHeader` always has its data bigendian
 pub struct FatHeader {
     pub magic: u32,
     pub nfat_arch: u32,
@@ -28,7 +28,7 @@ impl fmt::Debug for FatHeader {
 
 #[repr(C)]
 #[derive(Clone, Copy, Default)]
-/// The Mach-o FatArch always has its data bigendian
+/// The Mach-o `FatArch` always has its data bigendian
 pub struct FatArch {
     pub cputype: u32,
     pub cpusubtype: u32,
@@ -106,7 +106,7 @@ impl FatArch {
         Ok(archs)
     }
 
-    pub fn from_path<'a>(path: &Path) -> io::Result<Vec<Self>> {
+    pub fn from_path(path: &Path) -> io::Result<Vec<Self>> {
         let mut fd = try!(File::open(&path));
         let header = try!(FatHeader::from_fd(&mut fd));
         let arches = try!(FatArch::from_fd(&mut fd, SIZEOF_FAT_HEADER as u64, header.nfat_arch as usize, false));

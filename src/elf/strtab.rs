@@ -17,7 +17,7 @@ fn get_str(idx: usize, bytes: &[u8]) -> &str {
     let mut i = idx;
     let len = bytes.len();
     // hmmm, once exceptions are working correctly, maybe we should let this fail with i >= len?
-    if i <= 0 || i >= len {
+    if i == 0 || i >= len {
         return "";
     }
     let mut byte = bytes[i];

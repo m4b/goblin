@@ -38,7 +38,7 @@ impl Mach {
         }
     }
 
-    pub fn from_path<'a>(path: &Path) -> io::Result<Mach> {
+    pub fn from_path(path: &Path) -> io::Result<Mach> {
         let mut fd = try!(File::open(&path));
         let metadata = fd.metadata().unwrap();
 

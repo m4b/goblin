@@ -8,8 +8,11 @@ use std::slice;
 use std::str;
 use std::fmt;
 
+use std::borrow::Cow;
+
 pub struct Strtab<'a> {
-    bytes: &'a [u8],
+    // Thanks to SpaceManiac and Mutabah on #rust for suggestion and debugging this
+    bytes: Cow<'a, [u8]>,
 }
 
 #[inline(always)]
@@ -32,11 +35,17 @@ fn get_str(idx: usize, bytes: &[u8]) -> &str {
     str::from_utf8(&bytes[idx..i]).unwrap()
 }
 
+impl<'a> Default for Strtab<'a> {
+    fn default() -> Strtab<'static> {
+        Strtab { bytes: Cow::Owned(vec![]) }
+    }
+}
+
 impl<'a> Index<usize> for Strtab<'a> {
     type Output = str;
 
     fn index(&self, _index: usize) -> &Self::Output {
-        get_str(_index, self.bytes)
+        get_str(_index, &self.bytes)
     }
 }
 
@@ -48,24 +57,19 @@ impl<'a> fmt::Debug for Strtab<'a> {
 
 impl<'a> Strtab<'a> {
     pub unsafe fn from_raw(bytes_ptr: *const u8, size: usize) -> Strtab<'a> {
-        Strtab { bytes: slice::from_raw_parts(bytes_ptr, size) }
+        Strtab { bytes: Cow::Borrowed(slice::from_raw_parts(bytes_ptr, size)) }
     }
 
-    pub fn from_fd(fd: &mut File, offset: usize, len: usize) -> io::Result<Strtab<'a>> {
+    pub fn from_fd(fd: &mut File, offset: usize, len: usize) -> io::Result<Strtab<'static>> {
         let mut bytes = vec![0u8; len];
         try!(fd.seek(Start(offset as u64)));
         try!(fd.read(&mut bytes));
-        // TODO: this creates a memory leak; if we don't forget the bytes (and not the reference), then the memory is dropped and we crash later
-        // the problem is the strtab was meant to be used with mmap'd elements, and slices are easier to work with, but now we're expanding to an fd api with all-heap allocations...
-        let ptr = bytes.as_ptr();
-        ::std::mem::forget(bytes);
-        let slice = unsafe { slice::from_raw_parts(ptr, len) };
-        Ok(Strtab { bytes: slice })
+        Ok(Strtab { bytes: Cow::Owned(bytes) })
     }
 
     // Thanks to reem on #rust for this suggestion
-    pub fn get(&self, idx: usize) -> &'a str {
-        get_str(idx, self.bytes)
+    pub fn get(&'a self, idx: usize) -> &'a str {
+        get_str(idx, &self.bytes)
     }
 
     pub fn to_vec(self) -> Vec<String> {

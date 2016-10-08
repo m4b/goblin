@@ -870,11 +870,11 @@ pub mod dyn {
                 }
 
                 /// Gets the needed libraries from the `_DYNAMIC` array, with the str slices lifetime tied to the dynamic array/strtab's lifetime(s)
-                pub fn get_needed<'a, 'b>(dyns: &'a [Dyn], strtab: &'b Strtab<'a>, count: usize) -> Vec<&'a str> {
+                pub unsafe fn get_needed<'a>(dyns: &[Dyn], strtab: *const Strtab<'a>, count: usize) -> Vec<&'a str> {
                     let mut needed = Vec::with_capacity(count);
                     for dyn in dyns {
                         if dyn.d_tag as u64 == DT_NEEDED {
-                            let lib = strtab.get(dyn.d_val as usize);
+                            let lib = &(*strtab)[dyn.d_val as usize];
                             needed.push(lib);
                         }
                     }
@@ -1204,7 +1204,7 @@ macro_rules! elf_from_fd { ($intmax:expr) => {
         pub symtab: Vec<sym::Sym>,
         pub rela: Vec<rela::Rela>,
         pub pltrela: Vec<rela::Rela>,
-        pub strtab: Vec<String>,
+        pub strtab: strtab::Strtab<'static>,
         pub soname: Option<String>,
         pub interpreter: Option<String>,
         pub libraries: Vec<String>,
@@ -1247,17 +1247,18 @@ macro_rules! elf_from_fd { ($intmax:expr) => {
             let mut symtab = vec![];
             let mut rela = vec![];
             let mut pltrela = vec![];
-            let mut strtabv = vec![];
+            let mut strtab = strtab::Strtab::default();
             if let Some(ref dynamic) = dynamic {
                 let link_info = dyn::DynamicInfo::new(&dynamic, bias); // we explicitly overflow the values here with our bias
-                let strtab = try!(strtab::Strtab::from_fd(fd,
+                strtab = try!(strtab::Strtab::from_fd(fd,
                                                           link_info.strtab,
                                                           link_info.strsz));
+
                 if link_info.soname != 0 {
                     soname = Some(strtab.get(link_info.soname).to_owned())
                 }
                 if link_info.needed_count > 0 {
-                    let needed = dyn::get_needed(dynamic, &strtab, link_info.needed_count);
+                    let needed = unsafe { dyn::get_needed(dynamic, &strtab, link_info.needed_count)};
                     libraries = Vec::with_capacity(link_info.needed_count);
                     for lib in needed {
                         libraries.push(lib.to_owned());
@@ -1269,8 +1270,6 @@ macro_rules! elf_from_fd { ($intmax:expr) => {
 
                 rela = try!(rela::from_fd(fd, link_info.rela, link_info.relasz, is_lsb));
                 pltrela = try!(rela::from_fd(fd, link_info.jmprel, link_info.pltrelsz, is_lsb));
-                strtabv = strtab.to_vec();
-
             }
 
             let elf = Binary {
@@ -1280,7 +1279,7 @@ macro_rules! elf_from_fd { ($intmax:expr) => {
                 symtab: symtab,
                 rela: rela,
                 pltrela: pltrela,
-                strtab: strtabv,
+                strtab: strtab,
                 soname: soname,
                 interpreter: interpreter,
                 libraries: libraries,

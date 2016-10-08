@@ -13,6 +13,30 @@ pub mod strtab;
 // They are publicly re-exported by the pub-using module
 #[macro_use]
 pub mod header {
+
+    macro_rules! elf_header {
+        ($size:ident) => {
+            #[repr(C)]
+            #[derive(Clone, Default)]
+            pub struct Header {
+                pub e_ident: [u8; SIZEOF_IDENT],
+                pub e_type: u16,
+                pub e_machine: u16,
+                pub e_version: u32,
+                pub e_entry: $size,
+                pub e_phoff: $size,
+                pub e_shoff: $size,
+                pub e_flags: u32,
+                pub e_ehsize: u16,
+                pub e_phentsize: u16,
+                pub e_phnum: u16,
+                pub e_shentsize: u16,
+                pub e_shnum: u16,
+                pub e_shstrndx: u16,
+            }
+        }
+    }
+
     /// No file type.
     pub const ET_NONE: u16 = 0;
     /// Relocatable file.
@@ -28,7 +52,7 @@ pub mod header {
 
     /// The ELF magic number.
     pub const ELFMAG: &'static [u8; 4] = b"\x7FELF";
-    // SELF (Security-enhanced ELF) magic number.
+    /// SELF (Security-enhanced ELF) magic number.
     pub const SELFMAG: usize = 4;
 
     /// File class byte index.
@@ -294,7 +318,38 @@ pub mod program_header {
     };}
 }
 
+#[macro_use]
 pub mod section_header {
+
+    macro_rules! elf_section_header {
+        ($size:ident) => {
+            #[repr(C)]
+            #[derive(Clone, PartialEq, Default)]
+            pub struct SectionHeader {
+                /// Section name (string tbl index)
+                pub sh_name: u32,
+                /// Section type
+                pub sh_type: u32,
+                /// Section flags
+                pub sh_flags: $size,
+                /// Section virtual addr at execution
+                pub sh_addr: $size,
+                /// Section file offset
+                pub sh_offset: $size,
+                /// Section size in bytes
+                pub sh_size: $size,
+                /// Link to another section
+                pub sh_link: u32,
+                /// Additional section information
+                pub sh_info: u32,
+                /// Section alignment
+                pub sh_addralign: $size,
+                /// Entry size if section holds table
+                pub sh_entsize: $size,
+            }
+        }
+    }
+
     /// Undefined section.
     pub const SHN_UNDEF: u32 = 0;
     /// Start of reserved indices.
@@ -422,6 +477,104 @@ pub mod section_header {
     pub const SHF_ORDERED: u32 = 1 << 30;
     // /// Section is excluded unless referenced or allocated (Solaris).
     // pub const SHF_EXCLUDE: u32 = 1U << 31;
+
+    pub fn sht_to_str(sht: u32) -> &'static str {
+        match sht {
+            //TODO: implement
+            /*
+            PT_NULL => "PT_NULL",
+            PT_LOAD => "PT_LOAD",
+            PT_DYNAMIC => "PT_DYNAMIC",
+            PT_INTERP => "PT_INTERP",
+            PT_NOTE => "PT_NOTE",
+            PT_SHLIB => "PT_SHLIB",
+            PT_PHDR => "PT_PHDR",
+            PT_TLS => "PT_TLS",
+            PT_NUM => "PT_NUM",
+            PT_LOOS => "PT_LOOS",
+            PT_GNU_EH_FRAME => "PT_GNU_EH_FRAME",
+            PT_GNU_STACK => "PT_GNU_STACK",
+            PT_GNU_RELRO => "PT_GNU_RELRO",
+            PT_SUNWBSS => "PT_SUNWBSS",
+            PT_SUNWSTACK => "PT_SUNWSTACK",
+            PT_HIOS => "PT_HIOS",
+            PT_LOPROC => "PT_LOPROC",
+            PT_HIPROC => "PT_HIPROC",
+            */
+            _ => "UNKNOWN_SHT",
+        }
+    }
+
+    macro_rules! elf_section_header_from_bytes { () => {
+        pub fn from_bytes(bytes: &[u8], shnum: usize) -> Vec<SectionHeader> {
+            let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut SectionHeader, shnum) };
+            let mut shdrs = Vec::with_capacity(shnum);
+            shdrs.extend_from_slice(bytes);
+            shdrs
+        }};}
+
+    macro_rules! elf_section_header_from_raw_parts { () => {
+        pub unsafe fn from_raw_parts<'a>(shdrp: *const SectionHeader,
+                                         shnum: usize)
+                                         -> &'a [SectionHeader] {
+            slice::from_raw_parts(shdrp, shnum)
+        }};}
+
+    macro_rules! elf_section_header_from_fd { () => {
+        #[cfg(feature = "no_endian_fd")]
+        pub fn from_fd(fd: &mut File, offset: u64, count: usize, _: bool) -> io::Result<Vec<SectionHeader>> {
+            use std::io::Read;
+            let mut shdrs = vec![0u8; count * SIZEOF_SHDR];
+            try!(fd.seek(Start(offset)));
+            try!(fd.read(&mut shdrs));
+            Ok(SectionHeader::from_bytes(&shdrs, count))
+        }
+    };}
+
+    macro_rules! elf_section_header_from_fd_endian { ($from_fd_endian:item) => {
+        #[cfg(not(feature = "no_endian_fd"))]
+        $from_fd_endian
+    };}
+
+    macro_rules! elf_section_header_impure_impl { ($header:item) => {
+
+        #[cfg(not(feature = "pure"))]
+        pub use self::impure::*;
+
+        #[cfg(not(feature = "pure"))]
+        mod impure {
+
+            use super::*;
+
+            use std::slice;
+            use std::fmt;
+            use std::fs::File;
+            use std::io::Seek;
+            use std::io::SeekFrom::Start;
+            use std::io;
+
+            impl fmt::Debug for SectionHeader {
+                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    write!(f,
+                           "sh_name: {} sh_type {} sh_flags: 0x{:x} sh_addr: 0x{:x} sh_offset: 0x{:x} \
+                            sh_size: 0x{:x} sh_link: 0x{:x} sh_info: 0x{:x} sh_addralign 0x{:x} sh_entsize 0x{:x}",
+                           self.sh_name,
+                           sht_to_str(self.sh_type as u32),
+                           self.sh_flags,
+                           self.sh_addr,
+                           self.sh_offset,
+                           self.sh_size,
+                           self.sh_link,
+                           self.sh_info,
+                           self.sh_addralign,
+                           self.sh_entsize)
+                }
+            }
+            $header
+        }
+    };}
+
+
 }
 
 #[macro_use]
@@ -570,6 +723,7 @@ pub mod sym {
                     slice::from_raw_parts(symp, count)
                 }
 
+                // TODO: this is broken, fix (not used often by me since don't have luxury of debug symbols usually)
                 #[cfg(feature = "no_endian_fd")]
                 pub fn from_fd<'a>(fd: &mut File, offset: usize, count: usize, _: bool) -> io::Result<Vec<Sym>> {
                     // TODO: AFAIK this shouldn't work, since i pass in a byte size...
@@ -1194,17 +1348,21 @@ macro_rules! elf_from_fd { ($intmax:expr) => {
     use std::io::SeekFrom::Start;
 
     pub use super::super::elf::strtab;
-    use super::{header, program_header, dyn, sym, rela};
+    use super::{header, program_header, section_header, dyn, sym, rela};
 
     #[derive(Debug)]
     pub struct Binary {
         pub header: header::Header,
         pub program_headers: Vec<program_header::ProgramHeader>,
+        pub section_headers: Vec<section_header::SectionHeader>,
+        pub shdr_strtab: strtab::Strtab<'static>,
         pub dynamic: Option<Vec<dyn::Dyn>>,
-        pub symtab: Vec<sym::Sym>,
+        pub dynsyms: Vec<sym::Sym>,
+        pub dynstrtab: strtab::Strtab<'static>,
+        pub syms: Vec<sym::Sym>,
+        pub strtab: strtab::Strtab<'static>,
         pub rela: Vec<rela::Rela>,
         pub pltrela: Vec<rela::Rela>,
-        pub strtab: strtab::Strtab<'static>,
         pub soname: Option<String>,
         pub interpreter: Option<String>,
         pub libraries: Vec<String>,
@@ -1242,44 +1400,71 @@ macro_rules! elf_from_fd { ($intmax:expr) => {
                 }
             }
 
+            println!("header: 0x{:x}, header.e_shnum: {}", header.e_shoff, header.e_shnum);
+
+            let section_headers = try!(section_header::SectionHeader::from_fd(fd, header.e_shoff as u64, header.e_shnum as usize, is_lsb));
+
+            let mut syms = vec![];
+            let mut strtab = strtab::Strtab::default();
+            for shdr in &section_headers {
+                if shdr.sh_type as u32 == section_header::SHT_SYMTAB {
+                    let count = shdr.sh_size / shdr.sh_entsize;
+                    syms = try!(sym::from_fd(fd, shdr.sh_offset as usize, count as usize, is_lsb))
+                }
+                if shdr.sh_type as u32 == section_header::SHT_STRTAB {
+                    strtab = try!(strtab::Strtab::from_fd(fd, shdr.sh_offset as usize, shdr.sh_size as usize));
+                }
+            }
+
+            let strtab_idx = header.e_shstrndx as usize;
+            let shdr_strtab = if strtab_idx >= section_headers.len() {
+                strtab::Strtab::default()
+            } else {
+                let shdr = &section_headers[strtab_idx];
+                try!(strtab::Strtab::from_fd(fd, shdr.sh_offset as usize, shdr.sh_size as usize))
+            };
+
             let mut soname = None;
             let mut libraries = vec![];
-            let mut symtab = vec![];
+            let mut dynsyms = vec![];
             let mut rela = vec![];
             let mut pltrela = vec![];
-            let mut strtab = strtab::Strtab::default();
+            let mut dynstrtab = strtab::Strtab::default();
             if let Some(ref dynamic) = dynamic {
-                let link_info = dyn::DynamicInfo::new(&dynamic, bias); // we explicitly overflow the values here with our bias
-                strtab = try!(strtab::Strtab::from_fd(fd,
-                                                          link_info.strtab,
-                                                          link_info.strsz));
+                let dyn_info = dyn::DynamicInfo::new(&dynamic, bias); // we explicitly overflow the values here with our bias
+                dynstrtab = try!(strtab::Strtab::from_fd(fd,
+                                                          dyn_info.strtab,
+                                                          dyn_info.strsz));
 
-                if link_info.soname != 0 {
-                    soname = Some(strtab.get(link_info.soname).to_owned())
+                if dyn_info.soname != 0 {
+                    soname = Some(dynstrtab.get(dyn_info.soname).to_owned())
                 }
-                if link_info.needed_count > 0 {
-                    let needed = unsafe { dyn::get_needed(dynamic, &strtab, link_info.needed_count)};
-                    libraries = Vec::with_capacity(link_info.needed_count);
+                if dyn_info.needed_count > 0 {
+                    let needed = unsafe { dyn::get_needed(dynamic, &dynstrtab, dyn_info.needed_count)};
+                    libraries = Vec::with_capacity(dyn_info.needed_count);
                     for lib in needed {
                         libraries.push(lib.to_owned());
                     }
                 }
 
-                let num_syms = (link_info.strtab - link_info.symtab) / link_info.syment; // old caveat about how this is probably not safe but rdr has been doing it with tons of binaries and never any problems
-                symtab = try!(sym::from_fd(fd, link_info.symtab, num_syms, is_lsb));
-
-                rela = try!(rela::from_fd(fd, link_info.rela, link_info.relasz, is_lsb));
-                pltrela = try!(rela::from_fd(fd, link_info.jmprel, link_info.pltrelsz, is_lsb));
+                let num_syms = (dyn_info.strtab - dyn_info.symtab) / dyn_info.syment;
+                dynsyms = try!(sym::from_fd(fd, dyn_info.symtab, num_syms, is_lsb));
+                rela = try!(rela::from_fd(fd, dyn_info.rela, dyn_info.relasz, is_lsb));
+                pltrela = try!(rela::from_fd(fd, dyn_info.jmprel, dyn_info.pltrelsz, is_lsb));
             }
 
             let elf = Binary {
                 header: header,
                 program_headers: program_headers,
+                section_headers: section_headers,
+                shdr_strtab: shdr_strtab,
                 dynamic: dynamic,
-                symtab: symtab,
+                dynsyms: dynsyms,
+                dynstrtab: dynstrtab,
+                syms: syms,
+                strtab: strtab,
                 rela: rela,
                 pltrela: pltrela,
-                strtab: strtab,
                 soname: soname,
                 interpreter: interpreter,
                 libraries: libraries,

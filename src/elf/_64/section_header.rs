@@ -1,17 +1,48 @@
 pub use super::super::elf::section_header::*;
 
-#[repr(C)]
-#[derive(Clone, PartialEq, Default)]
-#[cfg_attr(not(feature = "pure"), derive(Debug))]
-pub struct SectionHeader {
-    pub sh_name: u64,
-    pub sh_type: u64,
-    pub sh_flags: u64,
-    pub sh_addr: u64,
-    pub sh_offset: u64,
-    pub sh_size: u64,
-    pub sh_link: u64,
-    pub sh_info: u64,
-    pub sh_addralign: u64,
-    pub sh_entsize: u64,
-}
+elf_section_header!(u64);
+
+pub const SIZEOF_SHDR: usize = 64;
+
+elf_section_header_impure_impl!(
+    impl SectionHeader {
+        elf_section_header_from_bytes!();
+        elf_section_header_from_raw_parts!();
+        elf_section_header_from_fd!();
+        #[cfg(not(feature = "no_endian_fd"))]
+        pub fn from_fd(fd: &mut File, offset: u64, count: usize, is_lsb: bool) -> io::Result<Vec<SectionHeader>> {
+            use byteorder::{LittleEndian,BigEndian,ReadBytesExt};
+
+            let mut shdrs = Vec::with_capacity(count);
+            try!(fd.seek(Start(offset)));
+
+            for _ in 0..count {
+                let mut shdr = SectionHeader::default();
+                if is_lsb {
+                    shdr.sh_name = try!(fd.read_u32::<LittleEndian>());
+                    shdr.sh_type = try!(fd.read_u32::<LittleEndian>());
+                    shdr.sh_flags = try!(fd.read_u64::<LittleEndian>());
+                    shdr.sh_addr = try!(fd.read_u64::<LittleEndian>());
+                    shdr.sh_offset = try!(fd.read_u64::<LittleEndian>());
+                    shdr.sh_size = try!(fd.read_u64::<LittleEndian>());
+                    shdr.sh_link = try!(fd.read_u32::<LittleEndian>());
+                    shdr.sh_info = try!(fd.read_u32::<LittleEndian>());
+                    shdr.sh_addralign = try!(fd.read_u64::<LittleEndian>());
+                    shdr.sh_entsize = try!(fd.read_u64::<LittleEndian>());
+                } else {
+                    shdr.sh_name = try!(fd.read_u32::<BigEndian>());
+                    shdr.sh_type = try!(fd.read_u32::<BigEndian>());
+                    shdr.sh_flags = try!(fd.read_u64::<BigEndian>());
+                    shdr.sh_addr = try!(fd.read_u64::<BigEndian>());
+                    shdr.sh_offset = try!(fd.read_u64::<BigEndian>());
+                    shdr.sh_size = try!(fd.read_u64::<BigEndian>());
+                    shdr.sh_link = try!(fd.read_u32::<BigEndian>());
+                    shdr.sh_info = try!(fd.read_u32::<BigEndian>());
+                    shdr.sh_addralign = try!(fd.read_u64::<BigEndian>());
+                    shdr.sh_entsize = try!(fd.read_u64::<BigEndian>());
+                }
+                shdrs.push(shdr);
+            }
+            Ok(shdrs)
+        }
+    });

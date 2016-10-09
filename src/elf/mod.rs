@@ -1400,8 +1400,6 @@ macro_rules! elf_from_fd { ($intmax:expr) => {
                 }
             }
 
-            println!("header: 0x{:x}, header.e_shnum: {}", header.e_shoff, header.e_shnum);
-
             let section_headers = try!(section_header::SectionHeader::from_fd(fd, header.e_shoff as u64, header.e_shnum as usize, is_lsb));
 
             let mut syms = vec![];

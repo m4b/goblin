@@ -22,7 +22,7 @@ pub const SIZEOF_FAT_HEADER: usize = 8;
 
 impl fmt::Debug for FatHeader {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,"0x{:x} nfat_arch: {}\n", self.magic, self.nfat_arch)
+        write!(f, "0x{:x} nfat_arch: {}\n", self.magic, self.nfat_arch)
     }
 }
 
@@ -41,7 +41,8 @@ pub const SIZEOF_FAT_ARCH: usize = 20;
 
 impl fmt::Debug for FatArch {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,"cputype: {} cpusubtype: {} offset: {} size: {} align: {}\n",
+        write!(f,
+               "cputype: {} cpusubtype: {} offset: {} size: {} align: {}\n",
                cputype::cpu_type_to_str(self.cputype),
                self.cpusubtype,
                self.offset,
@@ -109,7 +110,10 @@ impl FatArch {
     pub fn from_path(path: &Path) -> io::Result<Vec<Self>> {
         let mut fd = try!(File::open(&path));
         let header = try!(FatHeader::from_fd(&mut fd));
-        let arches = try!(FatArch::from_fd(&mut fd, SIZEOF_FAT_HEADER as u64, header.nfat_arch as usize, false));
+        let arches = try!(FatArch::from_fd(&mut fd,
+                                           SIZEOF_FAT_HEADER as u64,
+                                           header.nfat_arch as usize,
+                                           false));
         Ok(arches)
     }
 

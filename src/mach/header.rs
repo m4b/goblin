@@ -127,7 +127,8 @@ pub const SIZEOF_MACH_HEADER: usize = 32;
 
 impl fmt::Debug for Header {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "0x{:x} {} {} 0x{:x} {} {} {} 0x{:x} 0x{:x}",
+        write!(f,
+               "0x{:x} {} {} 0x{:x} {} {} {} 0x{:x} 0x{:x}",
                self.magic,
                self.cputype,
                self.cpusubtype,

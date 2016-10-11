@@ -155,6 +155,28 @@ pub mod header {
         };
     }
 
+        macro_rules! elf_header_test_peek {
+            ($class:expr) => {
+                #[cfg(test)]
+                mod tests {
+                    use super::*;
+                    use std::io::Cursor;
+                    #[test]
+                    fn test_peek () {
+                        let v = vec![0x7f, 0x45, 0x4c, 0x46, $class, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x3e, 0x00, 0x01, 0x00, 0x00, 0x00, 0x70, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x8c];
+                        let mut header = Cursor::new(v);
+                        match peek(&mut header) {
+                            Err(_) => assert!(false),
+                            Ok((class, is_lsb)) => {
+                                assert_eq!(true, is_lsb);
+                                assert_eq!(class, $class)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
     macro_rules! elf_header_impure_impl {
         ($header:item) => {
             #[cfg(not(feature = "pure"))]

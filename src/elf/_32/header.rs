@@ -57,3 +57,5 @@ elf_header_impure_impl!(
             }
         }
     });
+
+elf_header_test_peek!(ELFCLASS);

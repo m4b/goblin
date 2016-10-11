@@ -14,6 +14,8 @@ pub mod strtab;
 #[macro_use]
 pub mod header {
 
+    include!("constants_header.rs");
+
     macro_rules! elf_header {
         ($size:ident) => {
             #[repr(C)]
@@ -98,21 +100,25 @@ pub mod header {
     mod impure {
         use super::*;
 
-        use std::fs::File;
         use std::io;
-        use std::io::Read;
-        use std::io::Seek;
+        use std::io::{Seek, Read};
         use std::io::SeekFrom::Start;
 
         /// Search forward in the stream.
-        pub fn peek(fd: &mut File) -> io::Result<(u8, bool)> {
-            let mut header = [0u8; SIZEOF_IDENT];
+        pub fn peek<R: Read + Seek> (fd: &mut R) -> io::Result<(u8, bool)> {
+            let mut ident = [0u8; SIZEOF_IDENT];
             try!(fd.seek(Start(0)));
 
-            match try!(fd.read(&mut header)) {
+            match try!(fd.read(&mut ident)) {
                 SIZEOF_IDENT => {
-                    let class = header[EI_CLASS];
-                    let is_lsb = header[EI_DATA] == ELFDATA2LSB;
+
+                    if &ident[0..SELFMAG] != ELFMAG {
+                        return io_error!("Invalid ELF magic number: {:?}",
+                              &ident[0..SELFMAG]);
+                    }
+
+                    let class = ident[EI_CLASS];
+                    let is_lsb = ident[EI_DATA] == ELFDATA2LSB;
                     Ok((class, is_lsb))
                 }
                 count => {

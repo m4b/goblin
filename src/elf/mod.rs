@@ -79,6 +79,17 @@ pub mod header {
     /// Number of bytes in an identifier.
     pub const SIZEOF_IDENT: usize = 16;
 
+    /// Convert a ELF class byte to the associated string.
+    #[inline]
+    pub fn class_to_str(et: u8) -> &'static str {
+        match et {
+            ELFCLASSNONE => "NONE",
+            ELFCLASS32 => "ELF64",
+            ELFCLASS64 => "ELF32",
+            _ => "UNKNOWN_CLASS",
+        }
+    }
+
     /// Convert an ET value to their associated string.
     #[inline]
     pub fn et_to_str(et: u16) -> &'static str {
@@ -1348,10 +1359,146 @@ mod impure {
     use super::super::elf32;
     use super::super::elf64;
 
+    macro_rules! wrap {
+        ($list:ident, $name:ident, @vec $elem:ident) => {
+            #[derive(Debug)]
+            pub enum $list {
+                Elf32(Vec<elf32::$elem::$name>),
+                Elf64(Vec<elf64::$elem::$name>),
+            }
+        };
+        ($name:ident, $elem:ident) => {
+            #[derive(Debug)]
+            pub enum $name {
+                Elf32(elf32::$elem::$name),
+                Elf64(elf64::$elem::$name),
+            }
+        };
+    }
+
+
+    wrap!(ProgramHeader, program_header);
+    wrap!(Header, header);
+    wrap!(Sym, sym);
+    wrap!(Dyn, dyn);
+    wrap!(Rela, rela);
+
+    wrap!(ProgramHeaders, ProgramHeader, @vec program_header);
+    wrap!(Dynsyms, Sym, @vec sym);
+    wrap!(Syms, Sym, @vec sym);
+    wrap!(Relas, Rela, @vec rela);
+
+    macro_rules! wrap_iterator {
+      ($container:ident, $elem:ident) => {
+         impl IntoIterator for $container {
+            type Item = $elem;
+            type IntoIter = ::std::vec::IntoIter<$elem>;
+            fn into_iter(self) -> Self::IntoIter {
+                match self {
+                    $container::Elf32(container) => {
+                        let elems: Vec<$elem> = container.into_iter().map(|elem| $elem::Elf32(elem)).collect();
+                        elems.into_iter()
+                    }
+                    $container::Elf64(container) => {
+                        let elems: Vec<$elem> = container.into_iter().map(|elem| $elem::Elf64(elem)).collect();
+                        elems.into_iter()
+                    }
+                }
+            }
+        }
+      }
+    }
+
+    wrap_iterator!(ProgramHeaders, ProgramHeader);
+    wrap_iterator!(Syms, Sym);
+    wrap_iterator!(Relas, Rela);
+
+    macro_rules! wrap_impl {
+        ($name:ident, $elem:ident, [$(($field:ident, $typ:ty)),*]) => {
+            impl $name {
+                $(
+                pub fn $field(&self) -> $typ {
+                    match self {
+                        &$name::Elf32(ref st) => st.$field as $typ,
+                        &$name::Elf64(ref st) => st.$field as $typ,
+                    }
+                }
+                )*
+            }
+        }
+    }
+
+    wrap_impl!(Header, header, [
+    (e_ident, [u8; header::SIZEOF_IDENT]),
+    (e_type, u16),
+    (e_machine, u16),
+    (e_version, u32),
+    (e_entry, u64),
+    (e_phoff, u64),
+    (e_shoff, u64),
+    (e_flags, u32),
+    (e_ehsize, u16),
+    (e_phentsize, u16),
+    (e_phnum, u16),
+    (e_shentsize, u16),
+    (e_shnum, u16),
+    (e_shstrndx, u16)
+    ]);
+    wrap_impl!(Sym, sym, [
+    (st_value, u64),
+    (st_name, usize)
+    ]);
+    wrap_impl!(ProgramHeader, program_header, [
+    (p_filesz, usize),
+    (p_vaddr, usize),
+    (p_offset, usize),
+    (p_type, u32)
+    ]);
+
+    macro_rules! wrap_coll_impl {
+        ($name:ident, $memtyp:ident, $field:ident) => {
+            impl $name {
+                pub fn $field(&self) -> $memtyp {
+                    match self {
+                        &$name::Elf32(ref binary) => $memtyp::Elf32(binary.$field.clone()),
+                        &$name::Elf64(ref binary) => $memtyp::Elf64(binary.$field.clone()),
+                    }
+                }
+            }
+        }
+    }
+
+    wrap_coll_impl!(Binary, Header, header);
+    wrap_coll_impl!(Binary, ProgramHeaders, program_headers);
+    wrap_coll_impl!(Binary, Syms, dynsyms);
+    wrap_coll_impl!(Binary, Syms, syms);
+
     #[derive(Debug)]
     pub enum Binary {
         Elf32(elf32::Binary),
         Elf64(elf64::Binary),
+    }
+    macro_rules! get_strtab {
+          ($field:ident) => {
+              pub fn $field<'a> (&'a self) -> &'a super::strtab::Strtab<'a> {
+                match self {
+                    &Binary::Elf32(ref binary) => &binary.$field,
+                    &Binary::Elf64(ref binary) => &binary.$field,
+                }
+              }
+          }
+    }
+
+    impl Binary {
+        pub fn entry(&self) -> u64 {
+            match self {
+                &Binary::Elf32(ref binary) => binary.entry as u64,
+                &Binary::Elf64(ref binary) => binary.entry as u64,
+            }
+        }
+        get_strtab!(dynstrtab);
+        get_strtab!(strtab);
+        get_strtab!(shdr_strtab);
     }
 
     pub fn from_fd(fd: &mut File) -> io::Result<Binary> {
@@ -1400,6 +1547,7 @@ macro_rules! elf_from_fd { ($intmax:expr) => {
     }
 
     impl Binary {
+
         pub fn from_fd (fd: &mut File) -> io::Result<Binary> {
             let header = try!(header::Header::from_fd(fd));
             let entry = header.e_entry as usize;

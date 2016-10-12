@@ -1413,16 +1413,22 @@ mod impure {
     wrap_iterator!(Syms, Sym);
     wrap_iterator!(Relas, Rela);
 
+    macro_rules! get_field {
+      ($name:ident, $field:ident, $cast:ty) => {
+        pub fn $field(&self) -> $cast {
+          match self {
+            &$name::Elf32(ref st) => st.$field as $cast,
+            &$name::Elf64(ref st) => st.$field as $cast,
+          }
+        }
+      }
+    }
+
     macro_rules! wrap_impl {
         ($name:ident, $elem:ident, [$(($field:ident, $typ:ty)),*]) => {
             impl $name {
                 $(
-                pub fn $field(&self) -> $typ {
-                    match self {
-                        &$name::Elf32(ref st) => st.$field as $typ,
-                        &$name::Elf64(ref st) => st.$field as $typ,
-                    }
-                }
+                  get_field!($name, $field, $typ);
                 )*
             }
         }
@@ -1490,12 +1496,11 @@ mod impure {
     }
 
     impl Binary {
-        pub fn entry(&self) -> u64 {
-            match self {
-                &Binary::Elf32(ref binary) => binary.entry as u64,
-                &Binary::Elf64(ref binary) => binary.entry as u64,
-            }
-        }
+        get_field!(Binary, is_lib, bool);
+        get_field!(Binary, entry, u64);
+        get_field!(Binary, bias, u64);
+        get_field!(Binary, size, usize);
+
         get_strtab!(dynstrtab);
         get_strtab!(strtab);
         get_strtab!(shdr_strtab);
@@ -1544,6 +1549,7 @@ macro_rules! elf_from_fd { ($intmax:expr) => {
         pub is_lib: bool,
         pub size: usize,
         pub entry: usize,
+        pub bias: usize,
     }
 
     impl Binary {
@@ -1645,6 +1651,7 @@ macro_rules! elf_from_fd { ($intmax:expr) => {
                 is_lib: is_lib,
                 size: fd.metadata().unwrap().len() as usize,
                 entry: entry,
+                bias: bias,
             };
 
             Ok(elf)

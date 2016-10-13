@@ -82,8 +82,8 @@ pub const SIZEOF_IDENT: usize = 16;
 pub fn class_to_str(et: u8) -> &'static str {
     match et {
         ELFCLASSNONE => "NONE",
-        ELFCLASS32 => "ELF64",
-        ELFCLASS64 => "ELF32",
+        ELFCLASS32 => "ELF32",
+        ELFCLASS64 => "ELF64",
         _ => "UNKNOWN_CLASS",
     }
 }

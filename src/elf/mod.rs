@@ -75,6 +75,13 @@ mod impure {
     use elf64;
 
     macro_rules! wrap {
+        ($list:ident, $name:ident, @optvec $elem:ident) => {
+            #[derive(Debug)]
+            pub enum $list {
+                Elf32(Option<Vec<elf32::$elem::$name>>),
+                Elf64(Option<Vec<elf64::$elem::$name>>),
+            }
+        };
         ($list:ident, $name:ident, @vec $elem:ident) => {
             #[derive(Debug)]
             pub enum $list {
@@ -105,6 +112,7 @@ mod impure {
     wrap!(Syms, Sym, @vec sym);
     wrap!(Relas, Rela, @vec rela);
     wrap!(Pltrelas, Rela, @vec rela);
+    wrap!(Dynamic, Dyn, @vec dyn);
 
     macro_rules! wrap_iterator {
       ($container:ident, $elem:ident) => {
@@ -131,6 +139,7 @@ mod impure {
     wrap_iterator!(SectionHeaders, SectionHeader);
     wrap_iterator!(Syms, Sym);
     wrap_iterator!(Relas, Rela);
+    wrap_iterator!(Dynamic, Dyn);
 
     macro_rules! get_field {
       ($name:ident, $field:ident, $cast:ty) => {
@@ -205,6 +214,12 @@ mod impure {
     (r_addend, u64)
     ]);
 
+    #[derive(Debug)]
+    pub enum Binary {
+        Elf32(elf32::Binary),
+        Elf64(elf64::Binary),
+    }
+
     // TODO: fix this, clones the vector, when it's nicer to just send a reference back and let callee
     // decide if they want to clone
     macro_rules! get_collection {
@@ -217,13 +232,6 @@ mod impure {
             }
         }
     }
-
-    #[derive(Debug)]
-    pub enum Binary {
-        Elf32(elf32::Binary),
-        Elf64(elf64::Binary),
-    }
-
     macro_rules! get_strtab {
           ($field:ident) => {
               pub fn $field<'a> (&'a self) -> &'a super::strtab::Strtab<'a> {
@@ -255,6 +263,7 @@ mod impure {
 
         get_unwrapped_field!(Binary, soname, Option<String>);
         get_unwrapped_field!(Binary, interpreter, Option<String>);
+        get_unwrapped_field!(Binary, libraries, Vec<String>);
 
         get_collection!(Binary, Header, header);
         get_collection!(Binary, ProgramHeaders, program_headers);
@@ -266,6 +275,25 @@ mod impure {
         get_strtab!(dynstrtab);
         get_strtab!(strtab);
         get_strtab!(shdr_strtab);
+
+        pub fn dynamic (&self) -> Option<Dynamic> {
+            match self {
+                &Binary::Elf32(ref binary) => {
+                    if let Some(ref dynamic) = binary.dynamic {
+                        Some(Dynamic::Elf32(dynamic.clone()))
+                    } else {
+                        None
+                    }
+                },
+                &Binary::Elf64(ref binary) => {
+                    if let Some(ref dynamic) = binary.dynamic {
+                        Some(Dynamic::Elf64(dynamic.clone()))
+                    } else {
+                        None
+                    }
+                }
+            }
+        }
     }
 
     pub fn from_fd(fd: &mut File) -> io::Result<Binary> {

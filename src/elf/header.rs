@@ -141,11 +141,11 @@ mod impure {
 macro_rules! elf_header_from_bytes {
         () => {
             /// Returns the corresponding ELF header from the given byte array.
-            pub fn from_bytes(bytes: &[u8; SIZEOF_EHDR]) -> Header {
+            pub fn from_bytes(bytes: &[u8; SIZEOF_EHDR]) -> &Header {
                 // This is not unsafe because the header's size is encoded in the function,
                 // although the header can be semantically invalid.
                 let header: &Header = unsafe { mem::transmute(bytes) };
-                header.clone()
+                header
             }
         };
     }
@@ -158,7 +158,7 @@ macro_rules! elf_header_from_fd {
             pub fn from_fd(fd: &mut File) -> io::Result<Header> {
                 let mut elf_header = [0; SIZEOF_EHDR];
                 try!(fd.read(&mut elf_header));
-                Ok(Header::from_bytes(&elf_header))
+                Ok(*Header::from_bytes(&elf_header))
             }
         };
     }

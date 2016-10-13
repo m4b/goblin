@@ -143,9 +143,9 @@ impl fmt::Debug for Header {
 
 impl Header {
     /// Returns the corresponding Mach-o header from the given byte array
-    pub fn from_bytes(bytes: &[u8; SIZEOF_MACH_HEADER]) -> Header {
+    pub fn from_bytes(bytes: &[u8; SIZEOF_MACH_HEADER]) -> &Header {
         let header: &Header = unsafe { mem::transmute(bytes) };
-        *header
+        header
     }
 
     // #[cfg(feature = "no_endian_fd")]
@@ -153,6 +153,6 @@ impl Header {
         let mut header = [0; SIZEOF_MACH_HEADER];
         try!(fd.seek(Start(offset)));
         try!(fd.read(&mut header));
-        Ok(Header::from_bytes(&header))
+        Ok(*Header::from_bytes(&header))
     }
 }

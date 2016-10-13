@@ -8,7 +8,7 @@ SRC = $(wildcard src/*.rs) $(ELF) $(ELF64) $(ELF32) $(MACH) $(PE)
 ARTIFACTS = $(addprefix target/debug/, libgoblin.rlib libgoblin.so)
 
 $(ARTIFACTS): $(SRC)
-	cargo rustc -- -Z orbit=on -Z incremental=target/
+	cargo rustc -- -Z incremental=target/
 
 doc:
 	cargo doc

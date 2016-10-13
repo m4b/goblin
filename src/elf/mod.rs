@@ -93,15 +93,18 @@ mod impure {
 
 
     wrap!(ProgramHeader, program_header);
+    wrap!(SectionHeader, section_header);
     wrap!(Header, header);
     wrap!(Sym, sym);
     wrap!(Dyn, dyn);
     wrap!(Rela, rela);
 
     wrap!(ProgramHeaders, ProgramHeader, @vec program_header);
+    wrap!(SectionHeaders, SectionHeader, @vec section_header);
     wrap!(Dynsyms, Sym, @vec sym);
     wrap!(Syms, Sym, @vec sym);
     wrap!(Relas, Rela, @vec rela);
+    wrap!(Pltrelas, Rela, @vec rela);
 
     macro_rules! wrap_iterator {
       ($container:ident, $elem:ident) => {
@@ -125,6 +128,7 @@ mod impure {
     }
 
     wrap_iterator!(ProgramHeaders, ProgramHeader);
+    wrap_iterator!(SectionHeaders, SectionHeader);
     wrap_iterator!(Syms, Sym);
     wrap_iterator!(Relas, Rela);
 
@@ -165,15 +169,40 @@ mod impure {
     (e_shnum, u16),
     (e_shstrndx, u16)
     ]);
+    wrap_impl!(ProgramHeader, program_header, [
+    (p_type, u32),
+    (p_flags, u32),
+    (p_offset, u64),
+    (p_vaddr, u64),
+    (p_paddr, u64),
+    (p_filesz, u64),
+    (p_memsz, u64),
+    (p_align, u64)
+    ]);
+    wrap_impl!(SectionHeader, section_header, [
+    (sh_name, u32),
+    (sh_type, u32),
+    (sh_flags, u64),
+    (sh_addr, u64),
+    (sh_offset, u64),
+    (sh_size, u64),
+    (sh_link, u32),
+    (sh_info, u32),
+    (sh_addralign, u64),
+    (sh_entsize, u64)
+    ]);
     wrap_impl!(Sym, sym, [
     (st_value, u64),
     (st_name, usize)
     ]);
-    wrap_impl!(ProgramHeader, program_header, [
-    (p_filesz, usize),
-    (p_vaddr, usize),
-    (p_offset, usize),
-    (p_type, u32)
+    wrap_impl!(Dyn, dyn, [
+    (d_tag, u64),
+    (d_val, u64)
+    ]);
+    wrap_impl!(Rela, rela, [
+    (r_offset, u64),
+    (r_info, u64),
+    (r_addend, u64)
     ]);
 
     macro_rules! get_collection {
@@ -205,6 +234,7 @@ mod impure {
     }
 
     impl Binary {
+        get_field!(Binary, is_64, bool);
         get_field!(Binary, is_lib, bool);
         get_field!(Binary, entry, u64);
         get_field!(Binary, bias, u64);
@@ -214,6 +244,8 @@ mod impure {
         get_collection!(Binary, ProgramHeaders, program_headers);
         get_collection!(Binary, Syms, dynsyms);
         get_collection!(Binary, Syms, syms);
+        get_collection!(Binary, Relas, rela);
+        get_collection!(Binary, Pltrelas, pltrela);
 
         get_strtab!(dynstrtab);
         get_strtab!(strtab);
@@ -260,6 +292,7 @@ macro_rules! elf_from_fd { ($intmax:expr) => {
         pub soname: Option<String>,
         pub interpreter: Option<String>,
         pub libraries: Vec<String>,
+        pub is_64: bool,
         pub is_lib: bool,
         pub size: usize,
         pub entry: usize,
@@ -273,6 +306,7 @@ macro_rules! elf_from_fd { ($intmax:expr) => {
             let entry = header.e_entry as usize;
             let is_lib = header.e_type == header::ET_DYN;
             let is_lsb = header.e_ident[header::EI_DATA] == header::ELFDATA2LSB;
+            let is_64 = header.e_ident[header::EI_CLASS] == header::ELFCLASS64;
 
             let program_headers = try!(program_header::ProgramHeader::from_fd(fd, header.e_phoff as u64, header.e_phnum as usize, is_lsb));
 
@@ -362,6 +396,7 @@ macro_rules! elf_from_fd { ($intmax:expr) => {
                 soname: soname,
                 interpreter: interpreter,
                 libraries: libraries,
+                is_64: is_64,
                 is_lib: is_lib,
                 size: fd.metadata().unwrap().len() as usize,
                 entry: entry,

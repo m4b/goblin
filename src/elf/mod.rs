@@ -1,7 +1,40 @@
 //! Access ELF constants, other helper functions, which are independent of ELF bithood.  Also
-//! provides simple parser which returns an Elf64 or Elf32 "pre-built" binary.
+//! provides parser which returns a wrapped `Elf64` or `Elf32` binary.
 //!
-//! **WARNING**: to use the automagic ELF datatype union parser, you _must_ enable both elf and
+//! To access the contents of the binary, instead of directly getting the struct fields, you call
+//! the similarly named methods.
+//!
+//! # Example
+//!
+//! ```rust, no_run
+//! use std::fs::File;
+//!
+//! pub fn read (fd: &mut File) {
+//!   match goblin::elf::from_fd(fd) {
+//!     Ok(binary) => {
+//!       let entry = binary.entry();
+//!       for ph in binary.program_headers() {
+//!         if ph.p_type() == goblin::elf::program_header::PT_LOAD {
+//!           let mut _buf = vec![0u8; ph.p_filesz() as usize];
+//!           // read responsibly
+//!          }
+//!       }
+//!     },
+//!     Err(_) => ()
+//!   }
+//! }
+//! ```
+//!
+//! This will properly access the underlying 32-bit or 64-bit binary automatically. Note that since
+//! 32-bit binaries typically have shorter 32-bit values in some cases (specifically for addresses and pointer
+//! values), these values are upcasted to u64/i64s when appropriate.
+//!
+//! See [goblin::elf::Binary](enum.Binary.html) for more information.
+//!
+//! You are still free to use the specific 32-bit or 64-bit versions by accessing them through `goblin::elf64`, etc.
+//!
+//! # Note
+//! To use the automagic ELF datatype union parser, you _must_ enable both elf and
 //! elf32 features - i.e., do not use `no_elf` **NOR** `no_elf32`, otherwise you'll get obscure
 //! errors about [goblin::elf::from_fd](fn.from_fd.html) missing.
 
@@ -11,7 +44,6 @@ pub mod strtab;
 // These are shareable values for the 32/64 bit implementations.
 //
 // They are publicly re-exported by the pub-using module
-
 #[macro_use]
 pub mod header;
 #[macro_use]
@@ -144,29 +176,23 @@ mod impure {
     (p_type, u32)
     ]);
 
-    macro_rules! wrap_coll_impl {
+    macro_rules! get_collection {
         ($name:ident, $memtyp:ident, $field:ident) => {
-            impl $name {
-                pub fn $field(&self) -> $memtyp {
-                    match self {
-                        &$name::Elf32(ref binary) => $memtyp::Elf32(binary.$field.clone()),
-                        &$name::Elf64(ref binary) => $memtyp::Elf64(binary.$field.clone()),
-                    }
+            pub fn $field(&self) -> $memtyp {
+                match self {
+                    &$name::Elf32(ref binary) => $memtyp::Elf32(binary.$field.clone()),
+                    &$name::Elf64(ref binary) => $memtyp::Elf64(binary.$field.clone()),
                 }
             }
         }
     }
-
-    wrap_coll_impl!(Binary, Header, header);
-    wrap_coll_impl!(Binary, ProgramHeaders, program_headers);
-    wrap_coll_impl!(Binary, Syms, dynsyms);
-    wrap_coll_impl!(Binary, Syms, syms);
 
     #[derive(Debug)]
     pub enum Binary {
         Elf32(elf32::Binary),
         Elf64(elf64::Binary),
     }
+
     macro_rules! get_strtab {
           ($field:ident) => {
               pub fn $field<'a> (&'a self) -> &'a super::strtab::Strtab<'a> {
@@ -183,6 +209,11 @@ mod impure {
         get_field!(Binary, entry, u64);
         get_field!(Binary, bias, u64);
         get_field!(Binary, size, usize);
+
+        get_collection!(Binary, Header, header);
+        get_collection!(Binary, ProgramHeaders, program_headers);
+        get_collection!(Binary, Syms, dynsyms);
+        get_collection!(Binary, Syms, syms);
 
         get_strtab!(dynstrtab);
         get_strtab!(strtab);

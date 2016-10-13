@@ -205,6 +205,8 @@ mod impure {
     (r_addend, u64)
     ]);
 
+    // TODO: fix this, clones the vector, when it's nicer to just send a reference back and let callee
+    // decide if they want to clone
     macro_rules! get_collection {
         ($name:ident, $memtyp:ident, $field:ident) => {
             pub fn $field(&self) -> $memtyp {
@@ -233,12 +235,26 @@ mod impure {
           }
     }
 
+    macro_rules! get_unwrapped_field {
+          ($name:ident, $field:ident, $typ:ty) => {
+              pub fn $field (&self) -> &$typ {
+                match self {
+                    &Binary::Elf32(ref binary) => &binary.$field,
+                    &Binary::Elf64(ref binary) => &binary.$field,
+                }
+              }
+          }
+    }
+
     impl Binary {
         get_field!(Binary, is_64, bool);
         get_field!(Binary, is_lib, bool);
         get_field!(Binary, entry, u64);
         get_field!(Binary, bias, u64);
         get_field!(Binary, size, usize);
+
+        get_unwrapped_field!(Binary, soname, Option<String>);
+        get_unwrapped_field!(Binary, interpreter, Option<String>);
 
         get_collection!(Binary, Header, header);
         get_collection!(Binary, ProgramHeaders, program_headers);

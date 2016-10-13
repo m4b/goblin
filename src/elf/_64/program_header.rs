@@ -1,15 +1,23 @@
-pub use super::super::elf::program_header::*;
+pub use elf::program_header::*;
 
 #[repr(C)]
 #[derive(Clone, PartialEq, Default)]
 pub struct ProgramHeader {
+    /// Segment type
     pub p_type: u32,
+    /// Segment flags
     pub p_flags: u32,
+    /// Segment file offset
     pub p_offset: u64,
+    /// Segment virtual address
     pub p_vaddr: u64,
+    /// Segment physical address
     pub p_paddr: u64,
+    /// Segment size in file
     pub p_filesz: u64,
+    /// Segment size in memory
     pub p_memsz: u64,
+    /// Segment alignment
     pub p_align: u64,
 }
 

@@ -1,4 +1,4 @@
-//! # libGoblin
+//! # libgoblin
 //!
 //! ![say the right
 //! words](https://s-media-cache-ak0.pinimg.com/736x/1b/6a/aa/1b6aaa2bae005e2fed84b1a7c32ecb1b.jpg)
@@ -8,13 +8,15 @@
 //! formats).  The mach parser is in progress, and the PE format will follow.  `libgoblin` is
 //! engineered to be tailored towards very different use-case scenarios, for example:
 //!
-//! * a "pure" mode which includes no io, no std, and no fun!  * a non-endian fd reading mode
-//! (which reads in the host machines endianness, for loaders) * cfg switches to turn off unused
+//! * a "pure" mode which includes no io, no std, and no fun!
+//! * a non-endian fd reading mode (which reads in the host machines endianness, for loaders)
+//! * cfg switches to turn off unused
 //! binary formats (when relocation and binary size are important (ideally, in the future this
 //! won't be necessary if the compiler and/or linker can guarantee the unused symbols are dropped
 //! in the final artifact)
 //!
-//! # Using the features For example, if you are writing a kernel, or just want a barebones C-like
+//! # Using the features
+//! For example, if you are writing a kernel, or just want a barebones C-like
 //! header interface which defines the structures, enable the pure feature, `--cfg
 //! feature=\"pure\"`, which will turn off `std` and remove all extra methods defined on the
 //! structs.

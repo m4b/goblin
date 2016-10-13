@@ -1,12 +1,6 @@
-pub use super::super::elf::dyn::*;
+pub use elf::dyn::*;
 
-/// An entry in the dynamic array
-#[repr(C)]
-#[derive(Clone, PartialEq, Default)]
-pub struct Dyn {
-    pub d_tag: u64, // Dynamic entry type
-    pub d_val: u64, // Integer value
-}
+elf_dyn!(u64);
 
 pub const SIZEOF_DYN: usize = 16;
 

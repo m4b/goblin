@@ -1,4 +1,4 @@
-pub use super::super::elf::header::*;
+pub use elf::header::*;
 
 elf_header!(u32);
 

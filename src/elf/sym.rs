@@ -64,7 +64,7 @@ pub fn st_type(info: u8) -> u8 {
 
 /// Is this information defining an import?
 #[inline]
-pub fn is_import(info: u8, value: u8) -> bool {
+pub fn is_import(info: u8, value: u64) -> bool {
     let binding = st_bind(info);
     binding == STB_GLOBAL && value == 0
 }
@@ -122,6 +122,13 @@ macro_rules! elf_sym_impure_impl {
                 use std::slice;
 
                 use super::*;
+
+                impl Sym {
+                   pub fn is_import(&self) -> bool {
+                     let binding = self.st_info >> 4;
+                     binding == STB_GLOBAL && self.st_value == 0
+                   }
+                }
 
                 impl fmt::Debug for Sym {
                     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

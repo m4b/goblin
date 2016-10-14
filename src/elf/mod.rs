@@ -201,8 +201,12 @@ mod impure {
     (sh_entsize, u64)
     ]);
     wrap_impl!(Sym, sym, [
+    (st_name, usize),
+    (st_info, u8),
+    (st_other, u8),
+    (st_shndx, u16),
     (st_value, u64),
-    (st_name, usize)
+    (st_size, u64)
     ]);
     wrap_impl!(Dyn, dyn, [
     (d_tag, u64),

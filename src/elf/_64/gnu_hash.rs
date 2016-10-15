@@ -1,25 +1,27 @@
 //! TODO add proper writeup for how this is constructed, how it resolves symbols, and how it works, see: https://blogs.oracle.com/ali/entry/gnu_hash_elf_sections
 //! A Gnu Hash table as 4 sections:
+//!
 //!   1. Header
 //!   2. Bloom Filter
 //!   3. Hash Buckets
 //!   4. Hash Values
 //!
 //! The header has is an array of four (4) u32s:
-//!   a. nbuckets
-//!   b. symndx
-//!   c. maskwords
-//!   d. shift2
+//!
+//!   1. nbuckets
+//!   2. symndx
+//!   3. maskwords
+//!   4. shift2
 
-use std::slice;
-use super::super::elf::strtab;
+use core::slice;
+use core::mem;
+use elf::strtab;
 use super::sym;
-
-const HASH_SEED: u32 = 5381;
 
 /// GNU hash function: takes a string and returns the u32 hash of that string
 pub fn hash(symbol: &str) -> u32 {
     let bytes = symbol.as_bytes();
+    const HASH_SEED: u32 = 5381;
     let mut hash = HASH_SEED;
     for b in bytes {
         hash = hash.wrapping_mul(32).wrapping_add(*b as u32).wrapping_add(hash);
@@ -55,7 +57,7 @@ impl<'process> GnuHash<'process> {
                 nbuckets: nbuckets,
                 symindex: symindex,
                 shift2: shift2,
-                maskbits: ::std::mem::size_of::<usize>() as u32,
+                maskbits: mem::size_of::<usize>() as u32,
                 bloomwords: bloomwords,
                 hashvalues: hashvalues,
                 buckets: buckets,

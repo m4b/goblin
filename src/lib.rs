@@ -32,6 +32,9 @@
 #[cfg(not(feature = "no_endian_fd"))]
 extern crate byteorder;
 
+#[cfg(not(feature = "pure"))]
+extern crate core;
+
 #[macro_use]
 mod macros;
 

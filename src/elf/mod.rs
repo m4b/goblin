@@ -34,9 +34,7 @@
 //! You are still free to use the specific 32-bit or 64-bit versions by accessing them through `goblin::elf64`, etc.
 //!
 //! # Note
-//! To use the automagic ELF datatype union parser, you _must_ enable both elf and
-//! elf32 features - i.e., do not use `no_elf` **NOR** `no_elf32`, otherwise you'll get obscure
-//! errors about [goblin::elf::from_fd](fn.from_fd.html) missing.
+//! To use the automagic ELF datatype union parser, you _must_ enable both elf and and elf32
 
 #[cfg(not(feature = "pure"))]
 pub mod strtab;

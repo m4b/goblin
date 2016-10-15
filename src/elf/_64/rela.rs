@@ -1,6 +1,6 @@
 pub use elf::rela::*;
 
-elf_rela!(u64);
+elf_rela!(u64, i64);
 
 pub const SIZEOF_RELA: usize = 8 + 8 + 8;
 

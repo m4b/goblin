@@ -12,7 +12,7 @@ pub struct Rel {
     pub r_info: u32,
 }
 
-elf_rela!(u32);
+elf_rela!(u32, i32);
 
 pub const SIZEOF_RELA: usize = 4 + 4 + 4;
 

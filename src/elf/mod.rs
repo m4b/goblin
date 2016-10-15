@@ -149,7 +149,7 @@ mod impure {
             &$name::Elf64(ref st) => st.$field as $cast,
           }
         }
-      }
+      };
     }
 
     macro_rules! wrap_impl {
@@ -217,6 +217,22 @@ mod impure {
     (r_info, u64),
     (r_addend, u64)
     ]);
+
+    // this is a hack cause don't feel like messing with macros
+    impl Sym {
+        pub fn is_function(&self) -> bool {
+          match self {
+            &Sym::Elf32(ref st) => st.is_function(),
+            &Sym::Elf64(ref st) => st.is_function(),
+          }
+        }
+        pub fn is_import(&self) -> bool {
+            match self {
+                &Sym::Elf32(ref st) => st.is_import(),
+                &Sym::Elf64(ref st) => st.is_import(),
+            }
+        }
+    }
 
     #[derive(Debug)]
     pub enum Binary {

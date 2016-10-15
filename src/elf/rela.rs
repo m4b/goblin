@@ -44,8 +44,9 @@
 //! which takes no arguments, at the address of the result of the corresponding
 //! `R_X86_64_RELATIVE` relocation.
 
+// manually passing i32 for now because #27245 is not in stable 1.12 yet
 macro_rules! elf_rela {
-    ($size:ident) => {
+    ($size:ident, $typ:ty) => {
     #[repr(C)]
     #[derive(Clone, Copy, PartialEq, Default)]
     pub struct Rela {
@@ -54,8 +55,11 @@ macro_rules! elf_rela {
       /// Relocation type and symbol index
       pub r_info: $size,
       /// Addend
-      pub r_addend: signed_from_unsigned!($size),
+      pub r_addend: $typ,
     }
+    };
+    ($size:ident) => {
+//      elf_rela!($size, signed_from_unsigned!($size));
     };
 }
 

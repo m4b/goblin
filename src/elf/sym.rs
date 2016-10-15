@@ -124,9 +124,14 @@ macro_rules! elf_sym_impure_impl {
                 use super::*;
 
                 impl Sym {
+                   /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` binding and a `st_value` of 0
                    pub fn is_import(&self) -> bool {
                      let binding = self.st_info >> 4;
-                     binding == STB_GLOBAL && self.st_value == 0
+                     (binding == STB_GLOBAL || binding == STB_WEAK) && self.st_value == 0
+                   }
+                   /// Checks whether this `Sym` has type `STT_FUNC`
+                   pub fn is_function(&self) -> bool {
+                     st_type(self.st_info) == STT_FUNC
                    }
                 }
 

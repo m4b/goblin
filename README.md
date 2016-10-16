@@ -5,14 +5,16 @@
 ### Features
 
 * goblins (TBA)
-* the best, most feature complete ELF64 implementation, ever.
-* begrudging ELF32 support, with type punning!
+* the best, most feature complete ELF64/32 implementation, ever - now with auto type punning!
 * many cfg options - it will make your head spin, and make you angry when reading the source!
 * slowly adding mach-o and PE binary support, mostly because it's boring and it's just a port of [rdr](http://github.com/m4b/rdr)
 * tests
 * awesome crate name
 
-Libgoblin aims to be your one-stop shop for binary parsing, loading, and analysis.  Eventually, at some future date, once the holy trinity is finished (ELF, mach, PE), writers for the various binary formats are planned.
+`libgoblin` aims to be your one-stop shop for binary parsing, loading,
+and analysis.  Eventually, at some future date, once the holy trinity
+is finished (ELF, mach, PE), writers for the various binary
+formats are planned.
 
 ### Use-cases and Planned Features
 
@@ -26,22 +28,13 @@ Here are some things you could do with this crate (or help to implement so they 
 
 ### Cfgs
 
-libgoblin is designed to be massively configurable; by default however, all binary targets are default opted in.  Therefore, you must _opt out_, in contrast to rust guidelines.  This may change before the 1.0 release, in which case you will have to _opt in_ (the negation).
+`libgoblin` is designed to be massively configurable. The current flags are:
 
-Currently the feature flags are:
-
-* no_elf
-* no_elf32
-* no_mach
-* no_mach32
-* no_pe
-* no_pe32
-* no_endian_fd
-
-Planned flags:
-
-* pure
-
-Note: the non-suffixed 32 binary formats are default 64 bit, because I'm trying to brainwash everyone into forgetting about 32-bit binary formats.  It's not working, and I may add 64 bit suffixes to make this clear.
-
-The planned `pure` flag, as stated above, is essentially just struct and const defs (like a C header) - no fd, no output, no std - suitable for use in kernel development environments or other somesuch stuff.
+* elf64 - usable
+* elf32 - usable
+* mach64 - wip
+* mach32 - wip
+* pe64 - unimplemented
+* pe32 - unimplemented
+* endian_fd - parses according to the endianness in the binary
+* std - to allow `no_std` environments

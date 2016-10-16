@@ -112,8 +112,9 @@ macro_rules! elf_program_header_impure_impl { ($header:item) => {
 
             use super::*;
 
-            use std::slice;
-            use std::fmt;
+            use core::slice;
+            use core::fmt;
+
             use std::fs::File;
             use std::io::Seek;
             use std::io::SeekFrom::Start;

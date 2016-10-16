@@ -105,12 +105,12 @@ pub fn type_to_str(typ: u8) -> &'static str {
 }
 
 macro_rules! elf_sym_impure_impl {
-        ($from_fd_endian:item) => {
+        ($from_endian:item) => {
 
-            #[cfg(not(feature = "pure"))]
+            #[cfg(feature = "std")]
             pub use self::impure::*;
 
-            #[cfg(not(feature = "pure"))]
+            #[cfg(feature = "std")]
             mod impure {
 
                 use std::fs::File;
@@ -155,8 +155,7 @@ macro_rules! elf_sym_impure_impl {
                     slice::from_raw_parts(symp, count)
                 }
 
-                #[cfg(feature = "no_endian_fd")]
-                pub fn from_fd<'a>(fd: &mut File, offset: usize, count: usize, _: bool) -> io::Result<Vec<Sym>> {
+                pub fn from_fd<'a>(fd: &mut File, offset: usize, count: usize) -> io::Result<Vec<Sym>> {
                     // TODO: AFAIK this shouldn't work, since i pass in a byte size...
                     // FIX THIS, unecessary allocations + unsafety here
                     let mut bytes = vec![0u8; count * SIZEOF_SYM];
@@ -169,8 +168,8 @@ macro_rules! elf_sym_impure_impl {
                     Ok(syms)
                 }
 
-                #[cfg(not(feature = "no_endian_fd"))]
-                $from_fd_endian
+                #[cfg(feature = "endian_fd")]
+                $from_endian
 
             }
         };

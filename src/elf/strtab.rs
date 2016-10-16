@@ -1,13 +1,7 @@
-use std::fs::File;
-use std::io::Read;
-use std::io::Seek;
-use std::io::SeekFrom::Start;
-use std::io;
-use std::ops::Index;
-use std::slice;
-use std::str;
-use std::fmt;
-
+use core::ops::Index;
+use core::slice;
+use core::str;
+use core::fmt;
 use std::borrow::Cow;
 
 pub struct Strtab<'a> {
@@ -55,33 +49,46 @@ impl<'a> fmt::Debug for Strtab<'a> {
     }
 }
 
+#[cfg(feature = "std")]
+pub use self::impure::*;
+
+#[cfg(feature = "std")]
+mod impure {
+    use std::io::{self, Read, Seek};
+    use std::io::SeekFrom::Start;
+    use std::borrow::Cow;
+    use super::*;
+
+    impl<'a> Strtab<'a> {
+        pub fn parse<R: Read + Seek>(fd: &mut R, offset: usize, len: usize) -> io::Result<Strtab<'static>> {
+            let mut bytes = vec![0u8; len];
+            try!(fd.seek(Start(offset as u64)));
+            try!(fd.read(&mut bytes));
+            Ok(Strtab { bytes: Cow::Owned(bytes) })
+        }
+
+        pub fn to_vec(self) -> Vec<String> {
+            let len = self.bytes.len();
+            let mut strings = Vec::with_capacity(len);
+            let mut i = 0;
+            while i < len {
+                let string = self.get(i);
+                i = i + string.len() + 1;
+                strings.push(string.to_string());
+            }
+            strings
+        }
+    }
+}
+
 impl<'a> Strtab<'a> {
     pub unsafe fn from_raw(bytes_ptr: *const u8, size: usize) -> Strtab<'a> {
         Strtab { bytes: Cow::Borrowed(slice::from_raw_parts(bytes_ptr, size)) }
     }
 
-    pub fn from_fd(fd: &mut File, offset: usize, len: usize) -> io::Result<Strtab<'static>> {
-        let mut bytes = vec![0u8; len];
-        try!(fd.seek(Start(offset as u64)));
-        try!(fd.read(&mut bytes));
-        Ok(Strtab { bytes: Cow::Owned(bytes) })
-    }
-
     // Thanks to reem on #rust for this suggestion
     pub fn get(&'a self, idx: usize) -> &'a str {
         get_str(idx, &self.bytes)
-    }
-
-    pub fn to_vec(self) -> Vec<String> {
-        let len = self.bytes.len();
-        let mut strings = Vec::with_capacity(len);
-        let mut i = 0;
-        while i < len {
-            let string = self.get(i);
-            i = i + string.len() + 1;
-            strings.push(string.to_string());
-        }
-        strings
     }
 }
 

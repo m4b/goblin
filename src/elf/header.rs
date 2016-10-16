@@ -102,10 +102,10 @@ pub fn et_to_str(et: u16) -> &'static str {
     }
 }
 
-#[cfg(not(feature = "pure"))]
+#[cfg(feature = "std")]
 pub use self::impure::*;
 
-    #[cfg(not(feature = "pure"))]
+    #[cfg(feature = "std")]
 mod impure {
     use super::*;
 
@@ -154,7 +154,6 @@ macro_rules! elf_header_from_bytes {
 macro_rules! elf_header_from_fd {
         () => {
             /// Load a header from a file.
-            #[cfg(feature = "no_endian_fd")]
             pub fn from_fd(fd: &mut File) -> io::Result<Header> {
                 let mut elf_header = [0; SIZEOF_EHDR];
                 try!(fd.read(&mut elf_header));
@@ -187,10 +186,10 @@ macro_rules! elf_header_test_peek {
 
 macro_rules! elf_header_impure_impl {
         ($header:item) => {
-            #[cfg(not(feature = "pure"))]
+            #[cfg(feature = "std")]
             pub use self::impure::*;
 
-            #[cfg(not(feature = "pure"))]
+            #[cfg(feature = "std")]
             mod impure {
 
                 use super::*;

@@ -28,8 +28,8 @@ elf_program_header_impure_impl!(
         elf_program_header_from_bytes!();
         elf_program_header_from_raw_parts!();
         elf_program_header_from_fd!();
-        #[cfg(not(feature = "no_endian_fd"))]
-        pub fn from_fd(fd: &mut File, offset: u64, count: usize, is_lsb: bool) -> io::Result<Vec<ProgramHeader>> {
+        #[cfg(feature = "endian_fd")]
+        pub fn parse(fd: &mut File, offset: u64, count: usize, is_lsb: bool) -> io::Result<Vec<ProgramHeader>> {
             use byteorder::{LittleEndian,BigEndian,ReadBytesExt};
 
             let mut phdrs = vec![];

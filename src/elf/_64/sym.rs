@@ -20,7 +20,7 @@ pub struct Sym {
 pub const SIZEOF_SYM: usize = 4 + 1 + 1 + 2 + 8 + 8;
 
 elf_sym_impure_impl!(
-    pub fn from_fd(fd: &mut File, offset: usize, count: usize, is_lsb: bool) -> io::Result<Vec<Sym>> {
+    pub fn parse(fd: &mut File, offset: usize, count: usize, is_lsb: bool) -> io::Result<Vec<Sym>> {
         use byteorder::{LittleEndian,BigEndian,ReadBytesExt};
         let mut syms = Vec::with_capacity(count);
 

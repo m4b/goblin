@@ -4,7 +4,7 @@ pub use elf::rela::*;
 // I think 32-bit binaries are stupid relics from the past in case that wasn't clear
 #[repr(C)]
 #[derive(Clone, PartialEq, Default)]
-#[cfg_attr(not(feature = "pure"), derive(Debug))]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub struct Rel {
     /// address
     pub r_offset: u32,
@@ -32,7 +32,7 @@ pub fn r_info(sym: u32, typ: u32) -> u32 {
 }
 
 elf_rela_impure_impl!(
-    pub fn from_fd(fd: &mut File, offset: usize, size: usize, is_lsb: bool) -> io::Result<Vec<Rela>> {
+    pub fn parse(fd: &mut File, offset: usize, size: usize, is_lsb: bool) -> io::Result<Vec<Rela>> {
         use byteorder::{LittleEndian,BigEndian,ReadBytesExt};
         let count = size / SIZEOF_RELA;
         let mut res = Vec::with_capacity(count);

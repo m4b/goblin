@@ -13,10 +13,13 @@ pub mod dyn;
 //#[path="rela32.rs"]
 pub mod rela;
 
-#[cfg(not(feature = "pure"))]
+#[cfg(feature = "std")]
+pub use elf::strtab;
+
+#[cfg(all(feature = "std", feature = "endian_fd"))]
 pub use self::impure::*;
 
-#[cfg(not(feature = "pure"))]
+#[cfg(all(feature = "std", feature = "endian_fd"))]
 mod impure {
-    elf_from_fd!(!0);
+    elf_from!(!0);
 }

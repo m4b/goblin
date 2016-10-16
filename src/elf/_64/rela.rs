@@ -20,7 +20,7 @@ pub fn r_info(sym: u64, typ: u64) -> u64 {
 }
 
 elf_rela_impure_impl!(
-    pub fn from_fd(fd: &mut File, offset: usize, size: usize, is_lsb: bool) -> io::Result<Vec<Rela>> {
+    pub fn parse(fd: &mut File, offset: usize, size: usize, is_lsb: bool) -> io::Result<Vec<Rela>> {
         use byteorder::{LittleEndian,BigEndian,ReadBytesExt};
         let count = size / SIZEOF_RELA;
         let mut res = Vec::with_capacity(count);

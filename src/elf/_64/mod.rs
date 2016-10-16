@@ -13,16 +13,19 @@ pub mod dyn;
 //#[path="rela64.rs"]
 pub mod rela;
 
-#[cfg(not(feature = "pure"))]
+#[cfg(feature = "std")]
 pub mod gnu_hash;
 
-#[cfg(not(feature = "pure"))]
+#[cfg(feature = "std")]
+pub use elf::strtab;
+
+#[cfg(all(feature = "std", feature = "endian_fd"))]
 pub use self::impure::*;
 
-#[cfg(not(feature = "pure"))]
+#[cfg(all(feature = "std", feature = "endian_fd"))]
 mod impure {
 
-    elf_from_fd!(::std::u64::MAX);
+    elf_from!(::std::u64::MAX);
 
     #[cfg(test)]
     mod tests {

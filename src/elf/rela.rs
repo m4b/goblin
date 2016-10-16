@@ -194,12 +194,12 @@ pub fn type_to_str(typ: u64) -> &'static str {
     }
 }
 
-macro_rules! elf_rela_impure_impl { ($from_fd_endian:item) => {
+macro_rules! elf_rela_impure_impl { ($from_endian:item) => {
 
-        #[cfg(not(feature = "pure"))]
+        #[cfg(feature = "std")]
         pub use self::impure::*;
 
-        #[cfg(not(feature = "pure"))]
+        #[cfg(feature = "std")]
         mod impure {
 
             use super::*;
@@ -233,8 +233,7 @@ macro_rules! elf_rela_impure_impl { ($from_fd_endian:item) => {
                 slice::from_raw_parts(ptr, size / SIZEOF_RELA)
             }
 
-            #[cfg(feature = "no_endian_fd")]
-            pub fn from_fd(fd: &mut File, offset: usize, size: usize, _: bool) -> io::Result<Vec<Rela>> {
+            pub fn from_fd(fd: &mut File, offset: usize, size: usize) -> io::Result<Vec<Rela>> {
                 use std::io::Read;
                 let count = size / SIZEOF_RELA;
                 let mut bytes = vec![0u8; size];
@@ -246,7 +245,7 @@ macro_rules! elf_rela_impure_impl { ($from_fd_endian:item) => {
                 Ok(res)
             }
 
-            #[cfg(not(feature = "no_endian_fd"))]
-            $from_fd_endian
+            #[cfg(feature = "endian_fd")]
+            $from_endian
         }
     };}

@@ -1,5 +1,5 @@
 //! Access ELF constants, other helper functions, which are independent of ELF bithood.  Also
-//! provides parser which returns a wrapped `Elf64` or `Elf32` binary.
+//! provides [`parse`](fn.parse.html) which returns a wrapped `Elf64` or `Elf32` binary.
 //!
 //! To access the contents of the binary, instead of directly getting the struct fields, you call
 //! the similarly named methods.
@@ -34,9 +34,10 @@
 //! You are still free to use the specific 32-bit or 64-bit versions by accessing them through `goblin::elf64`, etc.
 //!
 //! # Note
-//! To use the automagic ELF datatype union parser, you _must_ enable both elf and and elf32
+//! To use the automagic ELF datatype union parser, you _must_ enable/opt-in to the  `elf64`, `elf32`, and
+//! `endian_fd` features if you disable `default`.
 
-#[cfg(not(feature = "pure"))]
+#[cfg(feature = "std")]
 pub mod strtab;
 
 // These are shareable values for the 32/64 bit implementations.
@@ -55,10 +56,10 @@ pub mod dyn;
 #[macro_use]
 pub mod rela;
 
-#[cfg(all(not(feature = "pure"), not(feature = "no_elf32"), not(feature = "no_elf")))]
+#[cfg(all(feature = "std", feature = "elf32", feature = "elf64", feature = "endian_fd"))]
 pub use self::impure::*;
 
-#[cfg(all(not(feature = "pure"), not(feature = "no_elf32"), not(feature = "no_elf")))]
+#[cfg(all(feature = "std", feature = "elf32", feature = "elf64", feature = "endian_fd"))]
 #[macro_use]
 mod impure {
 
@@ -314,10 +315,10 @@ mod impure {
         }
     }
 
-    pub fn from_fd(fd: &mut File) -> io::Result<Binary> {
+    pub fn parse(fd: &mut File) -> io::Result<Binary> {
         match try!(header::peek(fd)) {
-            (header::ELFCLASS64, _is_lsb) => Ok(Binary::Elf64(try!(elf64::Binary::from_fd(fd)))),
-            (header::ELFCLASS32, _is_lsb) => Ok(Binary::Elf32(try!(elf32::Binary::from_fd(fd)))),
+            (header::ELFCLASS64, _is_lsb) => Ok(Binary::Elf64(try!(elf64::Binary::parse(fd)))),
+            (header::ELFCLASS32, _is_lsb) => Ok(Binary::Elf32(try!(elf32::Binary::parse(fd)))),
             (class, is_lsb) => {
                 io_error!("Unknown values in ELF ident header: class: {} is_lsb: {}",
                           class,
@@ -327,7 +328,7 @@ mod impure {
     }
 }
 
-macro_rules! elf_from_fd { ($intmax:expr) => {
+macro_rules! elf_from { ($intmax:expr) => {
     use std::path::Path;
     use std::fs::File;
     use std::io;
@@ -335,7 +336,7 @@ macro_rules! elf_from_fd { ($intmax:expr) => {
     use std::io::Seek;
     use std::io::SeekFrom::Start;
 
-    pub use elf::strtab;
+    use elf::strtab;
     use super::{header, program_header, section_header, dyn, sym, rela};
 
     #[derive(Debug)]
@@ -363,16 +364,16 @@ macro_rules! elf_from_fd { ($intmax:expr) => {
 
     impl Binary {
 
-        pub fn from_fd (fd: &mut File) -> io::Result<Binary> {
-            let header = try!(header::Header::from_fd(fd));
+        pub fn parse (fd: &mut File) -> io::Result<Binary> {
+            let header = try!(header::Header::parse(fd));
             let entry = header.e_entry as usize;
             let is_lib = header.e_type == header::ET_DYN;
             let is_lsb = header.e_ident[header::EI_DATA] == header::ELFDATA2LSB;
             let is_64 = header.e_ident[header::EI_CLASS] == header::ELFCLASS64;
 
-            let program_headers = try!(program_header::ProgramHeader::from_fd(fd, header.e_phoff as u64, header.e_phnum as usize, is_lsb));
+            let program_headers = try!(program_header::ProgramHeader::parse(fd, header.e_phoff as u64, header.e_phnum as usize, is_lsb));
 
-            let dynamic = try!(dyn::from_fd(fd, &program_headers, is_lsb));
+            let dynamic = try!(dyn::parse(fd, &program_headers, is_lsb));
             let mut bias: usize = 0;
             for ph in &program_headers {
                 if ph.p_type == program_header::PT_LOAD {
@@ -392,17 +393,17 @@ macro_rules! elf_from_fd { ($intmax:expr) => {
                 }
             }
 
-            let section_headers = try!(section_header::SectionHeader::from_fd(fd, header.e_shoff as u64, header.e_shnum as usize, is_lsb));
+            let section_headers = try!(section_header::SectionHeader::parse(fd, header.e_shoff as u64, header.e_shnum as usize, is_lsb));
 
             let mut syms = vec![];
             let mut strtab = strtab::Strtab::default();
             for shdr in &section_headers {
                 if shdr.sh_type as u32 == section_header::SHT_SYMTAB {
                     let count = shdr.sh_size / shdr.sh_entsize;
-                    syms = try!(sym::from_fd(fd, shdr.sh_offset as usize, count as usize, is_lsb))
+                    syms = try!(sym::parse(fd, shdr.sh_offset as usize, count as usize, is_lsb))
                 }
                 if shdr.sh_type as u32 == section_header::SHT_STRTAB {
-                    strtab = try!(strtab::Strtab::from_fd(fd, shdr.sh_offset as usize, shdr.sh_size as usize));
+                    strtab = try!(strtab::Strtab::parse(fd, shdr.sh_offset as usize, shdr.sh_size as usize));
                 }
             }
 
@@ -411,7 +412,7 @@ macro_rules! elf_from_fd { ($intmax:expr) => {
                 strtab::Strtab::default()
             } else {
                 let shdr = &section_headers[strtab_idx];
-                try!(strtab::Strtab::from_fd(fd, shdr.sh_offset as usize, shdr.sh_size as usize))
+                try!(strtab::Strtab::parse(fd, shdr.sh_offset as usize, shdr.sh_size as usize))
             };
 
             let mut soname = None;
@@ -422,7 +423,7 @@ macro_rules! elf_from_fd { ($intmax:expr) => {
             let mut dynstrtab = strtab::Strtab::default();
             if let Some(ref dynamic) = dynamic {
                 let dyn_info = dyn::DynamicInfo::new(&dynamic, bias); // we explicitly overflow the values here with our bias
-                dynstrtab = try!(strtab::Strtab::from_fd(fd,
+                dynstrtab = try!(strtab::Strtab::parse(fd,
                                                           dyn_info.strtab,
                                                           dyn_info.strsz));
 
@@ -438,9 +439,9 @@ macro_rules! elf_from_fd { ($intmax:expr) => {
                 }
 
                 let num_syms = (dyn_info.strtab - dyn_info.symtab) / dyn_info.syment;
-                dynsyms = try!(sym::from_fd(fd, dyn_info.symtab, num_syms, is_lsb));
-                rela = try!(rela::from_fd(fd, dyn_info.rela, dyn_info.relasz, is_lsb));
-                pltrela = try!(rela::from_fd(fd, dyn_info.jmprel, dyn_info.pltrelsz, is_lsb));
+                dynsyms = try!(sym::parse(fd, dyn_info.symtab, num_syms, is_lsb));
+                rela = try!(rela::parse(fd, dyn_info.rela, dyn_info.relasz, is_lsb));
+                pltrela = try!(rela::parse(fd, dyn_info.jmprel, dyn_info.pltrelsz, is_lsb));
             }
 
             let elf = Binary {
@@ -474,7 +475,7 @@ macro_rules! elf_from_fd { ($intmax:expr) => {
             if metadata.len() < header::SIZEOF_EHDR as u64 {
                 io_error!("Error: {:?} size is smaller than an ELF header", path.as_os_str())
             } else {
-                Self::from_fd(&mut fd)
+                Self::parse(&mut fd)
             }
         }
     }

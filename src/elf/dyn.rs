@@ -267,12 +267,12 @@ pub const DF_1_GLOBAUDIT: u64 = 0x01000000;
 pub const DF_1_SINGLETON: u64 = 0x02000000;
 
 macro_rules! elf_dyn_impure_impl {
-        ($size:ident, $from_fd_endian:item) => {
+        ($size:ident, $from_endian:item) => {
 
-            #[cfg(not(feature = "pure"))]
+            #[cfg(feature = "std")]
             pub use self::impure::*;
 
-            #[cfg(not(feature = "pure"))]
+            #[cfg(feature = "std")]
             mod impure {
 
                 use std::fs::File;
@@ -282,7 +282,7 @@ macro_rules! elf_dyn_impure_impl {
                 use std::fmt;
                 use std::slice;
                 use super::super::program_header::{ProgramHeader, PT_DYNAMIC};
-                use super::super::super::elf::strtab::Strtab;
+                use elf::strtab::Strtab;
 
                 use super::*;
 
@@ -325,9 +325,8 @@ macro_rules! elf_dyn_impure_impl {
                     }
                 }
 
-                #[cfg(feature = "no_endian_fd")]
                 /// Returns a vector of dynamic entries from the given fd and program headers
-                pub fn from_fd(mut fd: &File, phdrs: &[ProgramHeader], _: bool) -> io::Result<Option<Vec<Dyn>>> {
+                pub fn from_fd(mut fd: &File, phdrs: &[ProgramHeader]) -> io::Result<Option<Vec<Dyn>>> {
                     use std::io::Read;
                     for phdr in phdrs {
                         if phdr.p_type == PT_DYNAMIC {
@@ -381,9 +380,9 @@ macro_rules! elf_dyn_impure_impl {
                     needed
                 }
 
-                #[cfg(not(feature = "no_endian_fd"))]
-                /// Returns a vector of dynamic entries from the given fd and program headers
-                $from_fd_endian
+                #[cfg(feature = "endian_fd")]
+                /// Returns a vector of dynamic entries from the given `R: Read` and program headers
+                $from_endian
 
             }
 

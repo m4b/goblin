@@ -6,7 +6,7 @@ pub const SIZEOF_DYN: usize = 8;
 
 elf_dyn_impure_impl!(
     u32,
-    pub fn from_fd(mut fd: &File, phdrs: &[ProgramHeader], is_lsb: bool) -> io::Result<Option<Vec<Dyn>>> {
+    pub fn parse(mut fd: &File, phdrs: &[ProgramHeader], is_lsb: bool) -> io::Result<Option<Vec<Dyn>>> {
         use byteorder::{LittleEndian,BigEndian,ReadBytesExt};
         for phdr in phdrs {
             if phdr.p_type == PT_DYNAMIC {

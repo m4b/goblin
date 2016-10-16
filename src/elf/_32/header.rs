@@ -9,8 +9,8 @@ elf_header_impure_impl!(
     impl Header {
         elf_header_from_bytes!();
         elf_header_from_fd!();
-        #[cfg(not(feature = "no_endian_fd"))]
-        pub fn from_fd(fd: &mut File) -> io::Result<Header> {
+        #[cfg(feature = "endian_fd")]
+        pub fn parse(fd: &mut File) -> io::Result<Header> {
             use byteorder::{LittleEndian,BigEndian,ReadBytesExt};
             use std::io::Seek;
             use std::io::SeekFrom::Start;

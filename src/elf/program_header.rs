@@ -88,8 +88,7 @@ macro_rules! elf_program_header_from_raw_parts { () => {
         }};}
 
 macro_rules! elf_program_header_from_fd { () => {
-        #[cfg(feature = "no_endian_fd")]
-        pub fn from_fd(fd: &mut File, offset: u64, count: usize, _: bool) -> io::Result<Vec<ProgramHeader>> {
+        pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> io::Result<Vec<ProgramHeader>> {
             use std::io::Read;
             let mut phdrs = vec![0u8; count * SIZEOF_PHDR];
             try!(fd.seek(Start(offset)));
@@ -98,17 +97,17 @@ macro_rules! elf_program_header_from_fd { () => {
         }
     };}
 
-macro_rules! elf_program_header_from_fd_endian { ($from_fd_endian:item) => {
-        #[cfg(not(feature = "no_endian_fd"))]
-        $from_fd_endian
+macro_rules! elf_program_header_from_endian { ($from_endian:item) => {
+        #[cfg(feature = "endian_fd")]
+        $from_endian
     };}
 
 macro_rules! elf_program_header_impure_impl { ($header:item) => {
 
-        #[cfg(not(feature = "pure"))]
+        #[cfg(feature = "std")]
         pub use self::impure::*;
 
-        #[cfg(not(feature = "pure"))]
+        #[cfg(feature = "std")]
         mod impure {
 
             use super::*;

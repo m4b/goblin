@@ -112,16 +112,14 @@ macro_rules! elf_sym_impure_impl {
 
             #[cfg(feature = "std")]
             mod impure {
+                use super::*;
+
+                use core::fmt;
+                use core::slice;
 
                 use std::fs::File;
-                use std::io::Read;
-                use std::io::Seek;
+                use std::io::{self, Read, Seek};
                 use std::io::SeekFrom::Start;
-                use std::io;
-                use std::fmt;
-                use std::slice;
-
-                use super::*;
 
                 impl Sym {
                    /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` binding and a `st_value` of 0

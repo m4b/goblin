@@ -65,9 +65,6 @@ mod impure {
 
     use std::fs::File;
     use std::io;
-    // use std::io::Read;
-    // use std::io::SeekFrom::Start;
-
     use super::header;
 
     use elf32;

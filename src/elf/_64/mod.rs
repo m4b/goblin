@@ -25,7 +25,7 @@ pub use self::impure::*;
 #[cfg(all(feature = "std", feature = "endian_fd"))]
 mod impure {
 
-    elf_from!(::std::u64::MAX);
+    elf_from!(::core::u64::MAX);
 
     #[cfg(test)]
     mod tests {

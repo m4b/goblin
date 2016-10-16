@@ -204,12 +204,12 @@ macro_rules! elf_rela_impure_impl { ($from_endian:item) => {
 
             use super::*;
 
+            use core::fmt;
+            use core::slice;
+
             use std::fs::File;
-            use std::io::Seek;
+            use std::io::{self, Read, Seek};
             use std::io::SeekFrom::Start;
-            use std::io;
-            use std::fmt;
-            use std::slice;
 
             impl fmt::Debug for Rela {
                 fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -234,7 +234,6 @@ macro_rules! elf_rela_impure_impl { ($from_endian:item) => {
             }
 
             pub fn from_fd(fd: &mut File, offset: usize, size: usize) -> io::Result<Vec<Rela>> {
-                use std::io::Read;
                 let count = size / SIZEOF_RELA;
                 let mut bytes = vec![0u8; size];
                 try!(fd.seek(Start(offset as u64)));

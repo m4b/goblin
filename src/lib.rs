@@ -54,5 +54,5 @@ pub mod elf64;
 #[path = "elf/_32/mod.rs"]
 pub mod elf32;
 
-#[cfg(feature = "mach")]
+#[cfg(feature = "mach64")]
 pub mod mach;

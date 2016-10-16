@@ -89,7 +89,6 @@ macro_rules! elf_program_header_from_raw_parts { () => {
 
 macro_rules! elf_program_header_from_fd { () => {
         pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> io::Result<Vec<ProgramHeader>> {
-            use std::io::Read;
             let mut phdrs = vec![0u8; count * SIZEOF_PHDR];
             try!(fd.seek(Start(offset)));
             try!(fd.read(&mut phdrs));
@@ -116,9 +115,8 @@ macro_rules! elf_program_header_impure_impl { ($header:item) => {
             use core::fmt;
 
             use std::fs::File;
-            use std::io::Seek;
+            use std::io::{self, Seek, Read};
             use std::io::SeekFrom::Start;
-            use std::io;
 
             impl fmt::Debug for ProgramHeader {
                 fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

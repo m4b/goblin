@@ -10,10 +10,8 @@ elf_header_impure_impl!(
         elf_header_from_bytes!();
         elf_header_from_fd!();
         #[cfg(feature = "endian_fd")]
-        pub fn parse(fd: &mut File) -> io::Result<Header> {
+        pub fn parse<R: Read + Seek>(fd: &mut R) -> io::Result<Header> {
             use byteorder::{LittleEndian,BigEndian,ReadBytesExt};
-            use std::io::Seek;
-            use std::io::SeekFrom::Start;
             let mut elf_header = Header::default();
 
             elf_header.e_ident = [0; SIZEOF_IDENT];

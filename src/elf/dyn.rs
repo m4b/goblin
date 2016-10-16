@@ -385,7 +385,7 @@ macro_rules! elf_dyn_impure_impl {
 
             }
 
-            /// Important dynamic linking info generated via a single pass through the _DYNAMIC array
+            /// Important dynamic linking info generated via a single pass through the `_DYNAMIC` array
             #[derive(Default)]
             pub struct DynamicInfo {
                 pub rela: usize,

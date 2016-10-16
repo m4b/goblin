@@ -27,13 +27,4 @@ mod impure {
 
     elf_from!(::core::u64::MAX);
 
-    #[cfg(test)]
-    mod tests {
-        use std::path::Path;
-
-        #[test]
-        fn read_ls() {
-            assert!(super::Binary::from_path(Path::new("/bin/ls")).is_ok());
-        }
-    }
 }

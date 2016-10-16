@@ -11,7 +11,7 @@ pub fn main () {
             let path = Path::new(arg.as_str());
             // we hackin' for now
             let mut fd = ::std::fs::File::open(&path).unwrap();
-            match elf::from_fd(&mut fd) {
+            match elf::parse(&mut fd) {
                 Ok(elf) => println!("{:#?}", elf),
                 Err(err) => {
                     println!("Not an ELF: {:?}", err);

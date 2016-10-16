@@ -10,7 +10,7 @@ elf_section_header_impure_impl!(
         elf_section_header_from_raw_parts!();
         elf_section_header_from_fd!();
         #[cfg(feature = "endian_fd")]
-        pub fn parse(fd: &mut File, offset: u64, count: usize, is_lsb: bool) -> io::Result<Vec<SectionHeader>> {
+        pub fn parse<R: Read + Seek>(fd: &mut R, offset: u64, count: usize, is_lsb: bool) -> io::Result<Vec<SectionHeader>> {
             use byteorder::{LittleEndian,BigEndian,ReadBytesExt};
 
             let mut shdrs = Vec::with_capacity(count);

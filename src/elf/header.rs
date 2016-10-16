@@ -194,11 +194,12 @@ macro_rules! elf_header_impure_impl {
 
                 use super::*;
 
-                use std::mem;
-                use std::fmt;
+                use core::mem;
+                use core::fmt;
+
                 use std::fs::File;
-                use std::io::Read;
-                use std::io;
+                use std::io::{self, Read, Seek};
+                use std::io::SeekFrom::Start;
 
                 impl fmt::Debug for Header {
                     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

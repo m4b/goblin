@@ -44,6 +44,16 @@
 //! which takes no arguments, at the address of the result of the corresponding
 //! `R_X86_64_RELATIVE` relocation.
 
+#[cfg(feature = "std")]
+pub trait ElfRela {
+    /// Address
+    fn r_offset(&self) -> u64;
+    /// Relocation type and symbol index
+    fn r_info(&self) -> u64;
+    /// Addend
+    fn r_addend(&self) -> i64;
+}
+
 // manually passing i32 for now because #27245 is not in stable 1.12 yet
 macro_rules! elf_rela {
     ($size:ident, $typ:ty) => {
@@ -210,6 +220,21 @@ macro_rules! elf_rela_impure_impl { ($from_endian:item) => {
             use std::fs::File;
             use std::io::{self, Read, Seek};
             use std::io::SeekFrom::Start;
+
+            impl ElfRela for Rela {
+                /// Address
+                fn r_offset(&self) -> u64 {
+                    self.r_offset as u64
+                }
+                /// Relocation type and symbol index
+                fn r_info(&self) -> u64 {
+                    self.r_offset as u64
+                }
+                /// Addend
+                fn r_addend(&self) -> i64 {
+                    self.r_offset as i64
+                }
+            }
 
             impl fmt::Debug for Rela {
                 fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

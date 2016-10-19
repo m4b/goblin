@@ -1,3 +1,9 @@
+#[cfg(feature = "std")]
+pub trait ElfDyn {
+    fn d_tag (&self) -> u64;
+    fn d_val (&self) -> u64;
+}
+
 macro_rules! elf_dyn {
   ($size:ty) => {
     #[repr(C)]
@@ -285,6 +291,15 @@ macro_rules! elf_dyn_impure_impl {
                 use elf::strtab::Strtab;
 
                 use super::*;
+
+                impl ElfDyn for Dyn {
+                   fn d_tag (&self) -> u64 {
+                     self.d_tag as u64
+                   }
+                    fn d_val (&self) -> u64 {
+                     self.d_val as u64
+                   }
+                }
 
                 impl fmt::Debug for Dyn {
                     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

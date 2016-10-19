@@ -26,6 +26,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#![feature(test)]
+extern crate test;
+
 // if the no_endian feature flag is set the libary will only be able to
 // process files with the same endianess as the machine.
 #[cfg(feature = "endian_fd")]
@@ -56,3 +59,68 @@ pub mod elf32;
 
 #[cfg(feature = "mach64")]
 pub mod mach;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test::Bencher;
+    use std::path::Path;
+    use std::fs::{self, File};
+
+    #[bench]
+    fn bench_parse(b: &mut Bencher) {
+        let libs = Path::new("/usr/lib");
+        let entries = fs::read_dir(libs).unwrap().into_iter().filter_map(|entry| {
+            let entry = entry.unwrap();
+            let path = entry.path();
+            if path.is_dir() {
+                None
+            } else {
+                Some (path)
+            }
+        }).collect::<Vec<_>>();
+        b.iter(|| {
+            let mut sym_count = 0;
+            for path in &entries {
+                let mut fs = File::open(path).unwrap();
+                match elf::parse(&mut fs) {
+                    Ok(binary) => {
+                        for (i, _) in binary.dynsyms().into_iter().enumerate() {
+                            sym_count += i;
+                        }
+                    },
+                    Err(_) => ()
+                }
+            }
+            println!("total dynsyms: {}", sym_count);
+        });
+    }
+    #[bench]
+    fn bench_parse_new(b: &mut Bencher) {
+        let libs = Path::new("/usr/lib");
+        let entries = fs::read_dir(libs).unwrap().into_iter().filter_map(|entry| {
+            let entry = entry.unwrap();
+            let path = entry.path();
+            if path.is_dir() {
+                None
+            } else {
+                Some (path)
+            }
+        }).collect::<Vec<_>>();
+        b.iter(|| {
+            let mut sym_count = 0;
+            for path in &entries {
+                let mut fs = File::open(path).unwrap();
+                match elf::Elf::parse(&mut fs) {
+                    Ok(binary) => {
+                        for (i, _) in binary.dynsyms.into_iter().enumerate() {
+                            sym_count += i;
+                        }
+                    },
+                    Err(_) => ()
+                }
+                println!("total dynsyms: {}", sym_count);
+            }
+        });
+    }
+}

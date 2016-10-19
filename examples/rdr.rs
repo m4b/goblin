@@ -11,8 +11,16 @@ pub fn main () {
             let path = Path::new(arg.as_str());
             // we hackin' for now
             let mut fd = ::std::fs::File::open(&path).unwrap();
-            match elf::parse(&mut fd) {
-                Ok(elf) => println!("{:#?}", elf),
+            match elf::Elf::parse(&mut fd) {
+                Ok(elf) => {
+                    println!("{:#?}", elf);
+                    if let Some(dynamic) = elf.dynamic {
+                        println!("len: {}", dynamic.len());
+                        for (i, dyn) in dynamic.enumerate() {
+                            println!("{}: {:?}", i, dyn.d_tag());
+                        }
+                    }
+                },
                 Err(err) => {
                     println!("Not an ELF: {:?}", err);
                     match mach::Mach::from_path(path) {

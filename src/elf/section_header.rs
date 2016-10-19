@@ -1,3 +1,27 @@
+#[cfg(feature = "std")]
+pub trait ElfSectionHeader {
+    /// Section name (string tbl index)
+    fn sh_name(&self) -> u32;
+    /// Section type
+    fn sh_type(&self) -> u32;
+    /// Section flags
+    fn sh_flags(&self) -> u64;
+    /// Section virtual addr at execution
+    fn sh_addr(&self) -> u64;
+    /// Section file offset
+    fn sh_offset(&self) -> u64;
+    /// Section size in bytes
+    fn sh_size(&self) -> u64;
+    /// Link to another section
+    fn sh_link(&self) -> u32;
+    /// Additional section information
+    fn sh_info(&self) -> u32;
+    /// Section alignment
+    fn sh_addralign(&self) -> u64;
+    /// Entry size if section holds table
+    fn sh_entsize(&self) -> u64;
+}
+
 macro_rules! elf_section_header {
         ($size:ident) => {
             #[repr(C)]
@@ -227,6 +251,49 @@ macro_rules! elf_section_header_impure_impl { ($header:item) => {
             use std::fs::File;
             use std::io::{self, Read, Seek};
             use std::io::SeekFrom::Start;
+
+            impl ElfSectionHeader for SectionHeader {
+                /// Section name (string tbl index)
+                fn sh_name(&self) -> u32 {
+                    self.sh_name
+                }
+                /// Section type
+                fn sh_type(&self) -> u32 {
+                    self.sh_type
+                }
+                /// Section flags
+                fn sh_flags(&self) -> u64 {
+                    self.sh_flags as u64
+                }
+                /// Section virtual addr at execution
+                fn sh_addr(&self) -> u64 {
+                    self.sh_addr as u64
+                }
+                /// Section file offset
+                fn sh_offset(&self) -> u64 {
+                    self.sh_offset as u64
+                }
+                /// Section size in bytes
+                fn sh_size(&self) -> u64 {
+                    self.sh_size as u64
+                }
+                /// Link to another section
+                fn sh_link(&self) -> u32 {
+                    self.sh_link
+                }
+                /// Additional section information
+                fn sh_info(&self) -> u32 {
+                    self.sh_info
+                }
+                /// Section alignment
+                fn sh_addralign(&self) -> u64 {
+                    self.sh_addralign as u64
+                }
+                /// Entry size if section holds table
+                fn sh_entsize(&self) -> u64 {
+                    self.sh_entsize as u64
+                }
+            }
 
             impl fmt::Debug for SectionHeader {
                 fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

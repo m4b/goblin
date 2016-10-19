@@ -1,3 +1,15 @@
+#[cfg(feature = "std")]
+pub trait ElfProgramHeader {
+    fn p_type(&self) -> u32;
+    fn p_flags(&self) -> u32;
+    fn p_offset(&self) -> u64;
+    fn p_vaddr(&self) -> u64;
+    fn p_paddr(&self) -> u64;
+    fn p_filesz(&self) -> u64;
+    fn p_memsz(&self) -> u64;
+    fn p_align(&self) -> u64;
+}
+
 /// Program header table entry unused
 pub const PT_NULL: u32 = 0;
 /// Loadable program segment
@@ -117,6 +129,34 @@ macro_rules! elf_program_header_impure_impl { ($header:item) => {
             use std::fs::File;
             use std::io::{self, Seek, Read};
             use std::io::SeekFrom::Start;
+
+            #[cfg(feature = "endian_fd")]
+            impl ElfProgramHeader for ProgramHeader {
+                fn p_type(&self) -> u32 {
+                    self.p_type
+                }
+                fn p_flags(&self) -> u32 {
+                    self.p_flags
+                }
+                fn p_offset(&self) -> u64 {
+                    self.p_offset as u64
+                }
+                fn p_vaddr(&self) -> u64 {
+                    self.p_vaddr as u64
+                }
+                fn p_paddr(&self) -> u64 {
+                    self.p_paddr as u64
+                }
+                fn p_filesz(&self) -> u64 {
+                    self.p_filesz as u64
+                }
+                fn p_memsz(&self) -> u64 {
+                    self.p_memsz as u64
+                }
+                fn p_align(&self) -> u64 {
+                    self.p_align as u64
+                }
+            }
 
             impl fmt::Debug for ProgramHeader {
                 fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

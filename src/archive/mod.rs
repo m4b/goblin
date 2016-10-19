@@ -183,6 +183,16 @@ impl Archive {
         Ok(archive)
     }
 
+    pub fn extract<R: Read + Seek> (&self, member: &str, cursor: &mut R) -> io::Result<Vec<u8>> {
+        if let Some(file) = self.files.get(member) {
+            let mut bytes = vec![0u8; file.header.size];
+            try!(cursor.seek(Start(file.data_offset)));
+            try!(cursor.read_exact(&mut bytes));
+            Ok(bytes)
+        } else {
+            return io_error!(format!("Error: member {} not found", member));
+        }
+    }
 }
 
 #[cfg(test)]

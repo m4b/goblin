@@ -57,5 +57,5 @@ pub mod elf32;
 #[cfg(feature = "mach64")]
 pub mod mach;
 
-#[cfg(not(feature = "no_archive"))]
+#[cfg(feature = "archive")]
 pub mod archive;

@@ -2,13 +2,13 @@
 
 extern crate goblin;
 
-//use goblin::elf64 as elf;
+use goblin::elf;
 use goblin::archive;
 use std::env;
 use std::path::Path;
+use std::io::Cursor;
 
 pub fn main () {
-
     let len = env::args().len();
     if len <= 1 {
         println!("usage: ar <path to archive>")
@@ -18,8 +18,19 @@ pub fn main () {
                 let path = Path::new(arg.as_str());
                 let mut fd = ::std::fs::File::open(&path).unwrap();
                 let metadata = fd.metadata().unwrap();
-                let archive = archive::Archive::parse(&mut fd, metadata.len() as usize);
-                println!("{:#?}", archive);
+                let archive = archive::Archive::parse(&mut fd, metadata.len() as usize).unwrap();
+                println!("{:#?}", &archive);
+                match archive.extract(&"crt1.o/         ", &mut fd) {
+                    Ok(bytes) => {
+                        match elf::parse(&mut Cursor::new(&bytes)) {
+                            Ok(elf) => {
+                                println!("got elf: {:#?}", elf);
+                            },
+                            Err(err) => println!("Err: {:?}", err)
+                        }
+                    },
+                    Err(_) => ()
+                }
             }
         }
     }

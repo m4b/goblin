@@ -16,7 +16,7 @@ version = "0.5"
 optional = true
 
 [features]
-default = ["std", "elf32", "elf64", "mach32", "mach64", "pe32", "pe64", "goblin", "endian_fd"]
+default = ["std", "elf32", "elf64", "mach32", "mach64", "pe32", "pe64", "goblin", "endian_fd", "archive"]
 std = []
 elf32 = []
 elf64 = []
@@ -25,5 +25,5 @@ mach64 = []
 pe32 = []
 pe64 = []
 goblin = []
-archive = ["byteorder"]
+archive = ["std", "endian_fd"]
 endian_fd = ["byteorder"]

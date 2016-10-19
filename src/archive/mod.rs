@@ -8,6 +8,8 @@
 
 use byteorder::{BigEndian, ReadBytesExt};
 
+use elf::strtab;
+
 use std::io::{self, Read, Seek, Cursor};
 use std::io::SeekFrom::{Start, Current};
 use std::usize;
@@ -103,18 +105,18 @@ impl File {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 /// The special index member signified by the name `"/"`.
 /// The data element contains a list of symbol indexes and symbol names, giving their offsets
 /// into the archive for a given name.
-// TODO: make this into a hashamp from string -> symbol indexes?
+// TODO: make this into a hashmap from string -> (file_name, offset) indexes?
 pub struct Index {
     /// Big Endian number of symbol_indexes and strings
     pub size: usize,
     /// Big Endian u32 index into the archive for this symbol (index in array is the index into the string table)
     pub symbol_indexes: Vec<u32>,
     /// Set of zero-terminated strings indexed by above. Number of strings = `self.size`
-    pub strtab: Vec<u8>,
+    pub strtab: strtab::Strtab<'static>,
 }
 
 /// SysV Archive Variant Symbol Lookup Table "Magic" Name
@@ -122,15 +124,15 @@ pub const SYMBOL_LOOKUP_MAGIC: &'static [u8; SIZEOF_FILE_IDENTIFER] = b"/       
 pub const SYMBOL_LOOKUP_NAME: &'static str = "/               ";
 
 impl Index {
-    pub fn parse<'c, R: Read>(cursor: &'c mut R, size: usize) -> io::Result<Index> {
+    pub fn parse<'c, R: Read + Seek>(cursor: &'c mut R, size: usize) -> io::Result<Index> {
         let sizeof_table = try!(cursor.read_u32::<BigEndian>()) as usize;
         let mut indexes = Vec::with_capacity(sizeof_table);
         for _ in 0..sizeof_table {
             indexes.push(try!(cursor.read_u32::<BigEndian>()));
         }
         let sizeof_strtab = size - ((sizeof_table * 4) + 4);
-        let mut strtab = vec![0u8; sizeof_strtab];
-        try!(cursor.read_exact(&mut strtab));
+        let offset = try!(cursor.seek(Current(0)));
+        let strtab = try!(strtab::Strtab::parse(cursor, offset as usize, sizeof_strtab));
         Ok (Index {
             size: sizeof_table,
             symbol_indexes: indexes,
@@ -139,10 +141,10 @@ impl Index {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Archive {
     pub index: Index,
-    pub files: HashMap<String, File>,
+    files: HashMap<String, File>,
 }
 
 impl Archive {
@@ -183,14 +185,18 @@ impl Archive {
         Ok(archive)
     }
 
+    pub fn get (&self, member: &str) -> Option<&File> {
+        self.files.get(member)
+    }
+
     pub fn extract<R: Read + Seek> (&self, member: &str, cursor: &mut R) -> io::Result<Vec<u8>> {
-        if let Some(file) = self.files.get(member) {
+        if let Some(file) = self.get(member) {
             let mut bytes = vec![0u8; file.header.size];
             try!(cursor.seek(Start(file.data_offset)));
             try!(cursor.read_exact(&mut bytes));
             Ok(bytes)
         } else {
-            return io_error!(format!("Error: member {} not found", member));
+            return io_error!(format!("Error: cannot extract member {}, not found", member));
         }
     }
 }
@@ -225,5 +231,22 @@ mod tests {
                 assert_eq!(file_header, file_header2)
             }
         }
+    }
+
+    #[test]
+    fn parse_archive() {
+        let crt1a: Vec<u8> = include!("../../crt1a.rs");
+        let mut cursor = Cursor::new(&crt1a);
+        match Archive::parse(&mut cursor, crt1a.len()) {
+            Ok(archive) => {
+                if let Some(file) = archive.get("crt1.o/         ") {
+                    assert_eq!(file.data_offset, 194);
+                    assert_eq!(file.header.size, 1928)
+                } else {
+                    assert!(false)
+                }
+            },
+            Err(_) => assert!(false),
+        };
     }
 }

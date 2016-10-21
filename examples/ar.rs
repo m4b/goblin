@@ -35,7 +35,7 @@ pub fn main () {
                     },
                     Err(err) => println!("Err: {:?}", err)
                 }
-        }
+            }
         }
     }
 }

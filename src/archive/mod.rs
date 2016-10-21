@@ -75,13 +75,13 @@ impl FileHeader {
         let mut file_mode = [0u8; 8];
         try!(cursor.read(&mut file_mode));
         let mut file_size = [0u8; SIZEOF_FILE_SIZE];
-        try!(cursor.read(&mut file_size));
+        let file_size_pos = try!(cursor.read(&mut file_size));
         let mut terminator = [0u8; 2];
         try!(cursor.read(&mut terminator));
         let string = unsafe { ::std::str::from_utf8_unchecked(&file_size) };
         let file_size = match usize::from_str_radix(string.trim_right(), 10) {
             Ok(file_size) => file_size,
-            Err(err) => return io_error!("Err: {:?} Bad file_size {:?}", err, &file_size),
+            Err(err) => return io_error!("Err: {:?} Bad file_size {:?} at offset 0x{:X}", err, &file_size, file_size_pos),
         };
         Ok(FileHeader {
             identifier: file_identifier,
@@ -120,8 +120,8 @@ impl File {
         })
     }
 
-    /// The size of the File's content, in bytes. Does **not** include padding, nor the size of the
-    /// file header.
+    /// The size of the File's content, in bytes. Does **not** include newline padding,
+    /// nor the size of the file header.
     pub fn size(&self) -> usize {
         self.header.size
     }
@@ -229,6 +229,9 @@ impl Archive {
 mod tests {
     use super::*;
     use std::io::Cursor;
+    use std::path::Path;
+    use std::fs::File as AFile;
+    use super::super::elf;
 
     #[test]
     fn parse_file_header() {
@@ -272,5 +275,32 @@ mod tests {
             },
             Err(_) => assert!(false),
         };
+    }
+
+    #[test]
+    fn parse_self_wow_so_meta_doge() {
+        let path = Path::new("target").join("debug").join("libgoblin.rlib");
+        match AFile::open(path) {
+          Ok(mut fd) => {
+              let size = fd.metadata().unwrap().len();
+              match Archive::parse(&mut fd, size as usize) {
+                  Ok(archive) => {
+                     match archive.extract(&"goblin.0.o/     ", &mut fd) {
+                            Ok(bytes) => {
+                                match elf::parse(&mut Cursor::new(&bytes)) {
+                                    Ok(elf) => {
+                                        assert!(elf.is_64())
+                                    },
+                                    Err(_) => assert!(false)
+                                }
+                            },
+                            Err(_) => assert!(false)
+                     }
+                  },
+                  Err(err) => {println!("{:?}", err); assert!(false)}
+              }
+          },
+           Err(_) => assert!(false)
+        }
     }
 }

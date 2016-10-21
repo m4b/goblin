@@ -23,9 +23,20 @@ const SIZEOF_FILE_IDENTIFER: usize = 16;
 
 #[repr(C)]
 #[derive(Debug, Clone, PartialEq)]
-/// A Unix Archive File Header. Meta data for the file which follows exactly after.  All data
-/// is right-padded with spaces ASCII `0x20`.
+/// A Unix Archive File Header - meta data for the file/byte blob/whatever that follows exactly after.
+/// All data is right-padded with spaces ASCII `0x20`. The Binary layout is as follows:
 ///
+/// |Offset|Length|Name                       |Format |
+/// |:-----|:-----|:--------------------------|:------|
+/// |0     |16    |File identifier            |ASCII  |
+/// |16    |12    |File modification timestamp|Decimal|
+/// |28    |6     |Owner ID                   |Decimal|
+/// |34    |6     |Group ID                   |Decimal|
+/// |40    |8     |File mode                  |Octal  |
+/// |48    |10    |Filesize in bytes          |Decimal|
+/// |58    |2     |Ending characters          |`0x60 0x0A`|
+///
+/// Byte alignment is according to the following:
 /// > Each archive file member begins on an even byte boundary; a newline is inserted between files
 /// > if necessary. Nevertheless, the size given reflects the actual size of the file exclusive
 /// > of padding.

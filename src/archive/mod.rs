@@ -109,10 +109,14 @@ impl File {
     /// **NOTE** the Seek will be pointing at the first byte of whatever the file is, skipping padding.
     pub fn parse<R: Read + Seek>(cursor: &mut R) -> io::Result<File> {
         let header = try!(FileHeader::parse(cursor));
-        let data_offset = try!(cursor.seek(Current(0)));
+        let mut offset = try!(cursor.seek(Current(0)));
+        // skip newline padding if we're on an uneven byte boundary
+        if offset & 1 == 1 {
+            offset = try!(cursor.seek(Current(1)));
+        }
         Ok(File {
             header: header,
-            offset: data_offset,
+            offset: offset,
         })
     }
 

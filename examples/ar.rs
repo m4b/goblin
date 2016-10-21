@@ -18,20 +18,24 @@ pub fn main () {
                 let path = Path::new(arg.as_str());
                 let mut fd = ::std::fs::File::open(&path).unwrap();
                 let metadata = fd.metadata().unwrap();
-                let archive = archive::Archive::parse(&mut fd, metadata.len() as usize).unwrap();
-                println!("{:#?}", &archive);
-                match archive.extract(&"crt1.o/         ", &mut fd) {
-                    Ok(bytes) => {
-                        match elf::parse(&mut Cursor::new(&bytes)) {
-                            Ok(elf) => {
-                                println!("got elf: {:#?}", elf);
+                match archive::Archive::parse(&mut fd, metadata.len() as usize) {
+                    Ok(archive) => {
+                        println!("{:#?}", &archive);
+                        match archive.extract(&"crt1.o/         ", &mut fd) {
+                            Ok(bytes) => {
+                                match elf::parse(&mut Cursor::new(&bytes)) {
+                                    Ok(elf) => {
+                                        println!("got elf: {:#?}", elf);
+                                    },
+                                    Err(err) => println!("Err: {:?}", err)
+                                }
                             },
-                            Err(err) => println!("Err: {:?}", err)
+                            Err(_) => ()
                         }
                     },
-                    Err(_) => ()
+                    Err(err) => println!("Err: {:?}", err)
                 }
-            }
+        }
         }
     }
 }

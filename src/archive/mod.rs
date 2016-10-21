@@ -99,21 +99,33 @@ impl FileHeader {
 /// Represents a single file entry in the archive
 pub struct File {
     /// The parsed file header
-    pub header: FileHeader,
-    /// File offset from the beginning of the archive to where the file begins
-    pub data_offset: u64,
+    header: FileHeader,
+    /// File offset from the start of the archive to where the file begins
+    pub offset: u64,
 }
 
 impl File {
+    /// Tries to parse the header in `R`, as well as the offset in `R.
+    /// **NOTE** the Seek will be pointing at the first byte of whatever the file is, skipping padding.
     pub fn parse<R: Read + Seek>(cursor: &mut R) -> io::Result<File> {
         let header = try!(FileHeader::parse(cursor));
         let data_offset = try!(cursor.seek(Current(0)));
-        try!(cursor.seek(Current(header.size as i64)));
         Ok(File {
             header: header,
-            data_offset: data_offset,
+            offset: data_offset,
         })
     }
+
+    /// The size of the File's content, in bytes. Does **not** include padding, nor the size of the
+    /// file header.
+    pub fn size(&self) -> usize {
+        self.header.size
+    }
+
+    pub fn name(&self) -> &str {
+        &self.header.identifier
+    }
+
 }
 
 #[derive(Debug, Default)]
@@ -159,7 +171,7 @@ pub struct Archive {
 }
 
 impl Archive {
-    pub fn parse<R: Read + Seek>(mut cursor: &mut R, _size: usize) -> io::Result<Archive> {
+    pub fn parse<R: Read + Seek>(mut cursor: &mut R, size: usize) -> io::Result<Archive> {
         try!(cursor.seek(Start(0)));
         let mut magic = [0; SIZEOF_MAGIC];
         try!(cursor.read_exact(&mut magic));
@@ -167,27 +179,24 @@ impl Archive {
             return io_error!("Invalid Archive magic number: {:?}", &magic);
         }
         let mut files = HashMap::new();
+        let size = size as u64;
+        let mut pos = 0u64;
         loop {
-            match File::parse(&mut cursor) {
-                Ok(file) => {
-                    files.insert(file.header.identifier.to_owned(), file);
-                }
-                Err(ref e) if e.kind() == io::ErrorKind::UnexpectedEof => {
-                    break;
-                }
-                Err(e) => {
-                    return Err(e);
-                }
-            }
+            if pos >= size { break }
+            let file = try!(File::parse(&mut cursor));
+            let size = file.size() as i64;
+            files.insert(file.name().to_owned(), file);
+            // we move the cursor past the file blob
+            pos = try!(cursor.seek(Current(size)));
         }
 
         let mut index = Index::default();
         if let Some(file) = files.get(SYMBOL_LOOKUP_NAME) {
-            let mut data = vec![0u8; file.header.size];
-            try!(cursor.seek(Start(file.data_offset)));
+            let mut data = vec![0u8; file.size()];
+            try!(cursor.seek(Start(file.offset)));
             try!(cursor.read_exact(&mut data));
             let mut data = Cursor::new(&data);
-            index = try!(Index::parse(&mut data, file.header.size));
+            index = try!(Index::parse(&mut data, file.size()));
         }
         let archive = Archive {
             index: index,
@@ -202,8 +211,8 @@ impl Archive {
 
     pub fn extract<R: Read + Seek> (&self, member: &str, cursor: &mut R) -> io::Result<Vec<u8>> {
         if let Some(file) = self.get(member) {
-            let mut bytes = vec![0u8; file.header.size];
-            try!(cursor.seek(Start(file.data_offset)));
+            let mut bytes = vec![0u8; file.size()];
+            try!(cursor.seek(Start(file.offset)));
             try!(cursor.read_exact(&mut bytes));
             Ok(bytes)
         } else {
@@ -251,8 +260,8 @@ mod tests {
         match Archive::parse(&mut cursor, crt1a.len()) {
             Ok(archive) => {
                 if let Some(file) = archive.get("crt1.o/         ") {
-                    assert_eq!(file.data_offset, 194);
-                    assert_eq!(file.header.size, 1928)
+                    assert_eq!(file.offset, 194);
+                    assert_eq!(file.size(), 1928)
                 } else {
                     assert!(false)
                 }

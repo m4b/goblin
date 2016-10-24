@@ -26,14 +26,14 @@ const SIZEOF_FILE_IDENTIFER: usize = 16;
 /// A Unix Archive File Header - meta data for the file/byte blob/whatever that follows exactly after.
 /// All data is right-padded with spaces ASCII `0x20`. The Binary layout is as follows:
 ///
-/// |Offset|Length|Name                       |Format |
-/// |:-----|:-----|:--------------------------|:------|
-/// |0     |16    |File identifier            |ASCII  |
-/// |16    |12    |File modification timestamp|Decimal|
-/// |28    |6     |Owner ID                   |Decimal|
-/// |34    |6     |Group ID                   |Decimal|
-/// |40    |8     |File mode                  |Octal  |
-/// |48    |10    |Filesize in bytes          |Decimal|
+/// |Offset|Length|Name                       |Format     |
+/// |:-----|:-----|:--------------------------|:----------|
+/// |0     |16    |File identifier            |ASCII      |
+/// |16    |12    |File modification timestamp|Decimal    |
+/// |28    |6     |Owner ID                   |Decimal    |
+/// |34    |6     |Group ID                   |Decimal    |
+/// |40    |8     |File mode                  |Octal      |
+/// |48    |10    |Filesize in bytes          |Decimal    |
 /// |58    |2     |Ending characters          |`0x60 0x0A`|
 ///
 /// Byte alignment is according to the following:
@@ -75,13 +75,16 @@ impl FileHeader {
         let mut file_mode = [0u8; 8];
         try!(cursor.read(&mut file_mode));
         let mut file_size = [0u8; SIZEOF_FILE_SIZE];
-        let file_size_pos = try!(cursor.read(&mut file_size));
+        let file_size_pos = try!(cursor.seek(Current(0)));
+        try!(cursor.read(&mut file_size));
         let mut terminator = [0u8; 2];
         try!(cursor.read(&mut terminator));
         let string = unsafe { ::std::str::from_utf8_unchecked(&file_size) };
         let file_size = match usize::from_str_radix(string.trim_right(), 10) {
             Ok(file_size) => file_size,
-            Err(err) => return io_error!("Err: {:?} Bad file_size {:?} at offset 0x{:X}", err, &file_size, file_size_pos),
+            Err(err) => return io_error!("Err: {:?} Bad file_size {:?} at offset 0x{:X}: {:?} {:?} {:?} {:?} {:?} {:?}",
+                err, &file_size, file_size_pos, file_identifier, file_modification_timestamp, owner_id, group_id,
+                file_mode, file_size),
         };
         Ok(FileHeader {
             identifier: file_identifier,
@@ -96,38 +99,43 @@ impl FileHeader {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-/// Represents a single file entry in the archive
-pub struct File {
-    /// The parsed file header
+/// Represents a single entry in the archive
+pub struct Member {
+    /// The entry header
     header: FileHeader,
     /// File offset from the start of the archive to where the file begins
     pub offset: u64,
 }
 
-impl File {
+impl Member {
     /// Tries to parse the header in `R`, as well as the offset in `R.
     /// **NOTE** the Seek will be pointing at the first byte of whatever the file is, skipping padding.
-    pub fn parse<R: Read + Seek>(cursor: &mut R) -> io::Result<File> {
+    /// This is because just like members in the archive, the data section is 2-byte aligned.
+    pub fn parse<R: Read + Seek>(cursor: &mut R) -> io::Result<Self> {
         let header = try!(FileHeader::parse(cursor));
         let mut offset = try!(cursor.seek(Current(0)));
         // skip newline padding if we're on an uneven byte boundary
         if offset & 1 == 1 {
             offset = try!(cursor.seek(Current(1)));
         }
-        Ok(File {
+        Ok(Member {
             header: header,
             offset: offset,
         })
     }
 
-    /// The size of the File's content, in bytes. Does **not** include newline padding,
+    /// The size of the Member's content, in bytes. Does **not** include newline padding,
     /// nor the size of the file header.
     pub fn size(&self) -> usize {
         self.header.size
     }
 
+    fn strip(name: &str) -> &str {
+        name.trim_right_matches(' ').trim_right_matches('/')
+    }
+
     pub fn name(&self) -> &str {
-        &self.header.identifier
+        Member::strip(&self.header.identifier)
     }
 
 }
@@ -148,7 +156,8 @@ pub struct Index {
 
 /// SysV Archive Variant Symbol Lookup Table "Magic" Name
 pub const SYMBOL_LOOKUP_MAGIC: &'static [u8; SIZEOF_FILE_IDENTIFER] = b"/               ";
-pub const SYMBOL_LOOKUP_NAME: &'static str = "/               ";
+const INDEX_NAME: &'static str = "/";
+const NAME_INDEX_NAME: &'static str = "//";
 
 impl Index {
     pub fn parse<'c, R: Read + Seek>(cursor: &'c mut R, size: usize) -> io::Result<Index> {
@@ -171,7 +180,7 @@ impl Index {
 #[derive(Debug)]
 pub struct Archive {
     pub index: Index,
-    files: HashMap<String, File>,
+    members: HashMap<String, Member>,
 }
 
 impl Archive {
@@ -182,41 +191,45 @@ impl Archive {
         if &magic != MAGIC {
             return io_error!("Invalid Archive magic number: {:?}", &magic);
         }
-        let mut files = HashMap::new();
+        let mut members = HashMap::new();
         let size = size as u64;
         let mut pos = 0u64;
         loop {
             if pos >= size { break }
-            let file = try!(File::parse(&mut cursor));
-            let size = file.size() as i64;
-            files.insert(file.name().to_owned(), file);
+            // if the member is on an uneven byte boundary, we bump the cursor
+            if pos & 1 == 1 {
+                try!(cursor.seek(Current(1)));
+            }
+            let member = try!(Member::parse(&mut cursor));
+            let size = member.size() as i64;
+            members.insert(member.name().to_owned(), member);
             // we move the cursor past the file blob
             pos = try!(cursor.seek(Current(size)));
         }
 
         let mut index = Index::default();
-        if let Some(file) = files.get(SYMBOL_LOOKUP_NAME) {
-            let mut data = vec![0u8; file.size()];
-            try!(cursor.seek(Start(file.offset)));
+        if let Some(member) = members.get(SYMBOL_LOOKUP_NAME) {
+            let mut data = vec![0u8; member.size()];
+            try!(cursor.seek(Start(member.offset)));
             try!(cursor.read_exact(&mut data));
             let mut data = Cursor::new(&data);
-            index = try!(Index::parse(&mut data, file.size()));
+            index = try!(Index::parse(&mut data, member.size()));
         }
         let archive = Archive {
             index: index,
-            files: files,
+            members: members,
         };
         Ok(archive)
     }
 
-    pub fn get (&self, member: &str) -> Option<&File> {
-        self.files.get(member)
+    pub fn get (&self, member: &str) -> Option<&Member> {
+        self.members.get(member)
     }
 
     pub fn extract<R: Read + Seek> (&self, member: &str, cursor: &mut R) -> io::Result<Vec<u8>> {
-        if let Some(file) = self.get(member) {
-            let mut bytes = vec![0u8; file.size()];
-            try!(cursor.seek(Start(file.offset)));
+        if let Some(member) = self.get(member) {
+            let mut bytes = vec![0u8; member.size()];
+            try!(cursor.seek(Start(member.offset)));
             try!(cursor.read_exact(&mut bytes));
             Ok(bytes)
         } else {
@@ -230,7 +243,7 @@ mod tests {
     use super::*;
     use std::io::Cursor;
     use std::path::Path;
-    use std::fs::File as AFile;
+    use std::fs::File;
     use super::super::elf;
 
     #[test]
@@ -266,9 +279,9 @@ mod tests {
         let mut cursor = Cursor::new(&crt1a);
         match Archive::parse(&mut cursor, crt1a.len()) {
             Ok(archive) => {
-                if let Some(file) = archive.get("crt1.o/         ") {
-                    assert_eq!(file.offset, 194);
-                    assert_eq!(file.size(), 1928)
+                if let Some(member) = archive.get("crt1.o") {
+                    assert_eq!(member.offset, 194);
+                    assert_eq!(member.size(), 1928)
                 } else {
                     assert!(false)
                 }
@@ -280,16 +293,17 @@ mod tests {
     #[test]
     fn parse_self_wow_so_meta_doge() {
         let path = Path::new("target").join("debug").join("libgoblin.rlib");
-        match AFile::open(path) {
+        match File::open(path) {
           Ok(mut fd) => {
               let size = fd.metadata().unwrap().len();
               match Archive::parse(&mut fd, size as usize) {
                   Ok(archive) => {
-                     match archive.extract(&"goblin.0.o/     ", &mut fd) {
+                     match archive.extract(&"goblin.0.o", &mut fd) {
                             Ok(bytes) => {
                                 match elf::parse(&mut Cursor::new(&bytes)) {
                                     Ok(elf) => {
-                                        assert!(elf.is_64())
+                                        assert!(elf.entry() == 0);
+                                        assert!(elf.bias() == 0);
                                     },
                                     Err(_) => assert!(false)
                                 }

@@ -135,7 +135,7 @@ impl Member {
     }
 
     pub fn name(&self) -> &str {
-        Member::strip(&self.header.identifier)
+        &self.header.identifier
     }
 
 }
@@ -156,8 +156,8 @@ pub struct Index {
 
 /// SysV Archive Variant Symbol Lookup Table "Magic" Name
 pub const SYMBOL_LOOKUP_MAGIC: &'static [u8; SIZEOF_FILE_IDENTIFER] = b"/               ";
-const INDEX_NAME: &'static str = "/";
-const NAME_INDEX_NAME: &'static str = "//";
+const INDEX_NAME: &'static str = "/               ";
+const NAME_INDEX_NAME: &'static str = "//              ";
 
 impl Index {
     pub fn parse<'c, R: Read + Seek>(cursor: &'c mut R, size: usize) -> io::Result<Index> {
@@ -168,7 +168,7 @@ impl Index {
         }
         let sizeof_strtab = size - ((sizeof_table * 4) + 4);
         let offset = try!(cursor.seek(Current(0)));
-        let strtab = try!(strtab::Strtab::parse(cursor, offset as usize, sizeof_strtab));
+        let strtab = try!(strtab::Strtab::parse(cursor, offset as usize, sizeof_strtab, 0x0));
         Ok (Index {
             size: sizeof_table,
             symbol_indexes: indexes,
@@ -177,9 +177,46 @@ impl Index {
     }
 }
 
+/// Member names greater than 16 bytes are indirectly referenced using a `/<idx` schema,
+/// where `idx` is an offset into a newline delimited string table directly following the `//` member
+/// of the archive.
+#[derive(Debug, Default)]
+struct NameIndex {
+    strtab: strtab::Strtab<'static>
+}
+
+impl NameIndex {
+    pub fn parse<R: Read + Seek> (cursor: &mut R, offset: usize, size: usize) -> io::Result<Self> {
+        // This is a total hack, because strtab returns "" if idx == 0, need to change
+        // but previous behavior might rely on this, as ELF strtab's have "" at 0th index...
+        let strtab = try!(strtab::Strtab::parse(cursor, offset-1, size+1, '\n' as u8));
+        Ok (NameIndex {
+            strtab: strtab
+        })
+    }
+
+    pub fn get(&self, name: &str) -> io::Result<&str> {
+        let idx = name.trim_left_matches('/').trim_right();
+        match usize::from_str_radix(idx, 10) {
+            Ok(idx) => {
+                let name = &self.strtab[idx+1];
+                if name != "" {
+                    Ok(name.trim_right_matches('/'))
+                }  else {
+                    return io_error!(format!("Could not find {:?} in index", name))
+                }
+            },
+            Err (_) => {
+                return io_error!(format!("Bad name index: {:?}", name))
+            }
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Archive {
-    pub index: Index,
+    index: Index,
+    extended_names: NameIndex,
     members: HashMap<String, Member>,
 }
 
@@ -191,9 +228,11 @@ impl Archive {
         if &magic != MAGIC {
             return io_error!("Invalid Archive magic number: {:?}", &magic);
         }
-        let mut members = HashMap::new();
+        let mut raw_members = Vec::new();
         let size = size as u64;
         let mut pos = 0u64;
+        let mut index = Index::default();
+        let mut extended_names = NameIndex::default();
         loop {
             if pos >= size { break }
             // if the member is on an uneven byte boundary, we bump the cursor
@@ -202,21 +241,41 @@ impl Archive {
             }
             let member = try!(Member::parse(&mut cursor));
             let size = member.size() as i64;
-            members.insert(member.name().to_owned(), member);
-            // we move the cursor past the file blob
-            pos = try!(cursor.seek(Current(size)));
+            let name = member.name().to_owned();
+            if name == INDEX_NAME {
+                let mut data = vec![0u8; member.size()];
+                try!(cursor.seek(Start(member.offset)));
+                try!(cursor.read_exact(&mut data));
+                let mut data = Cursor::new(&data);
+                index = try!(Index::parse(&mut data, member.size()));
+                pos = try!(cursor.seek(Current(0)));
+            } else if name == NAME_INDEX_NAME {
+                extended_names = try!(NameIndex::parse(cursor, member.offset as usize, member.size()));
+                pos = try!(cursor.seek(Current(0)));
+            } else {
+                // we move the cursor past the file blob
+                pos = try!(cursor.seek(Current(size)));
+                raw_members.push(member);
+            }
         }
 
-        let mut index = Index::default();
-        if let Some(member) = members.get(SYMBOL_LOOKUP_NAME) {
-            let mut data = vec![0u8; member.size()];
-            try!(cursor.seek(Start(member.offset)));
-            try!(cursor.read_exact(&mut data));
-            let mut data = Cursor::new(&data);
-            index = try!(Index::parse(&mut data, member.size()));
+        let mut members = HashMap::new();
+        let len = raw_members.len();
+        for member in raw_members.drain(0..len) {
+            let key = {
+                let name = member.name();
+                if name.starts_with("/") {
+                    try!(extended_names.get(name))
+                } else {
+                    Member::strip(name)
+            }}.to_owned();
+
+            members.insert(key, member);
         }
+
         let archive = Archive {
             index: index,
+            extended_names: extended_names,
             members: members,
         };
         Ok(archive)
@@ -233,7 +292,7 @@ impl Archive {
             try!(cursor.read_exact(&mut bytes));
             Ok(bytes)
         } else {
-            return io_error!(format!("Error: cannot extract member {}, not found", member));
+            io_error!(format!("Error: cannot extract member {}, not found", member))
         }
     }
 }

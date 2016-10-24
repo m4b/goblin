@@ -21,7 +21,7 @@ pub fn main () {
                 match archive::Archive::parse(&mut fd, metadata.len() as usize) {
                     Ok(archive) => {
                         println!("{:#?}", &archive);
-                        match archive.extract(&"goblin.0.o", &mut fd) {
+                        match archive.extract(&"rust.metadata.bin", &mut fd) {
                             Ok(bytes) => {
                                 match elf::parse(&mut Cursor::new(&bytes)) {
                                     Ok(elf) => {
@@ -30,7 +30,7 @@ pub fn main () {
                                     Err(err) => println!("Err: {:?}", err)
                                 }
                             },
-                            Err(_) => ()
+                            Err(err) => println!("Extraction Error: {:?}", err)
                         }
                     },
                     Err(err) => println!("Err: {:?}", err)

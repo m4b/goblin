@@ -7,23 +7,25 @@ use std::borrow::Cow;
 pub struct Strtab<'a> {
     // Thanks to SpaceManiac and Mutabah on #rust for suggestion and debugging this
     bytes: Cow<'a, [u8]>,
+    delim: u8,
 }
 
 #[inline(always)]
-fn get_str(idx: usize, bytes: &[u8]) -> &str {
+fn get_str(idx: usize, bytes: &[u8], delim: u8) -> &str {
     let mut i = idx;
     let len = bytes.len();
+    // TODO: need to refactor this i == 0 issue
     // hmmm, once exceptions are working correctly, maybe we should let this fail with i >= len?
     if i == 0 || i >= len {
         return "";
     }
     let mut byte = bytes[i];
-    while byte != 0 && i < len {
+    while byte != delim && i < len {
         byte = bytes[i];
         i += 1;
     }
     // we drop the null terminator unless we're at the end and the byte isn't a null terminator
-    if i < len || bytes[i - 1] == 0 {
+    if i < len || bytes[i - 1] == delim {
         i -= 1;
     }
     str::from_utf8(&bytes[idx..i]).unwrap()
@@ -31,7 +33,7 @@ fn get_str(idx: usize, bytes: &[u8]) -> &str {
 
 impl<'a> Default for Strtab<'a> {
     fn default() -> Strtab<'static> {
-        Strtab { bytes: Cow::Owned(vec![]) }
+        Strtab { bytes: Cow::Owned(vec![]), delim: 0x0 }
     }
 }
 
@@ -39,13 +41,13 @@ impl<'a> Index<usize> for Strtab<'a> {
     type Output = str;
 
     fn index(&self, _index: usize) -> &Self::Output {
-        get_str(_index, &self.bytes)
+        get_str(_index, &self.bytes, self.delim)
     }
 }
 
 impl<'a> fmt::Debug for Strtab<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", str::from_utf8(&self.bytes))
+        write!(f, "delim: {:?} {:?}", self.delim as char, str::from_utf8(&self.bytes))
     }
 }
 
@@ -60,11 +62,11 @@ mod impure {
     use super::*;
 
     impl<'a> Strtab<'a> {
-        pub fn parse<R: Read + Seek>(fd: &mut R, offset: usize, len: usize) -> io::Result<Strtab<'static>> {
+        pub fn parse<R: Read + Seek>(fd: &mut R, offset: usize, len: usize, delim: u8) -> io::Result<Strtab<'static>> {
             let mut bytes = vec![0u8; len];
             try!(fd.seek(Start(offset as u64)));
             try!(fd.read(&mut bytes));
-            Ok(Strtab { bytes: Cow::Owned(bytes) })
+            Ok(Strtab { bytes: Cow::Owned(bytes), delim: delim })
         }
 
         pub fn to_vec(self) -> Vec<String> {
@@ -82,28 +84,36 @@ mod impure {
 }
 
 impl<'a> Strtab<'a> {
-    pub unsafe fn from_raw(bytes_ptr: *const u8, size: usize) -> Strtab<'a> {
-        Strtab { bytes: Cow::Borrowed(slice::from_raw_parts(bytes_ptr, size)) }
+    pub unsafe fn from_raw(bytes_ptr: *const u8, size: usize, delim: u8) -> Strtab<'a> {
+        Strtab { delim: delim, bytes: Cow::Borrowed(slice::from_raw_parts(bytes_ptr, size)) }
     }
 
     // Thanks to reem on #rust for this suggestion
     pub fn get(&'a self, idx: usize) -> &'a str {
-        get_str(idx, &self.bytes)
+        get_str(idx, &self.bytes, self.delim)
     }
 }
 
 #[test]
-fn as_vec_test_no_final_null() {
+fn as_vec_no_final_null() {
     let bytes = b"\0printf\0memmove\0busta";
-    let strtab = unsafe { Strtab::from_raw(bytes.as_ptr(), bytes.len()) };
+    let strtab = unsafe { Strtab::from_raw(bytes.as_ptr(), bytes.len(), 0x0) };
     let vec = strtab.to_vec();
     assert_eq!(vec.len(), 4);
 }
 
 #[test]
-fn to_vec_test_final_null() {
+fn to_vec_final_null() {
     let bytes = b"\0printf\0memmove\0busta\0";
-    let strtab = unsafe { Strtab::from_raw(bytes.as_ptr(), bytes.len()) };
+    let strtab = unsafe { Strtab::from_raw(bytes.as_ptr(), bytes.len(), 0x0) };
+    let vec = strtab.to_vec();
+    assert_eq!(vec.len(), 4);
+}
+
+#[test]
+fn to_vec_newline_delim() {
+    let bytes = b"\nprintf\nmemmove\nbusta\n";
+    let strtab = unsafe { Strtab::from_raw(bytes.as_ptr(), bytes.len(), '\n' as u8) };
     let vec = strtab.to_vec();
     assert_eq!(vec.len(), 4);
 }

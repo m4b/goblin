@@ -405,7 +405,7 @@ macro_rules! elf_from { ($intmax:expr) => {
                     syms = try!(sym::parse(fd, shdr.sh_offset as usize, count as usize, is_lsb))
                 }
                 if shdr.sh_type as u32 == section_header::SHT_STRTAB {
-                    strtab = try!(strtab::Strtab::parse(fd, shdr.sh_offset as usize, shdr.sh_size as usize));
+                    strtab = try!(strtab::Strtab::parse(fd, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0));
                 }
             }
 
@@ -414,7 +414,7 @@ macro_rules! elf_from { ($intmax:expr) => {
                 strtab::Strtab::default()
             } else {
                 let shdr = &section_headers[strtab_idx];
-                try!(strtab::Strtab::parse(fd, shdr.sh_offset as usize, shdr.sh_size as usize))
+                try!(strtab::Strtab::parse(fd, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0))
             };
 
             let mut soname = None;
@@ -427,7 +427,7 @@ macro_rules! elf_from { ($intmax:expr) => {
                 let dyn_info = dyn::DynamicInfo::new(&dynamic, bias); // we explicitly overflow the values here with our bias
                 dynstrtab = try!(strtab::Strtab::parse(fd,
                                                           dyn_info.strtab,
-                                                          dyn_info.strsz));
+                                                          dyn_info.strsz, 0x0));
 
                 if dyn_info.soname != 0 {
                     soname = Some(dynstrtab.get(dyn_info.soname).to_owned())

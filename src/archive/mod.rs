@@ -21,7 +21,6 @@ pub const MAGIC: &'static [u8; SIZEOF_MAGIC] = b"!<arch>\x0A";
 
 const SIZEOF_FILE_IDENTIFER: usize = 16;
 
-#[repr(C)]
 #[derive(Debug, Clone, PartialEq)]
 /// A Unix Archive File Header - meta data for the file/byte blob/whatever that follows exactly after.
 /// All data is right-padded with spaces ASCII `0x20`. The Binary layout is as follows:
@@ -213,6 +212,8 @@ impl NameIndex {
     }
 }
 
+// TODO: add pretty printer fmt::Display with number of members, and names of members, along with
+// the values of the index symbols once implemented
 #[derive(Debug)]
 pub struct Archive {
     index: Index,
@@ -292,7 +293,7 @@ impl Archive {
             try!(cursor.read_exact(&mut bytes));
             Ok(bytes)
         } else {
-            io_error!(format!("Error: cannot extract member {}, not found", member))
+            io_error!(format!("Cannot extract member {}, not found", member))
         }
     }
 }

@@ -14,12 +14,14 @@ pub struct Strtab<'a> {
 fn get_str(idx: usize, bytes: &[u8], delim: u8) -> &str {
     let mut i = idx;
     let len = bytes.len();
-    // TODO: need to refactor this i == 0 issue
-    // hmmm, once exceptions are working correctly, maybe we should let this fail with i >= len?
-    if i == 0 || i >= len {
+    if i >= len {
         return "";
     }
     let mut byte = bytes[i];
+    // TODO: this is still a hack and getting worse and worse
+    if byte == delim {
+        return "";
+    }
     while byte != delim && i < len {
         byte = bytes[i];
         i += 1;
@@ -100,6 +102,16 @@ fn as_vec_no_final_null() {
     let strtab = unsafe { Strtab::from_raw(bytes.as_ptr(), bytes.len(), 0x0) };
     let vec = strtab.to_vec();
     assert_eq!(vec.len(), 4);
+    assert_eq!(vec, vec!["", "printf", "memmove", "busta"]);
+}
+
+#[test]
+fn as_vec_no_first_null_no_final_null() {
+    let bytes = b"printf\0memmove\0busta";
+    let strtab = unsafe { Strtab::from_raw(bytes.as_ptr(), bytes.len(), 0x0) };
+    let vec = strtab.to_vec();
+    assert_eq!(vec.len(), 3);
+    assert_eq!(vec, vec!["printf", "memmove", "busta"]);
 }
 
 #[test]
@@ -108,6 +120,7 @@ fn to_vec_final_null() {
     let strtab = unsafe { Strtab::from_raw(bytes.as_ptr(), bytes.len(), 0x0) };
     let vec = strtab.to_vec();
     assert_eq!(vec.len(), 4);
+    assert_eq!(vec, vec!["", "printf", "memmove", "busta"]);
 }
 
 #[test]
@@ -116,4 +129,5 @@ fn to_vec_newline_delim() {
     let strtab = unsafe { Strtab::from_raw(bytes.as_ptr(), bytes.len(), '\n' as u8) };
     let vec = strtab.to_vec();
     assert_eq!(vec.len(), 4);
+    assert_eq!(vec, vec!["", "printf", "memmove", "busta"]);
 }

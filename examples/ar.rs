@@ -20,7 +20,8 @@ pub fn main () {
                 let metadata = fd.metadata().unwrap();
                 match archive::Archive::parse(&mut fd, metadata.len() as usize) {
                     Ok(archive) => {
-                        println!("{}", &archive);
+                        println!("{:#?}", &archive);
+                        println!("start: {:?}", archive.member_of_symbol("_start"));
                         match archive.extract(&"rust.metadata.bin", &mut fd) {
                             Ok(bytes) => {
                                 match elf::parse(&mut Cursor::new(&bytes)) {

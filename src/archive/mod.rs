@@ -23,7 +23,7 @@ pub const MAGIC: &'static [u8; SIZEOF_MAGIC] = b"!<arch>\x0A";
 const SIZEOF_FILE_IDENTIFER: usize = 16;
 
 #[derive(Debug, Clone, PartialEq)]
-/// A Unix Archive File Header - meta data for the file/byte blob/whatever that follows exactly after.
+/// A Unix Archive Header - meta data for the file/byte blob/whatever that follows exactly after.
 /// All data is right-padded with spaces ASCII `0x20`. The Binary layout is as follows:
 ///
 /// |Offset|Length|Name                       |Format     |
@@ -41,8 +41,8 @@ const SIZEOF_FILE_IDENTIFER: usize = 16;
 /// > if necessary. Nevertheless, the size given reflects the actual size of the file exclusive
 /// > of padding.
 // TODO: serialize more values here
-pub struct FileHeader {
-    /// The identifier, or name for this file.
+pub struct Header {
+    /// The identifier, or name for this file/whatever.
     pub identifier: String,
     /// The timestamp for when this file was last modified. Base 10 number
     pub timestamp: [u8; 12],
@@ -59,10 +59,10 @@ pub struct FileHeader {
 }
 
 const SIZEOF_FILE_SIZE: usize = 10;
-pub const SIZEOF_FILEHEADER: usize = SIZEOF_FILE_IDENTIFER + 12 + 6 + 6 + 8 + SIZEOF_FILE_SIZE + 2;
+pub const SIZEOF_HEADER: usize = SIZEOF_FILE_IDENTIFER + 12 + 6 + 6 + 8 + SIZEOF_FILE_SIZE + 2;
 
-impl FileHeader {
-    pub fn parse<R: Read + Seek>(cursor: &mut R) -> io::Result<FileHeader> {
+impl Header {
+    pub fn parse<R: Read + Seek>(cursor: &mut R) -> io::Result<Header> {
         let mut file_identifier = vec![0u8; SIZEOF_FILE_IDENTIFER];
         try!(cursor.read_exact(&mut file_identifier));
         let file_identifier = unsafe { String::from_utf8_unchecked(file_identifier) };
@@ -86,7 +86,7 @@ impl FileHeader {
                 err, &file_size, file_size_pos, file_identifier, file_modification_timestamp, owner_id, group_id,
                 file_mode, file_size),
         };
-        Ok(FileHeader {
+        Ok(Header {
             identifier: file_identifier,
             timestamp: file_modification_timestamp.clone(),
             owner_id: owner_id.clone(),
@@ -102,7 +102,7 @@ impl FileHeader {
 /// Represents a single entry in the archive
 pub struct Member {
     /// The entry header
-    header: FileHeader,
+    header: Header,
     /// File offset from the start of the archive to where the file begins
     pub offset: u64,
 }
@@ -112,7 +112,7 @@ impl Member {
     /// **NOTE** the Seek will be pointing at the first byte of whatever the file is, skipping padding.
     /// This is because just like members in the archive, the data section is 2-byte aligned.
     pub fn parse<R: Read + Seek>(cursor: &mut R) -> io::Result<Self> {
-        let header = try!(FileHeader::parse(cursor));
+        let header = try!(Header::parse(cursor));
         let mut offset = try!(cursor.seek(Current(0)));
         // skip newline padding if we're on an uneven byte boundary
         if offset & 1 == 1 {
@@ -146,14 +146,13 @@ impl Member {
 /// The special index member signified by the name `'/'`.
 /// The data element contains a list of symbol indexes and symbol names, giving their offsets
 /// into the archive for a given name.
-// TODO: make this into a hashmap from string -> (file_name, offset) indexes?
 pub struct Index {
     /// Big Endian number of symbol_indexes and strings
     pub size: usize,
     /// Big Endian u32 index into the archive for this symbol (index in array is the index into the string table)
     pub symbol_indexes: Vec<u32>,
     /// Set of zero-terminated strings indexed by above. Number of strings = `self.size`
-    pub strtab: strtab::Strtab<'static>,
+    pub strtab: Vec<String>,
 }
 
 /// SysV Archive Variant Symbol Lookup Table "Magic" Name
@@ -174,7 +173,7 @@ impl Index {
         Ok (Index {
             size: sizeof_table,
             symbol_indexes: indexes,
-            strtab: strtab,
+            strtab: strtab.to_vec(), // because i'm lazy
         })
     }
 }
@@ -218,10 +217,17 @@ impl NameIndex {
 // TODO: add pretty printer fmt::Display with number of members, and names of members, along with
 // the values of the index symbols once implemented
 #[derive(Debug)]
+/// An in-memory representation of a parsed Unix Archive
 pub struct Archive {
+    // we can chuck this because the symbol index is a better representation, but we keep for
+    // debugging
     index: Index,
     extended_names: NameIndex,
-    members: HashMap<String, Member>,
+    // the array of members, which are indexed by the members hash and symbol index
+    member_array: Vec<Member>,
+    members: HashMap<String, usize>,
+    // symbol -> member
+    symbol_index: HashMap<String, usize>
 }
 
 impl Archive {
@@ -232,7 +238,7 @@ impl Archive {
         if &magic != MAGIC {
             return io_error!("Invalid Archive magic number: {:?}", &magic);
         }
-        let mut raw_members = Vec::new();
+        let mut member_array = Vec::new();
         let size = size as u64;
         let mut pos = 0u64;
         let mut index = Index::default();
@@ -257,14 +263,13 @@ impl Archive {
             } else {
                 // we move the cursor past the file blob
                 pos = try!(cursor.seek(Current(member.size() as i64)));
-                raw_members.push(member);
+                member_array.push(member);
             }
         }
 
-        let mut members = HashMap::new();
-        let len = raw_members.len();
         // this preprocesses the member names so they are searchable by their canonical versions
-        for member in raw_members.drain(0..len) {
+        let mut members = HashMap::new();
+        for (i, member) in member_array.iter().enumerate() {
             let key = {
                 let name = member.name();
                 if name.starts_with("/") {
@@ -272,20 +277,44 @@ impl Archive {
                 } else {
                     Member::trim(name)
             }}.to_owned();
+            members.insert(key, i);
+        }
 
-            members.insert(key, member);
+        let mut symbol_index = HashMap::new();
+        let mut last_symidx = 0u32;
+        let mut last_member = 0usize;
+        for (i, symidx) in index.symbol_indexes.iter().enumerate() {
+            let name = index.strtab[i].to_owned();
+            if *symidx == last_symidx {
+                symbol_index.insert(name, last_member);
+            } else {
+                for (memidx, member) in member_array.iter().enumerate() {
+                    if *symidx == (member.offset - SIZEOF_HEADER as u64) as u32 {
+                        symbol_index.insert(name, memidx);
+                        last_symidx = *symidx;
+                        last_member = memidx;
+                        break
+                    }
+                }
+            }
         }
 
         let archive = Archive {
             index: index,
+            member_array: member_array,
             extended_names: extended_names,
             members: members,
+            symbol_index: symbol_index,
         };
         Ok(archive)
     }
 
     pub fn get (&self, member: &str) -> Option<&Member> {
-        self.members.get(member)
+        if let Some(idx) = self.members.get(member) {
+            Some(&self.member_array[*idx])
+        } else {
+            None
+        }
     }
 
     pub fn extract<R: Read + Seek> (&self, member: &str, cursor: &mut R) -> io::Result<Vec<u8>> {
@@ -298,7 +327,19 @@ impl Archive {
             io_error!(format!("Cannot extract member {}, not found", member))
         }
     }
+
+    pub fn member_of_symbol (&self, symbol: &str) -> Option<&str> {
+        if let Some(idx) = self.symbol_index.get(symbol) {
+            Some (Member::trim(self.member_array[*idx].name()))
+        } else {
+            None
+        }
+    }
 }
+
+#[no_mangle]
+/// Wow. So Meta. Such symbols.
+pub extern fn wow_so_meta_doge_symbol() { println!("wow_so_meta_doge_symbol")}
 
 #[cfg(test)]
 mod tests {
@@ -310,7 +351,7 @@ mod tests {
 
     #[test]
     fn parse_file_header() {
-        let file_header: [u8; SIZEOF_FILEHEADER] = [0x2f, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+        let file_header: [u8; SIZEOF_HEADER] = [0x2f, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
                                                     0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
                                                     0x20, 0x20, 0x30, 0x20, 0x20, 0x20, 0x20,
                                                     0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
@@ -320,10 +361,10 @@ mod tests {
                                                     0x32, 0x34, 0x34, 0x20, 0x20, 0x20, 0x20,
                                                     0x20, 0x20, 0x60, 0x0a];
         let mut cursor = Cursor::new(&file_header[..]);
-        match FileHeader::parse(&mut cursor) {
+        match Header::parse(&mut cursor) {
             Err(_) => assert!(false),
             Ok(file_header2) => {
-                let file_header = FileHeader { identifier: "/               ".to_owned(),
+                let file_header = Header { identifier: "/               ".to_owned(),
                     timestamp: [48, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32],
                     owner_id: [48, 32, 32, 32, 32, 32],
                     group_id: [48, 32, 32, 32, 32, 32],
@@ -338,9 +379,11 @@ mod tests {
     #[test]
     fn parse_archive() {
         let crt1a: Vec<u8> = include!("../../crt1a.rs");
+        const START: &'static str = "_start";
         let mut cursor = Cursor::new(&crt1a);
         match Archive::parse(&mut cursor, crt1a.len()) {
             Ok(archive) => {
+                assert_eq!(archive.member_of_symbol(START), Some("crt1.o"));
                 if let Some(member) = archive.get("crt1.o") {
                     assert_eq!(member.offset, 194);
                     assert_eq!(member.size(), 1928)
@@ -354,13 +397,15 @@ mod tests {
 
     #[test]
     fn parse_self_wow_so_meta_doge() {
+        const GOBLIN: &'static str = "goblin.0.o";
         let path = Path::new("target").join("debug").join("libgoblin.rlib");
         match File::open(path) {
           Ok(mut fd) => {
               let size = fd.metadata().unwrap().len();
               match Archive::parse(&mut fd, size as usize) {
                   Ok(archive) => {
-                     match archive.extract(&"goblin.0.o", &mut fd) {
+                      assert_eq!(archive.member_of_symbol("wow_so_meta_doge_symbol"), Some(GOBLIN));
+                      match archive.extract(GOBLIN, &mut fd) {
                             Ok(bytes) => {
                                 match elf::parse(&mut Cursor::new(&bytes)) {
                                     Ok(elf) => {

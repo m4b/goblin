@@ -309,7 +309,7 @@ impl Archive {
         Ok(archive)
     }
 
-    pub fn get (&self, member: &str) -> Option<&Member> {
+    fn get (&self, member: &str) -> Option<&Member> {
         if let Some(idx) = self.members.get(member) {
             Some(&self.member_array[*idx])
         } else {
@@ -317,6 +317,7 @@ impl Archive {
         }
     }
 
+    /// Returns a vector of the raw bytes for the given `member` in the readable `cursor`
     pub fn extract<R: Read + Seek> (&self, member: &str, cursor: &mut R) -> io::Result<Vec<u8>> {
         if let Some(member) = self.get(member) {
             let mut bytes = vec![0u8; member.size()];
@@ -328,6 +329,7 @@ impl Archive {
         }
     }
 
+    /// Returns the member's name which contains the given `symbol`, if it is in the archive
     pub fn member_of_symbol (&self, symbol: &str) -> Option<&str> {
         if let Some(idx) = self.symbol_index.get(symbol) {
             Some (Member::trim(self.member_array[*idx].name()))
@@ -339,6 +341,7 @@ impl Archive {
 
 #[no_mangle]
 /// Wow. So Meta. Such symbols.
+/// Actually just an unmangled, external symbol used for unit testing itself.  Call it.  I dare you.
 pub extern fn wow_so_meta_doge_symbol() { println!("wow_so_meta_doge_symbol")}
 
 #[cfg(test)]

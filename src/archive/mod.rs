@@ -14,6 +14,7 @@ use std::io::{self, Read, Seek, Cursor};
 use std::io::SeekFrom::{Start, Current};
 use std::usize;
 use std::collections::HashMap;
+//use std::fmt::{self, Display};
 
 pub const SIZEOF_MAGIC: usize = 8;
 /// The magic number of a Unix Archive
@@ -133,6 +134,8 @@ impl Member {
         name.trim_right_matches(' ').trim_right_matches('/')
     }
 
+    /// The untrimmed raw member name, i.e., includes right-aligned space padding and `'/'` end-of-string
+    /// identifier
     pub fn name(&self) -> &str {
         &self.header.identifier
     }
@@ -140,7 +143,7 @@ impl Member {
 }
 
 #[derive(Debug, Default)]
-/// The special index member signified by the name `"/"`.
+/// The special index member signified by the name `'/'`.
 /// The data element contains a list of symbol indexes and symbol names, giving their offsets
 /// into the archive for a given name.
 // TODO: make this into a hashmap from string -> (file_name, offset) indexes?
@@ -154,8 +157,8 @@ pub struct Index {
 }
 
 /// SysV Archive Variant Symbol Lookup Table "Magic" Name
-pub const SYMBOL_LOOKUP_MAGIC: &'static [u8; SIZEOF_FILE_IDENTIFER] = b"/               ";
 const INDEX_NAME: &'static str = "/               ";
+/// SysV Archive Variant Extended Filename String Table Name
 const NAME_INDEX_NAME: &'static str = "//              ";
 
 impl Index {
@@ -260,6 +263,7 @@ impl Archive {
 
         let mut members = HashMap::new();
         let len = raw_members.len();
+        // this preprocesses the member names so they are searchable by their canonical versions
         for member in raw_members.drain(0..len) {
             let key = {
                 let name = member.name();

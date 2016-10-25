@@ -129,7 +129,7 @@ impl Member {
         self.header.size
     }
 
-    fn strip(name: &str) -> &str {
+    fn trim(name: &str) -> &str {
         name.trim_right_matches(' ').trim_right_matches('/')
     }
 
@@ -241,21 +241,19 @@ impl Archive {
                 try!(cursor.seek(Current(1)));
             }
             let member = try!(Member::parse(&mut cursor));
-            let size = member.size() as i64;
-            let name = member.name().to_owned();
-            if name == INDEX_NAME {
+            if member.name() == INDEX_NAME {
                 let mut data = vec![0u8; member.size()];
                 try!(cursor.seek(Start(member.offset)));
                 try!(cursor.read_exact(&mut data));
                 let mut data = Cursor::new(&data);
                 index = try!(Index::parse(&mut data, member.size()));
                 pos = try!(cursor.seek(Current(0)));
-            } else if name == NAME_INDEX_NAME {
+            } else if member.name() == NAME_INDEX_NAME {
                 extended_names = try!(NameIndex::parse(cursor, member.offset as usize, member.size()));
                 pos = try!(cursor.seek(Current(0)));
             } else {
                 // we move the cursor past the file blob
-                pos = try!(cursor.seek(Current(size)));
+                pos = try!(cursor.seek(Current(member.size() as i64)));
                 raw_members.push(member);
             }
         }
@@ -268,7 +266,7 @@ impl Archive {
                 if name.starts_with("/") {
                     try!(extended_names.get(name))
                 } else {
-                    Member::strip(name)
+                    Member::trim(name)
             }}.to_owned();
 
             members.insert(key, member);

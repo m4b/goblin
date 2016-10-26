@@ -18,13 +18,3 @@ pub mod gnu_hash;
 
 #[cfg(feature = "std")]
 pub use elf::strtab;
-
-#[cfg(all(feature = "std", feature = "endian_fd"))]
-pub use self::impure::*;
-
-#[cfg(all(feature = "std", feature = "endian_fd"))]
-mod impure {
-
-    elf_from!(::core::u64::MAX);
-
-}

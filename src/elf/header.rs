@@ -1,5 +1,22 @@
 include!("constants_header.rs");
 
+pub trait ElfHeader {
+    fn e_ident(&self) -> [u8; SIZEOF_IDENT];
+    fn e_type(&self) -> u16;
+    fn e_machine(&self) -> u16;
+    fn e_version(&self) -> u32;
+    fn e_entry(&self) -> u64;
+    fn e_phoff(&self) -> u64;
+    fn e_shoff(&self) -> u64;
+    fn e_flags(&self) -> u32;
+    fn e_ehsize(&self) -> u16;
+    fn e_phentsize(&self) -> u16;
+    fn e_phnum(&self) -> u16;
+    fn e_shentsize(&self) -> u16;
+    fn e_shnum(&self) -> u16;
+    fn e_shstrndx(&self) -> u16;
+}
+
 macro_rules! elf_header {
         ($size:ident) => {
             #[repr(C)]
@@ -200,6 +217,51 @@ macro_rules! elf_header_impure_impl {
                 use std::fs::File;
                 use std::io::{self, Read, Seek};
                 use std::io::SeekFrom::Start;
+
+                impl ElfHeader for Header {
+                fn e_ident(&self) -> [u8; SIZEOF_IDENT] {
+                    self.e_ident
+                }
+                fn e_type(&self) -> u16 {
+                    self.e_type
+                }
+                fn e_machine(&self) -> u16 {
+                    self.e_machine
+                }
+                fn e_version(&self) -> u32 {
+                    self.e_version
+                }
+                fn e_entry(&self) -> u64 {
+                    self.e_entry as u64
+                }
+                fn e_phoff(&self) -> u64 {
+                    self.e_phoff as u64
+                }
+                fn e_shoff(&self) -> u64 {
+                    self.e_shoff as u64
+                }
+                fn e_flags(&self) -> u32 {
+                    self.e_flags
+                }
+                fn e_ehsize(&self) -> u16 {
+                    self.e_ehsize
+                }
+                fn e_phentsize(&self) -> u16 {
+                    self.e_phentsize
+                }
+                fn e_phnum(&self) -> u16 {
+                    self.e_phnum
+                }
+                fn e_shentsize(&self) -> u16 {
+                    self.e_shentsize
+                }
+                fn e_shnum(&self) -> u16 {
+                    self.e_shnum
+                }
+                fn e_shstrndx(&self) -> u16 {
+                    self.e_shstrndx
+                }
+                }
 
                 impl fmt::Debug for Header {
                     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

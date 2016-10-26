@@ -15,11 +15,3 @@ pub mod rela;
 
 #[cfg(feature = "std")]
 pub use elf::strtab;
-
-#[cfg(all(feature = "std", feature = "endian_fd"))]
-pub use self::impure::*;
-
-#[cfg(all(feature = "std", feature = "endian_fd"))]
-mod impure {
-    elf_from!(!0);
-}

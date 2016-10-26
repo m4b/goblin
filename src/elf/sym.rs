@@ -1,3 +1,13 @@
+#[cfg(feature = "std")]
+pub trait ElfSym {
+    fn st_name(&self) -> u32;
+    fn st_info(&self) -> u8;
+    fn st_other(&self) -> u8;
+    fn st_shndx(&self) -> u16;
+    fn st_value(&self) -> u64;
+    fn st_size(&self) -> u64;
+}
+
 /// === Sym bindings ===
 /// Local symbol.
 pub const STB_LOCAL: u8 = 0;
@@ -120,6 +130,27 @@ macro_rules! elf_sym_impure_impl {
                 use std::fs::File;
                 use std::io::{self, Read, Seek};
                 use std::io::SeekFrom::Start;
+
+                impl ElfSym for Sym {
+                    fn st_name(&self) -> u32 {
+                        self.st_name
+                    }
+                    fn st_info(&self) -> u8 {
+                        self.st_info
+                    }
+                    fn st_other(&self) -> u8 {
+                        self.st_other
+                    }
+                    fn st_shndx(&self) -> u16 {
+                        self.st_shndx
+                    }
+                    fn st_value(&self) -> u64 {
+                        self.st_value as u64
+                    }
+                    fn st_size(&self) -> u64 {
+                        self.st_size as u64
+                    }
+                }
 
                 impl Sym {
                    /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` binding and a `st_value` of 0

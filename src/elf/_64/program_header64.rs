@@ -1,7 +1,7 @@
 pub use elf::program_header::*;
 
 #[repr(C)]
-#[derive(Clone, PartialEq, Default)]
+#[derive(Copy, Clone, PartialEq, Default)]
 pub struct ProgramHeader {
     /// Segment type
     pub p_type: u32,

@@ -25,7 +25,7 @@ pub trait ElfSectionHeader {
 macro_rules! elf_section_header {
         ($size:ident) => {
             #[repr(C)]
-            #[derive(Clone, PartialEq, Default)]
+            #[derive(Copy, Clone, PartialEq, Default)]
             pub struct SectionHeader {
                 /// Section name (string tbl index)
                 pub sh_name: u32,

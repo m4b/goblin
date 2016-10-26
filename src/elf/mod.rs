@@ -74,7 +74,7 @@ mod impure {
     use elf32;
     use elf64;
 
-    #[derive(Debug)]
+    #[derive(Debug, Copy, Clone)]
     pub enum Header {
         Elf32(elf32::header::Header),
         Elf64(elf64::header::Header),
@@ -94,7 +94,7 @@ mod impure {
         }
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, Copy, Clone)]
     pub enum Dyn {
         Elf32(elf32::dyn::Dyn),
         Elf64(elf64::dyn::Dyn),
@@ -115,7 +115,7 @@ mod impure {
     }
 
 
-    #[derive(Debug)]
+    #[derive(Debug, Copy, Clone)]
     pub enum Sym {
         Elf32(elf32::sym::Sym),
         Elf64(elf64::sym::Sym),
@@ -135,7 +135,7 @@ mod impure {
         }
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, Copy, Clone)]
     pub enum Phdr {
         Elf32(elf32::program_header::ProgramHeader),
         Elf64(elf64::program_header::ProgramHeader),
@@ -155,7 +155,7 @@ mod impure {
         }
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, Copy, Clone)]
     pub enum Shdr {
         Elf32(elf32::section_header::SectionHeader),
         Elf64(elf64::section_header::SectionHeader),
@@ -175,7 +175,7 @@ mod impure {
         }
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, Copy, Clone)]
     pub enum Rela {
         Elf32(elf32::rela::Rela),
         Elf64(elf64::rela::Rela),
@@ -239,7 +239,7 @@ mod impure {
     macro_rules! wrap_iter {
       ($class:ident, $wrapper:ident, $collection:ident) => {{
                 let count = $collection.len();
-                let wrapped: Vec<$wrapper> = $collection.into_iter().map(|item| { println!("running"); wr!($class, $wrapper, item) }).collect();
+                let wrapped: Vec<$wrapper> = $collection.into_iter().map(|item| { wr!($class, $wrapper, item) }).collect();
                 WrappedIterator {
                     count: count,
                     iter: wrapped.into_iter(),

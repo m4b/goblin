@@ -9,17 +9,15 @@ pub fn main () {
     for (i, arg) in env::args().enumerate() {
         if i == 1 {
             let path = Path::new(arg.as_str());
-            // we hackin' for now
-            let mut fd = ::std::fs::File::open(&path).unwrap();
-            match elf::Elf::parse(&mut fd) {
+            match elf::Elf::from(&path) {
                 Ok(elf) => {
                     println!("{:#?}", elf);
-                    if let Some(dynamic) = elf.dynamic {
-                        println!("len: {}", dynamic.len());
-                        for (i, dyn) in dynamic.enumerate() {
-                            println!("{}: {:?}", i, dyn.d_tag());
-                        }
-                    }
+//                    if let Some(dynamic) = elf.dynamic {
+//                        println!("len: {}", dynamic.len());
+//                        for (i, dyn) in dynamic.enumerate() {
+//                            println!("{}: {:?}", i, dyn.d_tag());
+//                        }
+//                    }
                 },
                 Err(err) => {
                     println!("Not an ELF: {:?}", err);

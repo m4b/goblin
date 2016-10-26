@@ -1,9 +1,9 @@
 extern crate goblin;
 
-use goblin::elf64 as elf;
+use goblin::elf;
 use std::path::Path;
 
 pub fn main () {
-    let ls = elf::Binary::from_path(Path::new("/bin/ls"));
+    let ls = elf::Elf::from(&Path::new("/bin/ls"));
     println!("{:#?}", ls);
 }

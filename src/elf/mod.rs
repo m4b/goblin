@@ -10,10 +10,10 @@
 //! use std::fs::File;
 //!
 //! pub fn read (fd: &mut File) {
-//!   match goblin::elf::parse(fd) {
+//!   match goblin::elf::Elf::parse(fd) {
 //!     Ok(binary) => {
-//!       let entry = binary.entry();
-//!       for ph in binary.program_headers() {
+//!       let entry = binary.entry;
+//!       for ph in binary.program_headers {
 //!         if ph.p_type() == goblin::elf::program_header::PT_LOAD {
 //!           let mut _buf = vec![0u8; ph.p_filesz() as usize];
 //!           // read responsibly
@@ -423,33 +423,6 @@ mod tests {
     use super::*;
 
     use std::io::Cursor;
-
-    #[test]
-    fn endian_parse() {
-        let crt1: Vec<u8> = include!("../../etc/crt1.rs");
-        let mut cursor = Cursor::new(crt1);
-        match parse(&mut cursor) {
-            Ok (binary) => {
-                assert!(binary.is_64());
-                assert!(!binary.is_lib());
-                assert_eq!(binary.entry(), 0);
-                assert_eq!(binary.bias(), 0);
-                let syms = binary.syms();
-                let mut i = 0;
-                for sym in syms {
-                    if i == 11 {
-                        let symtab = binary.strtab();
-                        assert_eq!(&symtab[sym.st_name() as usize], "_start");
-                        break;
-                    }
-                    i += 1;
-                }
-            },
-            Err (_) => {
-                assert!(false)
-            }
-        }
-    }
 
     #[test]
     fn endian_trait_parse() {

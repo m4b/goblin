@@ -24,7 +24,7 @@ pub fn main () {
                         println!("start: {:?}", archive.member_of_symbol("_start"));
                         match archive.extract(&"rust.metadata.bin", &mut fd) {
                             Ok(bytes) => {
-                                match elf::parse(&mut Cursor::new(&bytes)) {
+                                match elf::Elf::parse(&mut Cursor::new(&bytes)) {
                                     Ok(elf) => {
                                         println!("got elf: {:#?}", elf);
                                     },

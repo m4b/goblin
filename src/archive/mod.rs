@@ -381,7 +381,7 @@ mod tests {
 
     #[test]
     fn parse_archive() {
-        let crt1a: Vec<u8> = include!("../../crt1a.rs");
+        let crt1a: Vec<u8> = include!("../../etc/crt1a.rs");
         const START: &'static str = "_start";
         let mut cursor = Cursor::new(&crt1a);
         match Archive::parse(&mut cursor, crt1a.len()) {
@@ -410,10 +410,10 @@ mod tests {
                       assert_eq!(archive.member_of_symbol("wow_so_meta_doge_symbol"), Some(GOBLIN));
                       match archive.extract(GOBLIN, &mut fd) {
                             Ok(bytes) => {
-                                match elf::parse(&mut Cursor::new(&bytes)) {
+                                match elf::Elf::parse(&mut Cursor::new(&bytes)) {
                                     Ok(elf) => {
-                                        assert!(elf.entry() == 0);
-                                        assert!(elf.bias() == 0);
+                                        assert!(elf.entry == 0);
+                                        assert!(elf.bias == 0);
                                     },
                                     Err(_) => assert!(false)
                                 }

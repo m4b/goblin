@@ -128,13 +128,13 @@ mod impure {
 
     use std::io;
     use std::io::{Seek, Read};
-    use std::io::SeekFrom::Start;
+    use std::io::SeekFrom::{Current, Start};
 
-    /// Peek at important data in an ELF byte stream, and return the ELF class and endianness if it's a valid stream
+    /// Peek at important data in an ELF byte stream, and return the ELF class and endianness
+    /// if it's a valid stream. Resets the seek to the value the reader was originally at
     pub fn peek<R: Read + Seek>(fd: &mut R) -> io::Result<(u8, bool)> {
         let mut ident = [0u8; SIZEOF_IDENT];
-        try!(fd.seek(Start(0)));
-
+        let current = try!(fd.seek(Current(0)));
         match try!(fd.read(&mut ident)) {
             SIZEOF_IDENT => {
 
@@ -144,9 +144,11 @@ mod impure {
 
                 let class = ident[EI_CLASS];
                 let is_lsb = ident[EI_DATA] == ELFDATA2LSB;
+                try!(fd.seek(Start(current)));
                 Ok((class, is_lsb))
             }
             count => {
+                try!(fd.seek(Start(current)));
                 io_error!("Error: {:?} size is smaller than an ELF identication header",
                           count)
             }
@@ -170,7 +172,7 @@ macro_rules! elf_header_from_bytes {
 /// Derive the `from_fd` method for a header.
 macro_rules! elf_header_from_fd {
         () => {
-            /// Load a header from a file.
+            /// Load a header from a file. **You must** ensure the seek is at the correct position.
             pub fn from_fd(fd: &mut File) -> io::Result<Header> {
                 let mut elf_header = [0; SIZEOF_EHDR];
                 try!(fd.read(&mut elf_header));
@@ -216,7 +218,6 @@ macro_rules! elf_header_impure_impl {
 
                 use std::fs::File;
                 use std::io::{self, Read, Seek};
-                use std::io::SeekFrom::Start;
 
                 impl ElfHeader for Header {
                 fn e_ident(&self) -> [u8; SIZEOF_IDENT] {

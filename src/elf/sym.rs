@@ -6,6 +6,8 @@ pub trait ElfSym {
     fn st_shndx(&self) -> u16;
     fn st_value(&self) -> u64;
     fn st_size(&self) -> u64;
+    fn is_function(&self) -> bool;
+    fn is_import(&self) -> bool;
 }
 
 /// === Sym bindings ===
@@ -149,6 +151,12 @@ macro_rules! elf_sym_impure_impl {
                     }
                     fn st_size(&self) -> u64 {
                         self.st_size as u64
+                    }
+                    fn is_function(&self) -> bool {
+                        self.is_function()
+                    }
+                    fn is_import(&self) -> bool {
+                        self.is_import()
                     }
                 }
 

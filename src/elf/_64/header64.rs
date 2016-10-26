@@ -10,12 +10,13 @@ elf_header_impure_impl!(
         elf_header_from_bytes!();
         elf_header_from_fd!();
         #[cfg(feature = "endian_fd")]
+        /// Parses an ELF header from the reader. You **must** ensure the seek on the reader
+        /// is at the correct position, which is usually the beginning of the sequence of bytes.
         pub fn parse<R: Read + Seek>(fd: &mut R) -> io::Result<Header> {
             use byteorder::{LittleEndian,BigEndian,ReadBytesExt};
             let mut elf_header = Header::default();
 
             elf_header.e_ident = [0; SIZEOF_IDENT];
-            try!(fd.seek(Start(0)));
             try!(fd.read(&mut elf_header.e_ident));
 
             match elf_header.e_ident[EI_DATA] {

@@ -214,7 +214,7 @@ mod impure {
         }
     }
 
-    type Header = Unified<elf32::header::Header, elf64::header::Header>;
+    pub type Header = Unified<elf32::header::Header, elf64::header::Header>;
     type ProgramHeader = Unified<elf32::program_header::ProgramHeader, elf64::program_header::ProgramHeader>;
     type SectionHeader = Unified<elf32::section_header::SectionHeader, elf64::section_header::SectionHeader>;
     type Rela = Unified<elf32::rela::Rela, elf64::rela::Rela>;

@@ -1,8 +1,7 @@
-//! Access ELF constants, other helper functions, which are independent of ELF bithood.  Also
-//! provides [`parse`](fn.parse.html) which returns a wrapped `Elf64` or `Elf32` binary.
+//! The generic ELF module, which gives access to ELF constants and other helper functions, which are independent of ELF bithood.  Also defines an ELF struct which has a [`parse` method](struct.Elf.html#method.parse) which returns a wrapped `Elf64` or `Elf32` binary.
 //!
-//! To access the contents of the binary, instead of directly getting the struct fields, you call
-//! the similarly named methods.
+//! To access the fields of the contents of the binary (i.e., `ph.p_type`),
+//! instead of directly getting the struct fields, you call the similarly named methods.
 //!
 //! # Example
 //!
@@ -29,9 +28,10 @@
 //! 32-bit binaries typically have shorter 32-bit values in some cases (specifically for addresses and pointer
 //! values), these values are upcasted to u64/i64s when appropriate.
 //!
-//! See [goblin::elf::Binary](enum.Binary.html) for more information.
+//! See [goblin::elf::Elf](struct.Elf.html) for more information.
 //!
-//! You are still free to use the specific 32-bit or 64-bit versions by accessing them through `goblin::elf64`, etc.
+//! You are still free to use the specific 32-bit or 64-bit versions by accessing them through `goblin::elf64`, etc., but you will have to parse and/or construct the various components yourself.
+//! In other words, there is no 32/64-bit `Elf` struct, only the unified version.
 //!
 //! # Note
 //! To use the automagic ELF datatype union parser, you _must_ enable/opt-in to the  `elf64`, `elf32`, and
@@ -66,7 +66,6 @@ mod impure {
     use std::io::SeekFrom::Start;
     use std::fs::File;
     use std::path::Path;
-    use std::vec;
     use std::ops::Deref;
 
     use super::header;
@@ -75,195 +74,234 @@ mod impure {
     use elf32;
     use elf64;
 
-    #[derive(Debug, Copy, Clone)]
-    pub enum Header {
-        Elf32(elf32::header::Header),
-        Elf64(elf64::header::Header),
+    #[derive(Debug, Clone)]
+    /// Simple union wrapper for 32/64 bit versions of the structs. Really just the `Either`
+    /// enum. Each wrapped elf object (Sym, Dyn) implements a deref coercion into the
+    /// generic trait for that object, hence you access the fields via methods instead
+    /// of direct field access. You shouldn't need to really worry about this enum though.
+    pub enum Unified<T32, T64> {
+        Elf32(T32),
+        Elf64(T64),
     }
 
-    impl Deref for Header {
-        type Target = super::header::ElfHeader;
-        fn deref(&self) -> &Self::Target {
-            match *self {
-                Header::Elf32(ref header) => {
-                    header
-                },
-                Header::Elf64(ref header) => {
-                    header
+    macro_rules! impl_deref {
+        () => {
+            fn deref(&self) -> &Self::Target {
+                match *self {
+                    Unified::Elf32(ref thing) => {
+                        thing
+                    },
+                    Unified::Elf64(ref thing) => {
+                        thing
+                    }
                 }
             }
         }
     }
 
-    #[derive(Debug, Copy, Clone)]
-    pub enum Dyn {
-        Elf32(elf32::dyn::Dyn),
-        Elf64(elf64::dyn::Dyn),
-    }
-
-    impl Deref for Sym {
-        type Target = super::sym::ElfSym;
-        fn deref(&self) -> &Self::Target {
-            match *self {
-                Sym::Elf32(ref thing) => {
-                    thing
-                },
-                Sym::Elf64(ref thing) => {
-                    thing
-                }
-            }
+    macro_rules! wrap {
+        (elf32, $item:ident) => {
+                 Unified::Elf32($item)
+        };
+        (elf64, $item:ident) => {
+                 Unified::Elf64($item)
         }
     }
 
-
-    #[derive(Debug, Copy, Clone)]
-    pub enum Sym {
-        Elf32(elf32::sym::Sym),
-        Elf64(elf64::sym::Sym),
-    }
-
-    impl Deref for Dyn {
-        type Target = super::dyn::ElfDyn;
-        fn deref(&self) -> &Self::Target {
-            match *self {
-                Dyn::Elf32(ref thing) => {
-                    thing
-                },
-                Dyn::Elf64(ref thing) => {
-                    thing
-                }
-            }
-        }
-    }
-
-    #[derive(Debug, Copy, Clone)]
-    pub enum Phdr {
-        Elf32(elf32::program_header::ProgramHeader),
-        Elf64(elf64::program_header::ProgramHeader),
-    }
-
-    impl Deref for Phdr {
-        type Target = super::program_header::ElfProgramHeader;
-        fn deref(&self) -> &Self::Target {
-            match *self {
-                Phdr::Elf32(ref thing) => {
-                    thing
-                },
-                Phdr::Elf64(ref thing) => {
-                    thing
-                }
-            }
-        }
-    }
-
-    #[derive(Debug, Copy, Clone)]
-    pub enum Shdr {
-        Elf32(elf32::section_header::SectionHeader),
-        Elf64(elf64::section_header::SectionHeader),
-    }
-
-    impl Deref for Shdr {
-        type Target = super::section_header::ElfSectionHeader;
-        fn deref(&self) -> &Self::Target {
-            match *self {
-                Shdr::Elf32(ref thing) => {
-                    thing
-                },
-                Shdr::Elf64(ref thing) => {
-                    thing
-                }
-            }
-        }
-    }
-
-    #[derive(Debug, Copy, Clone)]
-    pub enum Rela {
-        Elf32(elf32::rela::Rela),
-        Elf64(elf64::rela::Rela),
-    }
-
-    impl Deref for Rela {
-        type Target = super::rela::ElfRela;
-        fn deref(&self) -> &Self::Target {
-            match *self {
-                Rela::Elf32(ref thing) => {
-                    thing
-                },
-                Rela::Elf64(ref thing) => {
-                    thing
-                }
-            }
-        }
-    }
-
-    #[derive(Debug)]
-    pub struct WrappedIterator<T> {
+    #[derive(Debug, Clone)]
+    /// A Union wrapper for a vector or list of wrapped ELF objects.
+    /// Lazily converts its contents to a wrapped version during iteration.
+    pub struct ElfVec<T32, T64> {
         count: usize,
-        iter: vec::IntoIter<T>,
+        contents: Unified<Vec<T32>, Vec<T64>>
     }
 
-    impl<T> Iterator for WrappedIterator<T> {
-        type Item = T;
-        fn next(&mut self) -> Option<T> {
-            self.iter.next()
+    impl<T32, T64> ElfVec<T32, T64> {
+        pub fn new (contents: Unified<Vec<T32>, Vec<T64>>) -> ElfVec<T32, T64> {
+            let count = match contents {
+                Unified::Elf32(ref vec) => vec.len(),
+                Unified::Elf64(ref vec) => vec.len(),
+            };
+            ElfVec{
+                count: count,
+                contents: contents
+            }
         }
-    }
-
-    impl<T> ExactSizeIterator for WrappedIterator<T> {
-        fn len(&self) -> usize {
+        pub fn len (&self) -> usize {
             self.count
         }
     }
 
+    #[derive(Debug, Clone)]
+    /// Simple iterator implementation. Lazily converts underlying vector stream to
+    /// wrapped version. Currently clones the element because I'm also lazy.
+    pub struct ElfVecIter<T32, T64> {
+        current: usize,
+        contents: Unified<Vec<T32>, Vec<T64>>,
+        end: usize,
+    }
+
+    impl<T32, T64> Iterator for ElfVecIter<T32, T64> where T32: Clone, T64: Clone {
+        type Item = Unified<T32, T64>;
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.current >= self.end {
+                None
+            } else {
+                let res = match self.contents {
+                    Unified::Elf32(ref vec) => Unified::Elf32(vec[self.current].clone()),
+                    Unified::Elf64(ref vec) => Unified::Elf64(vec[self.current].clone()),
+                };
+                self.current += 1;
+                Some(res)
+            }
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    /// A hack so you can borrow the iterator instead of taking ownership if you don't want to.
+    /// Doesn't work very well, need more robust solution.
+    pub struct ElfVecIterBorrow<'a, T32:'a, T64:'a> {
+        current: usize,
+        contents: &'a Unified<Vec<T32>, Vec<T64>>,
+        end: usize,
+    }
+
+    impl<'a, T32:'a, T64:'a> Iterator for ElfVecIterBorrow<'a, T32, T64> where T32: Clone, T64: Clone {
+        type Item = Unified<T32, T64>;
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.current == self.end {
+                None
+            } else {
+                let res = match self.contents {
+                    &Unified::Elf32(ref vec) => Unified::Elf32(vec[self.current].clone()),
+                    &Unified::Elf64(ref vec) => Unified::Elf64(vec[self.current].clone()),
+                };
+                self.current += 1;
+                Some(res)
+            }
+        }
+    }
+
+    impl<'a, T32, T64> IntoIterator for &'a ElfVec<T32, T64> where T32: Clone, T64: Clone {
+        type Item = Unified<T32, T64>;
+        type IntoIter = ElfVecIterBorrow<'a, T32, T64>;
+
+        fn into_iter(self) -> Self::IntoIter {
+            ElfVecIterBorrow {
+                current: 0,
+                end: self.count,
+                contents: &self.contents,
+            }
+        }
+    }
+
+    impl<T32, T64> IntoIterator for ElfVec<T32, T64> where T32: Clone, T64: Clone {
+        type Item = Unified<T32, T64>;
+        type IntoIter = ElfVecIter<T32, T64>;
+
+        fn into_iter(self) -> Self::IntoIter {
+            ElfVecIter {
+                current: 0,
+                end: self.count,
+                contents: self.contents,
+            }
+        }
+    }
+
+    macro_rules! elf_list {
+        ($class:ident, $collection:ident) => {
+            ElfVec::new(wrap!($class, $collection))
+        }
+    }
+
+    type Header = Unified<elf32::header::Header, elf64::header::Header>;
+    type ProgramHeader = Unified<elf32::program_header::ProgramHeader, elf64::program_header::ProgramHeader>;
+    type SectionHeader = Unified<elf32::section_header::SectionHeader, elf64::section_header::SectionHeader>;
+    type Rela = Unified<elf32::rela::Rela, elf64::rela::Rela>;
+    type Sym = Unified<elf32::sym::Sym, elf64::sym::Sym>;
+    type Dyn = Unified<elf32::dyn::Dyn, elf64::dyn::Dyn>;
+
+    impl Deref for Header {
+        type Target = super::header::ElfHeader;
+        impl_deref!();
+    }
+    impl Deref for ProgramHeader {
+        type Target = super::program_header::ElfProgramHeader;
+        impl_deref!();
+    }
+    impl Deref for SectionHeader {
+        type Target = super::section_header::ElfSectionHeader;
+        impl_deref!();
+    }
+    impl Deref for Rela {
+        type Target = super::rela::ElfRela;
+        impl_deref!();
+    }
+    impl Deref for Sym {
+        type Target = super::sym::ElfSym;
+        impl_deref!();
+    }
+    impl Deref for Dyn {
+        type Target = super::dyn::ElfDyn;
+        impl_deref!();
+    }
+
+    pub type ProgramHeaders = ElfVec<elf32::program_header::ProgramHeader, elf64::program_header::ProgramHeader>;
+    pub type SectionHeaders = ElfVec<elf32::section_header::SectionHeader, elf64::section_header::SectionHeader>;
+    pub type Syms = ElfVec<elf32::sym::Sym, elf64::sym::Sym>;
+    pub type Dynamic = ElfVec<elf32::dyn::Dyn, elf64::dyn::Dyn>;
+    pub type Relas = ElfVec<elf32::rela::Rela, elf64::rela::Rela>;
+
     #[derive(Debug)]
+    /// A "Unified" ELF binary. Contains either 32-bit or 64-bit underlying structs.
+    /// To access the fields of the underlying struct, call the field name as a method,
+    /// e.g., `dyn.d_val()`
     pub struct Elf {
+        /// The ELF header, which provides a rudimentary index into the rest of the binary
         pub header: Header,
-        pub program_headers: WrappedIterator<Phdr>,
-        pub section_headers: WrappedIterator<Shdr>,
+        /// The program headers; they primarily tell the kernel and the dynamic linker
+        /// how to load this binary
+        pub program_headers: ProgramHeaders,
+        /// The sections headers. These are strippable, never count on them being
+        /// here unless you're a static linker!
+        pub section_headers: SectionHeaders,
+        /// The section header string table
         pub shdr_strtab: Strtab<'static>,
+        /// The string table for the dynamically accessible symbols
         pub dynstrtab: Strtab<'static>,
-        pub dynsyms: WrappedIterator<Sym>,
-        pub syms: WrappedIterator<Sym>,
+        /// The dynamically accessible symbols, i.e., exports, imports.
+        /// This is what the dynamic linker uses to dynamically load and link your binary,
+        /// or find imported symbols for binaries which dynamically link against your library
+        pub dynsyms: Syms,
+        /// The debugging symbol array
+        pub syms: Syms,
+        /// The string table for the symbol array
         pub strtab: Strtab<'static>,
-        pub dynamic: Option<WrappedIterator<Dyn>>,
-        pub rela: WrappedIterator<Rela>,
-        pub pltrela: WrappedIterator<Rela>,
+        /// The _DYNAMIC array
+        pub dynamic: Option<Dynamic>,
+        /// The regular relocation entries (strings, copy-data, etc.)
+        pub rela: Relas,
+        /// The plt relocation entries (procedure linkage table)
+        pub pltrela: Relas,
+        /// The binary's soname, if it has one
         pub soname: Option<String>,
+        /// The binary's program interpreter (e.g., dynamic linker), if it has one
         pub interpreter: Option<String>,
+        /// A list of this binary's dynamic libraries it uses, if there are any
         pub libraries: Vec<String>,
         pub is_64: bool,
+        /// Whether this is a shared object or not
         pub is_lib: bool,
+        /// The binaries entry point address, if it has one
         pub entry: u64,
+        /// The bias used to overflow memory addresses to binary addresses
         pub bias: u64,
     }
 
-    macro_rules! wrap_iter {
-      ($class:ident, $wrapper:ident, $collection:ident) => {{
-                let count = $collection.len();
-                let wrapped: Vec<$wrapper> = $collection.into_iter().map(|item| { wr!($class, $wrapper, item) }).collect();
-                WrappedIterator {
-                    count: count,
-                    iter: wrapped.into_iter(),
-                }
-      }}
-    }
-    macro_rules! wr {
-        (elf32, $wrapper:ident , $item:ident) => {
-                 $wrapper::Elf32($item)
-        };
-        (elf64, $wrapper:ident , $item:ident) => {
-                 $wrapper::Elf64($item)
-        }
-    }
     macro_rules! wrap_dyn {
       ($class:ident, $dynamic:ident) => {{
             if let Some(dynamic) = $dynamic {
-                let count = dynamic.len();
-                let dyns: Vec<Dyn> = dynamic.into_iter().map(|dyn| wr!($class, Dyn, dyn) ).collect();
-                Some (WrappedIterator {
-                    count: count,
-                    iter: dyns.into_iter(),
-                })
+                Some (elf_list!($class, dynamic))
             } else {
                 None
             }
@@ -280,7 +318,6 @@ mod impure {
 
     macro_rules! parse_impl {
     ($class:ident, $fd:ident) => {{
-
         let header = try!($class::header::Header::parse($fd));
         let entry = header.e_entry as usize;
         let is_lib = header.e_type == $class::header::ET_DYN;
@@ -345,7 +382,7 @@ mod impure {
         let mut pltrela = vec![];
         let mut dynstrtab = $class::strtab::Strtab::default();
         if let Some(ref dynamic) = dynamic {
-            let dyn_info = $class::dyn::DynamicInfo::new(&dynamic, bias); // we explicitly overflow the values here with our bias
+            let dyn_info = $class::dyn::DynamicInfo::new(&*dynamic.as_slice(), bias); // we explicitly overflow the values here with our bias
             dynstrtab = try!($class::strtab::Strtab::parse($fd,
                                                            dyn_info.strtab,
                                                            dyn_info.strsz,
@@ -361,24 +398,23 @@ mod impure {
                     libraries.push(lib.to_owned());
                 }
             }
-
             let num_syms = (dyn_info.strtab - dyn_info.symtab) / dyn_info.syment;
             dynsyms = try!($class::sym::parse($fd, dyn_info.symtab, num_syms, is_lsb));
             rela = try!($class::rela::parse($fd, dyn_info.rela, dyn_info.relasz, is_lsb));
             pltrela = try!($class::rela::parse($fd, dyn_info.jmprel, dyn_info.pltrelsz, is_lsb));
         }
         Ok(Elf {
-            header: wr!( $class, Header, header),
-            program_headers: wrap_iter!( $class, Phdr, program_headers),
-            section_headers: wrap_iter!( $class, Shdr, section_headers),
+            header: wrap!( $class, header),
+            program_headers: elf_list!( $class, program_headers),
+            section_headers: elf_list!( $class, section_headers),
             shdr_strtab: shdr_strtab,
             dynamic: wrap_dyn!($class, dynamic),
-            dynsyms: wrap_iter!($class, Sym, dynsyms),
+            dynsyms: elf_list!($class, dynsyms),
             dynstrtab: dynstrtab,
-            syms: wrap_iter!($class, Sym, syms),
+            syms: elf_list!($class, syms),
             strtab: strtab,
-            rela: wrap_iter!($class, Rela, rela),
-            pltrela: wrap_iter!($class, Rela, pltrela),
+            rela: elf_list!($class, rela),
+            pltrela: elf_list!($class, pltrela),
             soname: soname,
             interpreter: interpreter,
             libraries: libraries,
@@ -391,13 +427,15 @@ mod impure {
 }
 
     impl Elf {
-        pub fn parse<R: Read + Seek>(fd: &mut R) -> io::Result<Self> {
-            match try!(header::peek(fd)) {
+        /// Parses the contents of the byte stream in `cursor`, and maybe returns
+        /// a unified binary. For better performance, consider using [`from`](#method.from)
+        pub fn parse<R: Read + Seek>(cursor: &mut R) -> io::Result<Self> {
+            match try!(header::peek(cursor)) {
                 (header::ELFCLASS32, _is_lsb) => {
-                    parse_impl!(elf32, fd)
+                    parse_impl!(elf32, cursor)
                 },
                 (header::ELFCLASS64, _is_lsb) => {
-                    parse_impl!(elf64, fd)
+                    parse_impl!(elf64, cursor)
                 },
                 (class, is_lsb) => {
                     io_error!("Unknown values in ELF ident header: class: {} is_lsb: {}",
@@ -437,7 +475,7 @@ mod tests {
                 assert_eq!(binary.bias, 0);
                 let syms = binary.syms;
                 let mut i = 0;
-                for sym in syms {
+                for sym in &syms {
                     if i == 11 {
                         let symtab = binary.strtab;
                         assert_eq!(&symtab[sym.st_name() as usize], "_start");
@@ -445,6 +483,7 @@ mod tests {
                     }
                     i += 1;
                 }
+                assert!(syms.len() != 0);
              },
             Err (_) => {
                 assert!(false)

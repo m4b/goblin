@@ -1,9 +1,15 @@
+//! A byte-offset based string table.
+//! Commonly used in ELF binaries, and also archives.
+
 use core::ops::Index;
 use core::slice;
 use core::str;
 use core::fmt;
 use std::borrow::Cow;
 
+/// A common string table format which is indexed by byte offsets (and not
+/// member index). Constructed using [`parse`](#method.parse)
+/// with your choice of delimiter. Please be careful.
 pub struct Strtab<'a> {
     // Thanks to SpaceManiac and Mutabah on #rust for suggestion and debugging this
     bytes: Cow<'a, [u8]>,

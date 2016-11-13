@@ -1,4 +1,4 @@
-//! The generic ELF module, which gives access to ELF constants and other helper functions, which are independent of ELF bithood.  Also defines an ELF struct which has a [`parse` method](struct.Elf.html#method.parse) which returns a wrapped `Elf64` or `Elf32` binary.
+//! The generic ELF module, which gives access to ELF constants and other helper functions, which are independent of ELF bithood.  Also defines an `Elf` struct which implements a unified parser that returns a wrapped `Elf64` or `Elf32` binary.
 //!
 //! To access the fields of the contents of the binary (i.e., `ph.p_type`),
 //! instead of directly getting the struct fields, you call the similarly named methods.
@@ -294,8 +294,10 @@ mod impure {
         pub is_lib: bool,
         /// The binaries entry point address, if it has one
         pub entry: u64,
-        /// The bias used to overflow memory addresses to binary addresses
+        /// The bias used to overflow virtual memory addresses into physical byte offsets into the binary
         pub bias: u64,
+        /// Whether the binary is little endian or not
+        pub little_endian: bool,
     }
 
     macro_rules! wrap_dyn {
@@ -421,7 +423,8 @@ mod impure {
             is_64: is_64,
             is_lib: is_lib,
             entry: entry as u64,
-            bias: bias as u64
+            bias: bias as u64,
+            little_endian: is_lsb,
         })
     }};
 }

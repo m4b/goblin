@@ -16,6 +16,8 @@ and analysis.  Eventually, at some future date, once the holy trinity
 is finished (ELF, mach, PE), writers for the various binary
 formats are planned.
 
+See the [documentation](https://docs.rs/goblin/0.0.5/goblin/) for more.
+
 ### Use-cases and Planned Features
 
 Here are some things you could do with this crate (or help to implement so they could be done):
@@ -38,3 +40,4 @@ Here are some things you could do with this crate (or help to implement so they 
 * pe32 - unimplemented
 * endian_fd - parses according to the endianness in the binary
 * std - to allow `no_std` environments
+* archive - a Unix Archive parser

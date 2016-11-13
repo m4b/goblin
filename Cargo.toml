@@ -8,8 +8,8 @@ repository = "https://github.com/m4b/goblin"
 license = "MIT"
 description = "An impish, cross-platform binary parsing and loading crate"
 
-[lib]
-crate-type = ["rlib", "dylib"]
+ [lib]
+ crate-type = ["rlib", "cdylib"]
 
 [dependencies.byteorder]
 version = "0.5"

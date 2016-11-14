@@ -222,11 +222,11 @@ mod impure {
     }
 
     pub type Header = Unified<elf32::header::Header, elf64::header::Header>;
-    type ProgramHeader = Unified<elf32::program_header::ProgramHeader, elf64::program_header::ProgramHeader>;
-    type SectionHeader = Unified<elf32::section_header::SectionHeader, elf64::section_header::SectionHeader>;
-    type Rela = Unified<elf32::rela::Rela, elf64::rela::Rela>;
-    type Sym = Unified<elf32::sym::Sym, elf64::sym::Sym>;
-    type Dyn = Unified<elf32::dyn::Dyn, elf64::dyn::Dyn>;
+    pub type ProgramHeader = Unified<elf32::program_header::ProgramHeader, elf64::program_header::ProgramHeader>;
+    pub type SectionHeader = Unified<elf32::section_header::SectionHeader, elf64::section_header::SectionHeader>;
+    pub type Rela = Unified<elf32::rela::Rela, elf64::rela::Rela>;
+    pub type Sym = Unified<elf32::sym::Sym, elf64::sym::Sym>;
+    pub type Dyn = Unified<elf32::dyn::Dyn, elf64::dyn::Dyn>;
 
     impl Deref for Header {
         type Target = super::header::ElfHeader;

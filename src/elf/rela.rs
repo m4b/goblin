@@ -52,6 +52,10 @@ pub trait ElfRela {
     fn r_info(&self) -> u64;
     /// Addend
     fn r_addend(&self) -> i64;
+    /// The index into the dynsyms symbol table
+    fn r_sym(&self) -> usize;
+    /// The relocation type
+    fn r_typ(&self) -> u64;
 }
 
 // manually passing i32 for now because #27245 is not in stable 1.12 yet
@@ -233,6 +237,14 @@ macro_rules! elf_rela_impure_impl { ($from_endian:item) => {
                 /// Addend
                 fn r_addend(&self) -> i64 {
                     self.r_addend as i64
+                }
+                /// The index into the dynsyms symbol table
+                fn r_sym(&self) -> usize {
+                    r_sym(self.r_info) as usize
+                }
+                /// The relocation type
+                fn r_typ(&self) -> u64 {
+                    r_type(self.r_info) as u64
                 }
             }
 

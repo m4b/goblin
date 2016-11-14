@@ -1,9 +1,9 @@
 #[cfg(feature = "std")]
 pub trait ElfSym {
-    fn st_name(&self) -> u32;
+    fn st_name(&self) -> usize;
     fn st_info(&self) -> u8;
     fn st_other(&self) -> u8;
-    fn st_shndx(&self) -> u16;
+    fn st_shndx(&self) -> usize;
     fn st_value(&self) -> u64;
     fn st_size(&self) -> u64;
     fn is_function(&self) -> bool;
@@ -134,8 +134,8 @@ macro_rules! elf_sym_impure_impl {
                 use std::io::SeekFrom::Start;
 
                 impl ElfSym for Sym {
-                    fn st_name(&self) -> u32 {
-                        self.st_name
+                    fn st_name(&self) -> usize {
+                        self.st_name as usize
                     }
                     fn st_info(&self) -> u8 {
                         self.st_info
@@ -143,8 +143,8 @@ macro_rules! elf_sym_impure_impl {
                     fn st_other(&self) -> u8 {
                         self.st_other
                     }
-                    fn st_shndx(&self) -> u16 {
-                        self.st_shndx
+                    fn st_shndx(&self) -> usize {
+                        self.st_shndx as usize
                     }
                     fn st_value(&self) -> u64 {
                         self.st_value as u64

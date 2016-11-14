@@ -228,11 +228,11 @@ macro_rules! elf_rela_impure_impl { ($from_endian:item) => {
                 }
                 /// Relocation type and symbol index
                 fn r_info(&self) -> u64 {
-                    self.r_offset as u64
+                    self.r_info as u64
                 }
                 /// Addend
                 fn r_addend(&self) -> i64 {
-                    self.r_offset as i64
+                    self.r_addend as i64
                 }
             }
 

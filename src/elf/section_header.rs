@@ -1,7 +1,7 @@
 #[cfg(feature = "std")]
 pub trait ElfSectionHeader {
     /// Section name (string tbl index)
-    fn sh_name(&self) -> u32;
+    fn sh_name(&self) -> usize;
     /// Section type
     fn sh_type(&self) -> u32;
     /// Section flags
@@ -25,7 +25,7 @@ pub trait ElfSectionHeader {
 macro_rules! elf_section_header {
         ($size:ident) => {
             #[repr(C)]
-            #[derive(Copy, Clone, PartialEq, Default)]
+            #[derive(Copy, Clone, Eq, PartialEq, Default)]
             pub struct SectionHeader {
                 /// Section name (string tbl index)
                 pub sh_name: u32,
@@ -266,8 +266,8 @@ macro_rules! elf_section_header_impure_impl { ($header:item) => {
 
             impl ElfSectionHeader for SectionHeader {
                 /// Section name (string tbl index)
-                fn sh_name(&self) -> u32 {
-                    self.sh_name
+                fn sh_name(&self) -> usize {
+                    self.sh_name as usize
                 }
                 /// Section type
                 fn sh_type(&self) -> u32 {

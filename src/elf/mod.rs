@@ -66,7 +66,7 @@ mod impure {
     use std::io::SeekFrom::Start;
     use std::fs::File;
     use std::path::Path;
-    use std::ops::Deref;
+    use std::ops::{Deref};
 
     use super::header;
     use super::strtab::Strtab;
@@ -74,7 +74,7 @@ mod impure {
     use elf32;
     use elf64;
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     /// Simple union wrapper for 32/64 bit versions of the structs. Really just the `Either`
     /// enum. Each wrapped elf object (Sym, Dyn) implements a deref coercion into the
     /// generic trait for that object, hence you access the fields via methods instead
@@ -116,7 +116,7 @@ mod impure {
         contents: Unified<Vec<T32>, Vec<T64>>
     }
 
-    impl<T32, T64> ElfVec<T32, T64> {
+    impl<T32, T64> ElfVec<T32, T64> where T32: Clone, T64: Clone {
         pub fn new (contents: Unified<Vec<T32>, Vec<T64>>) -> ElfVec<T32, T64> {
             let count = match contents {
                 Unified::Elf32(ref vec) => vec.len(),
@@ -129,6 +129,13 @@ mod impure {
         }
         pub fn len (&self) -> usize {
             self.count
+        }
+
+        pub fn get (&self, _index: usize) -> Unified<T32, T64> {
+            match self.contents {
+                Unified::Elf32(ref vec) => Unified::Elf32(vec[_index].clone()),
+                Unified::Elf64(ref vec) => Unified::Elf64(vec[_index].clone()),
+            }
         }
     }
 

@@ -8,6 +8,8 @@ pub trait ElfSym {
     fn st_size(&self) -> u64;
     fn is_function(&self) -> bool;
     fn is_import(&self) -> bool;
+    fn st_type(&self) -> u8;
+    fn st_bind(&self) -> u8;
 }
 
 /// === Sym bindings ===
@@ -157,6 +159,20 @@ macro_rules! elf_sym_impure_impl {
                     }
                     fn is_import(&self) -> bool {
                         self.is_import()
+                    }
+                    /// Get the ST binding.
+                    ///
+                    /// This is the first four bits of the byte.
+                    #[inline]
+                    fn st_bind(&self) -> u8 {
+                        self.st_info() >> 4
+                    }
+                    /// Get the ST type.
+                    ///
+                    /// This is the last four bits of the byte.
+                    #[inline]
+                    fn st_type(&self) -> u8 {
+                        self.st_info() & 0xf
                     }
                 }
 

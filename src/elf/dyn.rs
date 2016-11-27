@@ -360,7 +360,7 @@ macro_rules! elf_dyn_impure_impl {
                 }
 
                 /// Given a bias and a memory address (typically for a _correctly_ mmap'd binary in memory), returns the `_DYNAMIC` array as a slice of that memory
-                pub unsafe fn from_raw<'a>(bias: $size, vaddr: $size) -> &'a [Dyn] {
+                pub unsafe fn from_raw<'a>(bias: usize, vaddr: usize) -> &'a [Dyn] {
                     let dynp = vaddr.wrapping_add(bias) as *const Dyn;
                     let mut idx = 0;
                     while (*dynp.offset(idx)).d_tag as u64 != DT_NULL {
@@ -372,11 +372,11 @@ macro_rules! elf_dyn_impure_impl {
                 // TODO: these bare functions have always seemed awkward, but not sure where they should go...
                 /// Maybe gets and returns the dynamic array with the same lifetime as the [phdrs], using the provided bias with wrapping addition.
                 /// If the bias is wrong, it will either segfault or give you incorrect values, beware
-                pub unsafe fn from_phdrs(bias: $size, phdrs: &[ProgramHeader]) -> Option<&[Dyn]> {
+                pub unsafe fn from_phdrs(bias: usize, phdrs: &[ProgramHeader]) -> Option<&[Dyn]> {
                     for phdr in phdrs {
                         // FIXME: change to casting to u64 similar to DT_*?
                         if phdr.p_type as u32 == PT_DYNAMIC {
-                            return Some(from_raw(bias, phdr.p_vaddr));
+                            return Some(from_raw(bias, phdr.p_vaddr as usize));
                         }
                     }
                     None

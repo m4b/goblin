@@ -15,3 +15,8 @@ pub mod rela;
 
 #[cfg(feature = "std")]
 pub use elf::strtab;
+
+#[cfg(feature = "std")]
+pub mod gnu_hash {
+    elf_gnu_hash_impl!();
+}

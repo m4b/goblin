@@ -40,6 +40,9 @@
 #[cfg(feature = "std")]
 pub mod strtab;
 
+#[macro_use]
+mod gnu_hash;
+
 // These are shareable values for the 32/64 bit implementations.
 //
 // They are publicly re-exported by the pub-using module

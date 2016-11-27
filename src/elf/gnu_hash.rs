@@ -1,4 +1,3 @@
-//! TODO add proper writeup for how this is constructed, how it resolves symbols, and how it works, see: https://blogs.oracle.com/ali/entry/gnu_hash_elf_sections
 //! A Gnu Hash table as 4 sections:
 //!
 //!   1. Header
@@ -12,10 +11,15 @@
 //!   2. symndx
 //!   3. maskwords
 //!   4. shift2
+//!
+//! See: https://blogs.oracle.com/ali/entry/gnu_hash_elf_sections
+
+macro_rules! elf_gnu_hash_impl {
+ () => {
 
 use core::slice;
 use core::mem;
-use elf::strtab;
+use elf::strtab::Strtab;
 use super::sym;
 
 /// GNU hash function: takes a string and returns the u32 hash of that string
@@ -38,11 +42,11 @@ pub struct GnuHash<'process> {
     maskwords_bitmask: u32,
     buckets: &'process [u32],
     hashvalues: &'process [u32],
+    symtab: &'process [sym::Sym],
 }
 
 impl<'process> GnuHash<'process> {
-    pub fn new(hashtab: *const u32, total_dynsyms: usize) -> GnuHash<'process> {
-        unsafe {
+    pub unsafe fn new(hashtab: *const u32, total_dynsyms: usize, symtab: &'process [sym::Sym]) -> GnuHash<'process> {
             let nbuckets = *hashtab;
             let symindex = *hashtab.offset(1) as usize;
             let maskwords = *hashtab.offset(2) as usize; // how many words our bloom filter mask has
@@ -62,17 +66,16 @@ impl<'process> GnuHash<'process> {
                 hashvalues: hashvalues,
                 buckets: buckets,
                 maskwords_bitmask: ((maskwords as i32) - 1) as u32,
+                symtab: symtab,
             }
-        }
     }
 
     #[inline(always)]
     fn lookup(&self,
-              hash: u32,
               symbol: &str,
-              strtab: &'process strtab::Strtab,
-              symtab: &'process [sym::Sym])
-              -> Option<sym::Sym> {
+              hash: u32,
+              strtab: &Strtab)
+              -> Option<&sym::Sym> {
         let mut idx = self.buckets[(hash % self.nbuckets) as usize] as usize;
         // println!("lookup idx = buckets[hash % nbuckets] = {}", idx);
         if idx == 0 {
@@ -82,7 +85,7 @@ impl<'process> GnuHash<'process> {
         let hash = hash & !1;
         // TODO: replace this with an iterator
         loop {
-            let symbol_ = &symtab[idx];
+            let symbol_ = &self.symtab[idx];
             let h2 = self.hashvalues[hash_idx];
             idx += 1;
             hash_idx += 1;
@@ -90,7 +93,7 @@ impl<'process> GnuHash<'process> {
             // println!("{}: h2 0x{:x} resolves to: {}", i, h2, name);
             if hash == (h2 & !1) && name == symbol {
                 // println!("lookup match for {} at: 0x{:x}", symbol, symbol_.st_value);
-                return Some(*symbol_);
+                return Some(symbol_);
             }
             if h2 & 1 == 1 {
                 break;
@@ -109,17 +112,18 @@ impl<'process> GnuHash<'process> {
         filter & (bitmask as usize) != (bitmask as usize) // if true, def _don't have_
     }
 
-    /// Given a name, a hash of that name, a strtab and corresponding symtab to look in, maybe returns a Sym
+/// Given a name, a hash of that name, a strtab to cross-reference names, maybe returns a Sym
     pub fn find(&self,
                 name: &str,
                 hash: u32,
-                strtab: &'process strtab::Strtab,
-                symtab: &'process [sym::Sym])
-                -> Option<sym::Sym> {
+                strtab: &Strtab)
+                -> Option<&sym::Sym> {
         if self.filter(hash) {
             None
         } else {
-            self.lookup(hash, name, strtab, symtab)
+            self.lookup(name, hash, strtab)
         }
     }
 }
+
+}}

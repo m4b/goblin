@@ -1,17 +1,17 @@
 pub use elf::rela::*;
 
-elf_rela!(u64, i64);
+elf_reloc!(u64);
 
 pub const SIZEOF_RELA: usize = 8 + 8 + 8;
 
 #[inline(always)]
-pub fn r_sym(info: u64) -> u64 {
-    info >> 32
+pub fn r_sym(info: u64) -> u32 {
+    (info >> 32) as u32
 }
 
 #[inline(always)]
-pub fn r_type(info: u64) -> u64 {
-    info & 0xffffffff
+pub fn r_type(info: u64) -> u32 {
+    (info & 0xffffffff) as u32
 }
 
 #[inline(always)]

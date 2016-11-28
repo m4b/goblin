@@ -413,6 +413,7 @@ mod impure {
             let num_syms = (dyn_info.strtab - dyn_info.symtab) / dyn_info.syment;
             dynsyms = try!($class::sym::parse($fd, dyn_info.symtab, num_syms, is_lsb));
             rela = try!($class::rela::parse($fd, dyn_info.rela, dyn_info.relasz, is_lsb));
+            // FIXME: this is incorrect: PLTREL = 0x11 || 0x7 gives the type, i.e., REL or RELA for the plt relocation entries; right now it just assumes their rela which in general can be false
             pltrela = try!($class::rela::parse($fd, dyn_info.jmprel, dyn_info.pltrelsz, is_lsb));
         }
         Ok(Elf {

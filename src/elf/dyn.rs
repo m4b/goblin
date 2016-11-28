@@ -407,6 +407,10 @@ macro_rules! elf_dyn_impure_impl {
                 pub relasz: usize,
                 pub relaent: $size,
                 pub relacount: usize,
+                pub rel: usize,
+                pub relsz: usize,
+                pub relent: $size,
+                pub relcount: usize,
                 pub gnu_hash: Option<$size>,
                 pub hash: Option<$size>,
                 pub strtab: usize,
@@ -430,6 +434,7 @@ macro_rules! elf_dyn_impure_impl {
                 pub flags: $size,
                 pub flags_1: $size,
                 pub soname: usize,
+                pub textrel: bool,
             }
 
             impl DynamicInfo {
@@ -442,6 +447,10 @@ macro_rules! elf_dyn_impure_impl {
                             DT_RELASZ => res.relasz = dyn.d_val as usize,
                             DT_RELAENT => res.relaent = dyn.d_val as _,
                             DT_RELACOUNT => res.relacount = dyn.d_val as usize,
+                            DT_REL => res.rel = dyn.d_val.wrapping_add(bias as _) as usize, // .rel.dyn
+                            DT_RELSZ => res.relsz = dyn.d_val as usize,
+                            DT_RELENT => res.relent = dyn.d_val as _,
+                            DT_RELCOUNT => res.relcount = dyn.d_val as usize,
                             DT_GNU_HASH => res.gnu_hash = Some(dyn.d_val.wrapping_add(bias as _)),
                             DT_HASH => res.hash = Some(dyn.d_val.wrapping_add(bias as _)) as _,
                             DT_STRTAB => res.strtab = dyn.d_val.wrapping_add(bias as _) as usize,
@@ -465,6 +474,7 @@ macro_rules! elf_dyn_impure_impl {
                             DT_FLAGS => res.flags = dyn.d_val as _,
                             DT_FLAGS_1 => res.flags_1 = dyn.d_val as _,
                             DT_SONAME => res.soname = dyn.d_val as _,
+                            DT_TEXTREL => res.textrel = true,
                             _ => (),
                         }
                     }

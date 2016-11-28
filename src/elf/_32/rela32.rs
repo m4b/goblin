@@ -1,18 +1,6 @@
 pub use elf::rela::*;
 
-// Stupid 32 bit binaries have Rel too, because 4 extra bytes for every relocation for an addend of 0 was prohibitive back in 1906.
-// I think 32-bit binaries are stupid relics from the past in case that wasn't clear
-#[repr(C)]
-#[derive(Clone, PartialEq, Default)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct Rel {
-    /// address
-    pub r_offset: u32,
-    /// relocation type and symbol address
-    pub r_info: u32,
-}
-
-elf_rela!(u32, i32);
+elf_reloc!(u32);
 
 pub const SIZEOF_RELA: usize = 4 + 4 + 4;
 

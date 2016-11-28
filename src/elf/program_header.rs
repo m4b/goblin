@@ -48,6 +48,8 @@ pub const PT_HISUNW: u32 = 0x6fffffff;
 pub const PT_HIOS: u32 = 0x6fffffff;
 /// Start of processor-specific
 pub const PT_LOPROC: u32 = 0x70000000;
+/// ARM unwind segment
+pub const PT_ARM_EXIDX: u32 = 0x70000001;
 /// End of processor-specific
 pub const PT_HIPROC: u32 = 0x7fffffff;
 
@@ -80,6 +82,7 @@ pub fn pt_to_str(pt: u32) -> &'static str {
         PT_HIOS => "PT_HIOS",
         PT_LOPROC => "PT_LOPROC",
         PT_HIPROC => "PT_HIPROC",
+        PT_ARM_EXIDX => "PT_ARM_EXIDX",
         _ => "UNKNOWN_PT",
     }
 }

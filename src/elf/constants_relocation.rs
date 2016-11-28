@@ -1,4 +1,4 @@
-// TODO: move all these into constants_relocation
+// x86_64 relocations
 /// No reloc.
 pub const R_X86_64_NONE: u32 = 0;
 /// Direct 64 bit.
@@ -78,6 +78,91 @@ pub const R_X86_64_IRELATIVE: u32 = 37;
 /// 64-bit adjust by program base.
 pub const R_X86_64_RELATIVE64: u32 = 38;
 pub const R_X86_64_NUM: u32 = 39;
+
+// Intel 80386 specific definitions
+
+// i386 relocs
+/// No reloc
+pub const R_386_NONE: u32 = 0;
+/// Direct 32 bit
+pub const R_386_32: u32 = 1;
+/// PC relative 32 bit
+pub const R_386_PC32: u32 = 2;
+/// 32 bit GOT entry
+pub const R_386_GOT32: u32 = 3;
+/// 32 bit PLT address
+pub const R_386_PLT32: u32 = 4;
+/// Copy symbol at runtime
+pub const R_386_COPY: u32 = 5;
+/// Create GOT entry
+pub const R_386_GLOB_DAT: u32 = 6;
+/// Create PLT entry
+pub const R_386_JMP_SLOT: u32 = 7;
+/// Adjust by program base
+pub const R_386_RELATIVE: u32 = 8;
+/// 32 bit offset to GOT
+pub const R_386_GOTOFF: u32 = 9;
+/// 32 bit PC relative offset to GOT
+pub const R_386_GOTPC: u32 = 10;
+pub const R_386_32PLT: u32 = 11;
+/// Offset in static TLS block
+pub const R_386_TLS_TPOFF: u32 = 14;
+/// Address of GOT entry for static TLS block offset
+pub const R_386_TLS_IE: u32 = 15;
+/// GOT entry for static TLS block offset
+pub const R_386_TLS_GOTIE: u32 = 16;
+/// Offset relative to static TLS block
+pub const R_386_TLS_LE: u32 = 17;
+/// Direct 32 bit for GNU version of general dynamic thread local data
+pub const R_386_TLS_GD: u32 = 18;
+/// Direct 32 bit for GNU version of local dynamic thread local data in LE code
+pub const R_386_TLS_LDM: u32 = 19;
+pub const R_386_16: u32 = 20;
+pub const R_386_PC16: u32 = 21;
+pub const R_386_8: u32 = 22;
+pub const R_386_PC8: u32 = 23;
+/// Direct 32 bit for general dynamic thread local data
+pub const R_386_TLS_GD_32: u32 = 24;
+/// Tag for pushl in GD TLS code
+pub const R_386_TLS_GD_PUSH: u32 = 25;
+/// Relocation for call to __tls_get_addr()
+pub const R_386_TLS_GD_CALL: u32 = 26;
+/// Tag for popl in GD TLS code
+pub const R_386_TLS_GD_POP: u32 = 27;
+/// Direct 32 bit for local dynamic thread local data in LE code
+pub const R_386_TLS_LDM_32: u32 = 28;
+/// Tag for pushl in LDM TLS code
+pub const R_386_TLS_LDM_PUSH: u32 = 29;
+/// Relocation for call to __tls_get_addr() in LDM code
+pub const R_386_TLS_LDM_CALL: u32 = 30;
+/// Tag for popl in LDM TLS code
+pub const R_386_TLS_LDM_POP: u32 = 31;
+/// Offset relative to TLS block
+pub const R_386_TLS_LDO_32: u32 = 32;
+/// GOT entry for negated static TLS block offset
+pub const R_386_TLS_IE_32: u32 = 33;
+/// Negated offset relative to static TLS block
+pub const R_386_TLS_LE_32: u32 = 34;
+/// ID of module containing symbol
+pub const R_386_TLS_DTPMOD32: u32 = 35;
+/// Offset in TLS block
+pub const R_386_TLS_DTPOFF32: u32 = 36;
+/// Negated offset in static TLS block
+pub const R_386_TLS_TPOFF32: u32 = 37;
+/// 32-bit symbol size
+pub const R_386_SIZE32: u32 = 38;
+/// GOT offset for TLS descriptor.
+pub const R_386_TLS_GOTDESC: u32 = 39;
+/// Marker of call through TLS descriptor for relaxation
+pub const R_386_TLS_DESC_CALL: u32 = 40;
+/// TLS descriptor containing pointer to code and to argument, returning the TLS offset for the symbol
+pub const R_386_TLS_DESC: u32 = 41;
+/// Adjust indirectly by program base
+pub const R_386_IRELATIVE: u32 = 42;
+/// Load from 32 bit GOT entry, relaxable
+pub const R_386_GOT32X: u32 = 43;
+/// Keep this the last entry
+pub const R_386_NUM: u32 = 44;
 
 // AArch64 relocs
 /// No relocation

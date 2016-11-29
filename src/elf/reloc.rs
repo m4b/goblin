@@ -44,8 +44,27 @@
 //! which takes no arguments, at the address of the result of the corresponding
 //! `R_X86_64_RELATIVE` relocation.
 
+use core::fmt;
+
+#[derive(Clone, Copy, PartialEq, Default)]
+/// A unified ELF relocation structure
+pub struct Reloc {
+    /// Address
+    pub r_offset: usize,
+    /// Relocation type and symbol index
+    pub r_info: usize,
+    /// Addend
+    pub r_addend: isize,
+    /// The index into the dynsyms symbol table
+    pub r_sym: usize,
+    /// The relocation type
+    pub r_type: u32,
+    /// Whether this was constructed from a rela or rel relocation entry type
+    pub is_rela: bool
+}
+
 #[cfg(feature = "std")]
-pub trait ElfRela {
+pub trait ElfReloc {
     /// Address
     fn r_offset(&self) -> u64;
     /// Relocation type and symbol index
@@ -58,8 +77,46 @@ pub trait ElfRela {
     fn r_type(&self) -> u32;
 }
 
+#[cfg(feature = "std")]
+impl ElfReloc for Reloc {
+    /// Address
+    fn r_offset(&self) -> u64 {
+        self.r_offset as u64
+    }
+    /// Relocation type and symbol index
+    fn r_info(&self) -> u64 {
+        self.r_info as u64
+    }
+    /// Addend
+    fn r_addend(&self) -> i64 {
+        self.r_addend as i64
+    }
+    /// The index into the dynsyms symbol table
+    fn r_sym(&self) -> usize {
+        self.r_sym
+    }
+    /// The relocation type
+    fn r_type(&self) -> u32 {
+        self.r_type
+    }
+}
+
+impl fmt::Debug for Reloc {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f,
+               "r_offset: {:x} {} @ {} r_addend: {:x} rela: {}",
+               self.r_offset,
+               self.r_type,
+               self.r_sym,
+               self.r_addend,
+               self.is_rela,
+               )
+    }
+}
+
 macro_rules! elf_reloc {
     ($size:ident, $typ:ty) => {
+    use core::convert::From;
     #[repr(C)]
     #[derive(Clone, Copy, PartialEq, Default)]
     pub struct Rela {
@@ -79,6 +136,33 @@ macro_rules! elf_reloc {
       /// relocation type and symbol address
       pub r_info: $size,
     }
+
+    impl From<Rela> for super::reloc::Reloc {
+        fn from(rela: Rela) -> Self {
+            Reloc {
+                r_offset: rela.r_offset as usize,
+                r_info: rela.r_info as usize,
+                r_addend: rela.r_addend as isize,
+                r_sym: r_sym(rela.r_info) as usize,
+                r_type: r_type(rela.r_info),
+                is_rela: true,
+            }
+        }
+    }
+
+    impl From<Rel> for super::reloc::Reloc {
+        fn from(rel: Rel) -> Self {
+            Reloc {
+                r_offset: rel.r_offset as usize,
+                r_info: rel.r_info as usize,
+                r_addend: 0,
+                r_sym: r_sym(rel.r_info) as usize,
+                r_type: r_type(rel.r_info),
+                is_rela: false,
+            }
+        }
+    }
+
     };
     ($size:ident) => {
       elf_reloc!($size, signed_from_unsigned!($size));
@@ -139,7 +223,7 @@ pub fn type_to_str(typ: u32) -> &'static str {
     }
 }
 
-macro_rules! elf_rela_impure_impl { ($from_endian:item) => {
+macro_rules! elf_rela_impure_impl { ($parse:item) => {
 
         #[cfg(feature = "std")]
         pub use self::impure::*;
@@ -156,7 +240,20 @@ macro_rules! elf_rela_impure_impl { ($from_endian:item) => {
             use std::io::{self, Read, Seek};
             use std::io::SeekFrom::Start;
 
-            impl ElfRela for Rela {
+            impl fmt::Debug for Rela {
+                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    let sym = r_sym(self.r_info);
+                    let typ = r_type(self.r_info);
+                    write!(f,
+                           "r_offset: {:x} {} @ {} r_addend: {:x}",
+                           self.r_offset,
+                           type_to_str(typ),
+                           sym,
+                           self.r_addend)
+                }
+            }
+
+            impl ElfReloc for Rela {
                 /// Address
                 fn r_offset(&self) -> u64 {
                     self.r_offset as u64
@@ -179,24 +276,35 @@ macro_rules! elf_rela_impure_impl { ($from_endian:item) => {
                 }
             }
 
-            impl fmt::Debug for Rela {
-                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                    let sym = r_sym(self.r_info);
-                    let typ = r_type(self.r_info);
-                    write!(f,
-                           "r_offset: {:x} {} @ {} r_addend: {:x}",
-                           self.r_offset,
-                           type_to_str(typ),
-                           sym,
-                           self.r_addend)
+            impl ElfReloc for Rel {
+                /// Address
+                fn r_offset(&self) -> u64 {
+                    self.r_offset as u64
+                }
+                /// Relocation type and symbol index
+                fn r_info(&self) -> u64 {
+                    self.r_info as u64
+                }
+                /// Addend
+                fn r_addend(&self) -> i64 {
+                    0
+                }
+                /// The index into the dynsyms symbol table
+                fn r_sym(&self) -> usize {
+                    r_sym(self.r_info) as usize
+                }
+                /// The relocation type
+                fn r_type(&self) -> u32 {
+                    r_type(self.r_info)
                 }
             }
 
-    /// Gets the rela entries given a rela u64 and the _size_ of the rela section in the binary, in bytes.  Works for regular rela and the pltrela table.
-    /// Assumes the pointer is valid and can safely return a slice of memory pointing to the relas because:
-    /// 1. `rela` points to memory received from the kernel (i.e., it loaded the executable), _or_
-    /// 2. The binary has already been mmapped (i.e., it's a `SharedObject`), and hence it's safe to return a slice of that memory.
-    /// 3. Or if you obtained the pointer in some other lawful manner
+            /// Gets the reloc entries given a reloc u64 and the _size_ of the reloc section in the binary,
+            /// in bytes.  Works for regular reloc and the pltrela table.
+            /// Assumes the pointer is valid and can safely return a slice of memory pointing to the relas because:
+            /// 1. `reloc` points to memory received from the kernel (i.e., it loaded the executable), _or_
+            /// 2. The binary has already been mmapped (i.e., it's a `SharedObject`), and hence it's safe to return a slice of that memory.
+            /// 3. Or if you obtained the pointer in some other lawful manner
             pub unsafe fn from_raw<'a>(ptr: *const Rela, size: usize) -> &'a [Rela] {
                 slice::from_raw_parts(ptr, size / SIZEOF_RELA)
             }
@@ -213,6 +321,6 @@ macro_rules! elf_rela_impure_impl { ($from_endian:item) => {
             }
 
             #[cfg(feature = "endian_fd")]
-            $from_endian
+            $parse
         }
     };}

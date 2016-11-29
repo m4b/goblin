@@ -10,8 +10,8 @@ pub mod program_header;
 pub mod section_header;
 #[path="dyn32.rs"]
 pub mod dyn;
-#[path="rela32.rs"]
-pub mod rela;
+#[path="reloc32.rs"]
+pub mod reloc;
 
 #[cfg(feature = "std")]
 pub use elf::strtab;

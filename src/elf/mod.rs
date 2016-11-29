@@ -57,7 +57,7 @@ pub mod sym;
 #[macro_use]
 pub mod dyn;
 #[macro_use]
-pub mod rela;
+pub mod reloc;
 
 #[cfg(all(feature = "std", feature = "elf32", feature = "elf64", feature = "endian_fd"))]
 pub use self::impure::*;
@@ -227,7 +227,6 @@ mod impure {
     pub type Header = Unified<elf32::header::Header, elf64::header::Header>;
     pub type ProgramHeader = Unified<elf32::program_header::ProgramHeader, elf64::program_header::ProgramHeader>;
     pub type SectionHeader = Unified<elf32::section_header::SectionHeader, elf64::section_header::SectionHeader>;
-    pub type Rela = Unified<elf32::rela::Rela, elf64::rela::Rela>;
     pub type Sym = Unified<elf32::sym::Sym, elf64::sym::Sym>;
     pub type Dyn = Unified<elf32::dyn::Dyn, elf64::dyn::Dyn>;
 
@@ -243,10 +242,6 @@ mod impure {
         type Target = super::section_header::ElfSectionHeader;
         impl_deref!();
     }
-    impl Deref for Rela {
-        type Target = super::rela::ElfRela;
-        impl_deref!();
-    }
     impl Deref for Sym {
         type Target = super::sym::ElfSym;
         impl_deref!();
@@ -260,10 +255,10 @@ mod impure {
     pub type SectionHeaders = ElfVec<elf32::section_header::SectionHeader, elf64::section_header::SectionHeader>;
     pub type Syms = ElfVec<elf32::sym::Sym, elf64::sym::Sym>;
     pub type Dynamic = ElfVec<elf32::dyn::Dyn, elf64::dyn::Dyn>;
-    pub type Relas = ElfVec<elf32::rela::Rela, elf64::rela::Rela>;
 
     #[derive(Debug)]
-    /// A "Unified" ELF binary. Contains either 32-bit or 64-bit underlying structs.
+    /// A "Unified" ELF binary. Contains either 32-bit or 64-bit underlying structs. For relocations a unified
+    /// struct representation `Reloc` is used.
     /// To access the fields of the underlying struct, call the field name as a method,
     /// e.g., `dyn.d_val()`
     pub struct Elf {
@@ -289,10 +284,12 @@ mod impure {
         pub strtab: Strtab<'static>,
         /// The _DYNAMIC array
         pub dynamic: Option<Dynamic>,
-        /// The regular relocation entries (strings, copy-data, etc.)
-        pub rela: Relas,
-        /// The plt relocation entries (procedure linkage table)
-        pub pltrela: Relas,
+        /// The dynamic relocation entries (strings, copy-data, etc.) with an addend
+        pub dynrelas: Vec<super::reloc::Reloc>,
+        /// The dynamic relocation entries without an addend
+        pub dynrels: Vec<super::reloc::Reloc>,
+        /// The plt relocation entries (procedure linkage table). For 32-bit binaries these are usually Rel (no addend)
+        pub pltrelocs: Vec<super::reloc::Reloc>,
         /// The binary's soname, if it has one
         pub soname: Option<String>,
         /// The binary's program interpreter (e.g., dynamic linker), if it has one
@@ -390,8 +387,9 @@ mod impure {
         let mut soname = None;
         let mut libraries = vec![];
         let mut dynsyms = vec![];
-        let mut rela = vec![];
-        let mut pltrela = vec![];
+        let mut dynrelas = vec![];
+        let mut dynrels = vec![];
+        let mut pltrelocs = vec![];
         let mut dynstrtab = $class::strtab::Strtab::default();
         if let Some(ref dynamic) = dynamic {
             let dyn_info = $class::dyn::DynamicInfo::new(&*dynamic.as_slice(), bias); // we explicitly overflow the values here with our bias
@@ -412,9 +410,11 @@ mod impure {
             }
             let num_syms = (dyn_info.strtab - dyn_info.symtab) / dyn_info.syment;
             dynsyms = try!($class::sym::parse($fd, dyn_info.symtab, num_syms, is_lsb));
-            rela = try!($class::rela::parse($fd, dyn_info.rela, dyn_info.relasz, is_lsb));
-            // FIXME: this is incorrect: PLTREL = 0x11 || 0x7 gives the type, i.e., REL or RELA for the plt relocation entries; right now it just assumes their rela which in general can be false
-            pltrela = try!($class::rela::parse($fd, dyn_info.jmprel, dyn_info.pltrelsz, is_lsb));
+            // parse the dynamic relocations
+            dynrelas = try!($class::reloc::parse($fd, dyn_info.rela, dyn_info.relasz, is_lsb, true));
+            dynrels = try!($class::reloc::parse($fd, dyn_info.rel, dyn_info.relsz, is_lsb, false));
+            let is_rela = dyn_info.pltrel as u64 == super::dyn::DT_RELA;
+            pltrelocs = try!($class::reloc::parse($fd, dyn_info.jmprel, dyn_info.pltrelsz, is_lsb, is_rela));
         }
         Ok(Elf {
             header: wrap!( $class, header),
@@ -426,8 +426,9 @@ mod impure {
             dynstrtab: dynstrtab,
             syms: elf_list!($class, syms),
             strtab: strtab,
-            rela: elf_list!($class, rela),
-            pltrela: elf_list!($class, pltrela),
+            dynrelas: dynrelas,
+            dynrels: dynrels,
+            pltrelocs: pltrelocs,
             soname: soname,
             interpreter: interpreter,
             libraries: libraries,

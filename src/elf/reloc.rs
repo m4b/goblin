@@ -129,7 +129,6 @@ macro_rules! elf_reloc {
     }
     #[repr(C)]
     #[derive(Clone, PartialEq, Default)]
-    #[cfg_attr(feature = "std", derive(Debug))]
     pub struct Rel {
       /// address
       pub r_offset: $size,
@@ -247,9 +246,22 @@ macro_rules! elf_rela_impure_impl { ($parse:item) => {
                     write!(f,
                            "r_offset: {:x} {} @ {} r_addend: {:x}",
                            self.r_offset,
-                           type_to_str(typ),
+                           typ,
                            sym,
                            self.r_addend)
+                }
+            }
+
+            impl fmt::Debug for Rel {
+                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    let sym = r_sym(self.r_info);
+                    let typ = r_type(self.r_info);
+                    write!(f,
+                           "r_offset: {:x} {} @ {}",
+                           self.r_offset,
+                           typ,
+                           sym
+                           )
                 }
             }
 
@@ -299,14 +311,24 @@ macro_rules! elf_rela_impure_impl { ($parse:item) => {
                 }
             }
 
-            /// Gets the reloc entries given a reloc u64 and the _size_ of the reloc section in the binary,
-            /// in bytes.  Works for regular reloc and the pltrela table.
+            /// Gets the rela entries given a rela pointer and the _size_ of the rela section in the binary,
+            /// in bytes.
             /// Assumes the pointer is valid and can safely return a slice of memory pointing to the relas because:
-            /// 1. `reloc` points to memory received from the kernel (i.e., it loaded the executable), _or_
+            /// 1. `ptr` points to memory received from the kernel (i.e., it loaded the executable), _or_
             /// 2. The binary has already been mmapped (i.e., it's a `SharedObject`), and hence it's safe to return a slice of that memory.
             /// 3. Or if you obtained the pointer in some other lawful manner
-            pub unsafe fn from_raw<'a>(ptr: *const Rela, size: usize) -> &'a [Rela] {
+            pub unsafe fn from_raw_rela<'a>(ptr: *const Rela, size: usize) -> &'a [Rela] {
                 slice::from_raw_parts(ptr, size / SIZEOF_RELA)
+            }
+
+            /// Gets the rel entries given a rel pointer and the _size_ of the rel section in the binary,
+            /// in bytes.
+            /// Assumes the pointer is valid and can safely return a slice of memory pointing to the rels because:
+            /// 1. `ptr` points to memory received from the kernel (i.e., it loaded the executable), _or_
+            /// 2. The binary has already been mmapped (i.e., it's a `SharedObject`), and hence it's safe to return a slice of that memory.
+            /// 3. Or if you obtained the pointer in some other lawful manner
+            pub unsafe fn from_raw_rel<'a>(ptr: *const Rel, size: usize) -> &'a [Rel] {
+                slice::from_raw_parts(ptr, size / SIZEOF_REL)
             }
 
             pub fn from_fd(fd: &mut File, offset: usize, size: usize) -> io::Result<Vec<Rela>> {

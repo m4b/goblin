@@ -290,6 +290,8 @@ mod impure {
         pub dynrels: Vec<super::reloc::Reloc>,
         /// The plt relocation entries (procedure linkage table). For 32-bit binaries these are usually Rel (no addend)
         pub pltrelocs: Vec<super::reloc::Reloc>,
+        /// Section relocations (only present if this is a relocatable object file)
+        pub shdr_relocs: Vec<super::reloc::Reloc>,
         /// The binary's soname, if it has one
         pub soname: Option<String>,
         /// The binary's program interpreter (e.g., dynamic linker), if it has one
@@ -416,6 +418,26 @@ mod impure {
             let is_rela = dyn_info.pltrel as u64 == super::dyn::DT_RELA;
             pltrelocs = try!($class::reloc::parse($fd, dyn_info.jmprel, dyn_info.pltrelsz, is_lsb, is_rela));
         }
+
+        let shdr_relocs = {
+            let mut relocs = vec![];
+            if header.e_type == super::header::ET_REL {
+
+                for section in &section_headers {
+                    println!("section {:?}", section);
+                    if section.sh_type == super::section_header::SHT_REL {
+                        let sh_relocs = try!($class::reloc::parse($fd, section.sh_offset as usize, section.sh_size as usize, is_lsb, false));
+println!("sh_relocs {:?}", sh_relocs);
+                        relocs.extend_from_slice(&sh_relocs);
+                    }
+                    if section.sh_type == super::section_header::SHT_RELA {
+                        let sh_relocs = try!($class::reloc::parse($fd, section.sh_offset as usize, section.sh_size as usize, is_lsb, true));
+                        relocs.extend_from_slice(&sh_relocs);
+                    }
+                }
+            }
+            relocs
+        };
         Ok(Elf {
             header: wrap!( $class, header),
             program_headers: elf_list!( $class, program_headers),
@@ -429,6 +451,7 @@ mod impure {
             dynrelas: dynrelas,
             dynrels: dynrels,
             pltrelocs: pltrelocs,
+            shdr_relocs: shdr_relocs,
             soname: soname,
             interpreter: interpreter,
             libraries: libraries,

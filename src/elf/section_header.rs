@@ -260,6 +260,7 @@ macro_rules! elf_section_header_impure_impl { ($header:item) => {
             use core::slice;
             use core::fmt;
 
+            use scroll;
             use std::fs::File;
             use std::io::{self, Read, Seek};
             use std::io::SeekFrom::Start;

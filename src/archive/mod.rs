@@ -6,8 +6,7 @@
 //! names in the archive with a / as a sigil for the end of the name, and uses a special symbol
 //! index for looking up symbols faster.
 
-use byteorder::{BigEndian, ReadBytesExt};
-
+use scroll;
 use elf::strtab;
 
 use std::io::{self, Read, Seek, Cursor};
@@ -82,7 +81,7 @@ impl Header {
         let string = unsafe { ::std::str::from_utf8_unchecked(&file_size) };
         let file_size = match usize::from_str_radix(string.trim_right(), 10) {
             Ok(file_size) => file_size,
-            Err(err) => return io_error!("Err: {:?} Bad file_size {:?} at offset 0x{:X}: {:?} {:?} {:?} {:?} {:?} {:?}",
+            Err(err) => return io_error!("{:?} Bad file_size {:?} at offset 0x{:X}: {:?} {:?} {:?} {:?} {:?} {:?}",
                 err, &file_size, file_size_pos, file_identifier, file_modification_timestamp, owner_id, group_id,
                 file_mode, file_size),
         };
@@ -161,11 +160,17 @@ const INDEX_NAME: &'static str = "/               ";
 const NAME_INDEX_NAME: &'static str = "//              ";
 
 impl Index {
-    pub fn parse<'c, R: Read + Seek>(cursor: &'c mut R, size: usize) -> io::Result<Index> {
-        let sizeof_table = try!(cursor.read_u32::<BigEndian>()) as usize;
+    pub fn parse<'c, R: Read + Seek + scroll::Scroll<usize>>(cursor: &'c mut R, size: usize) -> io::Result<Index> {
+        // these are hacks for the scroll transition; hopefully this comment isn't here a year later
+        const LE: bool = false;
+        let position = &mut (cursor.seek(Current(0))? as usize);
+        let sizeof_table = cursor.read_u32(position, LE)? as usize;
+        cursor.seek(Current(4))?;
         let mut indexes = Vec::with_capacity(sizeof_table);
         for _ in 0..sizeof_table {
-            indexes.push(try!(cursor.read_u32::<BigEndian>()));
+            let position = &mut (cursor.seek(Current(0))? as usize);
+            indexes.push(cursor.read_u32(position, LE)?);
+            cursor.seek(Current(4))?;
         }
         let sizeof_strtab = size - ((sizeof_table * 4) + 4);
         let offset = try!(cursor.seek(Current(0)));
@@ -187,10 +192,13 @@ struct NameIndex {
 }
 
 impl NameIndex {
-    pub fn parse<R: Read + Seek> (cursor: &mut R, offset: usize, size: usize) -> io::Result<Self> {
+    pub fn parse<R: Read + Seek + scroll::Scroll<usize>> (cursor: &mut R, offset: usize, size: usize) -> io::Result<Self> {
         // This is a total hack, because strtab returns "" if idx == 0, need to change
         // but previous behavior might rely on this, as ELF strtab's have "" at 0th index...
-        let strtab = try!(strtab::Strtab::parse(cursor, offset-1, size+1, '\n' as u8));
+        let hacked_size = size + 1;
+        let strtab = strtab::Strtab::parse(cursor, offset-1, hacked_size, '\n' as u8)?;
+        // precious time was lost when refactoring because srtab::parse doesn't update the mutable seek... don't know if this is a lesson for mutation being stupid or refactoring being stupid or my scroll library being stupid
+        cursor.seek(Current((hacked_size - 2) as i64))?;
         Ok (NameIndex {
             strtab: strtab
         })
@@ -231,7 +239,7 @@ pub struct Archive {
 }
 
 impl Archive {
-    pub fn parse<R: Read + Seek>(mut cursor: &mut R, size: usize) -> io::Result<Archive> {
+    pub fn parse<R: Read + Seek + scroll::Scroll<usize>>(mut cursor: &mut R, size: usize) -> io::Result<Archive> {
         try!(cursor.seek(Start(0)));
         let mut magic = [0; SIZEOF_MAGIC];
         try!(cursor.read_exact(&mut magic));
@@ -254,7 +262,7 @@ impl Archive {
                 let mut data = vec![0u8; member.size()];
                 try!(cursor.seek(Start(member.offset)));
                 try!(cursor.read_exact(&mut data));
-                let mut data = Cursor::new(&data);
+                let mut data = Cursor::new(data);
                 index = try!(Index::parse(&mut data, member.size()));
                 pos = try!(cursor.seek(Current(0)));
             } else if member.name() == NAME_INDEX_NAME {
@@ -355,6 +363,7 @@ pub extern fn wow_so_meta_doge_symbol() { println!("wow_so_meta_doge_symbol")}
 
 #[cfg(test)]
 mod tests {
+    extern crate scroll;
     use super::*;
     use std::io::Cursor;
     use std::path::Path;
@@ -392,8 +401,9 @@ mod tests {
     fn parse_archive() {
         let crt1a: Vec<u8> = include!("../../etc/crt1a.rs");
         const START: &'static str = "_start";
-        let mut cursor = Cursor::new(&crt1a);
-        match Archive::parse(&mut cursor, crt1a.len()) {
+        let len = crt1a.len();
+        let mut cursor = Cursor::new(crt1a);
+        match Archive::parse(&mut cursor, len) {
             Ok(archive) => {
                 assert_eq!(archive.member_of_symbol(START), Some("crt1.o"));
                 if let Some(member) = archive.get("crt1.o") {
@@ -411,9 +421,11 @@ mod tests {
     fn parse_self_wow_so_meta_doge() {
         let path = Path::new("target").join("debug").join("libgoblin.rlib");
         match File::open(path) {
-          Ok(mut fd) => {
-              let size = fd.metadata().unwrap().len();
-              match Archive::parse(&mut fd, size as usize) {
+          Ok(fd) => {
+              let buffer = scroll::Buffer::from(fd).unwrap();
+              let size = buffer.len();
+              let mut buffer = Cursor::new(buffer.into_inner());
+              match Archive::parse(&mut buffer, size) {
                   Ok(archive) => {
                       let mut found = false;
                       for member in archive.members() {
@@ -443,7 +455,7 @@ mod tests {
                   Err(err) => {println!("{:?}", err); assert!(false)}
               }
           },
-           Err(_) => assert!(false)
+           Err(err) => {println!("{:?}", err); assert!(false)}
         }
     }
 }

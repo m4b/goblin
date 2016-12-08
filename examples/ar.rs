@@ -1,12 +1,14 @@
 //cargo run --example=ar -- crt1.a
 
 extern crate goblin;
+extern crate scroll;
 
 use goblin::elf;
 use goblin::archive;
 use std::env;
 use std::path::Path;
 use std::io::Cursor;
+use std::fs::File;
 
 pub fn main () {
     let len = env::args().len();
@@ -23,15 +25,16 @@ pub fn main () {
             }
         }
         let path = Path::new(&path);
-        let mut fd = ::std::fs::File::open(&path).unwrap();
-        let metadata = fd.metadata().unwrap();
-        match archive::Archive::parse(&mut fd, metadata.len() as usize) {
+        let fd = scroll::Buffer::from(File::open(&path).unwrap()).unwrap();
+        let len = fd.len();
+        let mut fd = Cursor::new(fd.into_inner());
+        match archive::Archive::parse(&mut fd, len) {
             Ok(archive) => {
                 println!("{:#?}", &archive);
                 println!("start: {:?}", archive.member_of_symbol("_start"));
                 match archive.extract(&member, &mut fd) {
                     Ok(bytes) => {
-                        match elf::Elf::parse(&mut Cursor::new(&bytes)) {
+                        match elf::Elf::parse::<scroll::Buffer>(&bytes.into()) {
                             Ok(elf) => {
                                 println!("got elf: {:#?}", elf);
                             },

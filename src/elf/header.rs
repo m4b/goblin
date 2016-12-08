@@ -122,37 +122,24 @@ pub fn et_to_str(et: u16) -> &'static str {
 #[cfg(feature = "std")]
 pub use self::impure::*;
 
-    #[cfg(feature = "std")]
+#[cfg(feature = "std")]
 mod impure {
     use super::*;
 
     use std::io;
-    use std::io::{Seek, Read};
-    use std::io::SeekFrom::{Current, Start};
+    use scroll;
 
     /// Peek at important data in an ELF byte stream, and return the ELF class and endianness
     /// if it's a valid stream. Resets the seek to the value the reader was originally at
-    pub fn peek<R: Read + Seek>(fd: &mut R) -> io::Result<(u8, bool)> {
-        let mut ident = [0u8; SIZEOF_IDENT];
-        let current = try!(fd.seek(Current(0)));
-        match try!(fd.read(&mut ident)) {
-            SIZEOF_IDENT => {
-
-                if &ident[0..SELFMAG] != ELFMAG {
-                    return io_error!("Invalid ELF magic number: {:?}", &ident[0..SELFMAG]);
-                }
-
-                let class = ident[EI_CLASS];
-                let is_lsb = ident[EI_DATA] == ELFDATA2LSB;
-                try!(fd.seek(Start(current)));
-                Ok((class, is_lsb))
-            }
-            count => {
-                try!(fd.seek(Start(current)));
-                io_error!("Error: {:?} size is smaller than an ELF identication header",
-                          count)
-            }
+    pub fn peek<S: scroll::Scroll<usize>>(buffer: &S) -> io::Result<(u8, bool)> {
+        let mut offset = 0;
+        let ident = buffer.read(&mut offset, SIZEOF_IDENT)?;
+        if &ident[0..SELFMAG] != ELFMAG {
+            return io_error!("Invalid ELF magic number: {:?}", &ident[0..SELFMAG]);
         }
+        let class = ident[EI_CLASS];
+        let is_lsb = ident[EI_DATA] == ELFDATA2LSB;
+        Ok((class, is_lsb))
     }
 }
 
@@ -173,9 +160,9 @@ macro_rules! elf_header_from_bytes {
 macro_rules! elf_header_from_fd {
         () => {
             /// Load a header from a file. **You must** ensure the seek is at the correct position.
-            pub fn from_fd(fd: &mut File) -> io::Result<Header> {
+            pub fn from_fd(buffer: &mut File) -> io::Result<Header> {
                 let mut elf_header = [0; SIZEOF_EHDR];
-                try!(fd.read(&mut elf_header));
+                try!(buffer.read(&mut elf_header));
                 Ok(*Header::from_bytes(&elf_header))
             }
         };
@@ -215,9 +202,9 @@ macro_rules! elf_header_impure_impl {
 
                 use core::mem;
                 use core::fmt;
-
+                use scroll;
                 use std::fs::File;
-                use std::io::{self, Read, Seek};
+                use std::io::{self, Read};
 
                 impl ElfHeader for Header {
                 fn e_ident(&self) -> [u8; SIZEOF_IDENT] {

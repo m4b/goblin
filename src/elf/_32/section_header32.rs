@@ -10,38 +10,23 @@ elf_section_header_impure_impl!(
         elf_section_header_from_raw_parts!();
         elf_section_header_from_fd!();
         #[cfg(feature = "endian_fd")]
-        pub fn parse<R: Read + Seek>(fd: &mut R, offset: u64, count: usize, is_lsb: bool) -> io::Result<Vec<SectionHeader>> {
-            use byteorder::{LittleEndian,BigEndian,ReadBytesExt};
-
-            let mut shdrs = vec![];
-            try!(fd.seek(Start(offset)));
+        pub fn parse<S: scroll::Scroll<usize>>(fd: &S, offset: u64, count: usize, little_endian: bool) -> io::Result<Vec<SectionHeader>> {
+            let mut shdrs = Vec::with_capacity(count);
+            let mut offset = offset as usize;
             for _ in 0..count {
                 let mut shdr = SectionHeader::default();
-                if is_lsb {
-                    shdr.sh_name = try!(fd.read_u32::<LittleEndian>());
-                    shdr.sh_type = try!(fd.read_u32::<LittleEndian>());
-                    shdr.sh_flags = try!(fd.read_u32::<LittleEndian>());
-                    shdr.sh_addr = try!(fd.read_u32::<LittleEndian>());
-                    shdr.sh_offset = try!(fd.read_u32::<LittleEndian>());
-                    shdr.sh_size = try!(fd.read_u32::<LittleEndian>());
-                    shdr.sh_link = try!(fd.read_u32::<LittleEndian>());
-                    shdr.sh_info = try!(fd.read_u32::<LittleEndian>());
-                    shdr.sh_addralign = try!(fd.read_u32::<LittleEndian>());
-                    shdr.sh_entsize = try!(fd.read_u32::<LittleEndian>());
-                } else {
-                    shdr.sh_name = try!(fd.read_u32::<BigEndian>());
-                    shdr.sh_type = try!(fd.read_u32::<BigEndian>());
-                    shdr.sh_flags = try!(fd.read_u32::<BigEndian>());
-                    shdr.sh_addr = try!(fd.read_u32::<BigEndian>());
-                    shdr.sh_offset = try!(fd.read_u32::<BigEndian>());
-                    shdr.sh_size = try!(fd.read_u32::<BigEndian>());
-                    shdr.sh_link = try!(fd.read_u32::<BigEndian>());
-                    shdr.sh_info = try!(fd.read_u32::<BigEndian>());
-                    shdr.sh_addralign = try!(fd.read_u32::<BigEndian>());
-                    shdr.sh_entsize = try!(fd.read_u32::<BigEndian>());           }
+                shdr.sh_name = try!(fd.read_u32(&mut offset, little_endian));
+                shdr.sh_type = try!(fd.read_u32(&mut offset, little_endian));
+                shdr.sh_flags = try!(fd.read_u32(&mut offset, little_endian));
+                shdr.sh_addr = try!(fd.read_u32(&mut offset, little_endian));
+                shdr.sh_offset = try!(fd.read_u32(&mut offset, little_endian));
+                shdr.sh_size = try!(fd.read_u32(&mut offset, little_endian));
+                shdr.sh_link = try!(fd.read_u32(&mut offset, little_endian));
+                shdr.sh_info = try!(fd.read_u32(&mut offset, little_endian));
+                shdr.sh_addralign = try!(fd.read_u32(&mut offset, little_endian));
+                shdr.sh_entsize = try!(fd.read_u32(&mut offset, little_endian));
                 shdrs.push(shdr);
             }
-
             Ok(shdrs)
         }
     });

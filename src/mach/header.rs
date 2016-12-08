@@ -1,8 +1,7 @@
 use std::mem;
 use std::fmt;
-use std::fs::File;
-use std::io::{self, Seek, Read};
-use std::io::SeekFrom::Start;
+use std::io;
+use scroll;
 
 // Constants for the flags field of the mach_header
 /// the object file has no undefined references
@@ -192,10 +191,20 @@ impl Header {
     }
 
     // #[cfg(feature = "no_endian_fd")]
-    pub fn from_fd(fd: &mut File, offset: u64) -> io::Result<Header> {
-        let mut header = [0; SIZEOF_MACH_HEADER];
-        try!(fd.seek(Start(offset)));
-        try!(fd.read(&mut header));
-        Ok(*Header::from_bytes(&header))
+    pub fn parse<S: scroll::Scroll<usize>>(buffer: &S, offset: usize, le: bool) -> io::Result<Header> {
+        let mut offset = offset;
+        let offset = &mut offset;
+        let magic = buffer.read_u32(offset, le)?;
+        let cputype = buffer.read_u32(offset, le)?;
+        let cpusubtype = buffer.read_u8(offset)?;
+        let padding1 = buffer.read_u8(offset)?;
+        let padding2 = buffer.read_u8(offset)?;
+        let caps = buffer.read_u8(offset)?;
+        let filetype = buffer.read_u32(offset, le)?;
+        let ncmds = buffer.read_u32(offset, le)?;
+        let sizeofcmds = buffer.read_u32(offset, le)?;
+        let flags = buffer.read_u32(offset, le)?;
+        let reserved = buffer.read_u32(offset, le)?;
+        Ok(Header { magic: magic, cputype: cputype, cpusubtype: cpusubtype, padding1: padding1, padding2: padding2, caps: caps, filetype: filetype, ncmds: ncmds, sizeofcmds: sizeofcmds, flags: flags, reserved: reserved })
     }
 }

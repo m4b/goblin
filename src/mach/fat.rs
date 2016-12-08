@@ -1,11 +1,9 @@
 use std::fmt;
-use std::path::Path;
 use std::fs::File;
-use std::io::{self, Read, Seek};
-use std::io::SeekFrom::Start;
-use super::constants::cputype;
+use std::io::{self, Read};
 
-use byteorder::{BigEndian, ReadBytesExt};
+use scroll::{self, Scroll};
+use super::constants::cputype;
 
 pub const FAT_MAGIC: u32 = 0xcafebabe;
 pub const FAT_CIGAM: u32 = 0xbebafeca;
@@ -53,10 +51,9 @@ impl fmt::Debug for FatArch {
 
 impl FatHeader {
     pub fn from_bytes(bytes: &[u8; SIZEOF_FAT_HEADER]) -> FatHeader {
-        use std::io::Cursor;
-        let mut cursor = Cursor::new(bytes);
-        let magic = cursor.read_u32::<BigEndian>().unwrap();
-        let nfat_arch = cursor.read_u32::<BigEndian>().unwrap();
+        let mut offset = 0;
+        let magic = bytes.read_u32(&mut offset, false).unwrap();
+        let nfat_arch = bytes.read_u32(&mut offset, false).unwrap();
         FatHeader {
             magic: magic,
             nfat_arch: nfat_arch,
@@ -68,21 +65,30 @@ impl FatHeader {
         try!(fd.read(&mut header));
         Ok(FatHeader::from_bytes(&header))
     }
+
+    /// Parse a mach-o fat header from the `buffer`
+    pub fn parse<S: scroll::Scroll<usize>>(buffer: &S) -> io::Result<FatHeader> {
+        let mut header = FatHeader::default();
+        let mut offset = 0;
+        header.magic = buffer.read_u32(&mut offset, false)?;
+        header.nfat_arch = buffer.read_u32(&mut offset, false)?;
+        Ok(header)
+    }
+
 }
 
 impl FatArch {
     pub fn new(bytes: &[u8; SIZEOF_FAT_ARCH]) -> FatArch {
-        use std::io::Cursor;
-        let mut cursor = Cursor::new(bytes);
-        let cputype = cursor.read_u32::<BigEndian>().unwrap();
-        let cpusubtype = cursor.read_u32::<BigEndian>().unwrap();
-        let offset = cursor.read_u32::<BigEndian>().unwrap();
-        let size = cursor.read_u32::<BigEndian>().unwrap();
-        let align = cursor.read_u32::<BigEndian>().unwrap();
+        let mut offset = 0;
+        let cputype = bytes.read_u32(&mut offset, false).unwrap();
+        let cpusubtype = bytes.read_u32(&mut offset, false).unwrap();
+        let offset_ = bytes.read_u32(&mut offset, false).unwrap();
+        let size = bytes.read_u32(&mut offset, false).unwrap();
+        let align = bytes.read_u32(&mut offset, false).unwrap();
         FatArch {
             cputype: cputype,
             cpusubtype: cpusubtype,
-            offset: offset,
+            offset: offset_,
             size: size,
             align: align,
         }
@@ -92,28 +98,36 @@ impl FatArch {
         self.cputype == cputype::CPU_TYPE_X86_64 || self.cputype == cputype::CPU_TYPE_ARM64
     }
 
-    pub fn from_fd(fd: &mut File, offset: u64, count: usize, _: bool) -> io::Result<Vec<Self>> {
+    pub fn parse_arches<S: scroll::Scroll<usize>>(fd: &S, mut offset: usize, count: usize) -> io::Result<Vec<Self>> {
         let mut archs = Vec::with_capacity(count);
-        try!(fd.seek(Start(offset)));
+        let offset = &mut offset;
         for _ in 0..count {
             let mut arch = Self::default();
-            arch.cputype = try!(fd.read_u32::<BigEndian>());
-            arch.cpusubtype = try!(fd.read_u32::<BigEndian>());
-            arch.offset = try!(fd.read_u32::<BigEndian>());
-            arch.size = try!(fd.read_u32::<BigEndian>());
-            arch.align = try!(fd.read_u32::<BigEndian>());
+            arch.cputype = fd.read_u32(offset, false)?;
+            arch.cpusubtype = fd.read_u32(offset, false)?;
+            arch.offset = fd.read_u32(offset, false)?;
+            arch.size = fd.read_u32(offset, false)?;
+            arch.align = fd.read_u32(offset, false)?;
             archs.push(arch);
         }
         Ok(archs)
     }
 
-    pub fn from_path(path: &Path) -> io::Result<Vec<Self>> {
-        let mut fd = try!(File::open(&path));
-        let header = try!(FatHeader::from_fd(&mut fd));
-        let arches = try!(FatArch::from_fd(&mut fd,
-                                           SIZEOF_FAT_HEADER as u64,
-                                           header.nfat_arch as usize,
-                                           false));
+    // pub fn from_path(path: &Path) -> io::Result<Vec<Self>> {
+    //     let mut fd = try!(File::open(&path));
+    //     let header = try!(FatHeader::from_fd(&mut fd));
+    //     let arches = try!(FatArch::from_fd(&mut fd,
+    //                                        SIZEOF_FAT_HEADER as u64,
+    //                                        header.nfat_arch as usize
+    //                                        ));
+    //     Ok(arches)
+    // }
+
+    pub fn parse<S: scroll::Scroll<usize>>(buffer: &S) -> io::Result<Vec<Self>> {
+        let header = FatHeader::parse(buffer)?;
+        let arches = FatArch::parse_arches(buffer,
+                                           SIZEOF_FAT_HEADER,
+                                           header.nfat_arch as usize)?;
         Ok(arches)
     }
 

@@ -284,6 +284,7 @@ macro_rules! elf_dyn_impure_impl {
                 use core::fmt;
                 use core::slice;
 
+                use scroll;
                 use std::fs::File;
                 use std::io::{self, Read, Seek};
                 use std::io::SeekFrom::Start;

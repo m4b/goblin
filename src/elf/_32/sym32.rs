@@ -20,32 +20,18 @@ pub struct Sym {
 pub const SIZEOF_SYM: usize = 4 + 1 + 1 + 2 + 4 + 4;
 
 elf_sym_impure_impl!(
-    pub fn parse<R: Read + Seek>(fd: &mut R, offset: usize, count: usize, is_lsb: bool) -> io::Result<Vec<Sym>> {
-        use byteorder::{LittleEndian,BigEndian,ReadBytesExt};
+    pub fn parse<S: scroll::Scroll<usize>>(fd: &S, offset: usize, count: usize, little_endian: bool) -> io::Result<Vec<Sym>> {
         let mut syms = Vec::with_capacity(count);
-
-        try!(fd.seek(Start(offset as u64)));
+        let mut offset = offset;
         for _ in 0..count {
             let mut sym = Sym::default();
-
-            if is_lsb {
-                sym.st_name = try!(fd.read_u32::<LittleEndian>());
-                sym.st_value = try!(fd.read_u32::<LittleEndian>());
-                sym.st_size = try!(fd.read_u32::<LittleEndian>());
-                sym.st_info = try!(try!(fd.bytes().next().ok_or(io::Error::new(io::ErrorKind::UnexpectedEof, ""))));
-                sym.st_other = try!(try!(fd.bytes().next().ok_or(io::Error::new(io::ErrorKind::UnexpectedEof, ""))));
-                sym.st_shndx = try!(fd.read_u16::<LittleEndian>());
-            } else {
-                sym.st_name = try!(fd.read_u32::<BigEndian>());
-                sym.st_value = try!(fd.read_u32::<BigEndian>());
-                sym.st_size = try!(fd.read_u32::<BigEndian>());
-                sym.st_info = try!(try!(fd.bytes().next().ok_or(io::Error::new(io::ErrorKind::UnexpectedEof, ""))));
-                sym.st_other = try!(try!(fd.bytes().next().ok_or(io::Error::new(io::ErrorKind::UnexpectedEof, ""))));
-                sym.st_shndx = try!(fd.read_u16::<BigEndian>());
-            }
+            sym.st_name = try!(fd.read_u32(&mut offset, little_endian));
+            sym.st_value = try!(fd.read_u32(&mut offset, little_endian));
+            sym.st_size = try!(fd.read_u32(&mut offset, little_endian));
+            sym.st_info = try!(fd.read_u8(&mut offset));
+            sym.st_other = try!(fd.read_u8(&mut offset));
+            sym.st_shndx = try!(fd.read_u16(&mut offset, little_endian));
             syms.push(sym);
         }
-
-        syms.dedup();
         Ok(syms)
     });

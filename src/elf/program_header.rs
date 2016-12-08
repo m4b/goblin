@@ -129,6 +129,7 @@ macro_rules! elf_program_header_impure_impl { ($header:item) => {
             use core::slice;
             use core::fmt;
 
+            use scroll;
             use std::fs::File;
             use std::io::{self, Seek, Read};
             use std::io::SeekFrom::Start;

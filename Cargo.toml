@@ -10,9 +10,10 @@ description = "An impish, cross-platform binary parsing and loading crate"
 
 [lib]
 
-[dependencies.byteorder]
-version = "0.5"
+[dependencies.scroll]
+version = "*"
 optional = true
+path = "../scroll"
 
 [features]
 default = ["std", "elf32", "elf64", "mach32", "mach64", "pe32", "pe64", "goblin", "endian_fd", "archive"]
@@ -25,4 +26,4 @@ pe32 = []
 pe64 = []
 goblin = []
 archive = ["std", "endian_fd"]
-endian_fd = ["byteorder"]
+endian_fd = ["scroll"]

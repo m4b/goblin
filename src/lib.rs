@@ -28,7 +28,7 @@
 // if the no_endian feature flag is set the libary will only be able to
 // process files with the same endianess as the machine.
 #[cfg(feature = "endian_fd")]
-extern crate byteorder;
+extern crate scroll;
 
 #[cfg(feature = "std")]
 extern crate core;

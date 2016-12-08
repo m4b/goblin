@@ -21,7 +21,7 @@ pub fn main () {
                 },
                 Err(err) => {
                     println!("Not an ELF: {:?}", err);
-                    match mach::Mach::from_path(path) {
+                    match mach::Mach::from(path) {
                         Ok(mach) => println!("{:#?}", mach),
                         Err(err) => println!("{:?}", err),
                     }

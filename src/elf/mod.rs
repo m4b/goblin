@@ -65,8 +65,8 @@ pub use self::impure::*;
 #[cfg(all(feature = "std", feature = "elf32", feature = "elf64", feature = "endian_fd"))]
 #[macro_use]
 mod impure {
-    use std::io::{self, Read, Seek, Cursor};
-    use std::io::SeekFrom::Start;
+    use scroll;
+    use std::io;
     use std::fs::File;
     use std::path::Path;
     use std::ops::{Deref};
@@ -357,9 +357,13 @@ mod impure {
         let mut interpreter = None;
         for ph in &program_headers {
             if ph.p_type == $class::program_header::PT_INTERP {
-                let mut bytes = vec![0u8; (ph.p_filesz - 1) as usize];
-                try!($fd.seek(Start(ph.p_offset as u64)));
-                try!($fd.read(&mut bytes));
+                let count = (ph.p_filesz - 1) as usize;
+                let mut offset = ph.p_offset as usize;
+                let bytes = Vec::from($fd.read(&mut offset, count)?);
+                // let mut bytes = vec![0u8; ];
+                // try!($fd.seek(Start(ph.p_offset as u64)));
+                // try!($fd.read(&mut bytes));
+                // TODO: remove this unwrap
                 interpreter = Some(String::from_utf8(bytes).unwrap())
             }
         }
@@ -465,15 +469,14 @@ println!("sh_relocs {:?}", sh_relocs);
 }
 
     impl Elf {
-        /// Parses the contents of the byte stream in `cursor`, and maybe returns
-        /// a unified binary. For better performance, consider using [`from`](#method.from)
-        pub fn parse<R: Read + Seek>(cursor: &mut R) -> io::Result<Self> {
-            match try!(header::peek(cursor)) {
+        /// Parses the contents of the byte stream in `buffer`, and maybe returns a unified binary
+        pub fn parse<S: scroll::Scroll<usize>>(buffer: &S) -> io::Result<Self> {
+            match try!(header::peek(buffer)) {
                 (header::ELFCLASS32, _is_lsb) => {
-                    parse_impl!(elf32, cursor)
+                    parse_impl!(elf32, buffer)
                 },
                 (header::ELFCLASS64, _is_lsb) => {
-                    parse_impl!(elf64, cursor)
+                    parse_impl!(elf64, buffer)
                 },
                 (class, is_lsb) => {
                     io_error!("Unknown values in ELF ident header: class: {} is_lsb: {}",
@@ -485,11 +488,9 @@ println!("sh_relocs {:?}", sh_relocs);
         /// Returns a unified ELF binary from `path`. Allocates an in-memory byte array the size of
         /// the binary at `path` to increase performance.
         pub fn from (path: &Path) -> io::Result<Self> {
-            let mut fd = try!(File::open(path));
-            let mut bytes = Vec::new();
-            try!(fd.read_to_end(&mut bytes));
-            let mut cursor = Cursor::new(&bytes);
-            Elf::parse(&mut cursor)
+            let fd = File::open(path)?;
+            let buffer = scroll::Buffer::from(fd)?;
+            Elf::parse(&buffer)
         }
     }
 }
@@ -503,8 +504,8 @@ mod tests {
     #[test]
     fn endian_trait_parse() {
         let crt1: Vec<u8> = include!("../../etc/crt1.rs");
-        let mut cursor = Cursor::new(crt1);
-        match Elf::parse(&mut cursor) {
+        let mut buffer = Cursor::new(crt1);
+        match Elf::parse(&mut buffer) {
             Ok (binary) => {
                 assert!(true);
                 assert!(binary.is_64);

@@ -131,7 +131,7 @@ mod impure {
 
     /// Peek at important data in an ELF byte stream, and return the ELF class and endianness
     /// if it's a valid stream. Resets the seek to the value the reader was originally at
-    pub fn peek<S: scroll::Scroll<usize>>(buffer: &S) -> io::Result<(u8, bool)> {
+    pub fn peek<S: scroll::Scroll>(buffer: &S) -> io::Result<(u8, bool)> {
         let mut offset = 0;
         let ident = buffer.read(&mut offset, SIZEOF_IDENT)?;
         if &ident[0..SELFMAG] != ELFMAG {

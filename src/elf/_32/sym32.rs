@@ -20,7 +20,7 @@ pub struct Sym {
 pub const SIZEOF_SYM: usize = 4 + 1 + 1 + 2 + 4 + 4;
 
 elf_sym_impure_impl!(
-    pub fn parse<S: scroll::Scroll<usize>>(fd: &S, offset: usize, count: usize, little_endian: bool) -> io::Result<Vec<Sym>> {
+    pub fn parse<S: scroll::Scroll>(fd: &S, offset: usize, count: usize, little_endian: bool) -> io::Result<Vec<Sym>> {
         let mut syms = Vec::with_capacity(count);
         let mut offset = offset;
         for _ in 0..count {

@@ -70,7 +70,7 @@ mod impure {
     use super::*;
 
     impl<'a> Strtab<'a> {
-        pub fn parse<S: scroll::Scroll<usize>>(fd: &S, offset: usize, len: usize, delim: u8) -> io::Result<Strtab<'static>> {
+        pub fn parse<S: scroll::Scroll>(fd: &S, offset: usize, len: usize, delim: u8) -> io::Result<Strtab<'static>> {
             // let mut bytes = vec![0u8; len];
             // try!(fd.seek(Start(offset as u64)));
             // try!(fd.read(&mut bytes));

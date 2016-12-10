@@ -10,7 +10,7 @@ elf_section_header_impure_impl!(
         elf_section_header_from_raw_parts!();
         elf_section_header_from_fd!();
         #[cfg(feature = "endian_fd")]
-        pub fn parse<S: scroll::Scroll<usize>>(fd: &S, offset: u64, count: usize, little_endian: bool) -> io::Result<Vec<SectionHeader>> {
+        pub fn parse<S: scroll::Scroll>(fd: &S, offset: u64, count: usize, little_endian: bool) -> io::Result<Vec<SectionHeader>> {
             let mut shdrs = Vec::with_capacity(count);
             let mut offset = offset as usize;
             for _ in 0..count {

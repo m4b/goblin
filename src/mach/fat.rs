@@ -2,7 +2,7 @@ use std::fmt;
 use std::fs::File;
 use std::io::{self, Read};
 
-use scroll::{self, Scroll};
+use scroll::{self, GreaterScroll};
 use super::constants::cputype;
 
 pub const FAT_MAGIC: u32 = 0xcafebabe;
@@ -67,7 +67,7 @@ impl FatHeader {
     }
 
     /// Parse a mach-o fat header from the `buffer`
-    pub fn parse<S: scroll::Scroll<usize>>(buffer: &S) -> io::Result<FatHeader> {
+    pub fn parse<S: scroll::Scroll>(buffer: &S) -> io::Result<FatHeader> {
         let mut header = FatHeader::default();
         let mut offset = 0;
         header.magic = buffer.read_u32(&mut offset, false)?;
@@ -98,7 +98,7 @@ impl FatArch {
         self.cputype == cputype::CPU_TYPE_X86_64 || self.cputype == cputype::CPU_TYPE_ARM64
     }
 
-    pub fn parse_arches<S: scroll::Scroll<usize>>(fd: &S, mut offset: usize, count: usize) -> io::Result<Vec<Self>> {
+    pub fn parse_arches<S: scroll::Scroll>(fd: &S, mut offset: usize, count: usize) -> io::Result<Vec<Self>> {
         let mut archs = Vec::with_capacity(count);
         let offset = &mut offset;
         for _ in 0..count {
@@ -123,7 +123,7 @@ impl FatArch {
     //     Ok(arches)
     // }
 
-    pub fn parse<S: scroll::Scroll<usize>>(buffer: &S) -> io::Result<Vec<Self>> {
+    pub fn parse<S: scroll::Scroll>(buffer: &S) -> io::Result<Vec<Self>> {
         let header = FatHeader::parse(buffer)?;
         let arches = FatArch::parse_arches(buffer,
                                            SIZEOF_FAT_HEADER,

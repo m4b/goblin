@@ -11,7 +11,7 @@ elf_header_impure_impl!(
         elf_header_from_fd!();
         #[cfg(feature = "endian_fd")]
         /// Parses an ELF header from the given buffer
-        pub fn parse<S: scroll::Scroll<usize>>(buffer: &S) -> io::Result<Header> {
+        pub fn parse<S: scroll::Scroll>(buffer: &S) -> io::Result<Header> {
             let mut elf_header = Header::default();
             let mut offset = 0;
             // maybe should just add a byte_slice method on scroll

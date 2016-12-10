@@ -23,7 +23,7 @@ pub fn r_info(sym: u64, typ: u64) -> u64 {
 elf_rela_impure_impl!(
 
     #[cfg(feature = "endian_fd")]
-    pub fn parse<S: scroll::Scroll<usize>>(fd: &S, offset: usize, size: usize, little_endian: bool, is_rela: bool) -> io::Result<Vec<Reloc>> {
+    pub fn parse<S: scroll::Scroll>(fd: &S, offset: usize, size: usize, little_endian: bool, is_rela: bool) -> io::Result<Vec<Reloc>> {
         let sizeof_relocation = if is_rela { SIZEOF_RELA } else { SIZEOF_REL };
         let count = size / sizeof_relocation;
         let mut res = Vec::with_capacity(count);

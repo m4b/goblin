@@ -29,7 +29,7 @@ elf_program_header_impure_impl!(
         elf_program_header_from_raw_parts!();
         elf_program_header_from_fd!();
         #[cfg(feature = "endian_fd")]
-        pub fn parse<S: scroll::Scroll<usize>>(fd: &S, offset: u64, count: usize, little_endian: bool) -> io::Result<Vec<ProgramHeader>> {
+        pub fn parse<S: scroll::Scroll>(fd: &S, offset: u64, count: usize, little_endian: bool) -> io::Result<Vec<ProgramHeader>> {
             let mut phdrs = vec![];
             let mut offset = offset as usize;
             for _ in 0..count {

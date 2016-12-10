@@ -160,7 +160,7 @@ const INDEX_NAME: &'static str = "/               ";
 const NAME_INDEX_NAME: &'static str = "//              ";
 
 impl Index {
-    pub fn parse<'c, R: Read + Seek + scroll::Scroll<usize>>(cursor: &'c mut R, size: usize) -> io::Result<Index> {
+    pub fn parse<'c, R: Read + Seek + scroll::Scroll>(cursor: &'c mut R, size: usize) -> io::Result<Index> {
         // these are hacks for the scroll transition; hopefully this comment isn't here a year later
         const LE: bool = false;
         let position = &mut (cursor.seek(Current(0))? as usize);
@@ -192,7 +192,7 @@ struct NameIndex {
 }
 
 impl NameIndex {
-    pub fn parse<R: Read + Seek + scroll::Scroll<usize>> (cursor: &mut R, offset: usize, size: usize) -> io::Result<Self> {
+    pub fn parse<R: Read + Seek + scroll::Scroll> (cursor: &mut R, offset: usize, size: usize) -> io::Result<Self> {
         // This is a total hack, because strtab returns "" if idx == 0, need to change
         // but previous behavior might rely on this, as ELF strtab's have "" at 0th index...
         let hacked_size = size + 1;
@@ -239,7 +239,7 @@ pub struct Archive {
 }
 
 impl Archive {
-    pub fn parse<R: Read + Seek + scroll::Scroll<usize>>(mut cursor: &mut R, size: usize) -> io::Result<Archive> {
+    pub fn parse<R: Read + Seek + scroll::Scroll>(mut cursor: &mut R, size: usize) -> io::Result<Archive> {
         try!(cursor.seek(Start(0)));
         let mut magic = [0; SIZEOF_MAGIC];
         try!(cursor.read_exact(&mut magic));

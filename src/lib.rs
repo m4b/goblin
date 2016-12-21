@@ -4,8 +4,7 @@
 //! words](https://s-media-cache-ak0.pinimg.com/736x/1b/6a/aa/1b6aaa2bae005e2fed84b1a7c32ecb1b.jpg)
 //!
 //! `libgoblin` is a cross-platform trifecta of binary parsing and loading fun.  Currently, it only
-//! supports the ELF format, in both 32-bit and 64-bit variants (with especial bias towards 64-bit
-//! formats).  The mach parser is in progress, and the PE format will follow.  `libgoblin` is
+//! supports the ELF format, in both 32-bit and 64-bit variants.  The mach parser is in progress, and the PE format will follow.  `libgoblin` is
 //! engineered to be tailored towards very different use-case scenarios, for example:
 //!
 //! * a no-std mode; just simply set default features to false

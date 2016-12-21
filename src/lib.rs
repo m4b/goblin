@@ -37,7 +37,7 @@ extern crate core;
 #[macro_use]
 mod macros;
 
-#[cfg(any(feature = "elf64", feature = "elf64"))]
+#[cfg(any(feature = "elf64", feature = "elf32"))]
 #[macro_use]
 pub mod elf;
 

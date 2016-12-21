@@ -329,10 +329,19 @@ impl Archive {
         }
     }
 
+    pub fn members(&self) -> Vec<&String> {
+        self.members.keys().collect()
+    }
+
     /// Returns the member's name which contains the given `symbol`, if it is in the archive
     pub fn member_of_symbol (&self, symbol: &str) -> Option<&str> {
         if let Some(idx) = self.symbol_index.get(symbol) {
-            Some (Member::trim(self.member_array[*idx].name()))
+            let name = self.member_array[*idx].name();
+            if name.starts_with("/") {
+                Some(self.extended_names.get(name).unwrap())
+            } else {
+                Some(Member::trim(name))
+            }
         } else {
             None
         }
@@ -400,26 +409,36 @@ mod tests {
 
     #[test]
     fn parse_self_wow_so_meta_doge() {
-        const GOBLIN: &'static str = "goblin.0.o";
         let path = Path::new("target").join("debug").join("libgoblin.rlib");
         match File::open(path) {
           Ok(mut fd) => {
               let size = fd.metadata().unwrap().len();
               match Archive::parse(&mut fd, size as usize) {
                   Ok(archive) => {
-                      assert_eq!(archive.member_of_symbol("wow_so_meta_doge_symbol"), Some(GOBLIN));
-                      match archive.extract(GOBLIN, &mut fd) {
-                            Ok(bytes) => {
-                                match elf::Elf::parse(&mut Cursor::new(&bytes)) {
-                                    Ok(elf) => {
-                                        assert!(elf.entry == 0);
-                                        assert!(elf.bias == 0);
-                                    },
-                                    Err(_) => assert!(false)
-                                }
-                            },
-                            Err(_) => assert!(false)
-                     }
+                      let mut found = false;
+                      for member in archive.members() {
+                          if member.starts_with("goblin") && member.ends_with("0.o") {
+                              assert_eq!(archive.member_of_symbol("wow_so_meta_doge_symbol"), Some(member.as_str()));
+                              match archive.extract(member.as_str(), &mut fd) {
+                                  Ok(bytes) => {
+                                      match elf::Elf::parse(&mut Cursor::new(&bytes)) {
+                                          Ok(elf) => {
+                                              assert!(elf.entry == 0);
+                                              assert!(elf.bias == 0);
+                                              found = true;
+                                              break;
+                                          },
+                                          Err(_) => assert!(false)
+                                      }
+                                  },
+                                  Err(_) => assert!(false)
+                              }
+                          }
+                      }
+                      if !found {
+                          println!("goblin-<hash>.0.o not found");
+                          assert!(false)
+                      }
                   },
                   Err(err) => {println!("{:?}", err); assert!(false)}
               }

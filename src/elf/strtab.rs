@@ -64,18 +64,18 @@ pub use self::impure::*;
 
 #[cfg(feature = "std")]
 mod impure {
-    use std::io;
     use std::borrow::Cow;
     use scroll;
+    use elf::error;
     use super::*;
 
     impl<'a> Strtab<'a> {
-        pub fn parse<S: scroll::Scroll>(fd: &S, offset: usize, len: usize, delim: u8) -> io::Result<Strtab<'static>> {
+        pub fn parse<S: scroll::Gread>(fd: &S, offset: usize, len: usize, delim: u8) -> error::Result<Strtab<'static>> {
             // let mut bytes = vec![0u8; len];
             // try!(fd.seek(Start(offset as u64)));
             // try!(fd.read(&mut bytes));
             let mut offset = offset;
-            let bytes = Vec::from(fd.read(&mut offset, len)?);
+            let bytes = Vec::from(fd.gread_slice(&mut offset, len)?);
             Ok(Strtab { bytes: Cow::Owned(bytes), delim: delim })
         }
 

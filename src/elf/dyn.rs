@@ -286,10 +286,11 @@ macro_rules! elf_dyn_impure_impl {
 
                 use scroll;
                 use std::fs::File;
-                use std::io::{self, Read, Seek};
+                use std::io::{Read, Seek};
                 use std::io::SeekFrom::Start;
                 use super::super::program_header::{ProgramHeader, PT_DYNAMIC};
                 use elf::strtab::Strtab;
+                use elf::error::*;
 
                 use super::*;
 
@@ -342,7 +343,7 @@ macro_rules! elf_dyn_impure_impl {
                 }
 
                 /// Returns a vector of dynamic entries from the given fd and program headers
-                pub fn from_fd(mut fd: &File, phdrs: &[ProgramHeader]) -> io::Result<Option<Vec<Dyn>>> {
+                pub fn from_fd(mut fd: &File, phdrs: &[ProgramHeader]) -> Result<Option<Vec<Dyn>>> {
                     for phdr in phdrs {
                         if phdr.p_type == PT_DYNAMIC {
                             let filesz = phdr.p_filesz as usize;

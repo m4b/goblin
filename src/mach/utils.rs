@@ -3,7 +3,7 @@
 use std::io;
 use scroll;
 
-/// Returns a little endian magical number; be careful as this will alter the seek on the `buffer`
-pub fn peek_magic<S: scroll::Scroll>(buffer: &S) -> io::Result<u32> {
-    buffer.read_u32(&mut 0, true)
+/// Returns a native endian magical number
+pub fn peek_magic<S: scroll::Gread>(buffer: &S) -> io::Result<u32> {
+    buffer.gread(&mut 0, scroll::NATIVE)
 }

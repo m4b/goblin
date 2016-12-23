@@ -23,12 +23,16 @@
 //! If you want endian aware reading, and you don't use `default`, then you need to opt in as normal
 //! via `endian_fd`
 
+#![recursion_limit = "1024"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 // if the no_endian feature flag is set the libary will only be able to
 // process files with the same endianess as the machine.
 #[cfg(feature = "endian_fd")]
 extern crate scroll;
+
+#[macro_use]
+extern crate error_chain;
 
 #[cfg(feature = "std")]
 extern crate core;
@@ -53,8 +57,8 @@ pub mod elf64;
 #[path = "elf/_32/mod.rs"]
 pub mod elf32;
 
-#[cfg(feature = "mach64")]
-pub mod mach;
+//#[cfg(feature = "mach64")]
+//pub mod mach;
 
 #[cfg(feature = "archive")]
 pub mod archive;

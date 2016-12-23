@@ -52,8 +52,8 @@ impl fmt::Debug for FatArch {
 impl FatHeader {
     pub fn from_bytes(bytes: &[u8; SIZEOF_FAT_HEADER]) -> FatHeader {
         let mut offset = 0;
-        let magic = bytes.read_u32(&mut offset, false).unwrap();
-        let nfat_arch = bytes.read_u32(&mut offset, false).unwrap();
+        let magic = bytes.gread(&mut offset, false).unwrap();
+        let nfat_arch = bytes.gread(&mut offset, false).unwrap();
         FatHeader {
             magic: magic,
             nfat_arch: nfat_arch,
@@ -67,11 +67,11 @@ impl FatHeader {
     }
 
     /// Parse a mach-o fat header from the `buffer`
-    pub fn parse<S: scroll::Scroll>(buffer: &S) -> io::Result<FatHeader> {
+    pub fn parse<S: scroll::Gread>(buffer: &S) -> io::Result<FatHeader> {
         let mut header = FatHeader::default();
         let mut offset = 0;
-        header.magic = buffer.read_u32(&mut offset, false)?;
-        header.nfat_arch = buffer.read_u32(&mut offset, false)?;
+        header.magic = buffer.gread(&mut offset, false)?;
+        header.nfat_arch = buffer.gread(&mut offset, false)?;
         Ok(header)
     }
 
@@ -80,11 +80,11 @@ impl FatHeader {
 impl FatArch {
     pub fn new(bytes: &[u8; SIZEOF_FAT_ARCH]) -> FatArch {
         let mut offset = 0;
-        let cputype = bytes.read_u32(&mut offset, false).unwrap();
-        let cpusubtype = bytes.read_u32(&mut offset, false).unwrap();
-        let offset_ = bytes.read_u32(&mut offset, false).unwrap();
-        let size = bytes.read_u32(&mut offset, false).unwrap();
-        let align = bytes.read_u32(&mut offset, false).unwrap();
+        let cputype = bytes.gread(&mut offset, false).unwrap();
+        let cpusubtype = bytes.gread(&mut offset, false).unwrap();
+        let offset_ = bytes.gread(&mut offset, false).unwrap();
+        let size = bytes.gread(&mut offset, false).unwrap();
+        let align = bytes.gread(&mut offset, false).unwrap();
         FatArch {
             cputype: cputype,
             cpusubtype: cpusubtype,
@@ -98,16 +98,16 @@ impl FatArch {
         self.cputype == cputype::CPU_TYPE_X86_64 || self.cputype == cputype::CPU_TYPE_ARM64
     }
 
-    pub fn parse_arches<S: scroll::Scroll>(fd: &S, mut offset: usize, count: usize) -> io::Result<Vec<Self>> {
+    pub fn parse_arches<S: scroll::Gread>(fd: &S, mut offset: usize, count: usize) -> io::Result<Vec<Self>> {
         let mut archs = Vec::with_capacity(count);
         let offset = &mut offset;
         for _ in 0..count {
             let mut arch = Self::default();
-            arch.cputype = fd.read_u32(offset, false)?;
-            arch.cpusubtype = fd.read_u32(offset, false)?;
-            arch.offset = fd.read_u32(offset, false)?;
-            arch.size = fd.read_u32(offset, false)?;
-            arch.align = fd.read_u32(offset, false)?;
+            arch.cputype = fd.gread(offset, false)?;
+            arch.cpusubtype = fd.gread(offset, false)?;
+            arch.offset = fd.gread(offset, false)?;
+            arch.size = fd.gread(offset, false)?;
+            arch.align = fd.gread(offset, false)?;
             archs.push(arch);
         }
         Ok(archs)
@@ -123,7 +123,7 @@ impl FatArch {
     //     Ok(arches)
     // }
 
-    pub fn parse<S: scroll::Scroll>(buffer: &S) -> io::Result<Vec<Self>> {
+    pub fn parse<S: scroll::Gread>(buffer: &S) -> io::Result<Vec<Self>> {
         let header = FatHeader::parse(buffer)?;
         let arches = FatArch::parse_arches(buffer,
                                            SIZEOF_FAT_HEADER,

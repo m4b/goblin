@@ -20,7 +20,7 @@ pub struct Mach {
 }
 
 impl Mach {
-    fn get_header<S: scroll::Scroll>(buffer: &S,
+    fn get_header<S: scroll::Gread>(buffer: &S,
                   offset: usize,
                   size: usize,
                   path_str: &::std::ffi::OsStr,

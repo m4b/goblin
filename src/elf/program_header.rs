@@ -103,7 +103,7 @@ macro_rules! elf_program_header_from_raw_parts { () => {
         }};}
 
 macro_rules! elf_program_header_from_fd { () => {
-        pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> io::Result<Vec<ProgramHeader>> {
+        pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> Result<Vec<ProgramHeader>> {
             let mut phdrs = vec![0u8; count * SIZEOF_PHDR];
             try!(fd.seek(Start(offset)));
             try!(fd.read(&mut phdrs));
@@ -125,13 +125,14 @@ macro_rules! elf_program_header_impure_impl { ($header:item) => {
         mod impure {
 
             use super::*;
+            use elf::error::*;
 
             use core::slice;
             use core::fmt;
 
             use scroll;
             use std::fs::File;
-            use std::io::{self, Seek, Read};
+            use std::io::{Seek, Read};
             use std::io::SeekFrom::Start;
 
             #[cfg(feature = "endian_fd")]

@@ -127,13 +127,14 @@ macro_rules! elf_sym_impure_impl {
             #[cfg(feature = "std")]
             mod impure {
                 use super::*;
+                use elf::error::*;
 
                 use core::fmt;
                 use core::slice;
 
                 use scroll;
                 use std::fs::File;
-                use std::io::{self, Read, Seek};
+                use std::io::{Read, Seek};
                 use std::io::SeekFrom::Start;
 
                 impl ElfSym for Sym {
@@ -209,7 +210,7 @@ macro_rules! elf_sym_impure_impl {
                     slice::from_raw_parts(symp, count)
                 }
 
-                pub fn from_fd<'a>(fd: &mut File, offset: usize, count: usize) -> io::Result<Vec<Sym>> {
+                pub fn from_fd<'a>(fd: &mut File, offset: usize, count: usize) -> Result<Vec<Sym>> {
                     // TODO: AFAIK this shouldn't work, since i pass in a byte size...
                     // FIX THIS, unecessary allocations + unsafety here
                     let mut bytes = vec![0u8; count * SIZEOF_SYM];

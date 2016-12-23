@@ -234,10 +234,11 @@ macro_rules! elf_rela_impure_impl { ($parse:item) => {
 
             use core::fmt;
             use core::slice;
+            use elf::error::*;
 
             use scroll;
             use std::fs::File;
-            use std::io::{self, Read, Seek};
+            use std::io::{Read, Seek};
             use std::io::SeekFrom::Start;
 
             impl fmt::Debug for Rela {
@@ -332,11 +333,11 @@ macro_rules! elf_rela_impure_impl { ($parse:item) => {
                 slice::from_raw_parts(ptr, size / SIZEOF_REL)
             }
 
-            pub fn from_fd(fd: &mut File, offset: usize, size: usize) -> io::Result<Vec<Rela>> {
+            pub fn from_fd(fd: &mut File, offset: usize, size: usize) -> Result<Vec<Rela>> {
                 let count = size / SIZEOF_RELA;
                 let mut bytes = vec![0u8; size];
-                try!(fd.seek(Start(offset as u64)));
-                try!(fd.read(&mut bytes));
+                fd.seek(Start(offset as u64))?;
+                fd.read(&mut bytes)?;
                 let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Rela, count) };
                 let mut res = Vec::with_capacity(count);
                 res.extend_from_slice(bytes);

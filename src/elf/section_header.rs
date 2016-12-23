@@ -234,7 +234,7 @@ macro_rules! elf_section_header_from_raw_parts { () => {
         }};}
 
 macro_rules! elf_section_header_from_fd { () => {
-        pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> io::Result<Vec<SectionHeader>> {
+        pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> Result<Vec<SectionHeader>> {
             let mut shdrs = vec![0u8; count * SIZEOF_SHDR];
             try!(fd.seek(Start(offset)));
             try!(fd.read(&mut shdrs));
@@ -256,13 +256,14 @@ macro_rules! elf_section_header_impure_impl { ($header:item) => {
         mod impure {
 
             use super::*;
+            use elf::error::*;
 
             use core::slice;
             use core::fmt;
 
             use scroll;
             use std::fs::File;
-            use std::io::{self, Read, Seek};
+            use std::io::{Read, Seek};
             use std::io::SeekFrom::Start;
 
             impl ElfSectionHeader for SectionHeader {

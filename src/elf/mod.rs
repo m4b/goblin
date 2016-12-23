@@ -37,6 +37,8 @@
 //! To use the automagic ELF datatype union parser, you _must_ enable/opt-in to the  `elf64`, `elf32`, and
 //! `endian_fd` features if you disable `default`.
 
+pub mod error;
+
 #[cfg(feature = "std")]
 pub mod strtab;
 
@@ -66,11 +68,11 @@ pub use self::impure::*;
 #[macro_use]
 mod impure {
     use scroll;
-    use std::io;
     use std::fs::File;
     use std::path::Path;
     use std::ops::{Deref};
 
+    use elf::error::*;
     use super::header;
     use super::strtab::Strtab;
 
@@ -359,7 +361,7 @@ mod impure {
             if ph.p_type == $class::program_header::PT_INTERP {
                 let count = (ph.p_filesz - 1) as usize;
                 let mut offset = ph.p_offset as usize;
-                let bytes = Vec::from($fd.read(&mut offset, count)?);
+                let bytes = Vec::from($fd.gread_slice(&mut offset, count)?);
                 // let mut bytes = vec![0u8; ];
                 // try!($fd.seek(Start(ph.p_offset as u64)));
                 // try!($fd.read(&mut bytes));
@@ -470,8 +472,8 @@ println!("sh_relocs {:?}", sh_relocs);
 
     impl Elf {
         /// Parses the contents of the byte stream in `buffer`, and maybe returns a unified binary
-        pub fn parse<S: scroll::Scroll>(buffer: &S) -> io::Result<Self> {
-            match try!(header::peek(buffer)) {
+        pub fn parse<S: scroll::Gread>(buffer: &S) -> Result<Self> {
+            match header::peek(buffer)? {
                 (header::ELFCLASS32, _is_lsb) => {
                     parse_impl!(elf32, buffer)
                 },
@@ -479,17 +481,17 @@ println!("sh_relocs {:?}", sh_relocs);
                     parse_impl!(elf64, buffer)
                 },
                 (class, is_lsb) => {
-                    io_error!("Unknown values in ELF ident header: class: {} is_lsb: {}",
+                    Err(ErrorKind::Malformed(format!("Unknown values in ELF ident header: class: {} is_lsb: {}",
                           class,
-                          is_lsb)
+                          is_lsb)).into())
                 }
             }
         }
         /// Returns a unified ELF binary from `path`. Allocates an in-memory byte array the size of
         /// the binary at `path` to increase performance.
-        pub fn from (path: &Path) -> io::Result<Self> {
+        pub fn from (path: &Path) -> Result<Self> {
             let fd = File::open(path)?;
-            let buffer = scroll::Buffer::from(fd)?;
+            let buffer = scroll::Buffer::try_from(fd)?;
             Elf::parse(&buffer)
         }
     }
@@ -507,7 +509,6 @@ mod tests {
         let mut buffer = Cursor::new(crt1);
         match Elf::parse(&mut buffer) {
             Ok (binary) => {
-                assert!(true);
                 assert!(binary.is_64);
                 assert!(!binary.is_lib);
                 assert_eq!(binary.entry, 0);

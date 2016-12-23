@@ -1,7 +1,7 @@
 extern crate goblin;
 
 use goblin::elf;
-use goblin::mach;
+//use goblin::mach;
 use std::path::Path;
 use std::env;
 
@@ -21,10 +21,10 @@ pub fn main () {
                 },
                 Err(err) => {
                     println!("Not an ELF: {:?}", err);
-                    match mach::Mach::from(path) {
-                        Ok(mach) => println!("{:#?}", mach),
-                        Err(err) => println!("{:?}", err),
-                    }
+                    // match mach::Mach::from(path) {
+                    //     Ok(mach) => println!("{:#?}", mach),
+                    //     Err(err) => println!("{:?}", err),
+                    // }
                 },
             }
         }

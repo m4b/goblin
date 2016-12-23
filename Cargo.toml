@@ -10,6 +10,10 @@ description = "An impish, cross-platform binary parsing and loading crate"
 
 [lib]
 
+[dependencies.error-chain]
+default_features = false
+version = "0.7.1"
+
 [dependencies.scroll]
 version = "*"
 optional = true

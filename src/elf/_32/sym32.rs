@@ -20,17 +20,18 @@ pub struct Sym {
 pub const SIZEOF_SYM: usize = 4 + 1 + 1 + 2 + 4 + 4;
 
 elf_sym_impure_impl!(
-    pub fn parse<S: scroll::Scroll>(fd: &S, offset: usize, count: usize, little_endian: bool) -> io::Result<Vec<Sym>> {
+    pub fn parse<S: scroll::Gread>(fd: &S, offset: usize, count: usize, little_endian: bool) -> Result<Vec<Sym>> {
         let mut syms = Vec::with_capacity(count);
         let mut offset = offset;
+        let mut offset = &mut offset;
         for _ in 0..count {
             let mut sym = Sym::default();
-            sym.st_name = try!(fd.read_u32(&mut offset, little_endian));
-            sym.st_value = try!(fd.read_u32(&mut offset, little_endian));
-            sym.st_size = try!(fd.read_u32(&mut offset, little_endian));
-            sym.st_info = try!(fd.read_u8(&mut offset));
-            sym.st_other = try!(fd.read_u8(&mut offset));
-            sym.st_shndx = try!(fd.read_u16(&mut offset, little_endian));
+            sym.st_name =  fd.gread(offset, little_endian)?;
+            sym.st_value = fd.gread(offset, little_endian)?;
+            sym.st_size =  fd.gread(offset, little_endian)?;
+            sym.st_info =  fd.gread_byte(offset)?;
+            sym.st_other = fd.gread_byte(offset)?;
+            sym.st_shndx = fd.gread(offset, little_endian)?;
             syms.push(sym);
         }
         Ok(syms)

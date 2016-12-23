@@ -25,7 +25,7 @@ pub fn main () {
             }
         }
         let path = Path::new(&path);
-        let fd = scroll::Buffer::from(File::open(&path).unwrap()).unwrap();
+        let fd = scroll::Buffer::try_from(File::open(&path).unwrap()).unwrap();
         let len = fd.len();
         let mut fd = Cursor::new(fd.into_inner());
         match archive::Archive::parse(&mut fd, len) {
@@ -44,7 +44,7 @@ pub fn main () {
                     Err(err) => println!("Extraction Error: {:?}", err)
                 }
             },
-            Err(err) => println!("Err: {:?}", err)
+            Err(err) => println!("Err: {}", err)
         }
     }
 }

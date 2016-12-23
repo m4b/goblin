@@ -29,19 +29,19 @@ elf_program_header_impure_impl!(
         elf_program_header_from_raw_parts!();
         elf_program_header_from_fd!();
         #[cfg(feature = "endian_fd")]
-        pub fn parse<S: scroll::Scroll>(fd: &S, offset: u64, count: usize, little_endian: bool) -> io::Result<Vec<ProgramHeader>> {
+        pub fn parse<S: scroll::Gread>(fd: &S, offset: u64, count: usize, little_endian: bool) -> Result<Vec<ProgramHeader>> {
             let mut phdrs = vec![];
             let mut offset = offset as usize;
             for _ in 0..count {
                 let mut phdr = ProgramHeader::default();
-                phdr.p_type = try!(fd.read_u32(&mut offset, little_endian));
-                phdr.p_offset = try!(fd.read_u32(&mut offset, little_endian));
-                phdr.p_vaddr = try!(fd.read_u32(&mut offset, little_endian));
-                phdr.p_paddr = try!(fd.read_u32(&mut offset, little_endian));
-                phdr.p_filesz = try!(fd.read_u32(&mut offset, little_endian));
-                phdr.p_memsz = try!(fd.read_u32(&mut offset, little_endian));
-                phdr.p_flags = try!(fd.read_u32(&mut offset, little_endian));
-                phdr.p_align = try!(fd.read_u32(&mut offset, little_endian));
+                phdr.p_type = try!(fd.gread(&mut offset, little_endian));
+                phdr.p_offset = try!(fd.gread(&mut offset, little_endian));
+                phdr.p_vaddr = try!(fd.gread(&mut offset, little_endian));
+                phdr.p_paddr = try!(fd.gread(&mut offset, little_endian));
+                phdr.p_filesz = try!(fd.gread(&mut offset, little_endian));
+                phdr.p_memsz = try!(fd.gread(&mut offset, little_endian));
+                phdr.p_flags = try!(fd.gread(&mut offset, little_endian));
+                phdr.p_align = try!(fd.gread(&mut offset, little_endian));
                 phdrs.push(phdr);
             }
 

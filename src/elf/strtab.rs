@@ -70,12 +70,9 @@ mod impure {
     use super::*;
 
     impl<'a> Strtab<'a> {
-        pub fn parse<S: scroll::Gread>(fd: &S, offset: usize, len: usize, delim: u8) -> error::Result<Strtab<'static>> {
-            // let mut bytes = vec![0u8; len];
-            // try!(fd.seek(Start(offset as u64)));
-            // try!(fd.read(&mut bytes));
-            let mut offset = offset;
-            let bytes = Vec::from(fd.gread_slice(&mut offset, len)?);
+        pub fn parse<S: scroll::Pread>(fd: &S, offset: usize, len: usize, delim: u8) -> error::Result<Strtab<'static>> {
+            let bytes: &[u8] = fd.pread_slice(offset, len)?;
+            let bytes = Vec::from(bytes);
             Ok(Strtab { bytes: Cow::Owned(bytes), delim: delim })
         }
 

@@ -135,17 +135,16 @@ pub use self::impure::*;
 mod impure {
     use super::*;
 
-    use scroll::{self, Gread};
+    use scroll::{self, Pread};
     use elf::error::*;
 
     /// Peek at important data in an ELF byte stream, and return the ELF class and endianness
     /// if it's a valid byte sequence
-    pub fn peek<S: scroll::Gread>(buffer: &S) -> Result<(u8, bool)> {
-        let mut offset = &mut 0;
-        let ident = buffer.gread_slice(offset, SIZEOF_IDENT)?;
+    pub fn peek<S: scroll::Pread>(buffer: &S) -> Result<(u8, bool)> {
+        //let mut offset = &mut 0;
+        let ident: &[u8] = buffer.pread_slice(0, SIZEOF_IDENT)?;
         if &ident[0..SELFMAG] != ELFMAG {
-            *offset = 0;
-            return Err(ErrorKind::BadMagic(ident.gread(offset, scroll::NATIVE)?).into());
+            return Err(Error::BadMagic(ident.pread_into(0)?).into());
         }
         let class = ident[EI_CLASS];
         let is_lsb = ident[EI_DATA] == ELFDATA2LSB;
@@ -185,6 +184,7 @@ macro_rules! elf_header_impure_impl {
 
             use super::*;
             use elf::error::*;
+            use elf::error;
 
             use core::fmt;
             use scroll;
@@ -274,13 +274,13 @@ macro_rules! elf_header_impure_impl {
                     let mut elf_header = Header::default();
                     let mut offset = &mut 0;
                     for i in 0..SIZEOF_IDENT {
-                        elf_header.e_ident[i] = buffer.gread_byte(&mut offset)?;
+                        elf_header.e_ident[i] = buffer.gread_into(&mut offset)?;
                     }
                     let endianness =
                         match elf_header.e_ident[EI_DATA] {
                             ELFDATA2LSB => scroll::LE,
                             ELFDATA2MSB => scroll::BE,
-                            d => return Err(ErrorKind::Malformed(format!("invalid ELF DATA type {:x}", d)).into()),
+                            d => return Err(Error::Malformed(format!("invalid ELF DATA type {:x}", d)).into()),
                         };
                     elf_header.e_type =      buffer.gread(offset, endianness)?;
                     elf_header.e_machine =   buffer.gread(offset, endianness)?;

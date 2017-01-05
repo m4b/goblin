@@ -331,15 +331,16 @@ mod impure {
 
     macro_rules! parse_impl {
     ($class:ident, $fd:ident) => {{
-        let header = try!($class::header::Header::parse($fd));
+        let header = $class::header::Header::parse($fd)?;
         let entry = header.e_entry as usize;
         let is_lib = header.e_type == $class::header::ET_DYN;
         let is_lsb = header.e_ident[$class::header::EI_DATA] == $class::header::ELFDATA2LSB;
+        let endianness = scroll::Endian::from(is_lsb);
         let is_64 = header.e_ident[$class::header::EI_CLASS] == $class::header::ELFCLASS64;
 
-        let program_headers = try!($class::program_header::ProgramHeader::parse($fd, header.e_phoff as u64, header.e_phnum as usize, is_lsb));
+        let program_headers = $class::program_header::ProgramHeader::parse($fd, header.e_phoff as u64, header.e_phnum as usize, endianness)?;
 
-        let dynamic = try!($class::dyn::parse($fd, &program_headers, is_lsb));
+        let dynamic = $class::dyn::parse($fd, &program_headers, endianness)?;
         let mut bias: usize = 0;
         for ph in &program_headers {
             if ph.p_type == $class::program_header::PT_LOAD {
@@ -360,8 +361,8 @@ mod impure {
         for ph in &program_headers {
             if ph.p_type == $class::program_header::PT_INTERP {
                 let count = (ph.p_filesz - 1) as usize;
-                let mut offset = ph.p_offset as usize;
-                let bytes = Vec::from($fd.gread_slice(&mut offset, count)?);
+                let offset = ph.p_offset as usize;
+                let bytes = Vec::from($fd.pread_slice::<[u8]>(offset, count)?);
                 // let mut bytes = vec![0u8; ];
                 // try!($fd.seek(Start(ph.p_offset as u64)));
                 // try!($fd.read(&mut bytes));
@@ -370,17 +371,17 @@ mod impure {
             }
         }
 
-        let section_headers = try!($class::section_header::SectionHeader::parse($fd, header.e_shoff as u64, header.e_shnum as usize, is_lsb));
+        let section_headers = $class::section_header::SectionHeader::parse($fd, header.e_shoff as u64, header.e_shnum as usize, endianness)?;
 
         let mut syms = vec![];
         let mut strtab = $class::strtab::Strtab::default();
         for shdr in &section_headers {
             if shdr.sh_type as u32 == $class::section_header::SHT_SYMTAB {
                 let count = shdr.sh_size / shdr.sh_entsize;
-                syms = try!($class::sym::parse($fd, shdr.sh_offset as usize, count as usize, is_lsb))
+                syms = $class::sym::parse($fd, shdr.sh_offset as usize, count as usize, endianness)?;
             }
             if shdr.sh_type as u32 == $class::section_header::SHT_STRTAB {
-                strtab = try!($class::strtab::Strtab::parse($fd, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0));
+                strtab = $class::strtab::Strtab::parse($fd, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0)?;
             }
         }
 
@@ -401,10 +402,10 @@ mod impure {
         let mut dynstrtab = $class::strtab::Strtab::default();
         if let Some(ref dynamic) = dynamic {
             let dyn_info = $class::dyn::DynamicInfo::new(&*dynamic.as_slice(), bias); // we explicitly overflow the values here with our bias
-            dynstrtab = try!($class::strtab::Strtab::parse($fd,
+            dynstrtab = $class::strtab::Strtab::parse($fd,
                                                            dyn_info.strtab,
                                                            dyn_info.strsz,
-                                                           0x0));
+                                                           0x0)?;
 
             if dyn_info.soname != 0 {
                 soname = Some(dynstrtab.get(dyn_info.soname).to_owned())
@@ -417,12 +418,12 @@ mod impure {
                 }
             }
             let num_syms = (dyn_info.strtab - dyn_info.symtab) / dyn_info.syment;
-            dynsyms = try!($class::sym::parse($fd, dyn_info.symtab, num_syms, is_lsb));
+            dynsyms = $class::sym::parse($fd, dyn_info.symtab, num_syms, endianness)?;
             // parse the dynamic relocations
-            dynrelas = try!($class::reloc::parse($fd, dyn_info.rela, dyn_info.relasz, is_lsb, true));
-            dynrels = try!($class::reloc::parse($fd, dyn_info.rel, dyn_info.relsz, is_lsb, false));
+            dynrelas = $class::reloc::parse($fd, dyn_info.rela, dyn_info.relasz, endianness, true)?;
+            dynrels = $class::reloc::parse($fd, dyn_info.rel, dyn_info.relsz, endianness, false)?;
             let is_rela = dyn_info.pltrel as u64 == super::dyn::DT_RELA;
-            pltrelocs = try!($class::reloc::parse($fd, dyn_info.jmprel, dyn_info.pltrelsz, is_lsb, is_rela));
+            pltrelocs = $class::reloc::parse($fd, dyn_info.jmprel, dyn_info.pltrelsz, endianness, is_rela)?;
         }
 
         let shdr_relocs = {
@@ -432,12 +433,12 @@ mod impure {
                 for section in &section_headers {
                     println!("section {:?}", section);
                     if section.sh_type == super::section_header::SHT_REL {
-                        let sh_relocs = try!($class::reloc::parse($fd, section.sh_offset as usize, section.sh_size as usize, is_lsb, false));
+                        let sh_relocs = $class::reloc::parse($fd, section.sh_offset as usize, section.sh_size as usize, endianness, false)?;
 println!("sh_relocs {:?}", sh_relocs);
                         relocs.extend_from_slice(&sh_relocs);
                     }
                     if section.sh_type == super::section_header::SHT_RELA {
-                        let sh_relocs = try!($class::reloc::parse($fd, section.sh_offset as usize, section.sh_size as usize, is_lsb, true));
+                        let sh_relocs = $class::reloc::parse($fd, section.sh_offset as usize, section.sh_size as usize, endianness, true)?;
                         relocs.extend_from_slice(&sh_relocs);
                     }
                 }
@@ -480,10 +481,10 @@ println!("sh_relocs {:?}", sh_relocs);
                 (header::ELFCLASS64, _is_lsb) => {
                     parse_impl!(elf64, buffer)
                 },
-                (class, is_lsb) => {
-                    Err(ErrorKind::Malformed(format!("Unknown values in ELF ident header: class: {} is_lsb: {}",
+                (class, endianness) => {
+                    Err(Error::Malformed(format!("Unknown values in ELF ident header: class: {} endianness: {}",
                           class,
-                          is_lsb)).into())
+                          endianness)).into())
                 }
             }
         }

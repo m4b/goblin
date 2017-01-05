@@ -6,7 +6,7 @@
 //! names in the archive with a / as a sigil for the end of the name, and uses a special symbol
 //! index for looking up symbols faster.
 
-use scroll::{self, Gread};
+use scroll;
 use elf::strtab;
 
 pub mod error;
@@ -242,13 +242,13 @@ pub struct Archive {
 }
 
 impl Archive {
-    pub fn parse<R: Read + Seek + scroll::Gread + scroll::Scroll>(mut cursor: &mut R, size: usize) -> Result<Archive> {
+    pub fn parse<R: Read + Seek + scroll::Gread>(mut cursor: &mut R, size: usize) -> Result<Archive> {
         try!(cursor.seek(Start(0)));
         let mut magic = [0; SIZEOF_MAGIC];
         try!(cursor.read_exact(&mut magic));
         if &magic != MAGIC {
-            let mut offset = &mut 0;
-            return Err(ErrorKind::BadMagic(magic.gread(offset, scroll::NATIVE)?).into());
+            use scroll::Pread;
+            return Err(Error::BadMagic(magic.pread_into(0)?).into());
         }
         let mut member_array = Vec::new();
         let size = size as u64;

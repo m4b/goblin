@@ -6,7 +6,7 @@ pub const SIZEOF_DYN: usize = 16;
 
 elf_dyn_impure_impl!(
     u64,
-    pub fn parse<S: scroll::Gread> (fd: &S, phdrs: &[ProgramHeader], little_endian: bool) -> Result<Option<Vec<Dyn>>> {
+    pub fn parse<S: scroll::Gread> (fd: &S, phdrs: &[ProgramHeader], little_endian: scroll::Endian) -> Result<Option<Vec<Dyn>>> {
         for phdr in phdrs {
             if phdr.p_type == PT_DYNAMIC {
                 let filesz = phdr.p_filesz as usize;

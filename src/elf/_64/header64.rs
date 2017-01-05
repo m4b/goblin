@@ -1,5 +1,4 @@
 pub use elf::header::*;
-use elf::error::*;
 
 pub const SIZEOF_EHDR: usize = 64;
 pub const ELFCLASS: u8 = ELFCLASS64;

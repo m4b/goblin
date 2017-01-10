@@ -7,7 +7,6 @@ use goblin::elf;
 use goblin::archive;
 use std::env;
 use std::path::Path;
-use std::io::Cursor;
 use std::fs::File;
 
 pub fn main () {
@@ -27,14 +26,13 @@ pub fn main () {
         let path = Path::new(&path);
         let fd = scroll::Buffer::try_from(File::open(&path).unwrap()).unwrap();
         let len = fd.len();
-        let mut fd = Cursor::new(fd.into_inner());
-        match archive::Archive::parse(&mut fd, len) {
+        match archive::Archive::parse(&fd, len) {
             Ok(archive) => {
                 println!("{:#?}", &archive);
                 println!("start: {:?}", archive.member_of_symbol("_start"));
-                match archive.extract(&member, &mut fd) {
+                match archive.extract(&member, &fd) {
                     Ok(bytes) => {
-                        match elf::Elf::parse::<scroll::Buffer>(&bytes.into()) {
+                        match elf::Elf::parse::<scroll::Buffer>(&scroll::Buffer::from(bytes)) {
                             Ok(elf) => {
                                 println!("got elf: {:#?}", elf);
                             },
@@ -44,7 +42,7 @@ pub fn main () {
                     Err(err) => println!("Extraction Error: {:?}", err)
                 }
             },
-            Err(err) => println!("Err: {}", err)
+            Err(err) => println!("Err: {:?}", err)
         }
     }
 }

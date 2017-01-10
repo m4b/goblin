@@ -141,10 +141,10 @@ mod impure {
     /// Peek at important data in an ELF byte stream, and return the ELF class and endianness
     /// if it's a valid byte sequence
     pub fn peek<S: scroll::Pread>(buffer: &S) -> Result<(u8, bool)> {
-        //let mut offset = &mut 0;
         let ident: &[u8] = buffer.pread_slice(0, SIZEOF_IDENT)?;
         if &ident[0..SELFMAG] != ELFMAG {
-            return Err(Error::BadMagic(ident.pread_into(0)?).into());
+            let magic: u64 = ident.pread(0, scroll::LE)?;
+            return Err(Error::BadMagic(magic).into());
         }
         let class = ident[EI_CLASS];
         let is_lsb = ident[EI_DATA] == ELFDATA2LSB;
@@ -157,12 +157,12 @@ macro_rules! elf_header_test_peek {
         #[cfg(test)]
         mod tests {
             use super::*;
-            use std::io::Cursor;
+            use scroll::Buffer;
             #[test]
             fn test_peek () {
                 let v = vec![0x7f, 0x45, 0x4c, 0x46, $class, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x3e, 0x00, 0x01, 0x00, 0x00, 0x00, 0x70, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x8c];
-                let mut header = Cursor::new(v);
-                match peek(&mut header) {
+                let header = Buffer::from(v);
+                match peek(&header) {
                     Err(_) => assert!(false),
                     Ok((class, is_lsb)) => {
                         assert_eq!(true, is_lsb);
@@ -256,6 +256,38 @@ macro_rules! elf_header_impure_impl {
                            self.e_shentsize,
                            self.e_shnum,
                            self.e_shstrndx)
+                }
+            }
+
+            impl<T> scroll::TryFromCtx<(usize, scroll::Endian), T> for Header where T: scroll::Gread {
+                type Error = error::Error;
+                fn try_from_ctx(buffer: &T, _ctx: (usize, scroll::Endian)) -> ::core::result::Result<Self, Self::Error> {
+                    //use scroll::Gread;
+                    let mut elf_header = Header::default();
+                    let mut offset = &mut 0;
+                    for i in 0..SIZEOF_IDENT {
+                        elf_header.e_ident[i] = buffer.gread_into(&mut offset)?;
+                    }
+                    let endianness =
+                        match elf_header.e_ident[EI_DATA] {
+                            ELFDATA2LSB => scroll::LE,
+                            ELFDATA2MSB => scroll::BE,
+                            d => return Err(Error::Malformed(format!("invalid ELF DATA type {:x}", d)).into()),
+                        };
+                    elf_header.e_type =      buffer.gread(offset, endianness)?;
+                    elf_header.e_machine =   buffer.gread(offset, endianness)?;
+                    elf_header.e_version =   buffer.gread(offset, endianness)?;
+                    elf_header.e_entry =     buffer.gread(offset, endianness)?;
+                    elf_header.e_phoff =     buffer.gread(offset, endianness)?;
+                    elf_header.e_shoff =     buffer.gread(offset, endianness)?;
+                    elf_header.e_flags =     buffer.gread(offset, endianness)?;
+                    elf_header.e_ehsize =    buffer.gread(offset, endianness)?;
+                    elf_header.e_phentsize = buffer.gread(offset, endianness)?;
+                    elf_header.e_phnum =     buffer.gread(offset, endianness)?;
+                    elf_header.e_shentsize = buffer.gread(offset, endianness)?;
+                    elf_header.e_shnum =     buffer.gread(offset, endianness)?;
+                    elf_header.e_shstrndx =  buffer.gread(offset, endianness)?;
+                    Ok(elf_header)
                 }
             }
 

@@ -502,13 +502,13 @@ println!("sh_relocs {:?}", sh_relocs);
 mod tests {
     use super::*;
 
-    use std::io::Cursor;
+    use scroll;
 
     #[test]
     fn endian_trait_parse() {
         let crt1: Vec<u8> = include!("../../etc/crt1.rs");
-        let mut buffer = Cursor::new(crt1);
-        match Elf::parse(&mut buffer) {
+        let buffer = scroll::Buffer::from(crt1);
+        match Elf::parse(&buffer) {
             Ok (binary) => {
                 assert!(binary.is_64);
                 assert!(!binary.is_lib);
@@ -526,7 +526,8 @@ mod tests {
                 }
                 assert!(syms.len() != 0);
              },
-            Err (_) => {
+            Err (err) => {
+                println!("failed: {:?}", err);
                 assert!(false)
             }
         }

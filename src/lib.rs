@@ -47,6 +47,8 @@ mod macros;
 #[macro_use]
 pub mod elf;
 
+pub mod error;
+
 // if racer gets path understanding, i think this is the way to go; it hides everything from the
 // user w.r.t. module internals like _64, etc.  though i did like the more declarative version
 // below, without using paths, i just for the life of me cannot get the compiler to reexport values
@@ -60,8 +62,8 @@ pub mod elf64;
 #[path = "elf/_32/mod.rs"]
 pub mod elf32;
 
-//#[cfg(feature = "mach64")]
-//pub mod mach;
+#[cfg(feature = "mach64")]
+pub mod mach;
 
 #[cfg(feature = "archive")]
 pub mod archive;

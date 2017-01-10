@@ -1,7 +1,8 @@
 use std::mem;
 use std::fmt;
-use std::io;
 use scroll;
+
+use error;
 
 // Constants for the flags field of the mach_header
 /// the object file has no undefined references
@@ -191,20 +192,20 @@ impl Header {
     }
 
     // #[cfg(feature = "no_endian_fd")]
-    pub fn parse<S: scroll::Gread>(buffer: &S, offset: usize, le: bool) -> io::Result<Header> {
+    pub fn parse<S: scroll::Gread>(buffer: &S, offset: usize, le: scroll::Endian) -> error::Result<Header> {
         let mut offset = offset;
         let offset = &mut offset;
-        let magic = buffer.read_u32(offset, le)?;
-        let cputype = buffer.read_u32(offset, le)?;
-        let cpusubtype = buffer.read_u8(offset)?;
-        let padding1 = buffer.read_u8(offset)?;
-        let padding2 = buffer.read_u8(offset)?;
-        let caps = buffer.read_u8(offset)?;
-        let filetype = buffer.read_u32(offset, le)?;
-        let ncmds = buffer.read_u32(offset, le)?;
-        let sizeofcmds = buffer.read_u32(offset, le)?;
-        let flags = buffer.read_u32(offset, le)?;
-        let reserved = buffer.read_u32(offset, le)?;
+        let magic = buffer.gread(offset, le)?;
+        let cputype = buffer.gread(offset, le)?;
+        let cpusubtype = buffer.gread_into(offset)?;
+        let padding1 = buffer.gread_into(offset)?;
+        let padding2 = buffer.gread_into(offset)?;
+        let caps = buffer.gread_into(offset)?;
+        let filetype = buffer.gread(offset, le)?;
+        let ncmds = buffer.gread(offset, le)?;
+        let sizeofcmds = buffer.gread(offset, le)?;
+        let flags = buffer.gread(offset, le)?;
+        let reserved = buffer.gread(offset, le)?;
         Ok(Header { magic: magic, cputype: cputype, cpusubtype: cpusubtype, padding1: padding1, padding2: padding2, caps: caps, filetype: filetype, ncmds: ncmds, sizeofcmds: sizeofcmds, flags: flags, reserved: reserved })
     }
 }

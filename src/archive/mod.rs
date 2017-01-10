@@ -13,8 +13,7 @@ pub mod error;
 
 use self::error::*;
 
-use std::io::{Read, Seek, Cursor};
-use std::io::SeekFrom::{Start, Current};
+use std::io::Read;
 use std::usize;
 use std::collections::HashMap;
 //use std::fmt::{self, Display};
@@ -65,29 +64,25 @@ const SIZEOF_FILE_SIZE: usize = 10;
 pub const SIZEOF_HEADER: usize = SIZEOF_FILE_IDENTIFER + 12 + 6 + 6 + 8 + SIZEOF_FILE_SIZE + 2;
 
 impl Header {
-    pub fn parse<R: Read + Seek>(cursor: &mut R) -> Result<Header> {
-        let mut file_identifier = vec![0u8; SIZEOF_FILE_IDENTIFER];
-        try!(cursor.read_exact(&mut file_identifier));
-        let file_identifier = unsafe { String::from_utf8_unchecked(file_identifier) };
+    pub fn parse<R: scroll::Gread>(buffer: &R, offset: &mut usize) -> Result<Header> {
+        let file_identifier = buffer.gread_slice::<str>(offset, SIZEOF_FILE_IDENTIFER)?.to_string();
         let mut file_modification_timestamp = [0u8; 12];
-        try!(cursor.read(&mut file_modification_timestamp));
+        buffer.gread_inout(offset, &mut file_modification_timestamp)?;
         let mut owner_id = [0u8; 6];
-        try!(cursor.read(&mut owner_id));
+        buffer.gread_inout(offset, &mut owner_id)?;
         let mut group_id = [0u8; 6];
-        try!(cursor.read(&mut group_id));
+        buffer.gread_inout(offset, &mut group_id)?;
         let mut file_mode = [0u8; 8];
-        try!(cursor.read(&mut file_mode));
-        let mut file_size = [0u8; SIZEOF_FILE_SIZE];
-        let file_size_pos = try!(cursor.seek(Current(0)));
-        try!(cursor.read(&mut file_size));
+        buffer.gread_inout(offset, &mut file_mode)?;
+        let file_size_pos = *offset;
+        let file_size_str = buffer.gread_slice::<str>(offset, SIZEOF_FILE_SIZE)?;
         let mut terminator = [0u8; 2];
-        try!(cursor.read(&mut terminator));
-        let string = unsafe { ::std::str::from_utf8_unchecked(&file_size) };
-        let file_size = match usize::from_str_radix(string.trim_right(), 10) {
+        buffer.gread_inout(offset, &mut terminator)?;
+        let file_size = match usize::from_str_radix(file_size_str.trim_right(), 10) {
             Ok(file_size) => file_size,
             Err(err) => return Err(format!("{:?} Bad file_size {:?} at offset 0x{:X}: {:?} {:?} {:?} {:?} {:?} {:?}",
-                err, &file_size, file_size_pos, file_identifier, file_modification_timestamp, owner_id, group_id,
-                file_mode, file_size).into()),
+                err, &file_size_str, file_size_pos, file_identifier, file_modification_timestamp, owner_id, group_id,
+                file_mode, &file_size_str).into()),
         };
         Ok(Header {
             identifier: file_identifier,
@@ -114,16 +109,15 @@ impl Member {
     /// Tries to parse the header in `R`, as well as the offset in `R.
     /// **NOTE** the Seek will be pointing at the first byte of whatever the file is, skipping padding.
     /// This is because just like members in the archive, the data section is 2-byte aligned.
-    pub fn parse<R: Read + Seek>(cursor: &mut R) -> Result<Self> {
-        let header = try!(Header::parse(cursor));
-        let mut offset = try!(cursor.seek(Current(0)));
+    pub fn parse<R: scroll::Gread>(buffer: &R, offset: &mut usize) -> Result<Self> {
+        let header = Header::parse(buffer, offset)?;
         // skip newline padding if we're on an uneven byte boundary
-        if offset & 1 == 1 {
-            offset = try!(cursor.seek(Current(1)));
+        if *offset & 1 == 1 {
+            *offset += 1;
         }
         Ok(Member {
             header: header,
-            offset: offset,
+            offset: *offset as u64,
         })
     }
 
@@ -164,20 +158,16 @@ const INDEX_NAME: &'static str = "/               ";
 const NAME_INDEX_NAME: &'static str = "//              ";
 
 impl Index {
-    pub fn parse<'c, R: Read + Seek + scroll::Gread>(cursor: &'c mut R, size: usize) -> Result<Index> {
-        // these are hacks for the scroll transition; hopefully this comment isn't here a year later
-        let position = &mut (cursor.seek(Current(0))? as usize);
-        let sizeof_table = cursor.gread::<u32>(position, scroll::BE)? as usize;
-        cursor.seek(Current(4))?;
+    /// Parses the given byte buffer into an Index. NB: the buffer must be the start of the index
+    pub fn parse<R: scroll::Gread>(buffer: &R, size: usize) -> Result<Index> {
+        let mut offset = &mut 0;
+        let sizeof_table = buffer.gread::<u32>(offset, scroll::BE)? as usize;
         let mut indexes = Vec::with_capacity(sizeof_table);
         for _ in 0..sizeof_table {
-            let position = &mut (cursor.seek(Current(0))? as usize);
-            indexes.push(cursor.gread::<u32>(position, scroll::BE)?);
-            cursor.seek(Current(4))?;
+            indexes.push(buffer.gread::<u32>(offset, scroll::BE)?);
         }
         let sizeof_strtab = size - ((sizeof_table * 4) + 4);
-        let offset = cursor.seek(Current(0))?;
-        let strtab = strtab::Strtab::parse(cursor, offset as usize, sizeof_strtab, 0x0)?;
+        let strtab = strtab::Strtab::parse(buffer, *offset, sizeof_strtab, 0x0)?;
         Ok (Index {
             size: sizeof_table,
             symbol_indexes: indexes,
@@ -195,13 +185,13 @@ struct NameIndex {
 }
 
 impl NameIndex {
-    pub fn parse<R: Read + Seek + scroll::Gread> (cursor: &mut R, offset: usize, size: usize) -> Result<Self> {
+    pub fn parse<R: scroll::Gread> (buffer: &R, offset: &mut usize, size: usize) -> Result<Self> {
         // This is a total hack, because strtab returns "" if idx == 0, need to change
         // but previous behavior might rely on this, as ELF strtab's have "" at 0th index...
         let hacked_size = size + 1;
-        let strtab = strtab::Strtab::parse(cursor, offset-1, hacked_size, '\n' as u8)?;
-        // precious time was lost when refactoring because srtab::parse doesn't update the mutable seek... don't know if this is a lesson for mutation being stupid or refactoring being stupid or my scroll library being stupid
-        cursor.seek(Current((hacked_size - 2) as i64))?;
+        let strtab = strtab::Strtab::parse(buffer, *offset-1, hacked_size, '\n' as u8)?;
+        // precious time was lost when refactoring because strtab::parse doesn't update the mutable seek...
+        *offset += hacked_size - 2;
         Ok (NameIndex {
             strtab: strtab
         })
@@ -242,13 +232,15 @@ pub struct Archive {
 }
 
 impl Archive {
-    pub fn parse<R: Read + Seek + scroll::Gread>(mut cursor: &mut R, size: usize) -> Result<Archive> {
-        try!(cursor.seek(Start(0)));
-        let mut magic = [0; SIZEOF_MAGIC];
-        try!(cursor.read_exact(&mut magic));
+    pub fn parse<R: Read + scroll::Gread>(buffer: &R, size: usize) -> Result<Archive> {
+        let mut magic = [0u8; SIZEOF_MAGIC];
+        let mut offset = &mut 0usize;
+        buffer.gread_inout(offset, &mut magic)?;
         if &magic != MAGIC {
             use scroll::Pread;
-            return Err(Error::BadMagic(magic.pread_into(0)?).into());
+            return Err(Error::BadMagic(magic.pread(0, scroll::LE)?).into());
+            // i can't use pread_into here which is awesome
+            //return Err(Error::BadMagic(magic.pread_into(0)?).into());
         }
         let mut member_array = Vec::new();
         let size = size as u64;
@@ -257,24 +249,26 @@ impl Archive {
         let mut extended_names = NameIndex::default();
         loop {
             if pos >= size { break }
-            // if the member is on an uneven byte boundary, we bump the cursor
+            // if the member is on an uneven byte boundary, we bump the buffer
             if pos & 1 == 1 {
-                try!(cursor.seek(Current(1)));
+                *offset += 1;
             }
-            let member = try!(Member::parse(&mut cursor));
+            let member = Member::parse(buffer, offset)?;
             if member.name() == INDEX_NAME {
-                let mut data = vec![0u8; member.size()];
-                try!(cursor.seek(Start(member.offset)));
-                try!(cursor.read_exact(&mut data));
-                let mut data = Cursor::new(data);
-                index = try!(Index::parse(&mut data, member.size()));
-                pos = try!(cursor.seek(Current(0)));
+                *offset = member.offset as usize;
+                // get the member data (the index in this case)
+                let data: &[u8] = buffer.gread_slice(offset, member.size())?;
+                // parse it
+                index = Index::parse(&data, member.size())?;
+                pos = *offset as u64;
             } else if member.name() == NAME_INDEX_NAME {
-                extended_names = NameIndex::parse(cursor, member.offset as usize, member.size())?;
-                pos = try!(cursor.seek(Current(0)));
+                *offset = member.offset as usize;
+                extended_names = NameIndex::parse(buffer, offset, member.size())?;
+                pos = *offset as u64;
             } else {
-                // we move the cursor past the file blob
-                pos = try!(cursor.seek(Current(member.size() as i64)));
+                // we move the buffer past the file blob
+                *offset += member.size();
+                pos = *offset as u64;
                 member_array.push(member);
             }
         }
@@ -329,12 +323,10 @@ impl Archive {
         }
     }
 
-    /// Returns a vector of the raw bytes for the given `member` in the readable `cursor`
-    pub fn extract<R: Read + Seek> (&self, member: &str, cursor: &mut R) -> Result<Vec<u8>> {
+    /// Returns a slice of the raw bytes for the given `member` in the scrollable `buffer`
+    pub fn extract<'a, R: scroll::Pread> (&self, member: &str, buffer: &'a R) -> Result<&'a [u8]> {
         if let Some(member) = self.get(member) {
-            let mut bytes = vec![0u8; member.size()];
-            try!(cursor.seek(Start(member.offset)));
-            try!(cursor.read_exact(&mut bytes));
+            let bytes: &[u8] = buffer.pread_slice(member.offset as usize, member.size())?;
             Ok(bytes)
         } else {
             Err(format!("Cannot extract member {}, not found", member).into())
@@ -369,7 +361,6 @@ pub extern fn wow_so_meta_doge_symbol() { println!("wow_so_meta_doge_symbol")}
 mod tests {
     extern crate scroll;
     use super::*;
-    use std::io::Cursor;
     use std::path::Path;
     use std::fs::File;
     use super::super::elf;
@@ -385,8 +376,8 @@ mod tests {
                                                     0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x38,
                                                     0x32, 0x34, 0x34, 0x20, 0x20, 0x20, 0x20,
                                                     0x20, 0x20, 0x60, 0x0a];
-        let mut cursor = Cursor::new(&file_header[..]);
-        match Header::parse(&mut cursor) {
+        let buffer = scroll::Buffer::from(&file_header[..]);
+        match Header::parse(&buffer, &mut 0) {
             Err(_) => assert!(false),
             Ok(file_header2) => {
                 let file_header = Header { identifier: "/               ".to_owned(),
@@ -406,18 +397,19 @@ mod tests {
         let crt1a: Vec<u8> = include!("../../etc/crt1a.rs");
         const START: &'static str = "_start";
         let len = crt1a.len();
-        let mut cursor = Cursor::new(crt1a);
-        match Archive::parse(&mut cursor, len) {
+        let buffer = scroll::Buffer::from(crt1a);
+        match Archive::parse(&buffer, len) {
             Ok(archive) => {
                 assert_eq!(archive.member_of_symbol(START), Some("crt1.o"));
                 if let Some(member) = archive.get("crt1.o") {
                     assert_eq!(member.offset, 194);
                     assert_eq!(member.size(), 1928)
                 } else {
+                    println!("could not get crt1.o");
                     assert!(false)
                 }
             },
-            Err(_) => assert!(false),
+            Err(err) => {println!("could not parse archive: {:?}", err); assert!(false)}
         };
     }
 
@@ -428,8 +420,7 @@ mod tests {
           Ok(fd) => {
               let buffer = scroll::Buffer::try_from(fd).unwrap();
               let size = buffer.len();
-              let mut buffer = Cursor::new(buffer.into_inner());
-              match Archive::parse(&mut buffer, size) {
+              match Archive::parse(&buffer, size) {
                   Ok(archive) => {
                       let mut found = false;
                       for member in archive.members() {

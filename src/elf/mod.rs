@@ -37,7 +37,8 @@
 //! To use the automagic ELF datatype union parser, you _must_ enable/opt-in to the  `elf64`, `elf32`, and
 //! `endian_fd` features if you disable `default`.
 
-pub mod error;
+#[cfg(feature = "std")]
+pub use super::error;
 
 #[cfg(feature = "std")]
 pub mod strtab;

@@ -9,9 +9,10 @@
 use scroll;
 use elf::strtab;
 
-pub mod error;
+#[cfg(feature = "std")]
+pub use super::error;
 
-use self::error::*;
+use error::{Result, Error};
 
 use std::io::Read;
 use std::usize;
@@ -80,9 +81,9 @@ impl Header {
         buffer.gread_inout(offset, &mut terminator)?;
         let file_size = match usize::from_str_radix(file_size_str.trim_right(), 10) {
             Ok(file_size) => file_size,
-            Err(err) => return Err(format!("{:?} Bad file_size {:?} at offset 0x{:X}: {:?} {:?} {:?} {:?} {:?} {:?}",
+            Err(err) => return Err(Error::Malformed(format!("{:?} Bad file_size {:?} at offset 0x{:X}: {:?} {:?} {:?} {:?} {:?} {:?}",
                 err, &file_size_str, file_size_pos, file_identifier, file_modification_timestamp, owner_id, group_id,
-                file_mode, &file_size_str).into()),
+                file_mode, &file_size_str)).into()),
         };
         Ok(Header {
             identifier: file_identifier,

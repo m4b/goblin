@@ -1,6 +1,6 @@
 //! The mach module: Work in Progress!
 
-extern crate scroll;
+use scroll;
 
 pub mod header;
 pub mod constants;

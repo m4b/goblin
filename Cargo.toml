@@ -11,16 +11,12 @@ description = "An impish, cross-platform binary parsing and loading crate"
 [lib]
 
 [dependencies.quick-error]
-version = "*"
-
-[dependencies.error-chain]
-default_features = false
-version = "0.7.1"
+version = "1.1.0"
 
 [dependencies.scroll]
-version = "*"
+version = "0.2.0"
 optional = true
-path = "../scroll"
+git = "https://github.com/m4b/scroll"
 
 [features]
 default = ["std", "elf32", "elf64", "mach32", "mach64", "pe32", "pe64", "goblin", "endian_fd", "archive"]

@@ -259,7 +259,7 @@ macro_rules! elf_header_impure_impl {
                 }
             }
 
-            impl<T> scroll::TryFromCtx<(usize, scroll::Endian), T> for Header where T: scroll::Gread {
+            impl<T> scroll::ctx::TryFromCtx<(usize, scroll::Endian), T> for Header where T: scroll::Gread {
                 type Error = error::Error;
                 fn try_from_ctx(buffer: &T, _ctx: (usize, scroll::Endian)) -> ::core::result::Result<Self, Self::Error> {
                     //use scroll::Gread;

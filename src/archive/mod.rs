@@ -327,7 +327,7 @@ impl Archive {
     /// Returns a slice of the raw bytes for the given `member` in the scrollable `buffer`
     pub fn extract<'a, R: scroll::Pread> (&self, member: &str, buffer: &'a R) -> Result<&'a [u8]> {
         if let Some(member) = self.get(member) {
-            let bytes: &[u8] = buffer.pread_slice(member.offset as usize, member.size())?;
+            let bytes = buffer.pread_slice(member.offset as usize, member.size())?;
             Ok(bytes)
         } else {
             Err(format!("Cannot extract member {}, not found", member).into())

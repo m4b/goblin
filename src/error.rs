@@ -19,8 +19,8 @@ quick_error! {
             from(String)
         }
         Malformed(msg: String) {
-            description("Binary is malformed in some way")
-                display("Malformed binary: {}", msg)
+            description("Entity is malformed in some way")
+                display("Malformed entity: {}", msg)
         }
     }
 }

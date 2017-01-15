@@ -377,7 +377,7 @@ mod tests {
                                                     0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x38,
                                                     0x32, 0x34, 0x34, 0x20, 0x20, 0x20, 0x20,
                                                     0x20, 0x20, 0x60, 0x0a];
-        let buffer = scroll::Buffer::from(&file_header[..]);
+        let buffer = scroll::Buffer::new(&file_header[..]);
         match Header::parse(&buffer, &mut 0) {
             Err(_) => assert!(false),
             Ok(file_header2) => {
@@ -398,7 +398,7 @@ mod tests {
         let crt1a: Vec<u8> = include!("../../etc/crt1a.rs");
         const START: &'static str = "_start";
         let len = crt1a.len();
-        let buffer = scroll::Buffer::from(crt1a);
+        let buffer = scroll::Buffer::new(crt1a);
         match Archive::parse(&buffer, len) {
             Ok(archive) => {
                 assert_eq!(archive.member_of_symbol(START), Some("crt1.o"));

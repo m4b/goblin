@@ -508,7 +508,7 @@ mod tests {
     #[test]
     fn endian_trait_parse() {
         let crt1: Vec<u8> = include!("../../etc/crt1.rs");
-        let buffer = scroll::Buffer::from(crt1);
+        let buffer = scroll::Buffer::new(crt1);
         match Elf::parse(&buffer) {
             Ok (binary) => {
                 assert!(binary.is_64);

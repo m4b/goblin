@@ -187,7 +187,9 @@ macro_rules! elf_header_impure_impl {
             use elf::error;
 
             use core::fmt;
-            use scroll;
+            use core::result;
+
+            use scroll::{self, ctx};
             use std::fs::File;
             use std::io::{Read};
 
@@ -259,20 +261,18 @@ macro_rules! elf_header_impure_impl {
                 }
             }
 
-            impl<T> scroll::ctx::TryFromCtx<(usize, scroll::Endian), T> for Header where T: scroll::Gread {
+            impl ctx::TryFromCtx<(usize, scroll::Endian)> for Header {
                 type Error = error::Error;
-                fn try_from_ctx(buffer: &T, _ctx: (usize, scroll::Endian)) -> ::core::result::Result<Self, Self::Error> {
-                    //use scroll::Gread;
+                fn try_from_ctx(buffer: &[u8], (mut offset, _): (usize, scroll::Endian)) -> result::Result<Self, Self::Error> {
+                    use scroll::Gread;
                     let mut elf_header = Header::default();
-                    let mut offset = &mut 0;
-                    for i in 0..SIZEOF_IDENT {
-                        elf_header.e_ident[i] = buffer.gread_into(&mut offset)?;
-                    }
+                    let mut offset = &mut offset;
+                    buffer.gread_inout(offset, &mut elf_header.e_ident)?;
                     let endianness =
                         match elf_header.e_ident[EI_DATA] {
                             ELFDATA2LSB => scroll::LE,
                             ELFDATA2MSB => scroll::BE,
-                            d => return Err(Error::Malformed(format!("invalid ELF DATA type {:x}", d)).into()),
+                            d => return Err(Error::Malformed(format!("invalid ELF endianness DATA type {:x}", d)).into()),
                         };
                     elf_header.e_type =      buffer.gread(offset, endianness)?;
                     elf_header.e_machine =   buffer.gread(offset, endianness)?;

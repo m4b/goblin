@@ -332,7 +332,7 @@ mod impure {
 
     macro_rules! parse_impl {
     ($class:ident, $fd:ident) => {{
-        let header = $class::header::Header::parse($fd)?;
+        let header = $fd.pread_into::<$class::header::Header>(0)?;
         let entry = header.e_entry as usize;
         let is_lib = header.e_type == $class::header::ET_DYN;
         let is_lsb = header.e_ident[$class::header::EI_DATA] == $class::header::ELFDATA2LSB;
@@ -474,7 +474,7 @@ println!("sh_relocs {:?}", sh_relocs);
 
     impl Elf {
         /// Parses the contents of the byte stream in `buffer`, and maybe returns a unified binary
-        pub fn parse<S: scroll::Gread>(buffer: &S) -> Result<Self> {
+        pub fn parse<S: scroll::Gread + scroll::Pread<Error>>(buffer: &S) -> Result<Self> {
             match header::peek(buffer)? {
                 (header::ELFCLASS32, _is_lsb) => {
                     parse_impl!(elf32, buffer)

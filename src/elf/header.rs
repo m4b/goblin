@@ -20,7 +20,7 @@ pub trait ElfHeader {
 macro_rules! elf_header {
     ($size:ident) => {
         #[repr(C)]
-        #[derive(Clone, Copy, Default)]
+        #[derive(Clone, Copy, Default, PartialEq)]
         pub struct Header {
             /// Magic number and other info
             pub e_ident: [u8; SIZEOF_IDENT],
@@ -152,28 +152,6 @@ mod impure {
     }
 }
 
-macro_rules! elf_header_test_peek {
-    ($class:expr) => {
-        #[cfg(test)]
-        mod tests {
-            use super::*;
-            use scroll::Buffer;
-            #[test]
-            fn test_peek () {
-                let v = vec![0x7f, 0x45, 0x4c, 0x46, $class, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x3e, 0x00, 0x01, 0x00, 0x00, 0x00, 0x70, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x8c];
-                let header = Buffer::new(v);
-                match peek(&header) {
-                    Err(_) => assert!(false),
-                    Ok((class, is_lsb)) => {
-                        assert_eq!(true, is_lsb);
-                        assert_eq!(class, $class)
-                    }
-                }
-            }
-        }
-    }
-}
-
 macro_rules! elf_header_impure_impl {
     ($size:expr) => {
         #[cfg(feature = "std")]
@@ -291,6 +269,37 @@ macro_rules! elf_header_impure_impl {
                 }
             }
 
+            impl ctx::TryIntoCtx for Header {
+                type Error = scroll::Error;
+                /// a Pwrite impl for Header: **note** we use the endianness value in the header, and not a parameter
+                fn try_into_ctx(self, mut bytes: &mut [u8], (mut offset, _endianness): (usize, scroll::Endian)) -> result::Result<(), Self::Error> {
+                    use scroll::{Gwrite};
+                    let mut offset = &mut offset;
+                    let endianness =
+                        match self.e_ident[EI_DATA] {
+                            ELFDATA2LSB => scroll::LE,
+                            ELFDATA2MSB => scroll::BE,
+                            d => return Err(scroll::Error::BadInput(format!("invalid ELF endianness DATA type {:x}", d)).into()),
+                        };
+                    for i in 0..self.e_ident.len() {
+                        bytes.gwrite_into(self.e_ident[i], offset)?;
+                    }
+                    bytes.gwrite(self.e_type      , offset, endianness)?;
+                    bytes.gwrite(self.e_machine   , offset, endianness)?;
+                    bytes.gwrite(self.e_version   , offset, endianness)?;
+                    bytes.gwrite(self.e_entry     , offset, endianness)?;
+                    bytes.gwrite(self.e_phoff     , offset, endianness)?;
+                    bytes.gwrite(self.e_shoff     , offset, endianness)?;
+                    bytes.gwrite(self.e_flags     , offset, endianness)?;
+                    bytes.gwrite(self.e_ehsize    , offset, endianness)?;
+                    bytes.gwrite(self.e_phentsize , offset, endianness)?;
+                    bytes.gwrite(self.e_phnum     , offset, endianness)?;
+                    bytes.gwrite(self.e_shentsize , offset, endianness)?;
+                    bytes.gwrite(self.e_shnum     , offset, endianness)?;
+                    bytes.gwrite(self.e_shstrndx  , offset, endianness)
+                }
+            }
+
             impl Header {
 
                 /// Load a header from a file. **You must** ensure the seek is at the correct position.
@@ -332,4 +341,47 @@ macro_rules! elf_header_impure_impl {
             }
         }
     };
+}
+
+// tests
+
+macro_rules! elf_header_test {
+    ($class:expr) => {
+        #[cfg(test)]
+        mod test {
+            extern crate scroll;
+            use scroll::{Pwrite, Pread};
+            use super::*;
+            use scroll::Buffer;
+            #[test]
+            fn test_peek () {
+                let v = vec![0x7f, 0x45, 0x4c, 0x46, $class, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x3e, 0x00, 0x01, 0x00, 0x00, 0x00, 0x70, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x8c];
+                let header = Buffer::new(v);
+                match peek(&header) {
+                    Err(_) => assert!(false),
+                    Ok((class, is_lsb)) => {
+                        assert_eq!(true, is_lsb);
+                        assert_eq!(class, $class)
+                    }
+                }
+            }
+
+            #[test]
+            fn header_read_write () {
+                let crt1: Vec<u8> =
+                    if $class == ELFCLASS64 {
+                        include!("../../../etc/crt1.rs")
+                    } else {
+                        include!("../../../etc/crt132.rs")
+                    };
+                let header: Header = crt1.pread_into(0).unwrap();
+                assert_eq!(header.e_type, ET_REL);
+                println!("header: {:?}", &header);
+                let mut bytes = [0u8; SIZEOF_EHDR];
+                bytes.pwrite_into(header, 0).unwrap();
+                let header2: Header = bytes.pread_into(0).unwrap();
+                assert_eq!(header, header2);
+            }
+        }
+    }
 }

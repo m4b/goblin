@@ -363,12 +363,7 @@ mod impure {
             if ph.p_type == $class::program_header::PT_INTERP {
                 let count = (ph.p_filesz - 1) as usize;
                 let offset = ph.p_offset as usize;
-                let bytes = Vec::from($fd.pread_slice::<[u8]>(offset, count)?);
-                // let mut bytes = vec![0u8; ];
-                // try!($fd.seek(Start(ph.p_offset as u64)));
-                // try!($fd.read(&mut bytes));
-                // TODO: remove this unwrap
-                interpreter = Some(String::from_utf8(bytes).unwrap())
+                interpreter = Some($fd.pread_slice::<str>(offset, count)?.to_string());
             }
         }
 
@@ -496,6 +491,15 @@ println!("sh_relocs {:?}", sh_relocs);
             let buffer = scroll::Buffer::try_from(fd)?;
             Elf::parse(&buffer)
         }
+    }
+}
+
+use scroll::{ctx, Endian};
+
+impl<'a> ctx::TryFromCtx<'a> for Elf {
+    type Error = error::Error;
+    fn try_from_ctx(src: &'a [u8], (_, _): (usize, Endian)) -> Result<Self, Self::Error> {
+        Elf::parse(&src)
     }
 }
 

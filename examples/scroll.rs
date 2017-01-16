@@ -7,7 +7,7 @@
 extern crate scroll;
 extern crate goblin;
 
-use goblin::{error, elf64};
+use goblin::{error, elf64, elf};
 use scroll::Pread;
 
 fn run () -> error::Result<()> {
@@ -16,6 +16,10 @@ fn run () -> error::Result<()> {
     let header: elf64::header::Header = crt1.pread_into(0)?;
     assert_eq!(header.e_type, elf64::header::ET_REL);
     println!("header: {:?}", &header);
+    // but wait, lets just pread the entire binary...
+    let elf: elf::Elf = crt1.pread_into(0)?;
+    // yup, that.just.happened.
+    println!("elf: {:#?}", &elf);
     Ok(())
 } 
 

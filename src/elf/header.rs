@@ -261,9 +261,9 @@ macro_rules! elf_header_impure_impl {
                 }
             }
 
-            impl ctx::TryFromCtx<(usize, scroll::Endian)> for Header {
+            impl<'a> ctx::TryFromCtx<'a> for Header {
                 type Error = error::Error;
-                fn try_from_ctx(buffer: &[u8], (mut offset, _): (usize, scroll::Endian)) -> result::Result<Self, Self::Error> {
+                fn try_from_ctx(buffer: &'a [u8], (mut offset, _): (usize, scroll::Endian)) -> result::Result<Self, Self::Error> {
                     use scroll::Gread;
                     let mut elf_header = Header::default();
                     let mut offset = &mut offset;

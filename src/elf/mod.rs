@@ -5,11 +5,11 @@
 //!
 //! # Example
 //!
-//! ```rust, no_run
+//! ```rust
 //! use std::fs::File;
 //!
-//! pub fn read (fd: &mut File) {
-//!   match goblin::elf::Elf::parse(fd) {
+//! pub fn read (bytes: &[u8]) {
+//!   match goblin::elf::Elf::parse(&bytes) {
 //!     Ok(binary) => {
 //!       let entry = binary.entry;
 //!       for ph in binary.program_headers {

@@ -427,9 +427,9 @@ mod tests {
                       for member in archive.members() {
                           if member.starts_with("goblin") && member.ends_with("0.o") {
                               assert_eq!(archive.member_of_symbol("wow_so_meta_doge_symbol"), Some(member.as_str()));
-                              match archive.extract(member.as_str(), &mut fd) {
+                              match archive.extract(member.as_str(), &buffer) {
                                   Ok(bytes) => {
-                                      match elf::Elf::parse(&mut Cursor::new(&bytes)) {
+                                      match elf::Elf::parse::<scroll::Buffer>(&scroll::Buffer::new(bytes)) {
                                           Ok(elf) => {
                                               assert!(elf.entry == 0);
                                               assert!(elf.bias == 0);

@@ -87,36 +87,7 @@ pub fn pt_to_str(pt: u32) -> &'static str {
     }
 }
 
-macro_rules! elf_program_header_from_bytes { () => {
-        pub fn from_bytes(bytes: &[u8], phnum: usize) -> Vec<ProgramHeader> {
-            let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut ProgramHeader, phnum) };
-            let mut phdrs = Vec::with_capacity(phnum);
-            phdrs.extend_from_slice(bytes);
-            phdrs
-        }};}
-
-macro_rules! elf_program_header_from_raw_parts { () => {
-        pub unsafe fn from_raw_parts<'a>(phdrp: *const ProgramHeader,
-                                         phnum: usize)
-                                         -> &'a [ProgramHeader] {
-            slice::from_raw_parts(phdrp, phnum)
-        }};}
-
-macro_rules! elf_program_header_from_fd { () => {
-        pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> Result<Vec<ProgramHeader>> {
-            let mut phdrs = vec![0u8; count * SIZEOF_PHDR];
-            try!(fd.seek(Start(offset)));
-            try!(fd.read(&mut phdrs));
-            Ok(ProgramHeader::from_bytes(&phdrs, count))
-        }
-    };}
-
-macro_rules! elf_program_header_from_endian { ($from_endian:item) => {
-        #[cfg(feature = "endian_fd")]
-        $from_endian
-    };}
-
-macro_rules! elf_program_header_impure_impl { ($header:item) => {
+macro_rules! elf_program_header_impure_impl { () => {
 
         #[cfg(feature = "std")]
         pub use self::impure::*;
@@ -178,6 +149,36 @@ macro_rules! elf_program_header_impure_impl { ($header:item) => {
                            self.p_align)
                 }
             }
-            $header
+
+            impl ProgramHeader {
+                #[cfg(feature = "endian_fd")]
+                pub fn parse<S: scroll::Gread>(fd: &S, mut offset: usize, count: usize, endianness: scroll::Endian) -> Result<Vec<ProgramHeader>> {
+                    let mut program_headers = vec![ProgramHeader::default(); count];
+                    let mut offset = &mut offset;
+                    fd.gread_inout_with(offset, &mut program_headers, endianness)?;
+                    Ok(program_headers)
+                }
+
+
+                pub fn from_bytes(bytes: &[u8], phnum: usize) -> Vec<ProgramHeader> {
+                    let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut ProgramHeader, phnum) };
+                    let mut phdrs = Vec::with_capacity(phnum);
+                    phdrs.extend_from_slice(bytes);
+                    phdrs
+                }
+
+                pub unsafe fn from_raw_parts<'a>(phdrp: *const ProgramHeader,
+                                                 phnum: usize)
+                                                 -> &'a [ProgramHeader] {
+                    slice::from_raw_parts(phdrp, phnum)
+                }
+
+                pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> Result<Vec<ProgramHeader>> {
+                    let mut phdrs = vec![0u8; count * SIZEOF_PHDR];
+                    try!(fd.seek(Start(offset)));
+                    try!(fd.read(&mut phdrs));
+                    Ok(ProgramHeader::from_bytes(&phdrs, count))
+                }
+            }
         }
     };}

@@ -339,9 +339,7 @@ mod impure {
         let endianness = scroll::Endian::from(is_lsb);
         let is_64 = header.e_ident[$class::header::EI_CLASS] == $class::header::ELFCLASS64;
 
-        let mut program_headers = vec![$class::program_header::ProgramHeader::default(); header.e_phnum as usize];
-        let mut offset = &mut (header.e_phoff as usize);
-        $fd.gread_inout_with(offset, &mut program_headers, endianness)?;
+        let program_headers = $class::program_header::ProgramHeader::parse($fd, header.e_phoff as usize, header.e_phnum as usize, endianness)?;
 
         let dynamic = $class::dyn::parse($fd, &program_headers, endianness)?;
 

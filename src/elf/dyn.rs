@@ -398,8 +398,8 @@ macro_rules! elf_dyn_impure_impl {
                 }
 
                 #[cfg(feature = "endian_fd")]
-                /// Returns a vector of dynamic entries from the given `R: Read` and program headers
-                pub fn parse<S: scroll::Gread> (fd: &S, phdrs: &[ProgramHeader], endianness: scroll::Endian) -> Result<Option<Vec<Dyn>>> {
+                /// Returns a vector of dynamic entries from the underlying byte `buffer`, with `endianness`, using the provided `phdrs`
+                pub fn parse<S: scroll::Gread> (buffer: &S, phdrs: &[ProgramHeader], endianness: scroll::Endian) -> Result<Option<Vec<Dyn>>> {
                     for phdr in phdrs {
                         if phdr.p_type == PT_DYNAMIC {
                             let filesz = phdr.p_filesz as usize;
@@ -407,7 +407,7 @@ macro_rules! elf_dyn_impure_impl {
                             let mut dyns = Vec::with_capacity(dync);
                             let mut offset = &mut (phdr.p_offset as usize);
                             for _ in 0..dync {
-                                let dyn = fd.gread(offset, endianness)?;
+                                let dyn = buffer.gread(offset, endianness)?;
                                 dyns.push(dyn);
                             }
                             return Ok(Some(dyns));

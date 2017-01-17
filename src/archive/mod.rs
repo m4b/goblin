@@ -239,9 +239,7 @@ impl Archive {
         buffer.gread_inout(offset, &mut magic)?;
         if &magic != MAGIC {
             use scroll::Pread;
-            return Err(Error::BadMagic(magic.pread(0, scroll::LE)?).into());
-            // i can't use pread_into here which is awesome
-            //return Err(Error::BadMagic(magic.pread_into(0)?).into());
+            return Err(Error::BadMagic(magic.pread_into(0)?).into());
         }
         let mut member_array = Vec::new();
         let size = size as u64;

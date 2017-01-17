@@ -369,9 +369,7 @@ mod impure {
             }
         }
 
-        let mut section_headers = vec![$class::section_header::SectionHeader::default(); header.e_shnum as usize];
-        let mut offset = &mut (header.e_shoff as usize);
-        $fd.gread_inout_with(offset, &mut section_headers, endianness)?;
+        let section_headers = $class::section_header::SectionHeader::parse($fd, header.e_shoff as usize, header.e_shnum as usize, endianness)?;
 
         let mut syms = vec![];
         let mut strtab = $class::strtab::Strtab::default();

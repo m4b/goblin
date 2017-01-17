@@ -219,36 +219,7 @@ pub fn sht_to_str(sht: u32) -> &'static str {
     }
 }
 
-macro_rules! elf_section_header_from_bytes { () => {
-        pub fn from_bytes(bytes: &[u8], shnum: usize) -> Vec<SectionHeader> {
-            let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut SectionHeader, shnum) };
-            let mut shdrs = Vec::with_capacity(shnum);
-            shdrs.extend_from_slice(bytes);
-            shdrs
-        }};}
-
-macro_rules! elf_section_header_from_raw_parts { () => {
-        pub unsafe fn from_raw_parts<'a>(shdrp: *const SectionHeader,
-                                         shnum: usize)
-                                         -> &'a [SectionHeader] {
-            slice::from_raw_parts(shdrp, shnum)
-        }};}
-
-macro_rules! elf_section_header_from_fd { () => {
-        pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> Result<Vec<SectionHeader>> {
-            let mut shdrs = vec![0u8; count * SIZEOF_SHDR];
-            try!(fd.seek(Start(offset)));
-            try!(fd.read(&mut shdrs));
-            Ok(SectionHeader::from_bytes(&shdrs, count))
-        }
-    };}
-
-macro_rules! elf_section_header_from_endian { ($from_endian:item) => {
-        #[cfg(feature = "endian_fd")]
-        $from_endian
-    };}
-
-macro_rules! elf_section_header_impure_impl { ($header:item) => {
+macro_rules! elf_section_header_impure_impl { () => {
 
         #[cfg(feature = "std")]
         pub use self::impure::*;
@@ -327,6 +298,36 @@ macro_rules! elf_section_header_impure_impl { ($header:item) => {
                            self.sh_entsize)
                 }
             }
-            $header
+
+            impl SectionHeader {
+                pub fn from_bytes(bytes: &[u8], shnum: usize) -> Vec<SectionHeader> {
+                    let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut SectionHeader, shnum) };
+                    let mut shdrs = Vec::with_capacity(shnum);
+                    shdrs.extend_from_slice(bytes);
+                    shdrs
+                }
+
+                pub unsafe fn from_raw_parts<'a>(shdrp: *const SectionHeader,
+                                                 shnum: usize)
+                                                 -> &'a [SectionHeader] {
+                    slice::from_raw_parts(shdrp, shnum)
+                }
+
+                pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> Result<Vec<SectionHeader>> {
+                    let mut shdrs = vec![0u8; count * SIZEOF_SHDR];
+                    try!(fd.seek(Start(offset)));
+                    try!(fd.read(&mut shdrs));
+                    Ok(SectionHeader::from_bytes(&shdrs, count))
+                }
+
+
+                #[cfg(feature = "endian_fd")]
+                pub fn parse<S: scroll::Gread>(bytes: &S, mut offset: usize, count: usize, endianness: scroll::Endian) -> Result<Vec<SectionHeader>> {
+                    let mut section_headers = vec![SectionHeader::default(); count];
+                    let mut offset = &mut offset;
+                    bytes.gread_inout_with(offset, &mut section_headers, endianness)?;
+                    Ok(section_headers)
+                }
+            }
         }
     };}

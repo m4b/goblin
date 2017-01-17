@@ -119,113 +119,120 @@ pub fn type_to_str(typ: u8) -> &'static str {
 }
 
 macro_rules! elf_sym_impure_impl {
-        ($from_endian:item) => {
+    () => {
 
-            #[cfg(feature = "std")]
-            pub use self::impure::*;
+        #[cfg(feature = "std")]
+        pub use self::impure::*;
 
-            #[cfg(feature = "std")]
-            mod impure {
-                use super::*;
-                use elf::error::*;
+        #[cfg(feature = "std")]
+        mod impure {
+            use super::*;
+            use elf::error::*;
 
-                use core::fmt;
-                use core::slice;
+            use core::fmt;
+            use core::slice;
 
-                use scroll;
-                use std::fs::File;
-                use std::io::{Read, Seek};
-                use std::io::SeekFrom::Start;
+            use scroll;
+            use std::fs::File;
+            use std::io::{Read, Seek};
+            use std::io::SeekFrom::Start;
 
-                impl ElfSym for Sym {
-                    fn st_name(&self) -> usize {
-                        self.st_name as usize
-                    }
-                    fn st_info(&self) -> u8 {
-                        self.st_info
-                    }
-                    fn st_other(&self) -> u8 {
-                        self.st_other
-                    }
-                    fn st_shndx(&self) -> usize {
-                        self.st_shndx as usize
-                    }
-                    fn st_value(&self) -> u64 {
-                        self.st_value as u64
-                    }
-                    fn st_size(&self) -> u64 {
-                        self.st_size as u64
-                    }
-                    fn is_function(&self) -> bool {
-                        self.is_function()
-                    }
-                    fn is_import(&self) -> bool {
-                        self.is_import()
-                    }
-                    /// Get the ST binding.
-                    ///
-                    /// This is the first four bits of the byte.
-                    #[inline]
-                    fn st_bind(&self) -> u8 {
-                        self.st_info() >> 4
-                    }
-                    /// Get the ST type.
-                    ///
-                    /// This is the last four bits of the byte.
-                    #[inline]
-                    fn st_type(&self) -> u8 {
-                        self.st_info() & 0xf
-                    }
+            impl ElfSym for Sym {
+                fn st_name(&self) -> usize {
+                    self.st_name as usize
                 }
-
-                impl Sym {
-                   /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` binding and a `st_value` of 0
-                   pub fn is_import(&self) -> bool {
-                     let binding = self.st_info >> 4;
-                     (binding == STB_GLOBAL || binding == STB_WEAK) && self.st_value == 0
-                   }
-                   /// Checks whether this `Sym` has type `STT_FUNC`
-                   pub fn is_function(&self) -> bool {
-                     st_type(self.st_info) == STT_FUNC
-                   }
+                fn st_info(&self) -> u8 {
+                    self.st_info
                 }
-
-                impl fmt::Debug for Sym {
-                    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                        let bind = st_bind(self.st_info);
-                        let typ = st_type(self.st_info);
-                        write!(f,
-                               "st_name: {} {} {} st_other: {} st_shndx: {} st_value: {:x} st_size: {}",
-                               self.st_name,
-                               bind_to_str(bind),
-                               type_to_str(typ),
-                               self.st_other,
-                               self.st_shndx,
-                               self.st_value,
-                               self.st_size)
-                    }
+                fn st_other(&self) -> u8 {
+                    self.st_other
                 }
-
-                pub unsafe fn from_raw<'a>(symp: *const Sym, count: usize) -> &'a [Sym] {
-                    slice::from_raw_parts(symp, count)
+                fn st_shndx(&self) -> usize {
+                    self.st_shndx as usize
                 }
-
-                pub fn from_fd<'a>(fd: &mut File, offset: usize, count: usize) -> Result<Vec<Sym>> {
-                    // TODO: AFAIK this shouldn't work, since i pass in a byte size...
-                    // FIX THIS, unecessary allocations + unsafety here
-                    let mut bytes = vec![0u8; count * SIZEOF_SYM];
-                    try!(fd.seek(Start(offset as u64)));
-                    try!(fd.read(&mut bytes));
-                    let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Sym, count) };
-                    let mut syms = Vec::with_capacity(count);
-                    syms.extend_from_slice(bytes);
-                    syms.dedup();
-                    Ok(syms)
+                fn st_value(&self) -> u64 {
+                    self.st_value as u64
                 }
-
-                #[cfg(feature = "endian_fd")]
-                $from_endian
-
+                fn st_size(&self) -> u64 {
+                    self.st_size as u64
+                }
+                fn is_function(&self) -> bool {
+                    self.is_function()
+                }
+                fn is_import(&self) -> bool {
+                    self.is_import()
+                }
+                /// Get the ST binding.
+                ///
+                /// This is the first four bits of the byte.
+                #[inline]
+                fn st_bind(&self) -> u8 {
+                    self.st_info() >> 4
+                }
+                /// Get the ST type.
+                ///
+                /// This is the last four bits of the byte.
+                #[inline]
+                fn st_type(&self) -> u8 {
+                    self.st_info() & 0xf
+                }
             }
-        };
-    }
+
+            impl Sym {
+                /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` binding and a `st_value` of 0
+                pub fn is_import(&self) -> bool {
+                    let binding = self.st_info >> 4;
+                    (binding == STB_GLOBAL || binding == STB_WEAK) && self.st_value == 0
+                }
+                /// Checks whether this `Sym` has type `STT_FUNC`
+                pub fn is_function(&self) -> bool {
+                    st_type(self.st_info) == STT_FUNC
+                }
+            }
+
+            impl fmt::Debug for Sym {
+                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    let bind = st_bind(self.st_info);
+                    let typ = st_type(self.st_info);
+                    write!(f,
+                           "st_name: {} {} {} st_other: {} st_shndx: {} st_value: {:x} st_size: {}",
+                           self.st_name,
+                           bind_to_str(bind),
+                           type_to_str(typ),
+                           self.st_other,
+                           self.st_shndx,
+                           self.st_value,
+                           self.st_size)
+                }
+            }
+
+            pub unsafe fn from_raw<'a>(symp: *const Sym, count: usize) -> &'a [Sym] {
+                slice::from_raw_parts(symp, count)
+            }
+
+            pub fn from_fd<'a>(fd: &mut File, offset: usize, count: usize) -> Result<Vec<Sym>> {
+                // TODO: AFAIK this shouldn't work, since i pass in a byte size...
+                // FIX THIS, unecessary allocations + unsafety here
+                let mut bytes = vec![0u8; count * SIZEOF_SYM];
+                try!(fd.seek(Start(offset as u64)));
+                try!(fd.read(&mut bytes));
+                let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Sym, count) };
+                let mut syms = Vec::with_capacity(count);
+                syms.extend_from_slice(bytes);
+                syms.dedup();
+                Ok(syms)
+            }
+
+            #[cfg(feature = "endian_fd")]
+            pub fn parse<S: scroll::Gread>(bytes: &S, mut offset: usize, count: usize, endianness: scroll::Endian) -> Result<Vec<Sym>> {
+                let mut syms = Vec::with_capacity(count);
+                let mut offset = &mut offset;
+                for _ in 0..count {
+                    let sym = bytes.gread(offset, endianness)?;
+                    syms.push(sym);
+                }
+                Ok(syms)
+            }
+        }
+    };
+}

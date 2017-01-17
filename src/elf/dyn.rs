@@ -274,7 +274,7 @@ pub const DF_1_GLOBAUDIT: u64 = 0x01000000;
 pub const DF_1_SINGLETON: u64 = 0x02000000;
 
 macro_rules! elf_dyn_impure_impl {
-        ($size:ident, $from_endian:item) => {
+        ($size:ident) => {
 
             #[cfg(feature = "std")]
             pub use self::impure::*;
@@ -399,8 +399,22 @@ macro_rules! elf_dyn_impure_impl {
 
                 #[cfg(feature = "endian_fd")]
                 /// Returns a vector of dynamic entries from the given `R: Read` and program headers
-                $from_endian
-
+                pub fn parse<S: scroll::Gread> (fd: &S, phdrs: &[ProgramHeader], endianness: scroll::Endian) -> Result<Option<Vec<Dyn>>> {
+                    for phdr in phdrs {
+                        if phdr.p_type == PT_DYNAMIC {
+                            let filesz = phdr.p_filesz as usize;
+                            let dync = filesz / SIZEOF_DYN;
+                            let mut dyns = Vec::with_capacity(dync);
+                            let mut offset = &mut (phdr.p_offset as usize);
+                            for _ in 0..dync {
+                                let dyn = fd.gread(offset, endianness)?;
+                                dyns.push(dyn);
+                            }
+                            return Ok(Some(dyns));
+                        }
+                    }
+                    Ok(None)
+                }
             }
 
             /// Important dynamic linking info generated via a single pass through the `_DYNAMIC` array

@@ -7,16 +7,13 @@ quick_error! {
         Io(err: ::std::io::Error) {
             from()
         }
+        #[cfg(feature = "endian_fd")]
         Scroll(err: scroll::Error) {
             from()
         }
         BadMagic(magic: u64) {
             description("Invalid magic number")
                 display("Invalid magic number: 0x{:x}", magic)
-        }
-        // TODO: remove this, hack for archive
-        BadFile {
-            from(String)
         }
         Malformed(msg: String) {
             description("Entity is malformed in some way")

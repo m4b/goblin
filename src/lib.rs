@@ -47,6 +47,7 @@ mod macros;
 #[macro_use]
 pub mod elf;
 
+#[cfg(feature = "std")]
 pub mod error;
 
 // if racer gets path understanding, i think this is the way to go; it hides everything from the

@@ -206,11 +206,11 @@ impl NameIndex {
                 if name != "" {
                     Ok(name.trim_right_matches('/'))
                 }  else {
-                    return Err(format!("Could not find {:?} in index", name).into())
+                    return Err(Error::Malformed(format!("Could not find {:?} in index", name).into()));
                 }
             },
             Err (_) => {
-                return Err(format!("Bad name index: {:?}", name).into())
+                return Err(Error::Malformed(format!("Bad name index {:?} in index", name).into()));
             }
         }
     }
@@ -328,7 +328,7 @@ impl Archive {
             let bytes = buffer.pread_slice(member.offset as usize, member.size())?;
             Ok(bytes)
         } else {
-            Err(format!("Cannot extract member {}, not found", member).into())
+            Err(Error::Malformed(format!("Cannot extract member {:?}", member).into()))
         }
     }
 

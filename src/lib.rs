@@ -30,6 +30,10 @@
 #[cfg(feature = "endian_fd")]
 extern crate scroll;
 
+#[cfg(feature = "endian_fd")]
+#[macro_use]
+extern crate scroll_derive;
+
 #[macro_use]
 extern crate quick_error;
 

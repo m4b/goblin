@@ -339,9 +339,12 @@ mod impure {
         let endianness = scroll::Endian::from(is_lsb);
         let is_64 = header.e_ident[$class::header::EI_CLASS] == $class::header::ELFCLASS64;
 
-        let program_headers = $class::program_header::ProgramHeader::parse($fd, header.e_phoff as u64, header.e_phnum as usize, endianness)?;
+        let mut program_headers = vec![$class::program_header::ProgramHeader::default(); header.e_phnum as usize];
+        let mut offset = &mut (header.e_phoff as usize);
+        $fd.gread_inout_with(offset, &mut program_headers, endianness)?;
 
         let dynamic = $class::dyn::parse($fd, &program_headers, endianness)?;
+
         let mut bias: usize = 0;
         for ph in &program_headers {
             if ph.p_type == $class::program_header::PT_LOAD {
@@ -354,6 +357,7 @@ mod impure {
                 // C code (a whole other class of C code) and having to deal with broken older
                 // kernels on VMs. enjoi
                 bias = ((intmax!($class) - ph.p_vaddr).wrapping_add(1)) as usize;
+                // we must grab only the first one, otherwise the bias will be incorrect
                 break;
             }
         }
@@ -367,7 +371,9 @@ mod impure {
             }
         }
 
-        let section_headers = $class::section_header::SectionHeader::parse($fd, header.e_shoff as u64, header.e_shnum as usize, endianness)?;
+        let mut section_headers = vec![$class::section_header::SectionHeader::default(); header.e_shnum as usize];
+        let mut offset = &mut (header.e_shoff as usize);
+        $fd.gread_inout_with(offset, &mut section_headers, endianness)?;
 
         let mut syms = vec![];
         let mut strtab = $class::strtab::Strtab::default();
@@ -425,7 +431,6 @@ mod impure {
         let shdr_relocs = {
             let mut relocs = vec![];
             if header.e_type == super::header::ET_REL {
-
                 for section in &section_headers {
                     println!("section {:?}", section);
                     if section.sh_type == super::section_header::SHT_REL {
@@ -521,6 +526,7 @@ mod tests {
                 assert_eq!(binary.bias, 0);
                 let syms = binary.syms;
                 let mut i = 0;
+                assert!(binary.section_headers.len() != 0);
                 for sym in &syms {
                     if i == 11 {
                         let symtab = binary.strtab;

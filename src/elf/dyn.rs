@@ -5,17 +5,18 @@ pub trait ElfDyn {
 }
 
 macro_rules! elf_dyn {
-  ($size:ty) => {
-    #[repr(C)]
-    #[derive(Copy, Clone, PartialEq, Default)]
-    /// An entry in the dynamic array
-    pub struct Dyn {
-        /// Dynamic entry type
-        pub d_tag: $size,
-        /// Integer value
-        pub d_val: $size,
+    ($size:ty) => {
+        #[repr(C)]
+        #[derive(Copy, Clone, PartialEq, Default)]
+        #[cfg_attr(feature = "endian_fd", derive(Pread, Pwrite))]
+        /// An entry in the dynamic array
+        pub struct Dyn {
+            /// Dynamic entry type
+            pub d_tag: $size,
+            /// Integer value
+            pub d_val: $size,
+        }
     }
-}
 }
 
 // TODO: figure out what's the best, most friendly + safe API choice here - u32s or u64s

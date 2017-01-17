@@ -129,6 +129,7 @@ macro_rules! elf_reloc {
     }
     #[repr(C)]
     #[derive(Clone, PartialEq, Default)]
+    #[cfg_attr(feature = "endian_fd", derive(Pread, Pwrite))]
     pub struct Rel {
       /// address
       pub r_offset: $size,

@@ -2,6 +2,7 @@ pub use elf::program_header::*;
 
 #[repr(C)]
 #[derive(Copy, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "endian_fd", derive(Pread, Pwrite))]
 pub struct ProgramHeader {
     /// Segment type
     pub p_type: u32,

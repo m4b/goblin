@@ -26,6 +26,7 @@ macro_rules! elf_section_header {
         ($size:ident) => {
             #[repr(C)]
             #[derive(Copy, Clone, Eq, PartialEq, Default)]
+            #[cfg_attr(feature = "endian_fd", derive(Pread, Pwrite))]
             pub struct SectionHeader {
                 /// Section name (string tbl index)
                 pub sh_name: u32,

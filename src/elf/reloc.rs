@@ -115,63 +115,74 @@ impl fmt::Debug for Reloc {
 }
 
 macro_rules! elf_reloc {
-    ($size:ident, $typ:ty) => {
-    use core::convert::From;
-    #[repr(C)]
-    #[derive(Clone, Copy, PartialEq, Default)]
-    pub struct Rela {
-      /// Address
-      pub r_offset: $size,
-      /// Relocation type and symbol index
-      pub r_info: $size,
-      /// Addend
-      pub r_addend: $typ,
-    }
-    #[repr(C)]
-    #[derive(Clone, PartialEq, Default)]
-    #[cfg_attr(feature = "endian_fd", derive(Pread, Pwrite))]
-    pub struct Rel {
-      /// address
-      pub r_offset: $size,
-      /// relocation type and symbol address
-      pub r_info: $size,
-    }
+    ($size:ident, $isize:ty) => {
+        use core::convert::From;
+        #[repr(C)]
+        #[derive(Clone, Copy, PartialEq, Default)]
+        #[cfg_attr(feature = "endian_fd", derive(Pread, Pwrite))]
+        pub struct Rela {
+            /// Address
+            pub r_offset: $size,
+            /// Relocation type and symbol index
+            pub r_info: $size,
+            /// Addend
+            pub r_addend: $isize,
+        }
+        #[repr(C)]
+        #[derive(Clone, PartialEq, Default)]
+        #[cfg_attr(feature = "endian_fd", derive(Pread, Pwrite))]
+        pub struct Rel {
+            /// address
+            pub r_offset: $size,
+            /// relocation type and symbol address
+            pub r_info: $size,
+        }
 
-    impl From<Rela> for super::reloc::Reloc {
-        fn from(rela: Rela) -> Self {
-            Reloc {
-                r_offset: rela.r_offset as usize,
-                r_info: rela.r_info as usize,
-                r_addend: rela.r_addend as isize,
-                r_sym: r_sym(rela.r_info) as usize,
-                r_type: r_type(rela.r_info),
-                is_rela: true,
+        impl From<Rela> for super::reloc::Reloc {
+            fn from(rela: Rela) -> Self {
+                Reloc {
+                    r_offset: rela.r_offset as usize,
+                    r_info: rela.r_info as usize,
+                    r_addend: rela.r_addend as isize,
+                    r_sym: r_sym(rela.r_info) as usize,
+                    r_type: r_type(rela.r_info),
+                    is_rela: true,
+                }
             }
         }
-    }
 
-    impl From<Rel> for super::reloc::Reloc {
-        fn from(rel: Rel) -> Self {
-            Reloc {
-                r_offset: rel.r_offset as usize,
-                r_info: rel.r_info as usize,
-                r_addend: 0,
-                r_sym: r_sym(rel.r_info) as usize,
-                r_type: r_type(rel.r_info),
-                is_rela: false,
+        impl From<Rel> for super::reloc::Reloc {
+            fn from(rel: Rel) -> Self {
+                Reloc {
+                    r_offset: rel.r_offset as usize,
+                    r_info: rel.r_info as usize,
+                    r_addend: 0,
+                    r_sym: r_sym(rel.r_info) as usize,
+                    r_type: r_type(rel.r_info),
+                    is_rela: false,
+                }
             }
         }
-    }
 
-    };
-    ($size:ident) => {
-      elf_reloc!($size, signed_from_unsigned!($size));
-    };
-}
+        impl From<super::reloc::Reloc> for Rela {
+            fn from(rela: super::reloc::Reloc) -> Self {
+                Rela {
+                    r_offset: rela.r_offset as $size,
+                    r_info: rela.r_info as $size,
+                    r_addend: rela.r_addend as $isize,
+                }
+            }
+        }
 
-macro_rules! signed_from_unsigned {
-  (u32) => {i32};
-  (u64) => {i64}
+        impl From<super::reloc::Reloc> for Rel {
+            fn from(rel: super::reloc::Reloc) -> Self {
+                Rel {
+                    r_offset: rel.r_offset as $size,
+                    r_info: rel.r_info as $size,
+                }
+            }
+        }
+    };
 }
 
 include!("constants_relocation.rs");
@@ -221,6 +232,11 @@ pub fn type_to_str(typ: u32) -> &'static str {
         R_X86_64_RELATIVE64 => "RELATIVE64",
         _ => "UNKNOWN_RELA_TYPE",
     }
+}
+
+macro_rules! signed_from_unsigned {
+  (u32) => {i32};
+  (u64) => {i64}
 }
 
 macro_rules! elf_rela_impure_impl { ($size:ident) => {

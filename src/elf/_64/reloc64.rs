@@ -1,6 +1,6 @@
 pub use elf::reloc::*;
 
-elf_reloc!(u64);
+elf_reloc!(u64, i64);
 
 pub const SIZEOF_RELA: usize = 8 + 8 + 8;
 pub const SIZEOF_REL: usize = 8 + 8;

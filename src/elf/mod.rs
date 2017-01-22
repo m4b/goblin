@@ -68,14 +68,12 @@ pub use self::impure::*;
 #[cfg(all(feature = "std", feature = "elf32", feature = "elf64", feature = "endian_fd"))]
 #[macro_use]
 mod impure {
-    use scroll;
-    use std::fs::File;
-    use std::path::Path;
-    use std::ops::{Deref};
-
-    use elf::error::*;
+    use scroll::{self, ctx, Endian};
+    use std::io::Read;
+    use std::ops::Deref;
     use super::header;
     use super::strtab::Strtab;
+    use super::error;
 
     use elf32;
     use elf64;
@@ -470,7 +468,7 @@ println!("sh_relocs {:?}", sh_relocs);
 
     impl Elf {
         /// Parses the contents of the byte stream in `buffer`, and maybe returns a unified binary
-        pub fn parse<S: scroll::Gread + scroll::Pread<Error>>(buffer: &S) -> Result<Self> {
+        pub fn parse<S: scroll::Gread + scroll::Pread<error::Error>>(buffer: &S) -> error::Result<Self> {
             match header::peek(buffer)? {
                 (header::ELFCLASS32, _is_lsb) => {
                     parse_impl!(elf32, buffer)
@@ -479,28 +477,24 @@ println!("sh_relocs {:?}", sh_relocs);
                     parse_impl!(elf64, buffer)
                 },
                 (class, endianness) => {
-                    Err(Error::Malformed(format!("Unknown values in ELF ident header: class: {} endianness: {}",
+                    Err(error::Error::Malformed(format!("Unknown values in ELF ident header: class: {} endianness: {}",
                           class,
                           endianness)).into())
                 }
             }
         }
-        /// Returns a unified ELF binary from `path`. Allocates an in-memory byte array the size of
-        /// the binary at `path` to increase performance.
-        pub fn from (path: &Path) -> Result<Self> {
-            let fd = File::open(path)?;
+        /// Returns a unified ELF binary from `fd`. Allocates an in-memory byte array the size of the binary in order to increase performance.
+        pub fn try_from<R: Read> (fd: &mut R) -> error::Result<Self> {
             let buffer = scroll::Buffer::try_from(fd)?;
             Elf::parse(&buffer)
         }
     }
-}
 
-use scroll::{ctx, Endian};
-
-impl<'a> ctx::TryFromCtx<'a> for Elf {
-    type Error = error::Error;
-    fn try_from_ctx(src: &'a [u8], (_, _): (usize, Endian)) -> Result<Self, Self::Error> {
-        Elf::parse(&src)
+    impl<'a> ctx::TryFromCtx<'a> for Elf {
+        type Error = error::Error;
+        fn try_from_ctx(src: &'a [u8], (_, _): (usize, Endian)) -> Result<Self, Self::Error> {
+            Elf::parse(&src)
+        }
     }
 }
 

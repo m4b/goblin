@@ -68,3 +68,38 @@ pub mod mach;
 
 #[cfg(feature = "archive")]
 pub mod archive;
+
+#[cfg(feature = "pe32")]
+pub mod pe;
+
+#[derive(Debug, Default)]
+pub struct HintData {
+    is_little_endian: bool,
+    is_64: bool,
+}
+
+#[derive(Debug)]
+pub enum Hint {
+    Elf,
+    Mach,
+    PE,
+    Archive,
+    Unknown,
+}
+
+pub fn peek<R: ::std::io::Read + ::std::io::Seek>(fd: &mut R) -> error::Result<Hint> {
+    use scroll::Pread;
+    use std::io::{SeekFrom};
+    let mut bytes = [0u8; 8];
+    fd.read_exact(&mut bytes)?;
+    fd.seek(SeekFrom::Start(0))?;
+    if &bytes[0..4] == elf::header::ELFMAG {
+        Ok(Hint::Elf)
+    } else if &bytes == archive::MAGIC {
+        Ok(Hint::Archive)
+    } else if (&bytes[0..2]).pread_into::<u16>(0)? == pe::header::DOS_MAGIC {
+        Ok(Hint::PE)
+    } else {
+        Ok(Hint::Unknown)
+    }
+}

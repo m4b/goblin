@@ -15,6 +15,7 @@ pub use super::error;
 use error::{Result, Error};
 
 use std::io::Read;
+use std::fs::File;
 use std::usize;
 use std::collections::HashMap;
 //use std::fmt::{self, Display};
@@ -233,6 +234,11 @@ pub struct Archive {
 }
 
 impl Archive {
+    pub fn try_from(fd: &mut File) -> Result<Archive> {
+        let buffer = scroll::Buffer::try_from(fd)?;
+        Archive::parse(&buffer, buffer.len())
+    }
+
     pub fn parse<R: Read + scroll::Gread>(buffer: &R, size: usize) -> Result<Archive> {
         let mut magic = [0u8; SIZEOF_MAGIC];
         let mut offset = &mut 0usize;

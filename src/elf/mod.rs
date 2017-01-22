@@ -97,7 +97,7 @@ mod impure {
                     },
                     Unified::Elf64(ref thing) => {
                         thing
-                    }
+                    },
                 }
             }
         }

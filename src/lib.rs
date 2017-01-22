@@ -74,28 +74,38 @@ pub mod pe;
 
 #[derive(Debug, Default)]
 pub struct HintData {
-    is_little_endian: bool,
-    is_64: bool,
+    pub is_lsb: bool,
+    pub is_64: Option<bool>,
 }
 
 #[derive(Debug)]
 pub enum Hint {
-    Elf,
+    Elf(HintData),
     Mach,
     PE,
     Archive,
     Unknown,
 }
 
+/// Peeks at the underlying Read object. Requires the underlying bytes to have at least 16 byte length.
 pub fn peek<R: ::std::io::Read + ::std::io::Seek>(fd: &mut R) -> error::Result<Hint> {
     use scroll::Pread;
     use std::io::{SeekFrom};
-    let mut bytes = [0u8; 8];
-    fd.read_exact(&mut bytes)?;
+    let mut bytes = [0u8; 16];
     fd.seek(SeekFrom::Start(0))?;
-    if &bytes[0..4] == elf::header::ELFMAG {
-        Ok(Hint::Elf)
-    } else if &bytes == archive::MAGIC {
+    fd.read_exact(&mut bytes)?;
+    if &bytes[0..elf::header::SELFMAG] == elf::header::ELFMAG {
+        let class = bytes[elf::header::EI_CLASS];
+        let is_lsb = bytes[elf::header::EI_DATA] == elf::header::ELFDATA2LSB;
+        let is_64 =
+            if class == elf::header::ELFCLASS64 {
+                Some (true)
+            } else if class == elf::header::ELFCLASS32 {
+                Some (false)
+            } else { None };
+
+        Ok(Hint::Elf(HintData { is_lsb: is_lsb, is_64: is_64 }))
+    } else if &bytes[0..archive::SIZEOF_MAGIC] == archive::MAGIC {
         Ok(Hint::Archive)
     } else if (&bytes[0..2]).pread_into::<u16>(0)? == pe::header::DOS_MAGIC {
         Ok(Hint::PE)

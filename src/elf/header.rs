@@ -78,7 +78,7 @@ pub const ET_NUM: u16 = 5;
 
 /// The ELF magic number.
 pub const ELFMAG: &'static [u8; 4] = b"\x7FELF";
-/// SELF (Security-enhanced ELF) magic number.
+/// Sizeof ELF magic number.
 pub const SELFMAG: usize = 4;
 
 /// File class byte index.

@@ -87,13 +87,14 @@ pub enum Hint {
     Unknown,
 }
 
-/// Peeks at the underlying Read object. Requires the underlying bytes to have at least 16 byte length.
+/// Peeks at the underlying Read object. Requires the underlying bytes to have at least 16 byte length. Resets the seek after reading.
 pub fn peek<R: ::std::io::Read + ::std::io::Seek>(fd: &mut R) -> error::Result<Hint> {
     use scroll::Pread;
     use std::io::{SeekFrom};
     let mut bytes = [0u8; 16];
     fd.seek(SeekFrom::Start(0))?;
     fd.read_exact(&mut bytes)?;
+    fd.seek(SeekFrom::Start(0))?;
     if &bytes[0..elf::header::SELFMAG] == elf::header::ELFMAG {
         let class = bytes[elf::header::EI_CLASS];
         let is_lsb = bytes[elf::header::EI_DATA] == elf::header::ELFDATA2LSB;

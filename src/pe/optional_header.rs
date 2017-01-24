@@ -1,4 +1,4 @@
-use pe::error::*;
+use pe::error;
 use super::data_directories;
 
 use scroll;
@@ -6,6 +6,7 @@ use scroll;
 /// standard COFF fields
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
+#[derive(Pread, Pwrite)]
 pub struct StandardFields {
     pub magic: u16,
     pub major_linker_version: u8,
@@ -26,7 +27,7 @@ pub const MAGIC_32: u16 = 0x10b;
 pub const MAGIC_64: u16 = 0x20b;
 
 impl StandardFields {
-    pub fn parse<B: scroll::Gread> (bytes: &B, offset: &mut usize) -> Result<Self> {
+    pub fn parse<B: scroll::Gread> (bytes: &B, offset: &mut usize) -> error::Result<Self> {
         let mut standard_fields = StandardFields::default();
         standard_fields.magic = bytes.gread(offset, scroll::LE)?;
         standard_fields.major_linker_version = bytes.gread(offset, scroll::LE)?;
@@ -71,7 +72,7 @@ pub struct WindowsFields {
 pub const SIZEOF_WINDOWS_FIELDS: usize = (8 * 8) + 4;
 
 impl WindowsFields {
-    pub fn parse<B: scroll::Gread> (bytes: &B, offset: &mut usize) -> Result<Self> {
+    pub fn parse<B: scroll::Gread> (bytes: &B, offset: &mut usize) -> error::Result<Self> {
         let mut windows_fields = WindowsFields::default();
         windows_fields.image_base = bytes.gread(offset, scroll::LE)?;
         windows_fields.section_alignment = bytes.gread(offset, scroll::LE)?;
@@ -104,18 +105,18 @@ impl WindowsFields {
 pub struct OptionalHeader {
     pub standard_fields: StandardFields,
     pub windows_fields: WindowsFields,
-    //pub data_directories: data_directories::DataDirectories
+    pub data_directories: data_directories::DataDirectories
 }
 
 impl OptionalHeader {
-    pub fn parse<B: scroll::Gread> (bytes: &B, offset: &mut usize) -> Result<Self> {
+    pub fn parse<B: scroll::Gread> (bytes: &B, offset: &mut usize) -> error::Result<Self> {
         let standard_fields = StandardFields::parse(bytes, offset)?;
         let windows_fields = WindowsFields::parse(bytes, offset)?;
-        //let data_directories = data_directories::DataDirectories::parse(bytes, windows_fields.number_of_rva_and_sizes as usize, offset)?;
+        let data_directories = data_directories::DataDirectories::parse(bytes, windows_fields.number_of_rva_and_sizes as usize, offset)?;
         Ok (OptionalHeader {
             standard_fields: standard_fields,
             windows_fields: windows_fields, 
-            //data_directories: data_directories,
+            data_directories: data_directories,
         })
     }
 }

@@ -24,14 +24,14 @@ pub struct PE {
     pub is_lib: bool,
     pub entry: usize,
     pub image_base: usize,
-    pub exports: Vec<export::Export>,
     pub export_data: Option<export::ExportData>,
+    pub exports: Vec<export::Export>,
     // import_data: Import.import_data option,
     // imports: Import.t,
 }
 
 impl PE {
-    pub fn parse<B: scroll::Gread>(bytes: &B) -> Result<Self> {
+    pub fn parse<B: scroll::Gread + scroll::Gread<scroll::Error, u8>>(bytes: &B) -> Result<Self> {
         let header = header::Header::parse(bytes)?;
         let mut offset = &mut (header.dos_header.pe_pointer as usize + header::SIZEOF_COFF_HEADER + header.coff_header.size_of_optional_header as usize);
         let nsections = header.coff_header.number_of_sections as usize;
@@ -49,9 +49,11 @@ impl PE {
         if let Some(optional_header) = header.optional_header {
             entry = optional_header.standard_fields.address_of_entry_point as usize;
             image_base = optional_header.windows_fields.image_base as usize;
-            // if let &Some(export_table) = optional_header.data_directories.get_export_table() {
-            //     export_data = Some(export::ExportData::parse(bytes, &export_table, &sections)?);
-            // }
+            if let &Some(export_table) = optional_header.data_directories.get_export_table() {
+                let ed = export::ExportData::parse(bytes, &export_table, &sections)?;
+                exports = export::Export::parse(bytes, &ed, &sections)?;
+                export_data = Some(ed);
+            }
         }
         Ok( PE {
             header: header,
@@ -62,8 +64,8 @@ impl PE {
             is_lib: is_lib,
             entry: entry,
             image_base: image_base,
-            exports: exports,
             export_data: export_data,
+            exports: exports,
         })
     }
 

@@ -1,5 +1,6 @@
-use pe::error::*;
 use scroll;
+
+use pe::error;
 
 use super::utils;
 use super::section_table;
@@ -7,6 +8,7 @@ use super::data_directories;
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
+#[derive(Pread, Pwrite)]
 pub struct ExportDirectoryTable {
     pub export_flags: u32,
     pub time_date_stamp: u32,
@@ -24,21 +26,9 @@ pub struct ExportDirectoryTable {
 pub const SIZEOF_EXPORT_DIRECTORY_TABLE: usize = 40;
 
 impl ExportDirectoryTable {
-    pub fn parse<B: scroll::Gread>(bytes: &B, offset: usize) -> Result<Self> {
-        let mut table = ExportDirectoryTable::default();
-        let mut offset = &mut (offset.clone());
-        table.export_flags = bytes.gread(offset, scroll::LE)?;
-        table.time_date_stamp = bytes.gread(offset, scroll::LE)?;
-        table.major_version = bytes.gread(offset, scroll::LE)?;
-        table.minor_version = bytes.gread(offset, scroll::LE)?;
-        table.name_rva = bytes.gread(offset, scroll::LE)?;
-        table.ordinal_base = bytes.gread(offset, scroll::LE)?;
-        table.address_table_entries = bytes.gread(offset, scroll::LE)?;
-        table.number_of_name_pointers = bytes.gread(offset, scroll::LE)?;
-        table.export_address_table_rva = bytes.gread(offset, scroll::LE)?;
-        table.name_pointer_rva = bytes.gread(offset, scroll::LE)?;
-        table.ordinal_table_rva = bytes.gread(offset, scroll::LE)?;
-        Ok (table)
+    pub fn parse<B: scroll::Gread>(bytes: &B, offset: usize) -> error::Result<Self> {
+        let res = bytes.pread(offset, scroll::LE)?;
+        Ok(res)
     }
 }
 
@@ -52,29 +42,34 @@ pub const SIZEOF_EXPORT_ADDRESS_TABLE_ENTRY: usize = 4;
 
 pub type ExportAddressTable = Vec<ExportAddressTableEntry>;
 
-// array of rvas into the export name table; export name is defined iff pointer table has pointer to the name
+/// Array of rvas into the export name table
+///
+/// Export name is defined iff pointer table has pointer to the name
 pub type ExportNamePointerTable = Vec<u32>;
 
-// array of indexes into the export addres table idx = ordinal - ordinalbase
+/// Array of indexes into the export address table.
+///
+/// Should obey the formula `idx = ordinal - ordinalbase`
 pub type ExportOrdinalTable = Vec<u16>;
 
 #[derive(Debug, Default)]
 pub struct ExportData {
+    pub name: String,
     pub export_directory_table: ExportDirectoryTable,
     pub export_name_pointer_table: ExportNamePointerTable,
     pub export_ordinal_table: ExportOrdinalTable,
     pub export_address_table: ExportAddressTable,
-    pub name: String
 }
 
 impl ExportData {
-    pub fn parse<B: scroll::Gread>(bytes: &B, dd: &data_directories::DataDirectory, sections: &[section_table::SectionTable]) -> Result<Self> {
+    pub fn parse<B: scroll::Gread>(bytes: &B, dd: &data_directories::DataDirectory, sections: &[section_table::SectionTable]) -> error::Result<Self> {
         let export_rva = dd.virtual_address as usize;
         let size = dd.size as usize;
         let export_offset = utils::find_offset(export_rva, sections).unwrap();
         let export_directory_table = ExportDirectoryTable::parse(bytes, export_offset)?;
         let number_of_name_pointers = export_directory_table.number_of_name_pointers as usize;
         let address_table_entries = export_directory_table.address_table_entries as usize;
+        //let ordinal_base = export_directory_table.ordinal_base as usize;
 
         let mut name_pointer_table_offset = &mut utils::find_offset(export_directory_table.name_pointer_rva as usize, sections).unwrap();
         let mut export_name_pointer_table: ExportNamePointerTable = Vec::with_capacity(number_of_name_pointers);
@@ -88,15 +83,29 @@ impl ExportData {
             export_ordinal_table.push(bytes.gread(export_ordinal_table_offset, scroll::LE)?);
         }
 
-        let mut export_address_table_offset = &mut utils::find_offset(export_directory_table.export_address_table_rva as usize, sections).unwrap();
-        // let mut export_address_table: ExportAddressTable = Vec::with_capacity();
-        // for _ in 0..number_of_name_pointers {
-        //     name_pointers.push(bytes.gread(name_pointer_table_offset, scroll::LE)?);
-        // }
+        let export_address_table_offset = utils::find_offset(export_directory_table.export_address_table_rva as usize, sections).unwrap();
+        let export_end = export_rva + size;
+        let mut offset = &mut export_address_table_offset.clone();
+        let mut export_address_table: ExportAddressTable = Vec::with_capacity(address_table_entries);
+        for _ in 0..address_table_entries {
+            let rva: u32 = bytes.gread(offset, scroll::LE)?;
+            if utils::is_in_range(rva as usize, export_rva, export_end) {
+                export_address_table.push(ExportAddressTableEntry::ForwarderRVA(rva));
+            } else {
+                export_address_table.push(ExportAddressTableEntry::ExportRVA(rva));
+            }
+        }
 
-        let name_offset = utils::find_offset(export_directory_table.name_rva as usize, sections);
-        println!("<PEExport.get> pointers: 0x{:x}  ordinals: 0x{:x} addresses: 0x{:x}", name_pointer_table_offset, export_ordinal_table_offset, export_address_table_offset);
-        unimplemented!();
+        let name_offset = utils::find_offset(export_directory_table.name_rva as usize, sections).unwrap();
+        //println!("<PEExport.get> pointers: 0x{:x}  ordinals: 0x{:x} addresses: 0x{:x}", name_pointer_table_offset, export_ordinal_table_offset, export_address_table_offset);
+        let name = bytes.pread_slice::<str>(name_offset, 8)?.to_string();
+        Ok(ExportData {
+            name: name,
+            export_directory_table: export_directory_table,
+            export_name_pointer_table: export_name_pointer_table,
+            export_ordinal_table: export_ordinal_table,
+            export_address_table: export_address_table,
+        })
     }
 }
 
@@ -106,11 +115,168 @@ pub enum Reexport {
   DLLOrdinal ((String, usize))
 }
 
+// this compiles but cannot be used due to sized requirements which i don't understand :tada:
+impl<'a, B: ?Sized> scroll::ctx::TryFromCtx<'a, (usize, scroll::Endian), B> for Reexport
+    where B: scroll::Gread + scroll::Gread<scroll::Error, u8> + AsRef<[u8]> {
+    type Error = scroll::Error;
+    #[inline]
+    fn try_from_ctx(bytes: &'a B, (offset, _): (usize, scroll::Endian)) -> Result<Self, Self::Error> {
+        use scroll::{Gread, Pread};
+        let bytes = bytes.as_ref();
+        let reexport: &str = bytes.pread::<&str>(offset, 0x0)?;
+        println!("reexport: {}", &reexport);
+        let bytes: &[u8] = reexport.as_bytes();
+        let mut o = &mut 0;
+        loop {
+            let c: u8 = bytes.gread_into(o)?;
+            println!("reexport offset: {:#x} char: {:#x}", *o, c);
+            match c {
+                // '.'
+                0x2e => {
+                    let i = *o - 1;
+                    let dll: &str = bytes.pread_slice(0, i)?;
+                    println!("dll: {:?}", &dll);
+                    let len = reexport.len() - i - 1;
+                    let rest: &[u8] = bytes.gread_slice(o, len)?;
+                    println!("rest: {:?}", &rest);
+                    match rest[0] {
+                        // '#'
+                        0x23 => {
+                            // UNTESTED
+                            let len = rest.len() - 1;
+                            let ordinal = rest.pread_slice::<str>(1, len)?;
+                            let ordinal = ordinal.parse::<u32>().unwrap();
+                            return Ok(Reexport::DLLOrdinal ((dll.to_string(), ordinal as usize)))
+                        },
+                        _ => {
+                            let rest = rest.pread_slice::<str>(0, rest.len())?;
+                            return Ok(Reexport::DLLName ((dll.to_string(), rest.to_string())))
+                        }
+                    }
+                },
+                _ => {}
+            }
+        }
+    }
+}
+
+impl Reexport {
+    pub fn parse<B: scroll::Gread + scroll::Gread<scroll::Error, u8>>(bytes: &B, offset: usize) -> scroll::Result<Reexport> {
+        use scroll::{Gread, Pread};
+        let reexport: &str = bytes.pread::<&str>(offset, 0x0)?;
+        //println!("reexport: {}", &reexport);
+        let bytes: &[u8] = reexport.as_bytes();
+        let mut o = &mut 0;
+        loop {
+            let c: u8 = bytes.gread_into(o)?;
+            //println!("reexport offset: {:#x} char: {:#x}", *o, c);
+            match c {
+                // '.'
+                0x2e => {
+                    let i = *o - 1;
+                    let dll: &str = bytes.pread_slice(0, i)?;
+                    //println!("dll: {:?}", &dll);
+                    let len = reexport.len() - i - 1;
+                    let rest: &[u8] = bytes.gread_slice(o, len)?;
+                    //println!("rest: {:?}", &rest);
+                    match rest[0] {
+                        // '#'
+                        0x23 => {
+                            // UNTESTED
+                            let len = rest.len() - 1;
+                            let ordinal = rest.pread_slice::<str>(1, len)?;
+                            let ordinal = ordinal.parse::<u32>().unwrap();
+                            return Ok(Reexport::DLLOrdinal ((dll.to_string(), ordinal as usize)))
+                        },
+                        _ => {
+                            let rest = rest.pread_slice::<str>(0, rest.len())?;
+                            return Ok(Reexport::DLLName ((dll.to_string(), rest.to_string())))
+                        }
+                    }
+                },
+                _ => {}
+            }
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct Export {
-    name: String,
-    offset: usize,
-    rva: usize,
-    size: usize,
-    reexport: Option<Reexport>,
+    pub name: String,
+    pub offset: usize,
+    pub rva: usize,
+    pub size: usize,
+    pub reexport: Option<Reexport>,
+}
+
+#[derive(Debug, Copy, Clone)]
+struct ExportCtx<'a> {
+    pub ptr: u32,
+    pub idx: usize,
+    pub sections: &'a [section_table::SectionTable],
+    pub addresses: &'a ExportAddressTable,
+    pub ordinals: &'a ExportOrdinalTable,
+}
+
+impl<'a, B> scroll::ctx::TryFromCtx<'a, ExportCtx<'a>, B> for Export where B: scroll::Gread + scroll::Gread<scroll::Error, u8> {
+    type Error = scroll::Error;
+    #[inline]
+    fn try_from_ctx(bytes: &'a B, ExportCtx { ptr, idx, sections, addresses, ordinals }: ExportCtx<'a>) -> Result<Self, Self::Error> {
+        use self::ExportAddressTableEntry::*;
+        let i = idx;
+        let name_offset = utils::find_offset(ptr as usize, sections).unwrap();
+        let name = bytes.pread::<&str>(name_offset, 0)?.to_string();
+        let ordinal = ordinals[i];
+        let address_index = ordinal as usize;
+        //println!("name: {} name_offset: {:#x} ordinal: {} address_index: {}", name, name_offset, ordinal, address_index);
+        if address_index >= addresses.len() {
+            //println!("<PEExport.get_export> bad index for {}: {} {} {} len: {}", name, (i+ordinal_base), ordinal, address_index, addresses.len());
+            Ok(Export::default())
+        } else {
+            match addresses[address_index] {
+                ExportRVA(rva) => {
+                    let rva = rva as usize;
+                    let offset = utils::find_offset(rva, sections).unwrap();
+                    //println!("{:#x}", offset);
+                    Ok(Export { name: name, offset: offset, rva: rva, reexport: None, size: 0 })
+                },
+                ForwarderRVA(rva) => {
+                    let rva = rva as usize;
+                    let offset = utils::find_offset(rva, sections).unwrap();
+                    //println!("stroffset {:#x}", offset);
+                    let reexport = Reexport::parse(bytes, offset)?;
+                    // cannot use this for reasons above cause rust is super fun
+                    //let reexport = bytes.pread_into(offset)?;
+                    Ok(Export { name: name, offset: rva, rva: rva, reexport: Some(reexport), size: 0 })
+                },
+            }
+        }
+    }
+}
+
+impl Export {
+    pub fn parse<B: scroll::Gread + scroll::Gread<scroll::Error, u8>>(bytes: &B, export_data: &ExportData, sections: &[section_table::SectionTable]) -> error::Result<Vec<Export>> {
+        let pointers = &export_data.export_name_pointer_table;
+        let addresses = &export_data.export_address_table;
+        let ordinals = &export_data.export_ordinal_table;
+        //let ordinal_base = export_data.export_directory_table.ordinal_base as usize;
+        let mut exports = Vec::with_capacity(pointers.len());
+        for (idx, ptr) in pointers.iter().enumerate() {
+            use scroll::ctx::TryFromCtx;
+            let export = Export::try_from_ctx(bytes, ExportCtx { ptr: *ptr, idx: idx, sections: sections, addresses: addresses, ordinals: ordinals })?;
+            exports.push(export);
+        }
+        // TODO: sort + compute size
+        Ok (exports)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn size_export_directory_table() {
+        assert_eq!(::std::mem::size_of::<ExportDirectoryTable>(), SIZEOF_EXPORT_DIRECTORY_TABLE);
+    }
 }

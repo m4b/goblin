@@ -132,11 +132,10 @@ mod tests {
 
     #[test]
     fn crss_header () {
-        let header = Header::parse(&&CRSS_HEADER[..])?;
+        let header = Header::parse(&&CRSS_HEADER[..]).unwrap();
         assert!(header.dos_header.signature == DOS_MAGIC);
         assert!(header.coff_header.signature == COFF_MAGIC);
         assert!(header.coff_header.machine == COFF_MACHINE_X86);
         println!("header: {:?}", &header);
-        assert!(false);
     }
 }

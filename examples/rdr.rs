@@ -11,7 +11,7 @@ fn run () -> error::Result<()> {
             let path = Path::new(arg.as_str());
             let mut fd = File::open(path)?;
             match goblin::peek(&mut fd)? {
-                Hint::Elf => {
+                Hint::Elf(_) => {
                     let elf = elf::Elf::try_from(&mut fd)?;
                     println!("elf: {:#?}", &elf);
                 },

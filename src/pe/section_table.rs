@@ -38,20 +38,3 @@ impl SectionTable {
         Ok(table)
     }
 }
-
-/*
-let get binary (header:PEHeader.t) =
-  let offset =
-    header.dos_header.pe_pointer + PEHeader.sizeof_coff_header
-    + header.coff_header.size_of_optional_header
-  in
-  let nsections = header.coff_header.number_of_sections in
-  let rec loop acc count =
-    if (count >= nsections) then
-      List.rev acc
-    else
-      let o = offset + (count * sizeof_section_table) in
-      let st = get_section_table binary o in
-      loop (st::acc) (count+1)
-  in loop [] 0
-*/

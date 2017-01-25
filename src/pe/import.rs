@@ -45,21 +45,21 @@ impl ImportLookupTableEntry {
         loop {
             let bitfield: u32 = bytes.gread(offset, le)?;
             if bitfield == 0 {
-                println!("imports done");
+                //println!("imports done");
                 break;
             } else {
                 let synthetic = {
                     use self::SyntheticImportLookupTableEntry::*;
                     if bitfield & IMPORT_BY_ORDINAL_32 == IMPORT_BY_ORDINAL_32 {
                         let ordinal = (0xffff & bitfield) as u16;
-                        println!("importing by ordinal {:#x}", ordinal);
+                        //println!("importing by ordinal {:#x}", ordinal);
                         OrdinalNumber(ordinal)
                     } else {
                         let rva = bitfield & IMPORT_RVA_MASK_32;
                         let hentry = {
-                            println!("searching for RVA {:#x}", rva);
+                            //println!("searching for RVA {:#x}", rva);
                             let offset = utils::find_offset(rva as usize, sections).unwrap();
-                            println!("offset {:#x}", offset);
+                            //println!("offset {:#x}", offset);
                             HintNameTableEntry::parse(bytes, offset)?
                             //HintNameTableEntry {hint = 0; name = "".to_string()}
                         };
@@ -155,7 +155,7 @@ impl ImportData {
                 import_data.push(entry);
             }
         }
-        println!("finished import directory table");
+        //println!("finished import directory table");
         Ok(ImportData { import_data: import_data})
     }
 }
@@ -177,7 +177,7 @@ impl Import {
             let import_lookup_table = &data.import_lookup_table;
             let dll = data.name.to_owned();
             let import_base = data.import_directory_entry.import_address_table_rva as usize;
-            println!("getting imports from {}", &dll);
+            //println!("getting imports from {}", &dll);
             for (i, entry) in import_lookup_table.iter().enumerate() {
                 let offset = import_base + (i * SIZEOF_IMPORT_ADDRESS_TABLE_ENTRY);
                 use self::SyntheticImportLookupTableEntry::*;

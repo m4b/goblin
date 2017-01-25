@@ -1,3 +1,6 @@
+use scroll;
+use pe::error;
+
 use super::section_table;
 
 pub fn is_in_range (rva: usize, r1: usize, r2: usize) -> bool {
@@ -19,4 +22,15 @@ pub fn find_offset (rva: usize, sections: &[section_table::SectionTable]) -> Opt
         }
     }
     None
+}
+
+pub fn try_name<'a, B: scroll::Gread + scroll::Gread<scroll::Error, u8>>(bytes: &'a B, rva: usize, sections: &[section_table::SectionTable]) -> error::Result<&'a str> {
+    match find_offset(rva, sections) {
+        Some(offset) => {
+            Ok(bytes.pread::<&str>(offset, 0)?)
+        },
+        None => {
+            Err(error::Error::Malformed(format!("Cannot find name from rva {:#x} in sections: {:?}", rva, sections)))
+        }
+    }
 }

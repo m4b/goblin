@@ -10,6 +10,7 @@ pub mod characteristic;
 pub mod section_table;
 pub mod data_directories;
 pub mod export;
+pub mod import;
 mod utils;
 
 use error::*;
@@ -19,15 +20,15 @@ pub struct PE {
     pub header: header::Header,
     pub sections: Vec<section_table::SectionTable>,
     pub size: usize,
-    pub libraries: Vec<String>,
     pub name: Option<String>,
     pub is_lib: bool,
     pub entry: usize,
     pub image_base: usize,
     pub export_data: Option<export::ExportData>,
+    pub import_data: Option<import::ImportData>,
     pub exports: Vec<export::Export>,
-    // import_data: Import.import_data option,
-    // imports: Import.t,
+    pub imports: Vec<import::Import>,
+    pub libraries: Vec<String>,
 }
 
 impl PE {
@@ -40,32 +41,45 @@ impl PE {
             sections.push(section_table::SectionTable::parse(bytes, offset)?);
         }
         let is_lib = characteristic::is_dll(header.coff_header.characteristics);
-        let libraries = vec![];
         let mut entry = 0;
         let mut image_base = 0;
         let mut exports = vec![];
         let mut export_data = None;
         let mut name = None;
+        let mut imports = vec![];
+        let mut import_data = None;
+        let mut libraries = vec![];
         if let Some(optional_header) = header.optional_header {
             entry = optional_header.standard_fields.address_of_entry_point as usize;
             image_base = optional_header.windows_fields.image_base as usize;
             if let &Some(export_table) = optional_header.data_directories.get_export_table() {
                 let ed = export::ExportData::parse(bytes, &export_table, &sections)?;
                 exports = export::Export::parse(bytes, &ed, &sections)?;
+                name = Some(ed.name.to_owned());
                 export_data = Some(ed);
+            }
+            if let &Some(import_table) = optional_header.data_directories.get_import_table() {
+                let id = import::ImportData::parse(bytes, &import_table, &sections)?;
+                imports = import::Import::parse(bytes, &id, &sections)?;
+                libraries = id.import_data.iter().map( | data | { data.name.to_owned() }).collect::<Vec<String>>();
+                libraries.sort();
+                libraries.dedup();
+                import_data = Some(id);
             }
         }
         Ok( PE {
             header: header,
             sections: sections,
             size: 0,
-            libraries: libraries,
             name: name,
             is_lib: is_lib,
             entry: entry,
             image_base: image_base,
             export_data: export_data,
+            import_data: import_data,
             exports: exports,
+            imports: imports,
+            libraries: libraries,
         })
     }
 

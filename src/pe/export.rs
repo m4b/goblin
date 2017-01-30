@@ -53,6 +53,7 @@ pub type ExportNamePointerTable = Vec<u32>;
 pub type ExportOrdinalTable = Vec<u16>;
 
 #[derive(Debug, Default)]
+/// Export data contains the `dll` name which other libraries can import symbols by (two-level namespace), as well as other important indexing data allowing symbol lookups
 pub struct ExportData {
     pub name: String,
     pub export_directory_table: ExportDirectoryTable,
@@ -110,6 +111,7 @@ impl ExportData {
 }
 
 #[derive(Debug)]
+/// PE binaries have two kinds of reexports, either specifying the dll's name, or the ordinal value of the dll
 pub enum Reexport {
   DLLName ((String, String)),
   DLLOrdinal ((String, usize))
@@ -201,6 +203,7 @@ impl Reexport {
 }
 
 #[derive(Debug, Default)]
+/// An exported symbol in this binary, contains synthetic data (name offset, etc., are computed)
 pub struct Export {
     pub name: String,
     pub offset: usize,

@@ -16,22 +16,36 @@ mod utils;
 use error::*;
 
 #[derive(Debug)]
+/// An analyzed PE binary
 pub struct PE {
+    /// The PE header
     pub header: header::Header,
+    /// A list of the sections in this PE binary
     pub sections: Vec<section_table::SectionTable>,
+    /// The size of the binary
     pub size: usize,
+    /// The name of this `dll`, if it has one
     pub name: Option<String>,
+    /// Whether this is a `dll` or not
     pub is_lib: bool,
+    /// the entry point of the binary
     pub entry: usize,
+    /// The binary's RVA, or image base - useful for computing virtual addreses
     pub image_base: usize,
+    /// Data about any exported symbols in this binary (e.g., if it's a `dll`)
     pub export_data: Option<export::ExportData>,
+    /// Data for any imported symbols, and from which `dll`, etc., in this binary
     pub import_data: Option<import::ImportData>,
+    /// The list of exported symbols in this binary, contains synthetic information for easier analysis
     pub exports: Vec<export::Export>,
+    /// The list symbols imported by this binary from other `dll`s
     pub imports: Vec<import::Import>,
+    /// The list of libraries which this binary imports symbols from
     pub libraries: Vec<String>,
 }
 
 impl PE {
+    /// Reads a PE binary from the underlying `bytes`
     pub fn parse<B: scroll::Gread + scroll::Gread<scroll::Error, scroll::ctx::StrCtx>>(bytes: &B) -> Result<Self> {
         let header = header::Header::parse(bytes)?;
         let mut offset = &mut (header.dos_header.pe_pointer as usize + header::SIZEOF_COFF_HEADER + header.coff_header.size_of_optional_header as usize);

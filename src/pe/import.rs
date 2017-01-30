@@ -137,6 +137,7 @@ impl SyntheticImportDirectoryEntry {
 }
 
 #[derive(Debug)]
+/// Contains a list of synthesized import data for this binary, e.g., which symbols from which libraries it is importing from
 pub struct ImportData {
     pub import_data: Vec<SyntheticImportDirectoryEntry>,
 }
@@ -161,6 +162,7 @@ impl ImportData {
 }
 
 #[derive(Debug)]
+/// A synthesized symbol import, the name is pre-indexed, and the binary offset is computed, as well as which dll it belongs to
 pub struct Import {
     pub name: String,
     pub dll: String,

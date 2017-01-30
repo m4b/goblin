@@ -228,7 +228,7 @@ macro_rules! elf_sym_impure_impl {
                 let mut syms = Vec::with_capacity(count);
                 let mut offset = &mut offset;
                 for _ in 0..count {
-                    let sym = bytes.gread(offset, endianness)?;
+                    let sym = bytes.gread_with(offset, endianness)?;
                     syms.push(sym);
                 }
                 Ok(syms)

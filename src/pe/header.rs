@@ -17,8 +17,8 @@ pub const PE_POINTER_OFFSET: u32 = 0x3c;
 
 impl DosHeader {
     pub fn parse<B: scroll::Pread> (bytes: &B) -> Result<Self> {
-        let signature = bytes.pread(0, scroll::LE)?;
-        let pe_pointer = bytes.pread(PE_POINTER_OFFSET as usize, scroll::LE)?;
+        let signature = bytes.pread_with(0, scroll::LE)?;
+        let pe_pointer = bytes.pread_with(PE_POINTER_OFFSET as usize, scroll::LE)?;
         Ok (DosHeader { signature: signature, pe_pointer: pe_pointer })
     }
 }
@@ -48,14 +48,14 @@ pub const COFF_MACHINE_X86_64: u16 = 0x8664;
 impl CoffHeader {
     pub fn parse<B: scroll::Gread> (bytes: &B, offset: &mut usize) -> Result<Self> {
         let mut coff = CoffHeader::default();
-        coff.signature = bytes.gread(offset, scroll::LE)?;
-        coff.machine = bytes.gread(offset, scroll::LE)?;
-        coff.number_of_sections = bytes.gread(offset, scroll::LE)?;
-        coff.time_date_stamp = bytes.gread(offset, scroll::LE)?;
-        coff.pointer_to_symbol_table = bytes.gread(offset, scroll::LE)?;
-        coff.number_of_symbol_table = bytes.gread(offset, scroll::LE)?;
-        coff.size_of_optional_header = bytes.gread(offset, scroll::LE)?;
-        coff.characteristics = bytes.gread(offset, scroll::LE)?;
+        coff.signature = bytes.gread_with(offset, scroll::LE)?;
+        coff.machine = bytes.gread_with(offset, scroll::LE)?;
+        coff.number_of_sections = bytes.gread_with(offset, scroll::LE)?;
+        coff.time_date_stamp = bytes.gread_with(offset, scroll::LE)?;
+        coff.pointer_to_symbol_table = bytes.gread_with(offset, scroll::LE)?;
+        coff.number_of_symbol_table = bytes.gread_with(offset, scroll::LE)?;
+        coff.size_of_optional_header = bytes.gread_with(offset, scroll::LE)?;
+        coff.characteristics = bytes.gread_with(offset, scroll::LE)?;
         Ok(coff)
     }
 }

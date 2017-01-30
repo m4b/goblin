@@ -13,8 +13,8 @@ pub struct HintNameTableEntry {
 impl HintNameTableEntry {
     fn parse<B: scroll::Gread + scroll::Gread<scroll::Error, scroll::ctx::StrCtx>>(bytes: &B, mut offset: usize) -> error::Result<Self> {
         let mut offset = &mut offset;
-        let hint = bytes.gread(offset, scroll::LE)?;
-        let name = bytes.pread_into::<&str>(*offset)?.to_string();
+        let hint = bytes.gread_with(offset, scroll::LE)?;
+        let name = bytes.pread::<&str>(*offset)?.to_string();
         Ok(HintNameTableEntry { hint: hint, name: name })
     }
 }
@@ -43,7 +43,7 @@ impl ImportLookupTableEntry {
         let mut offset = &mut offset;
         let mut table = Vec::new();
         loop {
-            let bitfield: u32 = bytes.gread(offset, le)?;
+            let bitfield: u32 = bytes.gread_with(offset, le)?;
             if bitfield == 0 {
                 //println!("imports done");
                 break;
@@ -124,7 +124,7 @@ impl SyntheticImportDirectoryEntry {
         let import_address_table_offset = &mut utils::find_offset(import_directory_entry.import_address_table_rva as usize, sections).unwrap();
         let mut import_address_table = Vec::new();
         loop {
-            let import_address = bytes.gread(import_address_table_offset, le)?;
+            let import_address = bytes.gread_with(import_address_table_offset, le)?;
             if import_address == 0 { break } else { import_address_table.push(import_address); }
         }
         Ok(SyntheticImportDirectoryEntry {
@@ -148,7 +148,7 @@ impl ImportData {
         let mut offset = &mut utils::find_offset(import_directory_table_rva, sections).unwrap();
         let mut import_data = Vec::new();
         loop {
-            let import_directory_entry: ImportDirectoryEntry = bytes.gread(offset, scroll::LE)?;
+            let import_directory_entry: ImportDirectoryEntry = bytes.gread_with(offset, scroll::LE)?;
             if import_directory_entry.is_null() {
                 break;
             } else {

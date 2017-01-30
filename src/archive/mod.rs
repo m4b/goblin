@@ -163,10 +163,10 @@ impl Index {
     /// Parses the given byte buffer into an Index. NB: the buffer must be the start of the index
     pub fn parse<R: scroll::Gread>(buffer: &R, size: usize) -> Result<Index> {
         let mut offset = &mut 0;
-        let sizeof_table = buffer.gread::<u32>(offset, scroll::BE)? as usize;
+        let sizeof_table = buffer.gread_with::<u32>(offset, scroll::BE)? as usize;
         let mut indexes = Vec::with_capacity(sizeof_table);
         for _ in 0..sizeof_table {
-            indexes.push(buffer.gread::<u32>(offset, scroll::BE)?);
+            indexes.push(buffer.gread_with::<u32>(offset, scroll::BE)?);
         }
         let sizeof_strtab = size - ((sizeof_table * 4) + 4);
         let strtab = strtab::Strtab::parse(buffer, *offset, sizeof_strtab, 0x0)?;
@@ -245,7 +245,7 @@ impl Archive {
         buffer.gread_inout(offset, &mut magic)?;
         if &magic != MAGIC {
             use scroll::Pread;
-            return Err(Error::BadMagic(magic.pread_into(0)?).into());
+            return Err(Error::BadMagic(magic.pread(0)?).into());
         }
         let mut member_array = Vec::new();
         let size = size as u64;

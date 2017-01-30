@@ -407,7 +407,7 @@ macro_rules! elf_dyn_impure_impl {
                             let mut dyns = Vec::with_capacity(dync);
                             let mut offset = &mut (phdr.p_offset as usize);
                             for _ in 0..dync {
-                                let dyn = buffer.gread(offset, endianness)?;
+                                let dyn = buffer.gread_with(offset, endianness)?;
                                 dyns.push(dyn);
                             }
                             return Ok(Some(dyns));

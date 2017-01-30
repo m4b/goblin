@@ -53,8 +53,8 @@ impl fmt::Debug for FatArch {
 impl FatHeader {
     pub fn from_bytes(bytes: &[u8; SIZEOF_FAT_HEADER]) -> FatHeader {
         let mut offset = 0;
-        let magic = bytes.gread(&mut offset, scroll::BE).unwrap();
-        let nfat_arch = bytes.gread(&mut offset, scroll::BE).unwrap();
+        let magic = bytes.gread_with(&mut offset, scroll::BE).unwrap();
+        let nfat_arch = bytes.gread_with(&mut offset, scroll::BE).unwrap();
         FatHeader {
             magic: magic,
             nfat_arch: nfat_arch,
@@ -71,8 +71,8 @@ impl FatHeader {
     pub fn parse<S: scroll::Gread>(buffer: &S) -> error::Result<FatHeader> {
         let mut header = FatHeader::default();
         let mut offset = 0;
-        header.magic = buffer.gread(&mut offset, scroll::BE)?;
-        header.nfat_arch = buffer.gread(&mut offset, scroll::BE)?;
+        header.magic = buffer.gread_with(&mut offset, scroll::BE)?;
+        header.nfat_arch = buffer.gread_with(&mut offset, scroll::BE)?;
         Ok(header)
     }
 
@@ -81,11 +81,11 @@ impl FatHeader {
 impl FatArch {
     pub fn new(bytes: &[u8; SIZEOF_FAT_ARCH]) -> FatArch {
         let mut offset = 0;
-        let cputype = bytes.gread(&mut offset, scroll::BE).unwrap();
-        let cpusubtype = bytes.gread(&mut offset, scroll::BE).unwrap();
-        let offset_ = bytes.gread(&mut offset, scroll::BE).unwrap();
-        let size = bytes.gread(&mut offset, scroll::BE).unwrap();
-        let align = bytes.gread(&mut offset, scroll::BE).unwrap();
+        let cputype = bytes.gread_with(&mut offset, scroll::BE).unwrap();
+        let cpusubtype = bytes.gread_with(&mut offset, scroll::BE).unwrap();
+        let offset_ = bytes.gread_with(&mut offset, scroll::BE).unwrap();
+        let size = bytes.gread_with(&mut offset, scroll::BE).unwrap();
+        let align = bytes.gread_with(&mut offset, scroll::BE).unwrap();
         FatArch {
             cputype: cputype,
             cpusubtype: cpusubtype,
@@ -104,11 +104,11 @@ impl FatArch {
         let offset = &mut offset;
         for _ in 0..count {
             let mut arch = Self::default();
-            arch.cputype = fd.gread(offset, scroll::BE)?;
-            arch.cpusubtype = fd.gread(offset, scroll::BE)?;
-            arch.offset = fd.gread(offset, scroll::BE)?;
-            arch.size = fd.gread(offset, scroll::BE)?;
-            arch.align = fd.gread(offset, scroll::BE)?;
+            arch.cputype = fd.gread_with(offset, scroll::BE)?;
+            arch.cpusubtype = fd.gread_with(offset, scroll::BE)?;
+            arch.offset = fd.gread_with(offset, scroll::BE)?;
+            arch.size = fd.gread_with(offset, scroll::BE)?;
+            arch.align = fd.gread_with(offset, scroll::BE)?;
             archs.push(arch);
         }
         Ok(archs)

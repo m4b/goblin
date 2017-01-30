@@ -369,10 +369,10 @@ macro_rules! elf_rela_impure_impl { ($size:ident) => {
                 let mut offset = offset;
                 for _ in 0..count {
                     let mut reloc = Reloc::default();
-                    reloc.r_offset = fd.gread::<$size>(&mut offset, little_endian)? as usize;
-                    let info = fd.gread::<$size>(&mut offset, little_endian)?;
+                    reloc.r_offset = fd.gread_with::<$size>(&mut offset, little_endian)? as usize;
+                    let info = fd.gread_with::<$size>(&mut offset, little_endian)?;
                     reloc.r_info = info as usize;
-                    if is_rela { reloc.r_addend = fd.gread::<signed_from_unsigned!($size)>(&mut offset, little_endian)? as isize; }
+                    if is_rela { reloc.r_addend = fd.gread_with::<signed_from_unsigned!($size)>(&mut offset, little_endian)? as isize; }
                     reloc.r_sym = r_sym(info) as usize;
                     reloc.r_type = r_type(info) as u32;
                     reloc.is_rela = is_rela;

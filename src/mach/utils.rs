@@ -6,5 +6,5 @@ use error;
 
 /// Returns a native endian magical number
 pub fn peek_magic<S: scroll::Gread>(buffer: &S) -> error::Result<u32> {
-    Ok(buffer.gread::<u32>(&mut 0, scroll::NATIVE)?)
+    Ok(buffer.gread_with::<u32>(&mut 0, scroll::NATIVE)?)
 }

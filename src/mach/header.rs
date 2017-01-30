@@ -195,17 +195,17 @@ impl Header {
     pub fn parse<S: scroll::Gread>(buffer: &S, offset: usize, le: scroll::Endian) -> error::Result<Header> {
         let mut offset = offset;
         let offset = &mut offset;
-        let magic = buffer.gread(offset, le)?;
-        let cputype = buffer.gread(offset, le)?;
-        let cpusubtype = buffer.gread_into(offset)?;
-        let padding1 = buffer.gread_into(offset)?;
-        let padding2 = buffer.gread_into(offset)?;
-        let caps = buffer.gread_into(offset)?;
-        let filetype = buffer.gread(offset, le)?;
-        let ncmds = buffer.gread(offset, le)?;
-        let sizeofcmds = buffer.gread(offset, le)?;
-        let flags = buffer.gread(offset, le)?;
-        let reserved = buffer.gread(offset, le)?;
+        let magic = buffer.gread_with(offset, le)?;
+        let cputype = buffer.gread_with(offset, le)?;
+        let cpusubtype = buffer.gread(offset)?;
+        let padding1 = buffer.gread(offset)?;
+        let padding2 = buffer.gread(offset)?;
+        let caps = buffer.gread(offset)?;
+        let filetype = buffer.gread_with(offset, le)?;
+        let ncmds = buffer.gread_with(offset, le)?;
+        let sizeofcmds = buffer.gread_with(offset, le)?;
+        let flags = buffer.gread_with(offset, le)?;
+        let reserved = buffer.gread_with(offset, le)?;
         Ok(Header { magic: magic, cputype: cputype, cpusubtype: cpusubtype, padding1: padding1, padding2: padding2, caps: caps, filetype: filetype, ncmds: ncmds, sizeofcmds: sizeofcmds, flags: flags, reserved: reserved })
     }
 }

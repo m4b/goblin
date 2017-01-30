@@ -23,18 +23,18 @@ impl SectionTable {
         let mut table = SectionTable::default();
         let mut name = [0u8; 8];
         for i in 0..8 {
-            name[i] = bytes.gread(offset, scroll::LE)?;
+            name[i] = bytes.gread_with(offset, scroll::LE)?;
         }
         table.name = name;
-        table.virtual_size = bytes.gread(offset, scroll::LE)?;
-        table.virtual_address = bytes.gread(offset, scroll::LE)?;
-        table.size_of_raw_data = bytes.gread(offset, scroll::LE)?;
-        table.pointer_to_raw_data = bytes.gread(offset, scroll::LE)?;
-        table.pointer_to_relocations = bytes.gread(offset, scroll::LE)?;
-        table.pointer_to_linenumbers = bytes.gread(offset, scroll::LE)?;
-        table.number_of_relocations = bytes.gread(offset, scroll::LE)?;
-        table.number_of_linenumbers = bytes.gread(offset, scroll::LE)?;
-        table.characteristics = bytes.gread(offset, scroll::LE)?;
+        table.virtual_size = bytes.gread_with(offset, scroll::LE)?;
+        table.virtual_address = bytes.gread_with(offset, scroll::LE)?;
+        table.size_of_raw_data = bytes.gread_with(offset, scroll::LE)?;
+        table.pointer_to_raw_data = bytes.gread_with(offset, scroll::LE)?;
+        table.pointer_to_relocations = bytes.gread_with(offset, scroll::LE)?;
+        table.pointer_to_linenumbers = bytes.gread_with(offset, scroll::LE)?;
+        table.number_of_relocations = bytes.gread_with(offset, scroll::LE)?;
+        table.number_of_linenumbers = bytes.gread_with(offset, scroll::LE)?;
+        table.characteristics = bytes.gread_with(offset, scroll::LE)?;
         Ok(table)
     }
 }

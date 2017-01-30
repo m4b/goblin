@@ -29,15 +29,15 @@ pub const MAGIC_64: u16 = 0x20b;
 impl StandardFields {
     pub fn parse<B: scroll::Gread> (bytes: &B, offset: &mut usize) -> error::Result<Self> {
         let mut standard_fields = StandardFields::default();
-        standard_fields.magic = bytes.gread(offset, scroll::LE)?;
-        standard_fields.major_linker_version = bytes.gread(offset, scroll::LE)?;
-        standard_fields.minor_linker_version = bytes.gread(offset, scroll::LE)?;
-        standard_fields.size_of_code = bytes.gread(offset, scroll::LE)?;
-        standard_fields.size_of_initialized_data = bytes.gread(offset, scroll::LE)?;
-        standard_fields.size_of_uninitialized_data = bytes.gread(offset, scroll::LE)?;
-        standard_fields.address_of_entry_point = bytes.gread(offset, scroll::LE)?;
-        standard_fields.base_of_code = bytes.gread(offset, scroll::LE)?;
-        standard_fields.base_of_data = bytes.gread(offset, scroll::LE)?;
+        standard_fields.magic = bytes.gread_with(offset, scroll::LE)?;
+        standard_fields.major_linker_version = bytes.gread_with(offset, scroll::LE)?;
+        standard_fields.minor_linker_version = bytes.gread_with(offset, scroll::LE)?;
+        standard_fields.size_of_code = bytes.gread_with(offset, scroll::LE)?;
+        standard_fields.size_of_initialized_data = bytes.gread_with(offset, scroll::LE)?;
+        standard_fields.size_of_uninitialized_data = bytes.gread_with(offset, scroll::LE)?;
+        standard_fields.address_of_entry_point = bytes.gread_with(offset, scroll::LE)?;
+        standard_fields.base_of_code = bytes.gread_with(offset, scroll::LE)?;
+        standard_fields.base_of_data = bytes.gread_with(offset, scroll::LE)?;
         Ok(standard_fields)
     }
 }
@@ -74,27 +74,27 @@ pub const SIZEOF_WINDOWS_FIELDS: usize = (8 * 8) + 4;
 impl WindowsFields {
     pub fn parse<B: scroll::Gread> (bytes: &B, offset: &mut usize) -> error::Result<Self> {
         let mut windows_fields = WindowsFields::default();
-        windows_fields.image_base = bytes.gread(offset, scroll::LE)?;
-        windows_fields.section_alignment = bytes.gread(offset, scroll::LE)?;
-        windows_fields.file_alignment = bytes.gread(offset, scroll::LE)?;
-        windows_fields.major_operating_system_version = bytes.gread(offset, scroll::LE)?;
-        windows_fields.minor_operating_system_version = bytes.gread(offset, scroll::LE)?;
-        windows_fields.major_image_version = bytes.gread(offset, scroll::LE)?;
-        windows_fields.minor_image_version = bytes.gread(offset, scroll::LE)?;
-        windows_fields.major_subsystem_version = bytes.gread(offset, scroll::LE)?;
-        windows_fields.minor_subsystem_version = bytes.gread(offset, scroll::LE)?;
-        windows_fields.win32_version_value = bytes.gread(offset, scroll::LE)?;
-        windows_fields.size_of_image = bytes.gread(offset, scroll::LE)?;
-        windows_fields.size_of_headers = bytes.gread(offset, scroll::LE)?;
-        windows_fields.check_sum = bytes.gread(offset, scroll::LE)?;
-        windows_fields.subsystem = bytes.gread(offset, scroll::LE)?;
-        windows_fields.dll_characteristics = bytes.gread(offset, scroll::LE)?;
-        windows_fields.size_of_stack_reserve = bytes.gread(offset, scroll::LE)?;
-        windows_fields.size_of_stack_commit = bytes.gread(offset, scroll::LE)?;
-        windows_fields.size_of_heap_reserve = bytes.gread(offset, scroll::LE)?;
-        windows_fields.size_of_heap_commit = bytes.gread(offset, scroll::LE)?;
-        windows_fields.loader_flags = bytes.gread(offset, scroll::LE)?;
-        windows_fields.number_of_rva_and_sizes = bytes.gread(offset, scroll::LE)?;
+        windows_fields.image_base = bytes.gread_with(offset, scroll::LE)?;
+        windows_fields.section_alignment = bytes.gread_with(offset, scroll::LE)?;
+        windows_fields.file_alignment = bytes.gread_with(offset, scroll::LE)?;
+        windows_fields.major_operating_system_version = bytes.gread_with(offset, scroll::LE)?;
+        windows_fields.minor_operating_system_version = bytes.gread_with(offset, scroll::LE)?;
+        windows_fields.major_image_version = bytes.gread_with(offset, scroll::LE)?;
+        windows_fields.minor_image_version = bytes.gread_with(offset, scroll::LE)?;
+        windows_fields.major_subsystem_version = bytes.gread_with(offset, scroll::LE)?;
+        windows_fields.minor_subsystem_version = bytes.gread_with(offset, scroll::LE)?;
+        windows_fields.win32_version_value = bytes.gread_with(offset, scroll::LE)?;
+        windows_fields.size_of_image = bytes.gread_with(offset, scroll::LE)?;
+        windows_fields.size_of_headers = bytes.gread_with(offset, scroll::LE)?;
+        windows_fields.check_sum = bytes.gread_with(offset, scroll::LE)?;
+        windows_fields.subsystem = bytes.gread_with(offset, scroll::LE)?;
+        windows_fields.dll_characteristics = bytes.gread_with(offset, scroll::LE)?;
+        windows_fields.size_of_stack_reserve = bytes.gread_with(offset, scroll::LE)?;
+        windows_fields.size_of_stack_commit = bytes.gread_with(offset, scroll::LE)?;
+        windows_fields.size_of_heap_reserve = bytes.gread_with(offset, scroll::LE)?;
+        windows_fields.size_of_heap_commit = bytes.gread_with(offset, scroll::LE)?;
+        windows_fields.loader_flags = bytes.gread_with(offset, scroll::LE)?;
+        windows_fields.number_of_rva_and_sizes = bytes.gread_with(offset, scroll::LE)?;
         Ok(windows_fields)
     }
 }

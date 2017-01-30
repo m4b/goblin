@@ -330,7 +330,7 @@ mod impure {
 
     macro_rules! parse_impl {
     ($class:ident, $fd:ident) => {{
-        let header = $fd.pread_into::<$class::header::Header>(0)?;
+        let header = $fd.pread::<$class::header::Header>(0)?;
         let entry = header.e_entry as usize;
         let is_lib = header.e_type == $class::header::ET_DYN;
         let is_lsb = header.e_ident[$class::header::EI_DATA] == $class::header::ELFDATA2LSB;

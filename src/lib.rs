@@ -108,7 +108,7 @@ pub fn peek<R: ::std::io::Read + ::std::io::Seek>(fd: &mut R) -> error::Result<H
         Ok(Hint::Elf(HintData { is_lsb: is_lsb, is_64: is_64 }))
     } else if &bytes[0..archive::SIZEOF_MAGIC] == archive::MAGIC {
         Ok(Hint::Archive)
-    } else if (&bytes[0..2]).pread_into::<u16>(0)? == pe::header::DOS_MAGIC {
+    } else if (&bytes[0..2]).pread::<u16>(0)? == pe::header::DOS_MAGIC {
         Ok(Hint::PE)
     } else {
         Ok(Hint::Unknown)

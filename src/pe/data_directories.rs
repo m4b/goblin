@@ -14,7 +14,7 @@ const NUM_DATA_DIRECTORIES: usize = 16;
 
 impl DataDirectory {
     pub fn parse<B: scroll::Gread>(bytes: &B, offset: &mut usize) -> error::Result<Self> {
-        let dd = bytes.gread(offset, scroll::LE)?;
+        let dd = bytes.gread_with(offset, scroll::LE)?;
         Ok (dd)
     }
 }

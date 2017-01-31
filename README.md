@@ -8,6 +8,8 @@ https://docs.rs/goblin/
 
 ### Usage
 
+Goblin requires `rustc` 1.15.
+
 Add to your `Cargo.toml`
 
 ```toml

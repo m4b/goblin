@@ -10,6 +10,8 @@
 //! * A PE 32-bit parser
 //! * The mach parser is in progress
 //!
+//! Goblin requires at least `rustc` 1.15
+//!
 //! # Example
 //!
 //! ```rust

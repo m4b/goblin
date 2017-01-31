@@ -1,23 +1,56 @@
 use scroll;
 use core::result;
+use core::fmt::{self, Display};
+use std::error;
+use std::io;
 
-quick_error! {
-    #[derive(Debug)]
-    pub enum Error {
-        Io(err: ::std::io::Error) {
-            from()
+#[derive(Debug)]
+/// A custom Goblin error
+pub enum Error {
+    IO(io::Error),
+    Scroll(scroll::Error),
+    Malformed(String),
+    BadMagic(u64),
+}
+
+impl error::Error for Error {
+    fn description(&self) -> &str {
+        match *self {
+            Error::IO(_) => { "IO error" }
+            Error::Scroll(_) => { "Scroll error" }
+            Error::BadMagic(_) => { "Invalid magic number" }
+            Error::Malformed(_) => { "Entity is malformed in some way" }
         }
-        #[cfg(feature = "endian_fd")]
-        Scroll(err: scroll::Error) {
-            from()
+    }
+    fn cause(&self) -> Option<&error::Error> {
+        match *self {
+            Error::IO(ref io) => { io.cause() }
+            Error::Scroll(ref scroll) => { scroll.cause() }
+            Error::BadMagic(_) => { None }
+            Error::Malformed(_) => { None }
         }
-        BadMagic(magic: u64) {
-            description("Invalid magic number")
-                display("Invalid magic number: 0x{:x}", magic)
-        }
-        Malformed(msg: String) {
-            description("Entity is malformed in some way")
-                display("Malformed entity: {}", msg)
+    }
+}
+
+impl From<io::Error> for Error {
+    fn from(err: io::Error) -> Error {
+        Error::IO(err)
+    }
+}
+
+impl From<scroll::Error> for Error {
+    fn from(err: scroll::Error) -> Error {
+        Error::Scroll(err)
+    }
+}
+
+impl Display for Error {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Error::IO(ref err) => { write!(fmt, "{}", err) },
+            Error::Scroll(ref err) => { write!(fmt, "{}", err) },
+            Error::BadMagic(magic) => { write! (fmt, "Invalid magic number: 0x{:x}", magic) },
+            Error::Malformed(ref msg) => { write! (fmt, "Malformed entity: {}", msg) },
         }
     }
 }

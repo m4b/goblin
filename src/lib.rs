@@ -34,9 +34,6 @@ extern crate scroll;
 #[macro_use]
 extern crate scroll_derive;
 
-#[macro_use]
-extern crate quick_error;
-
 #[cfg(feature = "std")]
 extern crate core;
 

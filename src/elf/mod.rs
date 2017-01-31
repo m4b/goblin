@@ -468,7 +468,7 @@ println!("sh_relocs {:?}", sh_relocs);
 
     impl Elf {
         /// Parses the contents of the byte stream in `buffer`, and maybe returns a unified binary
-        pub fn parse<S: scroll::Gread + scroll::Pread<error::Error>>(buffer: &S) -> error::Result<Self> {
+        pub fn parse<S: scroll::Gread + scroll::Pread<scroll::ctx::DefaultCtx, error::Error>>(buffer: &S) -> error::Result<Self> {
             match header::peek(buffer)? {
                 (header::ELFCLASS32, _is_lsb) => {
                     parse_impl!(elf32, buffer)

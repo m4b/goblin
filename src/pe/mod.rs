@@ -46,7 +46,7 @@ pub struct PE {
 
 impl PE {
     /// Reads a PE binary from the underlying `bytes`
-    pub fn parse<B: scroll::Gread + scroll::Gread<scroll::Error, scroll::ctx::StrCtx>>(bytes: &B) -> Result<Self> {
+    pub fn parse<B: scroll::Gread + scroll::Gread<scroll::ctx::StrCtx>>(bytes: &B) -> Result<Self> {
         let header = header::Header::parse(bytes)?;
         let mut offset = &mut (header.dos_header.pe_pointer as usize + header::SIZEOF_COFF_HEADER + header.coff_header.size_of_optional_header as usize);
         let nsections = header.coff_header.number_of_sections as usize;

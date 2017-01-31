@@ -1,3 +1,6 @@
+//! A custom Goblin error
+//!
+
 use scroll;
 use core::result;
 use core::fmt::{self, Display};

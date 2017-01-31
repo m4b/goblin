@@ -1,3 +1,6 @@
+//! Implements a PE parser
+//!
+
 use scroll;
 
 use std::io::Read;

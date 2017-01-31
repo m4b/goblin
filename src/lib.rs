@@ -69,45 +69,55 @@ pub mod archive;
 #[cfg(feature = "pe32")]
 pub mod pe;
 
-#[derive(Debug, Default)]
-pub struct HintData {
-    pub is_lsb: bool,
-    pub is_64: Option<bool>,
-}
+#[cfg(feature = "std")]
+pub use impure::*;
 
-#[derive(Debug)]
-pub enum Hint {
-    Elf(HintData),
-    Mach,
-    PE,
-    Archive,
-    Unknown,
-}
+#[cfg(feature = "std")]
+mod impure {
+    use super::*;
+    use std::io::{Read, Seek, SeekFrom};
 
-/// Peeks at the underlying Read object. Requires the underlying bytes to have at least 16 byte length. Resets the seek after reading.
-pub fn peek<R: ::std::io::Read + ::std::io::Seek>(fd: &mut R) -> error::Result<Hint> {
-    use scroll::Pread;
-    use std::io::{SeekFrom};
-    let mut bytes = [0u8; 16];
-    fd.seek(SeekFrom::Start(0))?;
-    fd.read_exact(&mut bytes)?;
-    fd.seek(SeekFrom::Start(0))?;
-    if &bytes[0..elf::header::SELFMAG] == elf::header::ELFMAG {
-        let class = bytes[elf::header::EI_CLASS];
-        let is_lsb = bytes[elf::header::EI_DATA] == elf::header::ELFDATA2LSB;
-        let is_64 =
-            if class == elf::header::ELFCLASS64 {
-                Some (true)
-            } else if class == elf::header::ELFCLASS32 {
-                Some (false)
-            } else { None };
+    #[derive(Debug, Default)]
+    /// Information obtained from a peek `Hint`
+    pub struct HintData {
+        pub is_lsb: bool,
+        pub is_64: Option<bool>,
+    }
 
-        Ok(Hint::Elf(HintData { is_lsb: is_lsb, is_64: is_64 }))
-    } else if &bytes[0..archive::SIZEOF_MAGIC] == archive::MAGIC {
-        Ok(Hint::Archive)
-    } else if (&bytes[0..2]).pread::<u16>(0)? == pe::header::DOS_MAGIC {
-        Ok(Hint::PE)
-    } else {
-        Ok(Hint::Unknown)
+    #[derive(Debug)]
+    /// A hint at the underlying binary format for 16 bytes of arbitrary data
+    pub enum Hint {
+        Elf(HintData),
+        Mach,
+        PE,
+        Archive,
+        Unknown,
+    }
+
+    /// Peeks at the underlying Read object. Requires the underlying bytes to have at least 16 byte length. Resets the seek after reading.
+    pub fn peek<R: Read + Seek>(fd: &mut R) -> error::Result<Hint> {
+        use scroll::Pread;
+        let mut bytes = [0u8; 16];
+        fd.seek(SeekFrom::Start(0))?;
+        fd.read_exact(&mut bytes)?;
+        fd.seek(SeekFrom::Start(0))?;
+        if &bytes[0..elf::header::SELFMAG] == elf::header::ELFMAG {
+            let class = bytes[elf::header::EI_CLASS];
+            let is_lsb = bytes[elf::header::EI_DATA] == elf::header::ELFDATA2LSB;
+            let is_64 =
+                if class == elf::header::ELFCLASS64 {
+                    Some (true)
+                } else if class == elf::header::ELFCLASS32 {
+                    Some (false)
+                } else { None };
+
+            Ok(Hint::Elf(HintData { is_lsb: is_lsb, is_64: is_64 }))
+        } else if &bytes[0..archive::SIZEOF_MAGIC] == archive::MAGIC {
+            Ok(Hint::Archive)
+        } else if (&bytes[0..2]).pread::<u16>(0)? == pe::header::DOS_MAGIC {
+            Ok(Hint::PE)
+        } else {
+            Ok(Hint::Unknown)
+        }
     }
 }

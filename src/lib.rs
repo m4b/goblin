@@ -3,15 +3,60 @@
 //! ![say the right
 //! words](https://s-media-cache-ak0.pinimg.com/736x/1b/6a/aa/1b6aaa2bae005e2fed84b1a7c32ecb1b.jpg)
 //!
-//! `libgoblin` is a cross-platform trifecta of binary parsing and loading fun.  Currently, it only
-//! supports the ELF format, in both 32-bit and 64-bit variants.  The mach parser is in progress, and the PE format will follow.  `libgoblin` is
-//! engineered to be tailored towards very different use-case scenarios, for example:
+//! `libgoblin` is a cross-platform trifecta of binary parsing and loading fun.  Currently, it supports:
+//!
+//! * the ELF32/64 formats
+//! * A Unix archive parser and loader
+//! * A PE 32-bit parser
+//! * The mach parser is in progress
+//!
+//! # Example
+//!
+//! ```rust
+//! use goblin::{error, Hint, pe, elf, mach, archive};
+//! use std::path::Path;
+//! use std::env;
+//! use std::fs::File;
+//!
+//! fn run () -> error::Result<()> {
+//!     for (i, arg) in env::args().enumerate() {
+//!         if i == 1 {
+//!             let path = Path::new(arg.as_str());
+//!             let mut fd = File::open(path)?;
+//!             match goblin::peek(&mut fd)? {
+//!                 Hint::Elf(_) => {
+//!                     let elf = elf::Elf::try_from(&mut fd)?;
+//!                     println!("elf: {:#?}", &elf);
+//!                 },
+//!                 Hint::PE => {
+//!                     let pe = pe::PE::try_from(&mut fd)?;
+//!                     println!("pe: {:#?}", &pe);
+//!                 },
+//!                 // wip
+//!                 Hint::Mach => {
+//!                     let mach = mach::Mach::try_from(&mut fd)?;
+//!                     println!("mach: {:#?}", &mach);
+//!                 },
+//!                 Hint::Archive => {
+//!                     let archive = archive::Archive::try_from(&mut fd)?;
+//!                     println!("archive: {:#?}", &archive);
+//!                 },
+//!                 _ => {}
+//!             }
+//!         }
+//!     }
+//!     Ok(())
+//! }
+//! ```
+//!
+//! # Feature Usage
+//!
+//! `libgoblin` is engineered to be tailored towards very different use-case scenarios, for example:
 //!
 //! * a no-std mode; just simply set default features to false
 //! * a endian aware parsing and reading
 //! * for binary loaders which don't require this, simply use `elf32` and `elf64` (and `std` of course)
 //!
-//! # Example Feature Usage
 //! For example, if you are writing a 64-bit kernel, or just want a barebones C-like
 //! header interface which defines the structures, just select `elf64`, `--cfg
 //! feature=\"elf64\"`, which will compile without `std`.

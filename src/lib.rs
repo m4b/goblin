@@ -119,10 +119,8 @@ pub mod pe;
 #[cfg(feature = "std")]
 pub use impure::*;
 
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std"))]
 mod impure {
-    use super::*;
-    use std::io::{Read, Seek, SeekFrom};
 
     #[derive(Debug, Default)]
     /// Information obtained from a peek `Hint`
@@ -142,8 +140,11 @@ mod impure {
     }
 
     /// Peeks at the underlying Read object. Requires the underlying bytes to have at least 16 byte length. Resets the seek after reading.
-    pub fn peek<R: Read + Seek>(fd: &mut R) -> error::Result<Hint> {
+#[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
+    pub fn peek<R: ::std::io::Read + ::std::io::Seek>(fd: &mut R) -> super::error::Result<Hint> {
         use scroll::Pread;
+        use std::io::SeekFrom;
+        use super::*;
         let mut bytes = [0u8; 16];
         fd.seek(SeekFrom::Start(0))?;
         fd.read_exact(&mut bytes)?;

@@ -192,6 +192,8 @@ macro_rules! elf_header_impure_impl {
             use std::fs::File;
             use std::io::{Read};
 
+            use core::result;
+
             impl ElfHeader for Header {
                 fn e_ident(&self) -> [u8; SIZEOF_IDENT] {
                     self.e_ident

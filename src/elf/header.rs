@@ -19,6 +19,8 @@ pub trait ElfHeader {
 
 macro_rules! elf_header {
     ($size:ident) => {
+        use core::fmt;
+
         #[repr(C)]
         #[derive(Clone, Copy, Default, PartialEq)]
         pub struct Header {
@@ -58,6 +60,28 @@ macro_rules! elf_header {
                 // although the header can be semantically invalid.
                 let header: &Header = unsafe { ::core::mem::transmute(bytes) };
                 header
+            }
+        }
+        impl fmt::Debug for Header {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                write!(f,
+                       "e_ident: {:?} e_type: {} e_machine: 0x{:x} e_version: 0x{:x} e_entry: 0x{:x} \
+                        e_phoff: 0x{:x} e_shoff: 0x{:x} e_flags: {:x} e_ehsize: {} e_phentsize: {} \
+                        e_phnum: {} e_shentsize: {} e_shnum: {} e_shstrndx: {}",
+                       self.e_ident,
+                       et_to_str(self.e_type),
+                       self.e_machine,
+                       self.e_version,
+                       self.e_entry,
+                       self.e_phoff,
+                       self.e_shoff,
+                       self.e_flags,
+                       self.e_ehsize,
+                       self.e_phentsize,
+                       self.e_phnum,
+                       self.e_shentsize,
+                       self.e_shnum,
+                       self.e_shstrndx)
             }
         }
     }
@@ -164,9 +188,6 @@ macro_rules! elf_header_impure_impl {
             use elf::error::*;
             use elf::error;
 
-            use core::fmt;
-            use core::result;
-
             use scroll::{self, ctx};
             use std::fs::File;
             use std::io::{Read};
@@ -213,29 +234,6 @@ macro_rules! elf_header_impure_impl {
                 }
                 fn e_shstrndx(&self) -> u16 {
                     self.e_shstrndx
-                }
-            }
-
-            impl fmt::Debug for Header {
-                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                    write!(f,
-                           "e_ident: {:?} e_type: {} e_machine: 0x{:x} e_version: 0x{:x} e_entry: 0x{:x} \
-                            e_phoff: 0x{:x} e_shoff: 0x{:x} e_flags: {:x} e_ehsize: {} e_phentsize: {} \
-                            e_phnum: {} e_shentsize: {} e_shnum: {} e_shstrndx: {}",
-                           self.e_ident,
-                           et_to_str(self.e_type),
-                           self.e_machine,
-                           self.e_version,
-                           self.e_entry,
-                           self.e_phoff,
-                           self.e_shoff,
-                           self.e_flags,
-                           self.e_ehsize,
-                           self.e_phentsize,
-                           self.e_phnum,
-                           self.e_shentsize,
-                           self.e_shnum,
-                           self.e_shstrndx)
                 }
             }
 

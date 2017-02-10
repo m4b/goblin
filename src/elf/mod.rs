@@ -426,7 +426,6 @@ mod impure {
             let mut relocs = vec![];
             if header.e_type == super::header::ET_REL {
                 for section in &section_headers {
-                    println!("section {:?}", section);
                     if section.sh_type == super::section_header::SHT_REL {
                         let sh_relocs = $class::reloc::parse($fd, section.sh_offset as usize, section.sh_size as usize, endianness, false)?;
 println!("sh_relocs {:?}", sh_relocs);

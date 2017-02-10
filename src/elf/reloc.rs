@@ -55,7 +55,7 @@ pub struct Reloc {
     pub r_info: usize,
     /// Addend
     pub r_addend: isize,
-    /// The index into the dynsyms symbol table
+    /// The index into the corresponding symbol table - either dynamic or regular
     pub r_sym: usize,
     /// The relocation type
     pub r_type: u32,
@@ -104,7 +104,7 @@ impl ElfReloc for Reloc {
 impl fmt::Debug for Reloc {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f,
-               "r_offset: {:x} {} @ {} r_addend: {:x} rela: {}",
+               "r_offset: {:x} r_typ: {} r_sym: {} r_addend: {:x} rela: {}",
                self.r_offset,
                self.r_type,
                self.r_sym,
@@ -263,7 +263,7 @@ macro_rules! elf_rela_impure_impl { ($size:ident) => {
                     let sym = r_sym(self.r_info);
                     let typ = r_type(self.r_info);
                     write!(f,
-                           "r_offset: {:x} {} @ {} r_addend: {:x}",
+                           "r_offset: {:x} r_typ: {} r_sym: {} r_addend: {:x}",
                            self.r_offset,
                            typ,
                            sym,
@@ -276,7 +276,7 @@ macro_rules! elf_rela_impure_impl { ($size:ident) => {
                     let sym = r_sym(self.r_info);
                     let typ = r_type(self.r_info);
                     write!(f,
-                           "r_offset: {:x} {} @ {}",
+                           "r_offset: {:x} r_typ: {} r_sym: {}",
                            self.r_offset,
                            typ,
                            sym

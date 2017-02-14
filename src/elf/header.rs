@@ -23,6 +23,15 @@ pub struct ElfHeader {
 }
 
 impl ElfHeader {
+    pub fn machine(&self) -> error::Result<super::super::Machine> {
+        use super::super::Machine;
+        use error::Error;
+        match self.e_ident[EI_CLASS] {
+            ELFCLASS32 => { Ok(Machine::M32) },
+            ELFCLASS64 => { Ok(Machine::M64) },
+            class => Err(Error::Malformed(format!("Invalid class in ElfHeader: {}", class)))
+        }
+    }
     pub fn new(machine: super::super::Machine) -> Self {
         use super::super::Machine::*;
         let (typ, ehsize, phentsize, shentsize) = match machine {
@@ -118,6 +127,23 @@ impl<'a> ctx::TryFromCtx<'a> for ElfHeader {
                 return Err(Error::Malformed(format!("invalid ELF class {:x}", class)).into())
             }
         }
+    }
+}
+
+impl ctx::TryIntoCtx<(usize, scroll::ctx::DefaultCtx)> for ElfHeader {
+    type Error = error::Error;
+    fn try_into_ctx(self, buffer: &mut [u8], (offset, _): (usize, scroll::Endian)) -> Result<(), Self::Error> {
+        use scroll::Pwrite;
+        use super::super::Machine::*;
+        match self.machine()? {
+            M32 => {
+                buffer.pwrite(super::super::elf32::header::Header::from(self), offset)?
+            },
+            M64 => {
+                buffer.pwrite(super::super::elf64::header::Header::from(self), offset)?
+            }
+        }
+        Ok(())
     }
 }
 
@@ -499,9 +525,12 @@ macro_rules! elf_header_test {
                 bytes.pwrite(header_, 0).unwrap();
                 let header2: ElfHeader = bytes.pread(0).unwrap();
                 assert_eq!(header, header2);
-                let header= ElfHeader::new(machine);
+                let header = ElfHeader::new(machine);
                 println!("header: {:?}", &header);
-                //assert!(false);
+
+                let mut bytes = scroll::Buffer::with(0, 100);
+                bytes.pwrite(header, 0).unwrap();
+                assert!(false);
             }
         }
     }

@@ -225,16 +225,12 @@ mod impure {
         }
     }
 
-    pub type Header = Unified<elf32::header::Header, elf64::header::Header>;
+    pub type Header = header::ElfHeader;
     pub type ProgramHeader = Unified<elf32::program_header::ProgramHeader, elf64::program_header::ProgramHeader>;
     pub type SectionHeader = Unified<elf32::section_header::SectionHeader, elf64::section_header::SectionHeader>;
     pub type Sym = Unified<elf32::sym::Sym, elf64::sym::Sym>;
     pub type Dyn = Unified<elf32::dyn::Dyn, elf64::dyn::Dyn>;
 
-    impl Deref for Header {
-        type Target = super::header::ElfHeader;
-        impl_deref!();
-    }
     impl Deref for ProgramHeader {
         type Target = super::program_header::ElfProgramHeader;
         impl_deref!();
@@ -264,7 +260,7 @@ mod impure {
     /// e.g., `dyn.d_val()`
     pub struct Elf {
         /// The ELF header, which provides a rudimentary index into the rest of the binary
-        pub header: Header,
+        pub header: header::ElfHeader,
         /// The program headers; they primarily tell the kernel and the dynamic linker
         /// how to load this binary
         pub program_headers: ProgramHeaders,
@@ -330,7 +326,7 @@ mod impure {
 
     macro_rules! parse_impl {
     ($class:ident, $fd:ident) => {{
-        let header = $fd.pread::<$class::header::Header>(0)?;
+        let header = $fd.pread::<header::ElfHeader>(0)?;
         let entry = header.e_entry as usize;
         let is_lib = header.e_type == $class::header::ET_DYN;
         let is_lsb = header.e_ident[$class::header::EI_DATA] == $class::header::ELFDATA2LSB;
@@ -440,7 +436,8 @@ println!("sh_relocs {:?}", sh_relocs);
             relocs
         };
         Ok(Elf {
-            header: wrap!( $class, header),
+            //header: wrap!( $class, header),
+            header: header,
             program_headers: elf_list!( $class, program_headers),
             section_headers: elf_list!( $class, section_headers),
             shdr_strtab: shdr_strtab,
@@ -527,7 +524,7 @@ mod tests {
                 assert!(syms.len() != 0);
              },
             Err (err) => {
-                println!("failed: {:?}", err);
+                println!("failed: {}", err);
                 assert!(false)
             }
         }

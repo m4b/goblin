@@ -1,20 +1,124 @@
 include!("constants_header.rs");
 
-pub trait ElfHeader {
-    fn e_ident(&self) -> [u8; SIZEOF_IDENT];
-    fn e_type(&self) -> u16;
-    fn e_machine(&self) -> u16;
-    fn e_version(&self) -> u32;
-    fn e_entry(&self) -> u64;
-    fn e_phoff(&self) -> u64;
-    fn e_shoff(&self) -> u64;
-    fn e_flags(&self) -> u32;
-    fn e_ehsize(&self) -> u16;
-    fn e_phentsize(&self) -> u16;
-    fn e_phnum(&self) -> u16;
-    fn e_shentsize(&self) -> u16;
-    fn e_shnum(&self) -> u16;
-    fn e_shstrndx(&self) -> u16;
+use error::{self};
+use scroll::{self, ctx};
+use core::fmt;
+
+#[derive(Clone)]
+pub struct ElfHeader {
+    pub e_ident           : [u8; SIZEOF_IDENT],
+    pub e_type            : u16,
+    pub e_machine         : u16,
+    pub e_version         : u32,
+    pub e_entry           : u64,
+    pub e_phoff           : u64,
+    pub e_shoff           : u64,
+    pub e_flags           : u32,
+    pub e_ehsize          : u16,
+    pub e_phentsize       : u16,
+    pub e_phnum           : u16,
+    pub e_shentsize       : u16,
+    pub e_shnum           : u16,
+    pub e_shstrndx        : u16,
+}
+
+impl ElfHeader {
+    pub fn new(machine: super::super::Machine) -> Self {
+        use super::super::Machine::*;
+        let (typ, ehsize, phentsize, shentsize) = match machine {
+            M32 => {
+                (ELFCLASS32, super::super::elf32::header::SIZEOF_EHDR,
+                 super::super::elf32::program_header::SIZEOF_PHDR,
+                 super::super::elf32::section_header::SIZEOF_SHDR)
+            },
+            M64 => {
+                (ELFCLASS64, super::super::elf64::header::SIZEOF_EHDR,
+                 super::super::elf64::program_header::SIZEOF_PHDR,
+                 super::super::elf64::section_header::SIZEOF_SHDR)
+            }
+        };
+        ElfHeader {
+            e_ident: [
+                127,
+                69,
+                76,
+                70,
+                typ,
+                1,
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            e_type: ET_DYN,
+            e_machine: EM_NONE,
+            e_version: 1,
+            e_entry: 0x0,
+            e_phoff: 0x0,
+            e_shoff: 0x0,
+            e_flags: 0,
+            e_ehsize: ehsize as u16,
+            e_phentsize: phentsize as u16,
+            e_phnum: 0,
+            e_shentsize: shentsize as u16,
+            e_shnum: 0,
+            e_shstrndx: 0,
+        }
+    }
+}
+
+impl fmt::Debug for ElfHeader {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f,
+               "e_ident: {:?} e_type: {} e_machine: 0x{:x} e_version: 0x{:x} e_entry: 0x{:x} \
+                e_phoff: 0x{:x} e_shoff: 0x{:x} e_flags: {:x} e_ehsize: {} e_phentsize: {} \
+                e_phnum: {} e_shentsize: {} e_shnum: {} e_shstrndx: {}",
+               self.e_ident,
+               et_to_str(self.e_type),
+               self.e_machine,
+               self.e_version,
+               self.e_entry,
+               self.e_phoff,
+               self.e_shoff,
+               self.e_flags,
+               self.e_ehsize,
+               self.e_phentsize,
+               self.e_phnum,
+               self.e_shentsize,
+               self.e_shnum,
+               self.e_shstrndx)
+    }
+}
+
+impl<'a> ctx::TryFromCtx<'a> for ElfHeader {
+    type Error = error::Error;
+    fn try_from_ctx(buffer: &'a [u8], (offset, _): (usize, scroll::Endian)) -> error::Result<Self> {
+        use scroll::{Pread};
+        use error::Error;
+        let ident: &[u8] = buffer.pread_slice(offset, SIZEOF_IDENT)?;
+        if &ident[0..SELFMAG] != ELFMAG {
+            let magic: u64 = ident.pread_with(offset, scroll::LE)?;
+            return Err(Error::BadMagic(magic).into());
+        }
+        let class = ident[EI_CLASS];
+        match class {
+            ELFCLASS32 => {
+                Ok(ElfHeader::from(buffer.pread::<super::super::elf32::header::Header>(offset)?))
+            },
+            ELFCLASS64 => {
+                Ok(ElfHeader::from(buffer.pread::<super::super::elf64::header::Header>(offset)?))
+            },
+            _ => {
+                return Err(Error::Malformed(format!("invalid ELF class {:x}", class)).into())
+            }
+        }
+    }
 }
 
 macro_rules! elf_header {
@@ -177,7 +281,7 @@ mod impure {
 }
 
 macro_rules! elf_header_impure_impl {
-    ($size:expr) => {
+    ($size:expr, $width:ty) => {
         #[cfg(feature = "std")]
         pub use self::impure::*;
 
@@ -194,48 +298,45 @@ macro_rules! elf_header_impure_impl {
 
             use core::result;
 
-            impl ElfHeader for Header {
-                fn e_ident(&self) -> [u8; SIZEOF_IDENT] {
-                    self.e_ident
+            impl From<ElfHeader> for Header {
+                fn from(eh: ElfHeader) -> Self {
+                    Header {
+                        e_ident: eh.e_ident,
+                        e_type: eh.e_type,
+                        e_machine: eh.e_machine,
+                        e_version: eh.e_version,
+                        e_entry: eh.e_entry as $width,
+                        e_phoff: eh.e_phoff as $width,
+                        e_shoff: eh.e_shoff as $width,
+                        e_flags: eh.e_flags,
+                        e_ehsize: eh.e_ehsize,
+                        e_phentsize: eh.e_phentsize,
+                        e_phnum: eh.e_phnum,
+                        e_shentsize: eh.e_shentsize,
+                        e_shnum: eh.e_shnum,
+                        e_shstrndx: eh.e_shstrndx,
+                    }
                 }
-                fn e_type(&self) -> u16 {
-                    self.e_type
-                }
-                fn e_machine(&self) -> u16 {
-                    self.e_machine
-                }
-                fn e_version(&self) -> u32 {
-                    self.e_version
-                }
-                fn e_entry(&self) -> u64 {
-                    self.e_entry as u64
-                }
-                fn e_phoff(&self) -> u64 {
-                    self.e_phoff as u64
-                }
-                fn e_shoff(&self) -> u64 {
-                    self.e_shoff as u64
-                }
-                fn e_flags(&self) -> u32 {
-                    self.e_flags
-                }
-                fn e_ehsize(&self) -> u16 {
-                    self.e_ehsize
-                }
-                fn e_phentsize(&self) -> u16 {
-                    self.e_phentsize
-                }
-                fn e_phnum(&self) -> u16 {
-                    self.e_phnum
-                }
-                fn e_shentsize(&self) -> u16 {
-                    self.e_shentsize
-                }
-                fn e_shnum(&self) -> u16 {
-                    self.e_shnum
-                }
-                fn e_shstrndx(&self) -> u16 {
-                    self.e_shstrndx
+            }
+
+            impl From<Header> for ElfHeader {
+                fn from(eh: Header) -> Self {
+                    ElfHeader {
+                        e_ident: eh.e_ident,
+                        e_type: eh.e_type,
+                        e_machine: eh.e_machine,
+                        e_version: eh.e_version,
+                        e_entry: eh.e_entry as u64,
+                        e_phoff: eh.e_phoff as u64,
+                        e_shoff: eh.e_shoff as u64,
+                        e_flags: eh.e_flags,
+                        e_ehsize: eh.e_ehsize,
+                        e_phentsize: eh.e_phentsize,
+                        e_phnum: eh.e_phnum,
+                        e_shentsize: eh.e_shentsize,
+                        e_shnum: eh.e_shnum,
+                        e_shstrndx: eh.e_shstrndx,
+                    }
                 }
             }
 

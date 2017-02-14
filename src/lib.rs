@@ -122,6 +122,11 @@ pub use impure::*;
 #[cfg(all(feature = "std"))]
 mod impure {
 
+    pub enum Machine {
+        M32,
+        M64,
+    }
+
     #[derive(Debug, Default)]
     /// Information obtained from a peek `Hint`
     pub struct HintData {
@@ -136,7 +141,7 @@ mod impure {
         Mach,
         PE,
         Archive,
-        Unknown,
+        Unknown(u64),
     }
 
     /// Peeks at the underlying Read object. Requires the underlying bytes to have at least 16 byte length. Resets the seek after reading.
@@ -165,7 +170,7 @@ mod impure {
         } else if (&bytes[0..2]).pread::<u16>(0)? == pe::header::DOS_MAGIC {
             Ok(Hint::PE)
         } else {
-            Ok(Hint::Unknown)
+            Ok(Hint::Unknown(bytes.pread::<u64>(0)?))
         }
     }
 }

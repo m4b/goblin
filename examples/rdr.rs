@@ -28,7 +28,9 @@ fn run () -> error::Result<()> {
                     let archive = archive::Archive::try_from(&mut fd)?;
                     println!("archive: {:#?}", &archive);
                 },
-                _ => {}
+                Hint::Unknown(magic) => {
+                    println!("unknown magic: {:#x}", magic)
+                }
             }
         }
     }
@@ -38,6 +40,6 @@ fn run () -> error::Result<()> {
 pub fn main () {
     match run() {
         Ok(()) => (),
-        Err(err) => println!("{:?}", err)
+        Err(err) => println!("{:#}", err)
     }
 }

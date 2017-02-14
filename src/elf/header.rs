@@ -4,7 +4,7 @@ use error::{self};
 use scroll::{self, ctx};
 use core::fmt;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct ElfHeader {
     pub e_ident           : [u8; SIZEOF_IDENT],
     pub e_type            : u16,
@@ -44,7 +44,7 @@ impl ElfHeader {
                 76,
                 70,
                 typ,
-                1,
+                ELFDATANONE,
                 1,
                 0,
                 0,
@@ -482,6 +482,26 @@ macro_rules! elf_header_test {
                 bytes.pwrite(header, 0).unwrap();
                 let header2: Header = bytes.pread(0).unwrap();
                 assert_eq!(header, header2);
+            }
+            #[test]
+            fn elfheader_read_write () {
+                let (machine, crt1): (super::super::super::Machine, Vec<u8>) =
+                    if $class == ELFCLASS64 {
+                        (super::super::super::Machine::M64, include!("../../../etc/crt1.rs"))
+                    } else {
+                        (super::super::super::Machine::M32, include!("../../../etc/crt132.rs"))
+                    };
+                let header: ElfHeader = crt1.pread(0).unwrap();
+                assert_eq!(header.e_type, ET_REL);
+                println!("header: {:?}", &header);
+                let mut bytes = [0u8; SIZEOF_EHDR];
+                let header_ = Header::from(header.clone());
+                bytes.pwrite(header_, 0).unwrap();
+                let header2: ElfHeader = bytes.pread(0).unwrap();
+                assert_eq!(header, header2);
+                let header= ElfHeader::new(machine);
+                println!("header: {:?}", &header);
+                //assert!(false);
             }
         }
     }

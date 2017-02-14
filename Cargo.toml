@@ -12,7 +12,7 @@ documentation = "https://docs.rs/goblin"
 [lib]
 
 [dependencies.scroll]
-version = "0.2.0"
+version = "0.3.0"
 optional = true
 
 [dependencies.scroll_derive]

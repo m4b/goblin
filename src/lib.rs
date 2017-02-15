@@ -119,13 +119,16 @@ pub mod pe;
 #[cfg(feature = "std")]
 pub use impure::*;
 
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum Machine {
+    M32,
+    M64,
+    // M32(scroll::Endian),
+    // M64(scroll::Endian),
+}
+
 #[cfg(all(feature = "std"))]
 mod impure {
-
-    pub enum Machine {
-        M32,
-        M64,
-    }
 
     #[derive(Debug, Default)]
     /// Information obtained from a peek `Hint`

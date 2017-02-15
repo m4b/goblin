@@ -71,7 +71,7 @@ mod impure {
     use scroll::{self, ctx, Endian};
     use std::io::Read;
     use std::ops::Deref;
-    use super::header;
+    use super::{header, section_header};
     use super::strtab::Strtab;
     use super::error;
 
@@ -227,16 +227,12 @@ mod impure {
 
     pub type Header = header::ElfHeader;
     pub type ProgramHeader = Unified<elf32::program_header::ProgramHeader, elf64::program_header::ProgramHeader>;
-    pub type SectionHeader = Unified<elf32::section_header::SectionHeader, elf64::section_header::SectionHeader>;
+    pub type SectionHeader = section_header::ElfSectionHeader;
     pub type Sym = Unified<elf32::sym::Sym, elf64::sym::Sym>;
     pub type Dyn = Unified<elf32::dyn::Dyn, elf64::dyn::Dyn>;
 
     impl Deref for ProgramHeader {
         type Target = super::program_header::ElfProgramHeader;
-        impl_deref!();
-    }
-    impl Deref for SectionHeader {
-        type Target = super::section_header::ElfSectionHeader;
         impl_deref!();
     }
     impl Deref for Sym {
@@ -249,7 +245,7 @@ mod impure {
     }
 
     pub type ProgramHeaders = ElfVec<elf32::program_header::ProgramHeader, elf64::program_header::ProgramHeader>;
-    pub type SectionHeaders = ElfVec<elf32::section_header::SectionHeader, elf64::section_header::SectionHeader>;
+    pub type SectionHeaders = Vec<section_header::ElfSectionHeader>;
     pub type Syms = ElfVec<elf32::sym::Sym, elf64::sym::Sym>;
     pub type Dynamic = ElfVec<elf32::dyn::Dyn, elf64::dyn::Dyn>;
 
@@ -260,7 +256,7 @@ mod impure {
     /// e.g., `dyn.d_val()`
     pub struct Elf {
         /// The ELF header, which provides a rudimentary index into the rest of the binary
-        pub header: header::ElfHeader,
+        pub header: Header,
         /// The program headers; they primarily tell the kernel and the dynamic linker
         /// how to load this binary
         pub program_headers: ProgramHeaders,
@@ -326,12 +322,12 @@ mod impure {
 
     macro_rules! parse_impl {
     ($class:ident, $fd:ident) => {{
-        let header = $fd.pread::<header::ElfHeader>(0)?;
+        let header = $fd.pread::<Header>(0)?;
         let entry = header.e_entry as usize;
-        let is_lib = header.e_type == $class::header::ET_DYN;
-        let is_lsb = header.e_ident[$class::header::EI_DATA] == $class::header::ELFDATA2LSB;
+        let is_lib = header.e_type == header::ET_DYN;
+        let is_lsb = header.e_ident[header::EI_DATA] == header::ELFDATA2LSB;
         let endianness = scroll::Endian::from(is_lsb);
-        let is_64 = header.e_ident[$class::header::EI_CLASS] == $class::header::ELFCLASS64;
+        let is_64 = header.e_ident[header::EI_CLASS] == header::ELFCLASS64;
 
         let program_headers = $class::program_header::ProgramHeader::parse($fd, header.e_phoff as usize, header.e_phnum as usize, endianness)?;
 
@@ -363,26 +359,26 @@ mod impure {
             }
         }
 
-        let section_headers = $class::section_header::SectionHeader::parse($fd, header.e_shoff as usize, header.e_shnum as usize, endianness)?;
+        let section_headers = SectionHeader::parse($fd, header.e_shoff as usize, header.e_shnum as usize, endianness)?;
 
         let mut syms = vec![];
         let mut strtab = $class::strtab::Strtab::default();
         for shdr in &section_headers {
-            if shdr.sh_type as u32 == $class::section_header::SHT_SYMTAB {
+            if shdr.sh_type as u32 == section_header::SHT_SYMTAB {
                 let count = shdr.sh_size / shdr.sh_entsize;
                 syms = $class::sym::parse($fd, shdr.sh_offset as usize, count as usize, endianness)?;
             }
-            if shdr.sh_type as u32 == $class::section_header::SHT_STRTAB {
-                strtab = $class::strtab::Strtab::parse($fd, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0)?;
+            if shdr.sh_type as u32 == section_header::SHT_STRTAB {
+                strtab = Strtab::parse($fd, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0)?;
             }
         }
 
         let strtab_idx = header.e_shstrndx as usize;
         let shdr_strtab = if strtab_idx >= section_headers.len() {
-            $class::strtab::Strtab::default()
+            Strtab::default()
         } else {
             let shdr = &section_headers[strtab_idx];
-            try!($class::strtab::Strtab::parse($fd, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0))
+            try!(Strtab::parse($fd, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0))
         };
 
         let mut soname = None;
@@ -391,10 +387,10 @@ mod impure {
         let mut dynrelas = vec![];
         let mut dynrels = vec![];
         let mut pltrelocs = vec![];
-        let mut dynstrtab = $class::strtab::Strtab::default();
+        let mut dynstrtab = Strtab::default();
         if let Some(ref dynamic) = dynamic {
             let dyn_info = $class::dyn::DynamicInfo::new(&*dynamic.as_slice(), bias); // we explicitly overflow the values here with our bias
-            dynstrtab = $class::strtab::Strtab::parse($fd,
+            dynstrtab = Strtab::parse($fd,
                                                            dyn_info.strtab,
                                                            dyn_info.strsz,
                                                            0x0)?;
@@ -420,14 +416,14 @@ mod impure {
 
         let shdr_relocs = {
             let mut relocs = vec![];
-            if header.e_type == super::header::ET_REL {
+            if header.e_type == header::ET_REL {
                 for section in &section_headers {
-                    if section.sh_type == super::section_header::SHT_REL {
+                    if section.sh_type == section_header::SHT_REL {
                         let sh_relocs = $class::reloc::parse($fd, section.sh_offset as usize, section.sh_size as usize, endianness, false)?;
 println!("sh_relocs {:?}", sh_relocs);
                         relocs.extend_from_slice(&sh_relocs);
                     }
-                    if section.sh_type == super::section_header::SHT_RELA {
+                    if section.sh_type == section_header::SHT_RELA {
                         let sh_relocs = $class::reloc::parse($fd, section.sh_offset as usize, section.sh_size as usize, endianness, true)?;
                         relocs.extend_from_slice(&sh_relocs);
                     }
@@ -436,10 +432,9 @@ println!("sh_relocs {:?}", sh_relocs);
             relocs
         };
         Ok(Elf {
-            //header: wrap!( $class, header),
             header: header,
             program_headers: elf_list!( $class, program_headers),
-            section_headers: elf_list!( $class, section_headers),
+            section_headers: section_headers,
             shdr_strtab: shdr_strtab,
             dynamic: wrap_dyn!($class, dynamic),
             dynsyms: elf_list!($class, dynsyms),

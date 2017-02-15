@@ -13,6 +13,7 @@ documentation = "https://docs.rs/goblin"
 
 [dependencies.scroll]
 version = "0.3.0"
+git = "https://github.com/m4b/scroll"
 optional = true
 
 [dependencies.scroll_derive]

@@ -494,7 +494,7 @@ mod tests {
     use scroll;
 
     #[test]
-    fn endian_trait_parse() {
+    fn parse_crt1_64bit() {
         let crt1: Vec<u8> = include!("../../etc/crt1.rs");
         let buffer = scroll::Buffer::new(crt1);
         match Elf::parse(&buffer) {

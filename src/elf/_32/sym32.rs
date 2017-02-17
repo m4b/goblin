@@ -20,4 +20,4 @@ pub struct Sym {
 
 pub const SIZEOF_SYM: usize = 4 + 1 + 1 + 2 + 4 + 4;
 
-elf_sym_impure_impl!();
+elf_sym_impure_impl!(u32);

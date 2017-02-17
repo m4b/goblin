@@ -74,7 +74,7 @@ mod impure {
     use scroll::{self, ctx, Pread, Endian};
     use std::io::Read;
     use std::ops::Deref;
-    use super::{header, program_header, section_header};
+    use super::{header, program_header, section_header, sym};
     use super::strtab::Strtab;
     use super::error;
     use super::container::{Container, Ctx};
@@ -232,13 +232,9 @@ mod impure {
     pub type Header = header::ElfHeader;
     pub type ProgramHeader = program_header::ElfProgramHeader;
     pub type SectionHeader = section_header::ElfSectionHeader;
-    pub type Sym = Unified<elf32::sym::Sym, elf64::sym::Sym>;
+    pub type Sym = sym::ElfSym;
     pub type Dyn = Unified<elf32::dyn::Dyn, elf64::dyn::Dyn>;
 
-    impl Deref for Sym {
-        type Target = super::sym::ElfSym;
-        impl_deref!();
-    }
     impl Deref for Dyn {
         type Target = super::dyn::ElfDyn;
         impl_deref!();
@@ -246,7 +242,7 @@ mod impure {
 
     pub type ProgramHeaders = Vec<ProgramHeader>;
     pub type SectionHeaders = Vec<section_header::ElfSectionHeader>;
-    pub type Syms = ElfVec<elf32::sym::Sym, elf64::sym::Sym>;
+    pub type Syms = Vec<Sym>;
     pub type Dynamic = ElfVec<elf32::dyn::Dyn, elf64::dyn::Dyn>;
 
     #[derive(Debug)]
@@ -368,7 +364,7 @@ mod impure {
         for shdr in &section_headers {
             if shdr.sh_type as u32 == section_header::SHT_SYMTAB {
                 let count = shdr.sh_size / shdr.sh_entsize;
-                syms = $class::sym::parse($fd, shdr.sh_offset as usize, count as usize, endianness)?;
+                syms = Sym::parse($fd, shdr.sh_offset as usize, count as usize, ctx)?;
             }
             if shdr.sh_type as u32 == section_header::SHT_STRTAB {
                 strtab = Strtab::parse($fd, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0)?;
@@ -393,9 +389,9 @@ mod impure {
         if let Some(ref dynamic) = dynamic {
             let dyn_info = $class::dyn::DynamicInfo::new(&*dynamic.as_slice(), bias); // we explicitly overflow the values here with our bias
             dynstrtab = Strtab::parse($fd,
-                                                           dyn_info.strtab,
-                                                           dyn_info.strsz,
-                                                           0x0)?;
+                                      dyn_info.strtab,
+                                      dyn_info.strsz,
+                                      0x0)?;
 
             if dyn_info.soname != 0 {
                 soname = Some(dynstrtab.get(dyn_info.soname).to_owned())
@@ -408,7 +404,7 @@ mod impure {
                 }
             }
             let num_syms = (dyn_info.strtab - dyn_info.symtab) / dyn_info.syment;
-            dynsyms = $class::sym::parse($fd, dyn_info.symtab, num_syms, endianness)?;
+            dynsyms = Sym::parse($fd, dyn_info.symtab, num_syms, ctx)?;
             // parse the dynamic relocations
             dynrelas = $class::reloc::parse($fd, dyn_info.rela, dyn_info.relasz, endianness, true)?;
             dynrels = $class::reloc::parse($fd, dyn_info.rel, dyn_info.relsz, endianness, false)?;
@@ -439,9 +435,9 @@ println!("sh_relocs {:?}", sh_relocs);
             section_headers: section_headers,
             shdr_strtab: shdr_strtab,
             dynamic: wrap_dyn!($class, dynamic),
-            dynsyms: elf_list!($class, dynsyms),
+            dynsyms: dynsyms,
             dynstrtab: dynstrtab,
-            syms: elf_list!($class, syms),
+            syms: syms,
             strtab: strtab,
             dynrelas: dynrelas,
             dynrels: dynrels,
@@ -513,7 +509,7 @@ mod tests {
                 for sym in &syms {
                     if i == 11 {
                         let symtab = binary.strtab;
-                        assert_eq!(&symtab[sym.st_name() as usize], "_start");
+                        assert_eq!(&symtab[sym.st_name], "_start");
                         break;
                     }
                     i += 1;

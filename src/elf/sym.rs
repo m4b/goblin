@@ -1,15 +1,105 @@
+use core::fmt;
+use scroll::{self, ctx, Gread};
+use error;
+use core::result;
+use container::{Ctx, Container};
+
 #[cfg(feature = "std")]
-pub trait ElfSym {
-    fn st_name(&self) -> usize;
-    fn st_info(&self) -> u8;
-    fn st_other(&self) -> u8;
-    fn st_shndx(&self) -> usize;
-    fn st_value(&self) -> u64;
-    fn st_size(&self) -> u64;
-    fn is_function(&self) -> bool;
-    fn is_import(&self) -> bool;
-    fn st_type(&self) -> u8;
-    fn st_bind(&self) -> u8;
+#[derive(Default, PartialEq, Clone)]
+pub struct ElfSym {
+    pub st_name:     usize,
+    pub st_info:     u8,
+    pub st_other:    u8,
+    pub st_shndx:    usize,
+    pub st_value:    u64,
+    pub st_size:     u64,
+}
+
+impl ElfSym {
+    /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` bind and a `st_value` of 0
+    pub fn is_import(&self) -> bool {
+        let bind = self.st_bind();
+        (bind == STB_GLOBAL || bind == STB_WEAK) && self.st_value == 0
+    }
+    /// Checks whether this `Sym` has type `STT_FUNC`
+    pub fn is_function(&self) -> bool {
+        st_type(self.st_info) == STT_FUNC
+    }
+    /// Get the ST bind.
+    ///
+    /// This is the first four bits of the byte.
+    #[inline]
+    pub fn st_bind(&self) -> u8 {
+        self.st_info >> 4
+    }
+    /// Get the ST type.
+    ///
+    /// This is the last four bits of the byte.
+    #[inline]
+    pub fn st_type(&self) -> u8 {
+        self.st_info & 0xf
+    }
+    #[cfg(feature = "endian_fd")]
+    /// Parse `count` vector of ELF symbols from `offset`
+    pub fn parse<S: AsRef<[u8]>>(bytes: &S, mut offset: usize, count: usize, ctx: Ctx) -> error::Result<Vec<ElfSym>> {
+        let mut syms = Vec::with_capacity(count);
+        let mut offset = &mut offset;
+        for _ in 0..count {
+            let sym = bytes.gread_with(offset, ctx)?;
+            syms.push(sym);
+        }
+        Ok(syms)
+    }
+}
+
+impl fmt::Debug for ElfSym {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let bind = self.st_bind();
+        let typ = self.st_type();
+        write!(f,
+               "st_name: {} {} {} st_other: {} st_shndx: {} st_value: {:x} st_size: {}",
+               self.st_name,
+               bind_to_str(bind),
+               type_to_str(typ),
+               self.st_other,
+               self.st_shndx,
+               self.st_value,
+               self.st_size)
+    }
+}
+
+impl<'a> ctx::TryFromCtx<'a, (usize, Ctx)> for ElfSym {
+    type Error = scroll::Error;
+    fn try_from_ctx(buffer: &'a [u8], (offset, Ctx { container, le}): (usize, Ctx)) -> result::Result<Self, Self::Error> {
+        use scroll::Pread;
+        let sym = match container {
+            Container::Little => {
+                buffer.pread_with::<super::super::elf32::sym::Sym>(offset, le)?.into()
+            },
+            Container::Big => {
+                buffer.pread_with::<super::super::elf64::sym::Sym>(offset, le)?.into()
+            }
+        };
+        Ok(sym)
+    }
+}
+
+impl ctx::TryIntoCtx<(usize, Ctx)> for ElfSym {
+    type Error = scroll::Error;
+    fn try_into_ctx(self, mut buffer: &mut [u8], (offset, Ctx {container, le}): (usize, Ctx)) -> result::Result<(), Self::Error> {
+        use scroll::Pwrite;
+        match container {
+            Container::Little => {
+                let sym: super::super::elf32::sym::Sym = self.into();
+                buffer.pwrite_with(sym, offset, le)?;
+            },
+            Container::Big => {
+                let sym: super::super::elf64::sym::Sym = self.into();
+                buffer.pwrite_with(sym, offset, le)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 /// === Sym bindings ===
@@ -60,7 +150,7 @@ pub const STT_LOPROC: u8 = 13;
 /// End of processor-specific.
 pub const STT_HIPROC: u8 = 15;
 
-/// Get the ST binding.
+/// Get the ST bind.
 ///
 /// This is the first four bits of the byte.
 #[inline]
@@ -79,8 +169,8 @@ pub fn st_type(info: u8) -> u8 {
 /// Is this information defining an import?
 #[inline]
 pub fn is_import(info: u8, value: u64) -> bool {
-    let binding = st_bind(info);
-    binding == STB_GLOBAL && value == 0
+    let bind = st_bind(info);
+    bind == STB_GLOBAL && value == 0
 }
 
 /// Convenience function to get the &'static str type from the symbols `st_info`.
@@ -88,7 +178,7 @@ pub fn get_type(info: u8) -> &'static str {
     type_to_str(st_type(info))
 }
 
-/// Get the string for some binding.
+/// Get the string for some bind.
 #[inline]
 pub fn bind_to_str(typ: u8) -> &'static str {
     match typ {
@@ -119,7 +209,7 @@ pub fn type_to_str(typ: u8) -> &'static str {
 }
 
 macro_rules! elf_sym_impure_impl {
-    () => {
+    ($size:ty) => {
 
         #[cfg(feature = "std")]
         pub use self::impure::*;
@@ -137,56 +227,41 @@ macro_rules! elf_sym_impure_impl {
             use std::io::{Read, Seek};
             use std::io::SeekFrom::Start;
 
-            impl ElfSym for Sym {
-                fn st_name(&self) -> usize {
-                    self.st_name as usize
-                }
-                fn st_info(&self) -> u8 {
-                    self.st_info
-                }
-                fn st_other(&self) -> u8 {
-                    self.st_other
-                }
-                fn st_shndx(&self) -> usize {
-                    self.st_shndx as usize
-                }
-                fn st_value(&self) -> u64 {
-                    self.st_value as u64
-                }
-                fn st_size(&self) -> u64 {
-                    self.st_size as u64
-                }
-                fn is_function(&self) -> bool {
-                    self.is_function()
-                }
-                fn is_import(&self) -> bool {
-                    self.is_import()
-                }
-                /// Get the ST binding.
-                ///
-                /// This is the first four bits of the byte.
-                #[inline]
-                fn st_bind(&self) -> u8 {
-                    self.st_info() >> 4
-                }
-                /// Get the ST type.
-                ///
-                /// This is the last four bits of the byte.
-                #[inline]
-                fn st_type(&self) -> u8 {
-                    self.st_info() & 0xf
-                }
-            }
-
             impl Sym {
-                /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` binding and a `st_value` of 0
+                /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` bind and a `st_value` of 0
                 pub fn is_import(&self) -> bool {
-                    let binding = self.st_info >> 4;
-                    (binding == STB_GLOBAL || binding == STB_WEAK) && self.st_value == 0
+                    let bind = self.st_info >> 4;
+                    (bind == STB_GLOBAL || bind == STB_WEAK) && self.st_value == 0
                 }
                 /// Checks whether this `Sym` has type `STT_FUNC`
                 pub fn is_function(&self) -> bool {
                     st_type(self.st_info) == STT_FUNC
+                }
+            }
+
+            impl From<Sym> for ElfSym {
+                fn from(sym: Sym) -> Self {
+                    ElfSym {
+                        st_name:     sym.st_name as usize,
+                        st_info:     sym.st_info,
+                        st_other:    sym.st_other,
+                        st_shndx:    sym.st_shndx as usize,
+                        st_value:    sym.st_value as u64,
+                        st_size:     sym.st_size as u64,
+                    }
+                }
+            }
+
+            impl From<ElfSym> for Sym {
+                fn from(sym: ElfSym) -> Self {
+                    Sym {
+                        st_name:     sym.st_name as u32,
+                        st_info:     sym.st_info,
+                        st_other:    sym.st_other,
+                        st_shndx:    sym.st_shndx as u16,
+                        st_value:    sym.st_value as $size,
+                        st_size:     sym.st_size as $size,
+                    }
                 }
             }
 

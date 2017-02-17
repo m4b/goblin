@@ -509,6 +509,7 @@ mod tests {
                 for sym in &syms {
                     if i == 11 {
                         let symtab = binary.strtab;
+                        println!("sym: {:?}", &sym);
                         assert_eq!(&symtab[sym.st_name], "_start");
                         break;
                     }

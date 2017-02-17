@@ -1,6 +1,6 @@
 use core::fmt;
 use core::result;
-use scroll::{self, ctx};
+use scroll::{self, ctx, Pread};
 use error::Result;
 use container::{Container, Ctx};
 
@@ -29,6 +29,16 @@ pub struct ElfSectionHeader {
 }
 
 impl ElfSectionHeader {
+    pub fn size(container: Container) -> usize {
+        match container {
+            Container::Little => {
+                super::super::elf32::section_header::SIZEOF_SHDR
+            },
+            Container::Big => {
+                super::super::elf64::section_header::SIZEOF_SHDR
+            },
+        }
+    }
     pub fn new() -> Self {
         ElfSectionHeader {
             sh_name: 0,
@@ -45,10 +55,13 @@ impl ElfSectionHeader {
     }
     #[cfg(feature = "endian_fd")]
     pub fn parse<S: AsRef<[u8]>>(buffer: &S, mut offset: usize, count: usize, ctx: Ctx) -> Result<Vec<ElfSectionHeader>> {
-        use scroll::Gread;
-        let mut section_headers = vec![ElfSectionHeader::default(); count];
-        let mut offset = &mut offset;
-        buffer.gread_inout_with(offset, &mut section_headers, ctx)?;
+        let mut section_headers = Vec::with_capacity(count);
+        let size = Self::size(ctx.container);
+        for _ in 0..count {
+            let shdr = buffer.pread_with(offset, ctx)?;
+            offset += size;
+            section_headers.push(shdr);
+        }
         Ok(section_headers)
     }
 }

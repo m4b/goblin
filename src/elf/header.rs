@@ -3,6 +3,7 @@ include!("constants_header.rs");
 use error::{self};
 use scroll::{self, ctx};
 use core::fmt;
+use container::{Container};
 
 #[derive(Clone, PartialEq)]
 pub struct ElfHeader {
@@ -23,24 +24,30 @@ pub struct ElfHeader {
 }
 
 impl ElfHeader {
-    pub fn machine(&self) -> error::Result<super::super::Machine> {
-        use super::super::Machine;
+    pub fn container(&self) -> error::Result<Container> {
         use error::Error;
         match self.e_ident[EI_CLASS] {
-            ELFCLASS32 => { Ok(Machine::M32) },
-            ELFCLASS64 => { Ok(Machine::M64) },
+            ELFCLASS32 => { Ok(Container::Little) },
+            ELFCLASS64 => { Ok(Container::Big) },
             class => Err(Error::Malformed(format!("Invalid class in ElfHeader: {}", class)))
         }
     }
-    pub fn new(machine: super::super::Machine) -> Self {
-        use super::super::Machine::*;
-        let (typ, ehsize, phentsize, shentsize) = match machine {
-            M32 => {
+    pub fn endianness(&self) -> error::Result<scroll::Endian> {
+        use error::Error;
+        match self.e_ident[EI_DATA] {
+            ELFDATA2LSB => { Ok(scroll::LE) },
+            ELFDATA2MSB => { Ok(scroll::BE) },
+            class => Err(Error::Malformed(format!("Invalid endianness in ElfHeader: {}", class)))
+        }
+    }
+    pub fn new(container: Container) -> Self {
+        let (typ, ehsize, phentsize, shentsize) = match container {
+            Container::Little => {
                 (ELFCLASS32, super::super::elf32::header::SIZEOF_EHDR,
                  super::super::elf32::program_header::SIZEOF_PHDR,
                  super::super::elf32::section_header::SIZEOF_SHDR)
             },
-            M64 => {
+            Container::Big => {
                 (ELFCLASS64, super::super::elf64::header::SIZEOF_EHDR,
                  super::super::elf64::program_header::SIZEOF_PHDR,
                  super::super::elf64::section_header::SIZEOF_SHDR)
@@ -134,12 +141,11 @@ impl ctx::TryIntoCtx<(usize, scroll::ctx::DefaultCtx)> for ElfHeader {
     type Error = error::Error;
     fn try_into_ctx(self, buffer: &mut [u8], (offset, _): (usize, scroll::Endian)) -> Result<(), Self::Error> {
         use scroll::Pwrite;
-        use super::super::Machine::*;
-        match self.machine()? {
-            M32 => {
+        match self.container()? {
+            Container::Little => {
                 buffer.pwrite(super::super::elf32::header::Header::from(self), offset)?
             },
-            M64 => {
+            Container::Big => {
                 buffer.pwrite(super::super::elf64::header::Header::from(self), offset)?
             }
         }
@@ -294,7 +300,7 @@ mod impure {
 
     /// Peek at important data in an ELF byte stream, and return the ELF class and endianness
     /// if it's a valid byte sequence
-    pub fn peek<S: scroll::Pread>(buffer: &S) -> Result<(u8, bool)> {
+    pub fn peek<S: AsRef<[u8]>>(buffer: &S) -> Result<(u8, bool)> {
         let ident: &[u8] = buffer.pread_slice(0, SIZEOF_IDENT)?;
         if &ident[0..SELFMAG] != ELFMAG {
             let magic: u64 = ident.pread_with(0, scroll::LE)?;
@@ -479,6 +485,7 @@ macro_rules! elf_header_test {
             extern crate scroll;
             use scroll::{Pwrite, Pread};
             use super::*;
+            use container::Container;
             use scroll::Buffer;
             #[test]
             fn test_peek () {
@@ -511,11 +518,11 @@ macro_rules! elf_header_test {
             }
             #[test]
             fn elfheader_read_write () {
-                let (machine, crt1): (super::super::super::Machine, Vec<u8>) =
+                let (container, crt1): (Container, Vec<u8>) =
                     if $class == ELFCLASS64 {
-                        (super::super::super::Machine::M64, include!("../../../etc/crt1.rs"))
+                        (Container::Big, include!("../../../etc/crt1.rs"))
                     } else {
-                        (super::super::super::Machine::M32, include!("../../../etc/crt132.rs"))
+                        (Container::Little, include!("../../../etc/crt132.rs"))
                     };
                 let header: ElfHeader = crt1.pread(0).unwrap();
                 assert_eq!(header.e_type, ET_REL);
@@ -525,12 +532,11 @@ macro_rules! elf_header_test {
                 bytes.pwrite(header_, 0).unwrap();
                 let header2: ElfHeader = bytes.pread(0).unwrap();
                 assert_eq!(header, header2);
-                let header = ElfHeader::new(machine);
+                let header = ElfHeader::new(container);
                 println!("header: {:?}", &header);
 
                 let mut bytes = scroll::Buffer::with(0, 100);
                 bytes.pwrite(header, 0).unwrap();
-                assert!(false);
             }
         }
     }

@@ -2,6 +2,7 @@ use core::fmt;
 use core::result;
 use scroll::{self, ctx};
 use error::Result;
+use container::{Container, Ctx};
 
 #[derive(Default, PartialEq, Clone)]
 pub struct ElfSectionHeader {
@@ -43,7 +44,8 @@ impl ElfSectionHeader {
         }
     }
     #[cfg(feature = "endian_fd")]
-    pub fn parse<S: scroll::Gread>(buffer: &S, mut offset: usize, count: usize, ctx: scroll::Endian) -> Result<Vec<ElfSectionHeader>> {
+    pub fn parse<S: AsRef<[u8]>>(buffer: &S, mut offset: usize, count: usize, ctx: Ctx) -> Result<Vec<ElfSectionHeader>> {
+        use scroll::Gread;
         let mut section_headers = vec![ElfSectionHeader::default(); count];
         let mut offset = &mut offset;
         buffer.gread_inout_with(offset, &mut section_headers, ctx)?;
@@ -131,21 +133,36 @@ macro_rules! elf_section_header {
     }
 }
 
-impl<'a> ctx::TryFromCtx<'a> for ElfSectionHeader {
+impl<'a> ctx::TryFromCtx<'a, (usize, Ctx)> for ElfSectionHeader {
     type Error = scroll::Error;
-    fn try_from_ctx(buffer: &'a [u8], (offset, ctx): (usize, scroll::Endian)) -> result::Result<Self, Self::Error> {
+    fn try_from_ctx(buffer: &'a [u8], (offset, Ctx { container, le }): (usize, Ctx)) -> result::Result<Self, Self::Error> {
         use scroll::Pread;
-        let shdr = buffer.pread_with::<super::super::elf64::section_header::SectionHeader>(offset, ctx)?.into();
+        let shdr = match container {
+            Container::Little => {
+                buffer.pread_with::<super::super::elf32::section_header::SectionHeader>(offset, le)?.into()
+            },
+            Container::Big => {
+                buffer.pread_with::<super::super::elf64::section_header::SectionHeader>(offset, le)?.into()
+            }
+        };
         Ok(shdr)
     }
 }
 
-impl ctx::TryIntoCtx for ElfSectionHeader {
+impl ctx::TryIntoCtx<(usize, Ctx)> for ElfSectionHeader {
     type Error = scroll::Error;
-    fn try_into_ctx(self, mut buffer: &mut [u8], (offset, ctx): (usize, scroll::Endian)) -> result::Result<(), Self::Error> {
+    fn try_into_ctx(self, mut buffer: &mut [u8], (offset, Ctx { container, le }): (usize, Ctx)) -> result::Result<(), Self::Error> {
         use scroll::Pwrite;
-        let shdr: super::super::elf64::section_header::SectionHeader = self.into();
-        buffer.pwrite_with(shdr, offset, ctx)?;
+        match container {
+            Container::Little => {
+                let shdr: super::super::elf32::section_header::SectionHeader = self.into();
+                buffer.pwrite_with(shdr, offset, le)?;
+            },
+            Container::Big => {
+                let shdr: super::super::elf64::section_header::SectionHeader = self.into();
+                buffer.pwrite_with(shdr, offset, le)?;
+            }
+        }
         Ok(())
     }
 }

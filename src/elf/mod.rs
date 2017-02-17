@@ -13,8 +13,8 @@
 //!     Ok(binary) => {
 //!       let entry = binary.entry;
 //!       for ph in binary.program_headers {
-//!         if ph.p_type() == goblin::elf::program_header::PT_LOAD {
-//!           let mut _buf = vec![0u8; ph.p_filesz() as usize];
+//!         if ph.p_type == goblin::elf::program_header::PT_LOAD {
+//!           let mut _buf = vec![0u8; ph.p_filesz as usize];
 //!           // read responsibly
 //!          }
 //!       }
@@ -39,6 +39,9 @@
 
 #[cfg(feature = "std")]
 pub use super::error;
+
+#[cfg(feature = "std")]
+pub use super::container;
 
 #[cfg(feature = "std")]
 pub mod strtab;
@@ -68,12 +71,13 @@ pub use self::impure::*;
 #[cfg(all(feature = "std", feature = "elf32", feature = "elf64", feature = "endian_fd"))]
 #[macro_use]
 mod impure {
-    use scroll::{self, ctx, Endian};
+    use scroll::{self, ctx, Pread, Endian};
     use std::io::Read;
     use std::ops::Deref;
-    use super::{header, section_header};
+    use super::{header, program_header, section_header};
     use super::strtab::Strtab;
     use super::error;
+    use super::container::{Container, Ctx};
 
     use elf32;
     use elf64;
@@ -226,15 +230,11 @@ mod impure {
     }
 
     pub type Header = header::ElfHeader;
-    pub type ProgramHeader = Unified<elf32::program_header::ProgramHeader, elf64::program_header::ProgramHeader>;
+    pub type ProgramHeader = program_header::ElfProgramHeader;
     pub type SectionHeader = section_header::ElfSectionHeader;
     pub type Sym = Unified<elf32::sym::Sym, elf64::sym::Sym>;
     pub type Dyn = Unified<elf32::dyn::Dyn, elf64::dyn::Dyn>;
 
-    impl Deref for ProgramHeader {
-        type Target = super::program_header::ElfProgramHeader;
-        impl_deref!();
-    }
     impl Deref for Sym {
         type Target = super::sym::ElfSym;
         impl_deref!();
@@ -244,7 +244,7 @@ mod impure {
         impl_deref!();
     }
 
-    pub type ProgramHeaders = ElfVec<elf32::program_header::ProgramHeader, elf64::program_header::ProgramHeader>;
+    pub type ProgramHeaders = Vec<ProgramHeader>;
     pub type SectionHeaders = Vec<section_header::ElfSectionHeader>;
     pub type Syms = ElfVec<elf32::sym::Sym, elf64::sym::Sym>;
     pub type Dynamic = ElfVec<elf32::dyn::Dyn, elf64::dyn::Dyn>;
@@ -328,14 +328,16 @@ mod impure {
         let is_lsb = header.e_ident[header::EI_DATA] == header::ELFDATA2LSB;
         let endianness = scroll::Endian::from(is_lsb);
         let is_64 = header.e_ident[header::EI_CLASS] == header::ELFCLASS64;
+        let container = if is_64 { Container::Big } else { Container::Little };
+        let ctx = Ctx::new(container, endianness);
 
-        let program_headers = $class::program_header::ProgramHeader::parse($fd, header.e_phoff as usize, header.e_phnum as usize, endianness)?;
+        let program_headers = ProgramHeader::parse($fd, header.e_phoff as usize, header.e_phnum as usize, ctx)?;
 
         let dynamic = $class::dyn::parse($fd, &program_headers, endianness)?;
 
         let mut bias: usize = 0;
         for ph in &program_headers {
-            if ph.p_type == $class::program_header::PT_LOAD {
+            if ph.p_type == program_header::PT_LOAD {
                 // this is an overflow hack that allows us to use virtual memory addresses
                 // as though they're in the file by generating a fake load bias which is then
                 // used to overflow the values in the dynamic array, and in a few other places
@@ -352,17 +354,17 @@ mod impure {
 
         let mut interpreter = None;
         for ph in &program_headers {
-            if ph.p_type == $class::program_header::PT_INTERP {
+            if ph.p_type == program_header::PT_INTERP {
                 let count = (ph.p_filesz - 1) as usize;
                 let offset = ph.p_offset as usize;
                 interpreter = Some($fd.pread_slice::<str>(offset, count)?.to_string());
             }
         }
 
-        let section_headers = SectionHeader::parse($fd, header.e_shoff as usize, header.e_shnum as usize, endianness)?;
+        let section_headers = SectionHeader::parse($fd, header.e_shoff as usize, header.e_shnum as usize, ctx)?;
 
         let mut syms = vec![];
-        let mut strtab = $class::strtab::Strtab::default();
+        let mut strtab = Strtab::default();
         for shdr in &section_headers {
             if shdr.sh_type as u32 == section_header::SHT_SYMTAB {
                 let count = shdr.sh_size / shdr.sh_entsize;
@@ -433,7 +435,7 @@ println!("sh_relocs {:?}", sh_relocs);
         };
         Ok(Elf {
             header: header,
-            program_headers: elf_list!( $class, program_headers),
+            program_headers: program_headers,
             section_headers: section_headers,
             shdr_strtab: shdr_strtab,
             dynamic: wrap_dyn!($class, dynamic),
@@ -459,7 +461,7 @@ println!("sh_relocs {:?}", sh_relocs);
 
     impl Elf {
         /// Parses the contents of the byte stream in `buffer`, and maybe returns a unified binary
-        pub fn parse<S: scroll::Gread + scroll::Pread<scroll::ctx::DefaultCtx, error::Error>>(buffer: &S) -> error::Result<Self> {
+        pub fn parse<S: AsRef<[u8]>>(buffer: &S) -> error::Result<Self> {
             match header::peek(buffer)? {
                 (header::ELFCLASS32, _is_lsb) => {
                     parse_impl!(elf32, buffer)

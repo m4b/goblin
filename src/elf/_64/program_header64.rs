@@ -24,4 +24,4 @@ pub struct ProgramHeader {
 
 pub const SIZEOF_PHDR: usize = 64;
 
-elf_program_header_impure_impl!();
+elf_program_header_impure_impl!(u64);

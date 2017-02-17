@@ -1,13 +1,93 @@
+use core::fmt;
+use scroll::{self, ctx, Gread};
+use error;
+use core::result;
+use container::{Ctx, Container};
+
 #[cfg(feature = "std")]
-pub trait ElfProgramHeader {
-    fn p_type(&self) -> u32;
-    fn p_flags(&self) -> u32;
-    fn p_offset(&self) -> u64;
-    fn p_vaddr(&self) -> u64;
-    fn p_paddr(&self) -> u64;
-    fn p_filesz(&self) -> u64;
-    fn p_memsz(&self) -> u64;
-    fn p_align(&self) -> u64;
+#[derive(Default, PartialEq, Clone)]
+pub struct ElfProgramHeader {
+    pub p_type  : u32,
+    pub p_flags : u32,
+    pub p_offset: u64,
+    pub p_vaddr : u64,
+    pub p_paddr : u64,
+    pub p_filesz: u64,
+    pub p_memsz : u64,
+    pub p_align : u64,
+}
+
+impl ElfProgramHeader {
+    /// Create a new X+R, `PT_LOAD` ELF program header
+    pub fn new() -> Self {
+        ElfProgramHeader {
+            p_type  : PT_LOAD,
+            p_flags : PF_X | PF_R,
+            p_offset: 0,
+            p_vaddr : 0,
+            p_paddr : 0,
+            p_filesz: 0,
+            p_memsz : 0,
+            p_align : 2 << 8,
+        }
+    }
+    #[cfg(feature = "endian_fd")]
+    pub fn parse<S: AsRef<[u8]>>(buffer: &S, mut offset: usize, count: usize, ctx: Ctx) -> error::Result<Vec<ElfProgramHeader>> {
+        let mut program_headers = vec![ElfProgramHeader::default(); count];
+        let mut offset = &mut offset;
+        buffer.gread_inout_with(offset, &mut program_headers, ctx)?;
+        Ok(program_headers)
+    }
+}
+
+impl fmt::Debug for ElfProgramHeader {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f,
+               "p_type: {} p_flags 0x{:x} p_offset: 0x{:x} p_vaddr: 0x{:x} p_paddr: 0x{:x} \
+                p_filesz: 0x{:x} p_memsz: 0x{:x} p_align: {}",
+               pt_to_str(self.p_type),
+               self.p_flags,
+               self.p_offset,
+               self.p_vaddr,
+               self.p_paddr,
+               self.p_filesz,
+               self.p_memsz,
+               self.p_align)
+    }
+}
+
+impl<'a> ctx::TryFromCtx<'a, (usize, Ctx)> for ElfProgramHeader {
+    type Error = scroll::Error;
+    fn try_from_ctx(buffer: &'a [u8], (offset, Ctx { container, le}): (usize, Ctx)) -> result::Result<Self, Self::Error> {
+        use scroll::Pread;
+        let phdr = match container {
+            Container::Little => {
+                buffer.pread_with::<super::super::elf32::program_header::ProgramHeader>(offset, le)?.into()
+            },
+            Container::Big => {
+                buffer.pread_with::<super::super::elf64::program_header::ProgramHeader>(offset, le)?.into()
+            }
+        };
+        Ok(phdr)
+    }
+}
+
+impl ctx::TryIntoCtx<(usize, Ctx)> for ElfProgramHeader {
+    type Error = scroll::Error;
+    fn try_into_ctx(self, mut buffer: &mut [u8], (offset, Ctx {container, le}): (usize, Ctx)) -> result::Result<(), Self::Error> {
+        use scroll::Pwrite;
+        match container {
+            Container::Little => {
+                let phdr: super::super::elf32::program_header::ProgramHeader = self.into();
+                buffer.pwrite_with(phdr, offset, le)?;
+            },
+            Container::Big => {
+                let phdr: super::super::elf64::program_header::ProgramHeader = self.into();
+                buffer.pwrite_with(phdr, offset, le)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 /// Program header table entry unused
@@ -87,7 +167,7 @@ pub fn pt_to_str(pt: u32) -> &'static str {
     }
 }
 
-macro_rules! elf_program_header_impure_impl { () => {
+macro_rules! elf_program_header_impure_impl { ($size:ty) => {
 
         #[cfg(feature = "std")]
         pub use self::impure::*;
@@ -106,31 +186,33 @@ macro_rules! elf_program_header_impure_impl { () => {
             use std::io::{Seek, Read};
             use std::io::SeekFrom::Start;
 
-            #[cfg(feature = "endian_fd")]
-            impl ElfProgramHeader for ProgramHeader {
-                fn p_type(&self) -> u32 {
-                    self.p_type
+            impl From<ProgramHeader> for ElfProgramHeader {
+                fn from(ph: ProgramHeader) -> Self {
+                    ElfProgramHeader {
+                        p_type   : ph.p_type,
+                        p_flags  : ph.p_flags,
+                        p_offset : ph.p_offset as u64,
+                        p_vaddr  : ph.p_vaddr as u64,
+                        p_paddr  : ph.p_paddr as u64,
+                        p_filesz : ph.p_filesz as u64,
+                        p_memsz  : ph.p_memsz as u64,
+                        p_align  : ph.p_align as u64,
+                    }
                 }
-                fn p_flags(&self) -> u32 {
-                    self.p_flags
-                }
-                fn p_offset(&self) -> u64 {
-                    self.p_offset as u64
-                }
-                fn p_vaddr(&self) -> u64 {
-                    self.p_vaddr as u64
-                }
-                fn p_paddr(&self) -> u64 {
-                    self.p_paddr as u64
-                }
-                fn p_filesz(&self) -> u64 {
-                    self.p_filesz as u64
-                }
-                fn p_memsz(&self) -> u64 {
-                    self.p_memsz as u64
-                }
-                fn p_align(&self) -> u64 {
-                    self.p_align as u64
+            }
+
+            impl From<ElfProgramHeader> for ProgramHeader {
+                fn from(ph: ElfProgramHeader) -> Self {
+                    ProgramHeader {
+                        p_type   : ph.p_type,
+                        p_flags  : ph.p_flags,
+                        p_offset : ph.p_offset as $size,
+                        p_vaddr  : ph.p_vaddr  as $size,
+                        p_paddr  : ph.p_paddr  as $size,
+                        p_filesz : ph.p_filesz as $size,
+                        p_memsz  : ph.p_memsz  as $size,
+                        p_align  : ph.p_align  as $size,
+                    }
                 }
             }
 
@@ -152,10 +234,10 @@ macro_rules! elf_program_header_impure_impl { () => {
 
             impl ProgramHeader {
                 #[cfg(feature = "endian_fd")]
-                pub fn parse<S: scroll::Gread>(fd: &S, mut offset: usize, count: usize, endianness: scroll::Endian) -> Result<Vec<ProgramHeader>> {
+                pub fn parse<S: scroll::Gread>(buffer: &S, mut offset: usize, count: usize, ctx: scroll::Endian) -> Result<Vec<ProgramHeader>> {
                     let mut program_headers = vec![ProgramHeader::default(); count];
                     let mut offset = &mut offset;
-                    fd.gread_inout_with(offset, &mut program_headers, endianness)?;
+                    buffer.gread_inout_with(offset, &mut program_headers, ctx)?;
                     Ok(program_headers)
                 }
 

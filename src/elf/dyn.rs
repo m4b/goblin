@@ -397,9 +397,10 @@ macro_rules! elf_dyn_impure_impl {
                     needed
                 }
 
+                use elf::program_header::ElfProgramHeader;
                 #[cfg(feature = "endian_fd")]
                 /// Returns a vector of dynamic entries from the underlying byte `buffer`, with `endianness`, using the provided `phdrs`
-                pub fn parse<S: scroll::Gread> (buffer: &S, phdrs: &[ProgramHeader], endianness: scroll::Endian) -> Result<Option<Vec<Dyn>>> {
+                pub fn parse<S: scroll::Gread> (buffer: &S, phdrs: &[ElfProgramHeader], endianness: scroll::Endian) -> Result<Option<Vec<Dyn>>> {
                     for phdr in phdrs {
                         if phdr.p_type == PT_DYNAMIC {
                             let filesz = phdr.p_filesz as usize;

@@ -116,16 +116,61 @@ pub mod archive;
 #[cfg(feature = "pe32")]
 pub mod pe;
 
+pub mod container {
+    use scroll;
+    #[derive(Debug, Copy, Clone, PartialEq)]
+    pub enum Container {
+        Little,
+        Big,
+    }
+
+    #[cfg(not(target_pointer_width = "64"))]
+    pub const CONTAINER: Container =  Container::Little;
+
+    #[cfg(target_pointer_width = "64")]
+    pub const CONTAINER: Container =  Container::Big;
+
+    impl Default for Container {
+        #[inline]
+        fn default() -> Self {
+            CONTAINER
+        }
+    }
+
+    #[derive(Debug, Copy, Clone, PartialEq)]
+    pub struct Ctx {
+        pub container: Container,
+        pub le: scroll::Endian,
+    }
+
+    impl Ctx {
+        pub fn new (container: Container, le: scroll::Endian) -> Self {
+            Ctx { container: container, le: le }
+        }
+    }
+
+    impl From<Container> for Ctx {
+        fn from(container: Container) -> Self {
+            Ctx { container: container, le: scroll::Endian::default() }
+        }
+    }
+
+    impl From<scroll::Endian> for Ctx {
+        fn from(le: scroll::Endian) -> Self {
+            Ctx { container: CONTAINER, le: le }
+        }
+    }
+
+    impl Default for Ctx {
+        #[inline]
+        fn default() -> Self {
+            Ctx { container: Container::default(), le: scroll::Endian::default() }
+        }
+    }
+}
+
 #[cfg(feature = "std")]
 pub use impure::*;
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum Machine {
-    M32,
-    M64,
-    // M32(scroll::Endian),
-    // M64(scroll::Endian),
-}
 
 #[cfg(all(feature = "std"))]
 mod impure {

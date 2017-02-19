@@ -45,6 +45,10 @@
 //! `R_X86_64_RELATIVE` relocation.
 
 use core::fmt;
+use core::result;
+use scroll::{self, ctx};
+use error;
+use container::{Ctx, Container};
 
 #[derive(Clone, Copy, PartialEq, Default)]
 /// A unified ELF relocation structure
@@ -63,41 +67,81 @@ pub struct Reloc {
     pub is_rela: bool
 }
 
-#[cfg(feature = "std")]
-pub trait ElfReloc {
-    /// Address
-    fn r_offset(&self) -> u64;
-    /// Relocation type and symbol index
-    fn r_info(&self) -> u64;
-    /// Addend
-    fn r_addend(&self) -> i64;
-    /// The index into the dynsyms symbol table
-    fn r_sym(&self) -> usize;
-    /// The relocation type
-    fn r_type(&self) -> u32;
+impl Reloc {
+    pub fn size(is_rela: bool, container: Container) -> usize {
+        match container {
+            Container::Little => {
+                if is_rela { super::super::elf32::reloc::SIZEOF_RELA } else { super::super::elf32::reloc::SIZEOF_REL }
+            },
+            Container::Big => {
+                if is_rela { super::super::elf64::reloc::SIZEOF_RELA } else { super::super::elf64::reloc::SIZEOF_REL }
+            }
+        }
+    }
+    #[cfg(feature = "endian_fd")]
+    pub fn parse<S: AsRef<[u8]>>(buffer: &S, mut offset: usize, filesz: usize, is_rela: bool, ctx: Ctx) -> error::Result<Vec<Reloc>> {
+        use super::super::elf32;
+        use super::super::elf64;
+        use scroll::Gread;
+        let size = Reloc::size(is_rela, ctx.container);
+        let count = filesz / size;
+        let mut res = Vec::with_capacity(count);
+        let mut offset = &mut offset;
+        for _ in 0..count {
+            let reloc = match ctx.container {
+                Container::Little => {
+                    if is_rela {
+                        buffer.gread_with::<elf32::reloc::Rela>(offset, ctx.le)?.into()
+                    } else {
+                        buffer.gread_with::<elf32::reloc::Rel>(offset, ctx.le)?.into()
+                    }
+                },
+                Container::Big => {
+                    if is_rela {
+                        buffer.gread_with::<elf64::reloc::Rela>(offset, ctx.le)?.into()
+                    } else {
+                        buffer.gread_with::<elf64::reloc::Rel>(offset, ctx.le)?.into()
+                    }
+                }
+            };
+            res.push(reloc);
+        }
+        Ok(res)
+    }
 }
 
-#[cfg(feature = "std")]
-impl ElfReloc for Reloc {
-    /// Address
-    fn r_offset(&self) -> u64 {
-        self.r_offset as u64
+impl<'a> ctx::TryFromCtx<'a, (usize, Ctx)> for Reloc {
+    type Error = scroll::Error;
+    fn try_from_ctx(buffer: &'a [u8], (offset, Ctx{ container, le }): (usize, Ctx)) -> result::Result<Self, Self::Error> {
+        use scroll::Pread;
+        let reloc = match container {
+            Container::Little => {
+                buffer.pread_with::<super::super::elf32::reloc::Rel>(offset, le)?.into()
+            },
+            Container::Big => {
+                buffer.pread_with::<super::super::elf64::reloc::Rela>(offset, le)?.into()
+            }
+        };
+        Ok(reloc)
     }
-    /// Relocation type and symbol index
-    fn r_info(&self) -> u64 {
-        self.r_info as u64
-    }
-    /// Addend
-    fn r_addend(&self) -> i64 {
-        self.r_addend as i64
-    }
-    /// The index into the dynsyms symbol table
-    fn r_sym(&self) -> usize {
-        self.r_sym
-    }
-    /// The relocation type
-    fn r_type(&self) -> u32 {
-        self.r_type
+}
+
+impl ctx::TryIntoCtx<(usize, Ctx)> for Reloc {
+    type Error = scroll::Error;
+    /// Writes the relocation into `buffer`; forces `Rel` relocation records for 32-bit containers, and `Rela` for 64-bit containers
+    fn try_into_ctx(self, mut buffer: &mut [u8], (offset, Ctx { container, le }): (usize, Ctx)) -> result::Result<(), Self::Error> {
+        use scroll::Pwrite;
+        match container {
+            Container::Little => {
+                let rel: super::super::elf32::reloc::Rel = self.into();
+                buffer.pwrite_with(rel, offset, le)?;
+            },
+            Container::Big => {
+                let rela: super::super::elf64::reloc::Rela = self.into();
+                buffer.pwrite_with(rela, offset, le)?;
+            },
+        };
+        Ok(())
     }
 }
 
@@ -110,7 +154,7 @@ impl fmt::Debug for Reloc {
                self.r_sym,
                self.r_addend,
                self.is_rela,
-               )
+        )
     }
 }
 
@@ -253,7 +297,6 @@ macro_rules! elf_rela_impure_impl { ($size:ident) => {
             use core::slice;
             use elf::error::*;
 
-            use scroll;
             use std::fs::File;
             use std::io::{Read, Seek};
             use std::io::SeekFrom::Start;
@@ -281,52 +324,6 @@ macro_rules! elf_rela_impure_impl { ($size:ident) => {
                            typ,
                            sym
                            )
-                }
-            }
-
-            impl ElfReloc for Rela {
-                /// Address
-                fn r_offset(&self) -> u64 {
-                    self.r_offset as u64
-                }
-                /// Relocation type and symbol index
-                fn r_info(&self) -> u64 {
-                    self.r_info as u64
-                }
-                /// Addend
-                fn r_addend(&self) -> i64 {
-                    self.r_addend as i64
-                }
-                /// The index into the dynsyms symbol table
-                fn r_sym(&self) -> usize {
-                    r_sym(self.r_info) as usize
-                }
-                /// The relocation type
-                fn r_type(&self) -> u32 {
-                    r_type(self.r_info)
-                }
-            }
-
-            impl ElfReloc for Rel {
-                /// Address
-                fn r_offset(&self) -> u64 {
-                    self.r_offset as u64
-                }
-                /// Relocation type and symbol index
-                fn r_info(&self) -> u64 {
-                    self.r_info as u64
-                }
-                /// Addend
-                fn r_addend(&self) -> i64 {
-                    0
-                }
-                /// The index into the dynsyms symbol table
-                fn r_sym(&self) -> usize {
-                    r_sym(self.r_info) as usize
-                }
-                /// The relocation type
-                fn r_type(&self) -> u32 {
-                    r_type(self.r_info)
                 }
             }
 
@@ -358,26 +355,6 @@ macro_rules! elf_rela_impure_impl { ($size:ident) => {
                 let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Rela, count) };
                 let mut res = Vec::with_capacity(count);
                 res.extend_from_slice(bytes);
-                Ok(res)
-            }
-
-            #[cfg(feature = "endian_fd")]
-            pub fn parse<S: scroll::Gread>(fd: &S, offset: usize, size: usize, little_endian: scroll::Endian, is_rela: bool) -> Result<Vec<Reloc>> {
-                let sizeof_relocation = if is_rela { SIZEOF_RELA } else { SIZEOF_REL };
-                let count = size / sizeof_relocation;
-                let mut res = Vec::with_capacity(count);
-                let mut offset = offset;
-                for _ in 0..count {
-                    let mut reloc = Reloc::default();
-                    reloc.r_offset = fd.gread_with::<$size>(&mut offset, little_endian)? as usize;
-                    let info = fd.gread_with::<$size>(&mut offset, little_endian)?;
-                    reloc.r_info = info as usize;
-                    if is_rela { reloc.r_addend = fd.gread_with::<signed_from_unsigned!($size)>(&mut offset, little_endian)? as isize; }
-                    reloc.r_sym = r_sym(info) as usize;
-                    reloc.r_type = r_type(info) as u32;
-                    reloc.is_rela = is_rela;
-                    res.push(reloc);
-                }
                 Ok(res)
             }
         }

@@ -222,6 +222,15 @@ pub fn type_to_str(typ: u8) -> &'static str {
 macro_rules! elf_sym_impure_impl {
     ($size:ty) => {
 
+        #[cfg(test)]
+        mod test {
+            use super::*;
+            #[test]
+            fn size_of() {
+                assert_eq!(::std::mem::size_of::<Sym>(), SIZEOF_SYM);
+            }
+        }
+
         #[cfg(feature = "std")]
         pub use self::impure::*;
 

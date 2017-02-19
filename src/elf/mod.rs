@@ -73,8 +73,7 @@ pub use self::impure::*;
 mod impure {
     use scroll::{self, ctx, Pread, Endian};
     use std::io::Read;
-    use std::ops::Deref;
-    use super::{header, program_header, section_header, sym};
+    use super::{header, program_header, section_header, sym, dyn};
     use super::strtab::Strtab;
     use super::error;
     use super::container::{Container, Ctx};
@@ -233,17 +232,12 @@ mod impure {
     pub type ProgramHeader = program_header::ElfProgramHeader;
     pub type SectionHeader = section_header::ElfSectionHeader;
     pub type Sym = sym::ElfSym;
-    pub type Dyn = Unified<elf32::dyn::Dyn, elf64::dyn::Dyn>;
-
-    impl Deref for Dyn {
-        type Target = super::dyn::ElfDyn;
-        impl_deref!();
-    }
+    pub type Dyn = dyn::ElfDyn;
+    pub type Dynamic = dyn::Dynamic;
 
     pub type ProgramHeaders = Vec<ProgramHeader>;
     pub type SectionHeaders = Vec<section_header::ElfSectionHeader>;
     pub type Syms = Vec<Sym>;
-    pub type Dynamic = ElfVec<elf32::dyn::Dyn, elf64::dyn::Dyn>;
 
     #[derive(Debug)]
     /// A "Unified" ELF binary. Contains either 32-bit or 64-bit underlying structs. For relocations a unified
@@ -271,7 +265,7 @@ mod impure {
         pub syms: Syms,
         /// The string table for the symbol array
         pub strtab: Strtab<'static>,
-        /// The _DYNAMIC array
+        /// Contains dynamic linking information, with the _DYNAMIC array + a preprocessed DynamicInfo for that array
         pub dynamic: Option<Dynamic>,
         /// The dynamic relocation entries (strings, copy-data, etc.) with an addend
         pub dynrelas: Vec<super::reloc::Reloc>,
@@ -298,15 +292,6 @@ mod impure {
         pub little_endian: bool,
     }
 
-    macro_rules! wrap_dyn {
-      ($class:ident, $dynamic:ident) => {{
-            if let Some(dynamic) = $dynamic {
-                Some (elf_list!($class, dynamic))
-            } else {
-                None
-            }
-      }}
-    }
     macro_rules! intmax {
       (elf32) => {
         !0
@@ -328,8 +313,6 @@ mod impure {
         let ctx = Ctx::new(container, endianness);
 
         let program_headers = ProgramHeader::parse($fd, header.e_phoff as usize, header.e_phnum as usize, ctx)?;
-
-        let dynamic = $class::dyn::parse($fd, &program_headers, endianness)?;
 
         let mut bias: usize = 0;
         for ph in &program_headers {
@@ -386,8 +369,9 @@ mod impure {
         let mut dynrels = vec![];
         let mut pltrelocs = vec![];
         let mut dynstrtab = Strtab::default();
+        let dynamic = Dynamic::parse($fd, &program_headers, bias, ctx)?;
         if let Some(ref dynamic) = dynamic {
-            let dyn_info = $class::dyn::DynamicInfo::new(&*dynamic.as_slice(), bias); // we explicitly overflow the values here with our bias
+            let dyn_info = &dynamic.info;
             dynstrtab = Strtab::parse($fd,
                                       dyn_info.strtab,
                                       dyn_info.strsz,
@@ -397,11 +381,7 @@ mod impure {
                 soname = Some(dynstrtab.get(dyn_info.soname).to_owned())
             }
             if dyn_info.needed_count > 0 {
-                let needed = unsafe { $class::dyn::get_needed(dynamic, &dynstrtab, dyn_info.needed_count)};
-                libraries = Vec::with_capacity(dyn_info.needed_count);
-                for lib in needed {
-                    libraries.push(lib.to_owned());
-                }
+                libraries = dynamic.get_libraries(&dynstrtab);
             }
             let num_syms = (dyn_info.strtab - dyn_info.symtab) / dyn_info.syment;
             dynsyms = Sym::parse($fd, dyn_info.symtab, num_syms, ctx)?;
@@ -434,7 +414,7 @@ println!("sh_relocs {:?}", sh_relocs);
             program_headers: program_headers,
             section_headers: section_headers,
             shdr_strtab: shdr_strtab,
-            dynamic: wrap_dyn!($class, dynamic),
+            dynamic: dynamic,
             dynsyms: dynsyms,
             dynstrtab: dynstrtab,
             syms: syms,
@@ -511,6 +491,37 @@ mod tests {
                         let symtab = binary.strtab;
                         println!("sym: {:?}", &sym);
                         assert_eq!(&symtab[sym.st_name], "_start");
+                        break;
+                    }
+                    i += 1;
+                }
+                assert!(syms.len() != 0);
+             },
+            Err (err) => {
+                println!("failed: {}", err);
+                assert!(false)
+            }
+        }
+    }
+
+    #[test]
+    fn parse_crt1_32bit() {
+        let crt1: Vec<u8> = include!("../../etc/crt132.rs");
+        let buffer = scroll::Buffer::new(crt1);
+        match Elf::parse(&buffer) {
+            Ok (binary) => {
+                assert!(!binary.is_64);
+                assert!(!binary.is_lib);
+                assert_eq!(binary.entry, 0);
+                assert_eq!(binary.bias, 0);
+                let syms = binary.syms;
+                let mut i = 0;
+                assert!(binary.section_headers.len() != 0);
+                for sym in &syms {
+                    if i == 11 {
+                        let symtab = binary.strtab;
+                        println!("sym: {:?}", &sym);
+                        assert_eq!(&symtab[sym.st_name], "__libc_csu_fini");
                         break;
                     }
                     i += 1;

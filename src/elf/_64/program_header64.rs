@@ -22,6 +22,6 @@ pub struct ProgramHeader {
     pub p_align: u64,
 }
 
-pub const SIZEOF_PHDR: usize = 64;
+pub const SIZEOF_PHDR: usize = 56;
 
 elf_program_header_impure_impl!(u64);

@@ -1,7 +1,122 @@
-#[cfg(feature = "std")]
-pub trait ElfDyn {
-    fn d_tag (&self) -> u64;
-    fn d_val (&self) -> u64;
+use core::fmt;
+use scroll::{self, ctx, Pread};
+use error;
+use core::result;
+use container::{Ctx, Container};
+use elf::strtab::Strtab;
+use elf64::dyn::{Dyn, DynamicInfo};
+use elf::program_header::{self, ElfProgramHeader};
+
+#[derive(Default, PartialEq, Clone)]
+pub struct ElfDyn {
+    pub d_tag: u64,
+    pub d_val: u64,
+}
+
+impl ElfDyn {
+    pub fn size(container: Container) -> usize {
+        match container {
+            Container::Little => {
+                super::super::elf32::dyn::SIZEOF_DYN
+            },
+            Container::Big => {
+                super::super::elf64::dyn::SIZEOF_DYN
+            },
+        }
+    }
+}
+
+impl fmt::Debug for ElfDyn {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f,
+               "d_tag: {} d_val: 0x{:x}",
+               tag_to_str(self.d_tag as u64),
+               self.d_val)
+    }
+}
+
+impl<'a> ctx::TryFromCtx<'a, (usize, Ctx)> for ElfDyn {
+    type Error = scroll::Error;
+    fn try_from_ctx(buffer: &'a [u8], (offset, Ctx { container, le}): (usize, Ctx)) -> result::Result<Self, Self::Error> {
+        use scroll::Pread;
+        let dyn = match container {
+            Container::Little => {
+                buffer.pread_with::<super::super::elf32::dyn::Dyn>(offset, le)?.into()
+            },
+            Container::Big => {
+                buffer.pread_with::<super::super::elf64::dyn::Dyn>(offset, le)?.into()
+            }
+        };
+        Ok(dyn)
+    }
+}
+
+impl ctx::TryIntoCtx<(usize, Ctx)> for ElfDyn {
+    type Error = scroll::Error;
+    fn try_into_ctx(self, mut buffer: &mut [u8], (offset, Ctx { container, le}): (usize, Ctx)) -> result::Result<(), Self::Error> {
+        use scroll::Pwrite;
+        match container {
+            Container::Little => {
+                let dyn: super::super::elf32::dyn::Dyn = self.into();
+                buffer.pwrite_with(dyn, offset, le)?;
+            },
+            Container::Big => {
+                let dyn: super::super::elf64::dyn::Dyn = self.into();
+                buffer.pwrite_with(dyn, offset, le)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct Dynamic {
+    pub dyns: Vec<ElfDyn>,
+    pub info: DynamicInfo,
+    count: usize,
+}
+
+impl Dynamic {
+    #[cfg(feature = "endian_fd")]
+    /// Returns a vector of dynamic entries from the underlying byte `buffer`, with `endianness`, using the provided `phdrs`
+    pub fn parse<S: AsRef<[u8]>> (buffer: &S, phdrs: &[ElfProgramHeader], bias: usize, ctx: Ctx) -> error::Result<Option<Self>> {
+        for phdr in phdrs {
+            if phdr.p_type == program_header::PT_DYNAMIC {
+                let filesz = phdr.p_filesz as usize;
+                let size = ElfDyn::size(ctx.container);
+                let count = filesz / size;
+                let mut dyns = Vec::with_capacity(count);
+                let mut offset = phdr.p_offset as usize;
+                for _ in 0..count {
+                    let dyn = buffer.pread_with::<ElfDyn>(offset, ctx)?;
+                    offset += size;
+                    let tag = dyn.d_tag;
+                    dyns.push(dyn);
+                    if tag == DT_NULL { break }
+                }
+                let mut info = DynamicInfo::default();
+                for dyn in &dyns {
+                    let dyn: Dyn = dyn.clone().into();
+                    info.update(bias, &dyn);
+                }
+                let count = dyns.len();
+                return Ok(Some(Dynamic { dyns: dyns, info: info, count: count }));
+            }
+        }
+        Ok(None)
+    }
+
+    pub fn get_libraries<'a>(&self, strtab: &Strtab<'a>) -> Vec<String> {
+        let count = self.info.needed_count;
+        let mut needed = Vec::with_capacity(count);
+        for dyn in &self.dyns {
+            if dyn.d_tag as u64 == DT_NEEDED {
+                let lib = &strtab[dyn.d_val as usize];
+                needed.push(lib.to_owned());
+            }
+        }
+        needed
+    }
 }
 
 macro_rules! elf_dyn {
@@ -15,6 +130,22 @@ macro_rules! elf_dyn {
             pub d_tag: $size,
             /// Integer value
             pub d_val: $size,
+        }
+        impl From<ElfDyn> for Dyn {
+            fn from(dyn: ElfDyn) -> Self {
+                Dyn {
+                    d_tag: dyn.d_tag as $size,
+                    d_val: dyn.d_val as $size,
+                }
+            }
+        }
+        impl From<Dyn> for ElfDyn {
+            fn from(dyn: Dyn) -> Self {
+                ElfDyn {
+                    d_tag: dyn.d_tag as u64,
+                    d_val: dyn.d_val as u64,
+                }
+            }
         }
     }
 }
@@ -270,11 +401,20 @@ pub const DF_1_NORELOC: u64 = 0x00400000;
 pub const DF_1_SYMINTPOSE: u64 = 0x00800000;
 /// Global auditing required.
 pub const DF_1_GLOBAUDIT: u64 = 0x01000000;
-/// Singleton symbols are used.
+/// Singleton dyn are used.
 pub const DF_1_SINGLETON: u64 = 0x02000000;
 
 macro_rules! elf_dyn_impure_impl {
         ($size:ident) => {
+
+            #[cfg(test)]
+            mod test {
+                use super::*;
+                #[test]
+                fn size_of() {
+                    assert_eq!(::std::mem::size_of::<Dyn>(), SIZEOF_DYN);
+                }
+            }
 
             #[cfg(feature = "std")]
             pub use self::impure::*;
@@ -285,7 +425,6 @@ macro_rules! elf_dyn_impure_impl {
                 use core::fmt;
                 use core::slice;
 
-                use scroll;
                 use std::fs::File;
                 use std::io::{Read, Seek};
                 use std::io::SeekFrom::Start;
@@ -294,15 +433,6 @@ macro_rules! elf_dyn_impure_impl {
                 use elf::error::*;
 
                 use super::*;
-
-                impl ElfDyn for Dyn {
-                   fn d_tag (&self) -> u64 {
-                     self.d_tag as u64
-                   }
-                    fn d_val (&self) -> u64 {
-                     self.d_val as u64
-                   }
-                }
 
                 impl fmt::Debug for Dyn {
                     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -396,26 +526,6 @@ macro_rules! elf_dyn_impure_impl {
                     }
                     needed
                 }
-
-                use elf::program_header::ElfProgramHeader;
-                #[cfg(feature = "endian_fd")]
-                /// Returns a vector of dynamic entries from the underlying byte `buffer`, with `endianness`, using the provided `phdrs`
-                pub fn parse<S: scroll::Gread> (buffer: &S, phdrs: &[ElfProgramHeader], endianness: scroll::Endian) -> Result<Option<Vec<Dyn>>> {
-                    for phdr in phdrs {
-                        if phdr.p_type == PT_DYNAMIC {
-                            let filesz = phdr.p_filesz as usize;
-                            let dync = filesz / SIZEOF_DYN;
-                            let mut dyns = Vec::with_capacity(dync);
-                            let mut offset = &mut (phdr.p_offset as usize);
-                            for _ in 0..dync {
-                                let dyn = buffer.gread_with(offset, endianness)?;
-                                dyns.push(dyn);
-                            }
-                            return Ok(Some(dyns));
-                        }
-                    }
-                    Ok(None)
-                }
             }
 
             /// Important dynamic linking info generated via a single pass through the `_DYNAMIC` array
@@ -456,48 +566,50 @@ macro_rules! elf_dyn_impure_impl {
             }
 
             impl DynamicInfo {
-                pub fn new(dynamic: &[Dyn], bias: usize) -> DynamicInfo {
-                    let mut res = DynamicInfo::default();
-
-                    for dyn in dynamic {
-                        match dyn.d_tag as u64 {
-                            DT_RELA => res.rela = dyn.d_val.wrapping_add(bias as _) as usize, // .rela.dyn
-                            DT_RELASZ => res.relasz = dyn.d_val as usize,
-                            DT_RELAENT => res.relaent = dyn.d_val as _,
-                            DT_RELACOUNT => res.relacount = dyn.d_val as usize,
-                            DT_REL => res.rel = dyn.d_val.wrapping_add(bias as _) as usize, // .rel.dyn
-                            DT_RELSZ => res.relsz = dyn.d_val as usize,
-                            DT_RELENT => res.relent = dyn.d_val as _,
-                            DT_RELCOUNT => res.relcount = dyn.d_val as usize,
-                            DT_GNU_HASH => res.gnu_hash = Some(dyn.d_val.wrapping_add(bias as _)),
-                            DT_HASH => res.hash = Some(dyn.d_val.wrapping_add(bias as _)) as _,
-                            DT_STRTAB => res.strtab = dyn.d_val.wrapping_add(bias as _) as usize,
-                            DT_STRSZ => res.strsz = dyn.d_val as usize,
-                            DT_SYMTAB => res.symtab = dyn.d_val.wrapping_add(bias as _) as usize,
-                            DT_SYMENT => res.syment = dyn.d_val as usize,
-                            DT_PLTGOT => res.pltgot = Some(dyn.d_val.wrapping_add(bias as _)) as _,
-                            DT_PLTRELSZ => res.pltrelsz = dyn.d_val as usize,
-                            DT_PLTREL => res.pltrel = dyn.d_val as _,
-                            DT_JMPREL => res.jmprel = dyn.d_val.wrapping_add(bias as _) as usize, // .rela.plt
-                            DT_VERNEED => res.verneed = dyn.d_val.wrapping_add(bias as _) as _,
-                            DT_VERNEEDNUM => res.verneednum = dyn.d_val as _,
-                            DT_VERSYM => res.versym = dyn.d_val.wrapping_add(bias as _) as _,
-                            DT_INIT => res.init = dyn.d_val.wrapping_add(bias as _) as _,
-                            DT_FINI => res.fini = dyn.d_val.wrapping_add(bias as _) as _,
-                            DT_INIT_ARRAY => res.init_array = dyn.d_val.wrapping_add(bias as _) as _,
-                            DT_INIT_ARRAYSZ => res.init_arraysz = dyn.d_val as _,
-                            DT_FINI_ARRAY => res.fini_array = dyn.d_val.wrapping_add(bias as _) as _,
-                            DT_FINI_ARRAYSZ => res.fini_arraysz = dyn.d_val as _,
-                            DT_NEEDED => res.needed_count += 1,
-                            DT_FLAGS => res.flags = dyn.d_val as _,
-                            DT_FLAGS_1 => res.flags_1 = dyn.d_val as _,
-                            DT_SONAME => res.soname = dyn.d_val as _,
-                            DT_TEXTREL => res.textrel = true,
-                            _ => (),
-                        }
+                #[inline]
+                pub fn update(&mut self, bias: usize, dyn: &Dyn) {
+                    match dyn.d_tag as u64 {
+                        DT_RELA => self.rela = dyn.d_val.wrapping_add(bias as _) as usize, // .rela.dyn
+                        DT_RELASZ => self.relasz = dyn.d_val as usize,
+                        DT_RELAENT => self.relaent = dyn.d_val as _,
+                        DT_RELACOUNT => self.relacount = dyn.d_val as usize,
+                        DT_REL => self.rel = dyn.d_val.wrapping_add(bias as _) as usize, // .rel.dyn
+                        DT_RELSZ => self.relsz = dyn.d_val as usize,
+                        DT_RELENT => self.relent = dyn.d_val as _,
+                        DT_RELCOUNT => self.relcount = dyn.d_val as usize,
+                        DT_GNU_HASH => self.gnu_hash = Some(dyn.d_val.wrapping_add(bias as _)),
+                        DT_HASH => self.hash = Some(dyn.d_val.wrapping_add(bias as _)) as _,
+                        DT_STRTAB => self.strtab = dyn.d_val.wrapping_add(bias as _) as usize,
+                        DT_STRSZ => self.strsz = dyn.d_val as usize,
+                        DT_SYMTAB => self.symtab = dyn.d_val.wrapping_add(bias as _) as usize,
+                        DT_SYMENT => self.syment = dyn.d_val as usize,
+                        DT_PLTGOT => self.pltgot = Some(dyn.d_val.wrapping_add(bias as _)) as _,
+                        DT_PLTRELSZ => self.pltrelsz = dyn.d_val as usize,
+                        DT_PLTREL => self.pltrel = dyn.d_val as _,
+                        DT_JMPREL => self.jmprel = dyn.d_val.wrapping_add(bias as _) as usize, // .rela.plt
+                        DT_VERNEED => self.verneed = dyn.d_val.wrapping_add(bias as _) as _,
+                        DT_VERNEEDNUM => self.verneednum = dyn.d_val as _,
+                        DT_VERSYM => self.versym = dyn.d_val.wrapping_add(bias as _) as _,
+                        DT_INIT => self.init = dyn.d_val.wrapping_add(bias as _) as _,
+                        DT_FINI => self.fini = dyn.d_val.wrapping_add(bias as _) as _,
+                        DT_INIT_ARRAY => self.init_array = dyn.d_val.wrapping_add(bias as _) as _,
+                        DT_INIT_ARRAYSZ => self.init_arraysz = dyn.d_val as _,
+                        DT_FINI_ARRAY => self.fini_array = dyn.d_val.wrapping_add(bias as _) as _,
+                        DT_FINI_ARRAYSZ => self.fini_arraysz = dyn.d_val as _,
+                        DT_NEEDED => self.needed_count += 1,
+                        DT_FLAGS => self.flags = dyn.d_val as _,
+                        DT_FLAGS_1 => self.flags_1 = dyn.d_val as _,
+                        DT_SONAME => self.soname = dyn.d_val as _,
+                        DT_TEXTREL => self.textrel = true,
+                        _ => (),
                     }
-
-                    res
+                }
+                pub fn new(dynamic: &[Dyn], bias: usize) -> DynamicInfo {
+                    let mut info = DynamicInfo::default();
+                    for dyn in dynamic {
+                        info.update(bias, &dyn);
+                    }
+                    info
                 }
             }
         };

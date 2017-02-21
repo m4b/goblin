@@ -1,5 +1,5 @@
 use core::fmt;
-use scroll::{self, ctx, Pread};
+use scroll::{self, ctx, Gread};
 use error;
 use core::result;
 use container::{Ctx, Container};
@@ -17,14 +17,8 @@ pub struct ElfSym {
 
 impl ElfSym {
     pub fn size(container: Container) -> usize {
-        match container {
-            Container::Little => {
-                super::super::elf32::sym::SIZEOF_SYM
-            },
-            Container::Big => {
-                super::super::elf64::sym::SIZEOF_SYM
-            },
-        }
+        use scroll::ctx::SizeWith;
+        Self::size_with(&Ctx::from(container))
     }
     /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` bind and a `st_value` of 0
     pub fn is_import(&self) -> bool {
@@ -53,10 +47,8 @@ impl ElfSym {
     /// Parse `count` vector of ELF symbols from `offset`
     pub fn parse<S: AsRef<[u8]>>(bytes: &S, mut offset: usize, count: usize, ctx: Ctx) -> error::Result<Vec<ElfSym>> {
         let mut syms = Vec::with_capacity(count);
-        let size = Self::size(ctx.container);
         for _ in 0..count {
-            let sym = bytes.pread_with(offset, ctx)?;
-            offset += size;
+            let sym = bytes.gread_with(&mut offset, ctx)?;
             syms.push(sym);
         }
         Ok(syms)
@@ -76,6 +68,20 @@ impl fmt::Debug for ElfSym {
                self.st_shndx,
                self.st_value,
                self.st_size)
+    }
+}
+
+impl ctx::SizeWith<Ctx> for ElfSym {
+    type Units = usize;
+    fn size_with(&Ctx {container, .. }: &Ctx) -> usize {
+        match container {
+            Container::Little => {
+                super::super::elf32::sym::SIZEOF_SYM
+            },
+            Container::Big => {
+                super::super::elf64::sym::SIZEOF_SYM
+            },
+        }
     }
 }
 

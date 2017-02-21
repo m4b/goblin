@@ -1,5 +1,5 @@
 use core::fmt;
-use scroll::{self, ctx, Pread};
+use scroll::{self, ctx, Gread};
 use error;
 use core::result;
 use container::{Ctx, Container};
@@ -19,15 +19,10 @@ pub struct ElfProgramHeader {
 
 impl ElfProgramHeader {
     /// Return the size of the underlying program header, given a `container`
+    #[inline]
     pub fn size(container: Container) -> usize {
-        match container {
-            Container::Little => {
-                super::super::elf32::program_header::SIZEOF_PHDR
-            },
-            Container::Big => {
-                super::super::elf64::program_header::SIZEOF_PHDR
-            },
-        }
+        use scroll::ctx::SizeWith;
+        Self::size_with(&Ctx::from(container))
     }
     /// Create a new X+R, `PT_LOAD` ELF program header
     pub fn new() -> Self {
@@ -45,10 +40,8 @@ impl ElfProgramHeader {
     #[cfg(feature = "endian_fd")]
     pub fn parse<S: AsRef<[u8]>>(buffer: &S, mut offset: usize, count: usize, ctx: Ctx) -> error::Result<Vec<ElfProgramHeader>> {
         let mut program_headers = Vec::with_capacity(count);
-        let size = Self::size(ctx.container);
         for _ in 0..count {
-            let phdr = buffer.pread_with(offset, ctx)?;
-            offset += size;
+            let phdr = buffer.gread_with(&mut offset, ctx)?;
             program_headers.push(phdr);
         }
         Ok(program_headers)
@@ -68,6 +61,20 @@ impl fmt::Debug for ElfProgramHeader {
                self.p_filesz,
                self.p_memsz,
                self.p_align)
+    }
+}
+
+impl ctx::SizeWith<Ctx> for ElfProgramHeader {
+    type Units = usize;
+    fn size_with(ctx: &Ctx) -> usize {
+        match ctx.container {
+            Container::Little => {
+                super::super::elf32::program_header::SIZEOF_PHDR
+            },
+            Container::Big => {
+                super::super::elf64::program_header::SIZEOF_PHDR
+            },
+        }
     }
 }
 

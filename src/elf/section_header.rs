@@ -1,6 +1,6 @@
 use core::fmt;
 use core::result;
-use scroll::{self, ctx, Pread};
+use scroll::{self, ctx};
 use error::Result;
 use container::{Container, Ctx};
 
@@ -29,16 +29,6 @@ pub struct ElfSectionHeader {
 }
 
 impl ElfSectionHeader {
-    pub fn size(container: Container) -> usize {
-        match container {
-            Container::Little => {
-                super::super::elf32::section_header::SIZEOF_SHDR
-            },
-            Container::Big => {
-                super::super::elf64::section_header::SIZEOF_SHDR
-            },
-        }
-    }
     pub fn new() -> Self {
         ElfSectionHeader {
             sh_name: 0,
@@ -55,11 +45,10 @@ impl ElfSectionHeader {
     }
     #[cfg(feature = "endian_fd")]
     pub fn parse<S: AsRef<[u8]>>(buffer: &S, mut offset: usize, count: usize, ctx: Ctx) -> Result<Vec<ElfSectionHeader>> {
+        use scroll::Gread;
         let mut section_headers = Vec::with_capacity(count);
-        let size = Self::size(ctx.container);
         for _ in 0..count {
-            let shdr = buffer.pread_with(offset, ctx)?;
-            offset += size;
+            let shdr = buffer.gread_with(&mut offset, ctx)?;
             section_headers.push(shdr);
         }
         Ok(section_headers)
@@ -88,7 +77,7 @@ macro_rules! elf_section_header {
     ($size:ident) => {
         #[repr(C)]
         #[derive(Copy, Clone, Eq, PartialEq, Default)]
-        #[cfg_attr(feature = "endian_fd", derive(Pread, Pwrite))]
+        #[cfg_attr(feature = "endian_fd", derive(Pread, Pwrite, SizeWith))]
         pub struct SectionHeader {
             /// Section name (string tbl index)
             pub sh_name: u32,
@@ -142,6 +131,20 @@ macro_rules! elf_section_header {
                     sh_entsize  : sh.sh_entsize as $size,
                 }
             }
+        }
+    }
+}
+
+impl ctx::SizeWith<Ctx> for ElfSectionHeader {
+    type Units = usize;
+    fn size_with( &Ctx { container, .. }: &Ctx) -> Self::Units {
+        match container {
+            Container::Little => {
+                super::super::elf32::section_header::SIZEOF_SHDR
+            },
+            Container::Big => {
+                super::super::elf64::section_header::SIZEOF_SHDR
+            },
         }
     }
 }
@@ -370,7 +373,6 @@ macro_rules! elf_section_header_impure_impl { () => {
         use core::slice;
         use core::fmt;
 
-        use scroll;
         use std::fs::File;
         use std::io::{Read, Seek};
         use std::io::SeekFrom::Start;
@@ -412,15 +414,6 @@ macro_rules! elf_section_header_impure_impl { () => {
                 try!(fd.seek(Start(offset)));
                 try!(fd.read(&mut shdrs));
                 Ok(SectionHeader::from_bytes(&shdrs, count))
-            }
-
-
-            #[cfg(feature = "endian_fd")]
-            pub fn parse<S: scroll::Gread>(bytes: &S, mut offset: usize, count: usize, endianness: scroll::Endian) -> Result<Vec<SectionHeader>> {
-                let mut section_headers = vec![SectionHeader::default(); count];
-                let mut offset = &mut offset;
-                bytes.gread_inout_with(offset, &mut section_headers, endianness)?;
-                Ok(section_headers)
             }
         }
     }

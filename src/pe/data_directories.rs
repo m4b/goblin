@@ -3,7 +3,7 @@ use scroll;
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
-#[derive(Pread, Pwrite)]
+#[derive(Pread, Pwrite, SizeWith)]
 pub struct DataDirectory {
     pub virtual_address: u32,
     pub size: u32,

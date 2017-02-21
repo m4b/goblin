@@ -1,5 +1,5 @@
 use core::fmt;
-use scroll::{self, ctx, Pread};
+use scroll::{self, ctx, Gread};
 use error;
 use core::result;
 use container::{Ctx, Container};
@@ -14,15 +14,10 @@ pub struct ElfDyn {
 }
 
 impl ElfDyn {
+    #[inline]
     pub fn size(container: Container) -> usize {
-        match container {
-            Container::Little => {
-                super::super::elf32::dyn::SIZEOF_DYN
-            },
-            Container::Big => {
-                super::super::elf64::dyn::SIZEOF_DYN
-            },
-        }
+        use scroll::ctx::SizeWith;
+        Self::size_with(&Ctx::from(container))
     }
 }
 
@@ -32,6 +27,20 @@ impl fmt::Debug for ElfDyn {
                "d_tag: {} d_val: 0x{:x}",
                tag_to_str(self.d_tag as u64),
                self.d_val)
+    }
+}
+
+impl ctx::SizeWith<Ctx> for ElfDyn {
+    type Units = usize;
+    fn size_with(&Ctx { container, .. }: &Ctx) -> usize {
+        match container {
+            Container::Little => {
+                super::super::elf32::dyn::SIZEOF_DYN
+            },
+            Container::Big => {
+                super::super::elf64::dyn::SIZEOF_DYN
+            },
+        }
     }
 }
 
@@ -80,16 +89,16 @@ impl Dynamic {
     #[cfg(feature = "endian_fd")]
     /// Returns a vector of dynamic entries from the underlying byte `buffer`, with `endianness`, using the provided `phdrs`
     pub fn parse<S: AsRef<[u8]>> (buffer: &S, phdrs: &[ElfProgramHeader], bias: usize, ctx: Ctx) -> error::Result<Option<Self>> {
+        use scroll::ctx::SizeWith;
         for phdr in phdrs {
             if phdr.p_type == program_header::PT_DYNAMIC {
                 let filesz = phdr.p_filesz as usize;
-                let size = ElfDyn::size(ctx.container);
+                let size = ElfDyn::size_with(&ctx);
                 let count = filesz / size;
                 let mut dyns = Vec::with_capacity(count);
                 let mut offset = phdr.p_offset as usize;
                 for _ in 0..count {
-                    let dyn = buffer.pread_with::<ElfDyn>(offset, ctx)?;
-                    offset += size;
+                    let dyn = buffer.gread_with::<ElfDyn>(&mut offset, ctx)?;
                     let tag = dyn.d_tag;
                     dyns.push(dyn);
                     if tag == DT_NULL { break }

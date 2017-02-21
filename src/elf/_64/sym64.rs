@@ -2,7 +2,7 @@ pub use elf::sym::*;
 
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, Default)]
-#[cfg_attr(feature = "endian_fd", derive(Pread, Pwrite))]
+#[cfg_attr(feature = "endian_fd", derive(Pread, Pwrite, SizeWith))]
 pub struct Sym {
     /// Symbol name (string tbl index)
     pub st_name: u32,

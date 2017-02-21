@@ -68,58 +68,62 @@ pub struct Reloc {
 }
 
 impl Reloc {
-    pub fn size(is_rela: bool, container: Container) -> usize {
-        match container {
-            Container::Little => {
-                if is_rela { super::super::elf32::reloc::SIZEOF_RELA } else { super::super::elf32::reloc::SIZEOF_REL }
-            },
-            Container::Big => {
-                if is_rela { super::super::elf64::reloc::SIZEOF_RELA } else { super::super::elf64::reloc::SIZEOF_REL }
-            }
-        }
+    pub fn size(is_rela: bool, ctx: Ctx) -> usize {
+        use scroll::ctx::SizeWith;
+        Reloc::size_with(&(is_rela, ctx))
     }
     #[cfg(feature = "endian_fd")]
     pub fn parse<S: AsRef<[u8]>>(buffer: &S, mut offset: usize, filesz: usize, is_rela: bool, ctx: Ctx) -> error::Result<Vec<Reloc>> {
-        use super::super::elf32;
-        use super::super::elf64;
         use scroll::Gread;
-        let size = Reloc::size(is_rela, ctx.container);
-        let count = filesz / size;
-        let mut res = Vec::with_capacity(count);
+        let count = filesz / Reloc::size(is_rela, ctx);
+        let mut relocs = Vec::with_capacity(count);
         let mut offset = &mut offset;
         for _ in 0..count {
-            let reloc = match ctx.container {
-                Container::Little => {
-                    if is_rela {
-                        buffer.gread_with::<elf32::reloc::Rela>(offset, ctx.le)?.into()
-                    } else {
-                        buffer.gread_with::<elf32::reloc::Rel>(offset, ctx.le)?.into()
-                    }
-                },
-                Container::Big => {
-                    if is_rela {
-                        buffer.gread_with::<elf64::reloc::Rela>(offset, ctx.le)?.into()
-                    } else {
-                        buffer.gread_with::<elf64::reloc::Rel>(offset, ctx.le)?.into()
-                    }
-                }
-            };
-            res.push(reloc);
+            let reloc = buffer.gread_with::<Reloc>(offset, (is_rela, ctx))?;
+            relocs.push(reloc);
         }
-        Ok(res)
+        Ok(relocs)
     }
 }
 
-impl<'a> ctx::TryFromCtx<'a, (usize, Ctx)> for Reloc {
-    type Error = scroll::Error;
-    fn try_from_ctx(buffer: &'a [u8], (offset, Ctx{ container, le }): (usize, Ctx)) -> result::Result<Self, Self::Error> {
-        use scroll::Pread;
-        let reloc = match container {
+type RelocCtx = (bool, Ctx);
+
+impl ctx::SizeWith<RelocCtx> for Reloc {
+    type Units = usize;
+    fn size_with( &(is_rela, Ctx { container, .. }): &RelocCtx) -> Self::Units {
+        use super::super::elf32;
+        use super::super::elf64;
+        match container {
             Container::Little => {
-                buffer.pread_with::<super::super::elf32::reloc::Rel>(offset, le)?.into()
+                if is_rela { elf32::reloc::SIZEOF_RELA } else { elf32::reloc::SIZEOF_REL }
             },
             Container::Big => {
-                buffer.pread_with::<super::super::elf64::reloc::Rela>(offset, le)?.into()
+                if is_rela { elf64::reloc::SIZEOF_RELA } else { elf64::reloc::SIZEOF_REL }
+            }
+        }
+    }
+}
+
+impl<'a> ctx::TryFromCtx<'a, (usize, RelocCtx)> for Reloc {
+    type Error = scroll::Error;
+    fn try_from_ctx(buffer: &'a [u8], (offset, (is_rela, Ctx { container, le })): (usize, RelocCtx)) -> result::Result<Self, Self::Error> {
+        use scroll::Pread;
+        use super::super::elf32;
+        use super::super::elf64;
+        let reloc = match container {
+            Container::Little => {
+                if is_rela {
+                    buffer.pread_with::<elf32::reloc::Rela>(offset, le)?.into()
+                } else {
+                    buffer.pread_with::<elf32::reloc::Rel>(offset, le)?.into()
+                }
+            },
+            Container::Big => {
+                if is_rela {
+                    buffer.pread_with::<elf64::reloc::Rela>(offset, le)?.into()
+                } else {
+                    buffer.pread_with::<elf64::reloc::Rel>(offset, le)?.into()
+                }
             }
         };
         Ok(reloc)
@@ -163,7 +167,7 @@ macro_rules! elf_reloc {
         use core::convert::From;
         #[repr(C)]
         #[derive(Clone, Copy, PartialEq, Default)]
-        #[cfg_attr(feature = "endian_fd", derive(Pread, Pwrite))]
+        #[cfg_attr(feature = "endian_fd", derive(Pread, Pwrite, SizeWith))]
         pub struct Rela {
             /// Address
             pub r_offset: $size,
@@ -174,7 +178,7 @@ macro_rules! elf_reloc {
         }
         #[repr(C)]
         #[derive(Clone, PartialEq, Default)]
-        #[cfg_attr(feature = "endian_fd", derive(Pread, Pwrite))]
+        #[cfg_attr(feature = "endian_fd", derive(Pread, Pwrite, SizeWith))]
         pub struct Rel {
             /// address
             pub r_offset: $size,
@@ -353,9 +357,9 @@ macro_rules! elf_rela_impure_impl { ($size:ident) => {
                 fd.seek(Start(offset as u64))?;
                 fd.read(&mut bytes)?;
                 let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Rela, count) };
-                let mut res = Vec::with_capacity(count);
-                res.extend_from_slice(bytes);
-                Ok(res)
+                let mut relocs = Vec::with_capacity(count);
+                relocs.extend_from_slice(bytes);
+                Ok(relocs)
             }
         }
     };}

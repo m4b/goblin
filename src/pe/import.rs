@@ -81,7 +81,7 @@ pub const SIZEOF_IMPORT_ADDRESS_TABLE_ENTRY: usize = 4;
 
 #[repr(C)]
 #[derive(Debug)]
-#[derive(Pread, Pwrite)]
+#[derive(Pread, Pwrite, SizeWith)]
 pub struct ImportDirectoryEntry {
     pub import_lookup_table_rva: u32,
     pub time_date_stamp: u32,

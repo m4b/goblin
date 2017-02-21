@@ -196,7 +196,8 @@ mod impure {
             let mut strtab = Strtab::default();
             for shdr in &section_headers {
                 if shdr.sh_type as u32 == section_header::SHT_SYMTAB {
-                    let count = shdr.sh_size / shdr.sh_entsize;
+                    let size = shdr.sh_entsize;
+                    let count = if size == 0 { 0 } else { shdr.sh_size / size };
                     syms = Sym::parse(buffer, shdr.sh_offset as usize, count as usize, ctx)?;
                 }
                 if shdr.sh_type as u32 == section_header::SHT_STRTAB {
@@ -233,7 +234,7 @@ mod impure {
                 if dyn_info.needed_count > 0 {
                     libraries = dynamic.get_libraries(&dynstrtab);
                 }
-                let num_syms = (dyn_info.strtab - dyn_info.symtab) / dyn_info.syment;
+                let num_syms = if dyn_info.syment == 0 { 0 } else { (dyn_info.strtab - dyn_info.symtab) / dyn_info.syment };
                 dynsyms = Sym::parse(buffer, dyn_info.symtab, num_syms, ctx)?;
                 // parse the dynamic relocations
                 dynrelas = Reloc::parse(buffer, dyn_info.rela, dyn_info.relasz, true, ctx)?;

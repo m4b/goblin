@@ -6,10 +6,9 @@
 //! names in the archive with a / as a sigil for the end of the name, and uses a special symbol
 //! index for looking up symbols faster.
 
-use scroll;
+use scroll::{self, Pread, Gread};
 use elf::strtab;
 
-#[cfg(feature = "std")]
 pub use super::error;
 
 use error::{Result, Error};
@@ -66,7 +65,7 @@ const SIZEOF_FILE_SIZE: usize = 10;
 pub const SIZEOF_HEADER: usize = SIZEOF_FILE_IDENTIFER + 12 + 6 + 6 + 8 + SIZEOF_FILE_SIZE + 2;
 
 impl Header {
-    pub fn parse<R: scroll::Gread>(buffer: &R, offset: &mut usize) -> Result<Header> {
+    pub fn parse<R: AsRef<[u8]>>(buffer: &R, offset: &mut usize) -> Result<Header> {
         let file_identifier = buffer.gread_slice::<str>(offset, SIZEOF_FILE_IDENTIFER)?.to_string();
         let mut file_modification_timestamp = [0u8; 12];
         buffer.gread_inout(offset, &mut file_modification_timestamp)?;
@@ -111,7 +110,7 @@ impl Member {
     /// Tries to parse the header in `R`, as well as the offset in `R.
     /// **NOTE** the Seek will be pointing at the first byte of whatever the file is, skipping padding.
     /// This is because just like members in the archive, the data section is 2-byte aligned.
-    pub fn parse<R: scroll::Gread>(buffer: &R, offset: &mut usize) -> Result<Self> {
+    pub fn parse<R: AsRef<[u8]>>(buffer: &R, offset: &mut usize) -> Result<Self> {
         let header = Header::parse(buffer, offset)?;
         // skip newline padding if we're on an uneven byte boundary
         if *offset & 1 == 1 {
@@ -161,7 +160,7 @@ const NAME_INDEX_NAME: &'static str = "//              ";
 
 impl Index {
     /// Parses the given byte buffer into an Index. NB: the buffer must be the start of the index
-    pub fn parse<R: scroll::Gread>(buffer: &R, size: usize) -> Result<Index> {
+    pub fn parse<R: AsRef<[u8]>>(buffer: &R, size: usize) -> Result<Index> {
         let mut offset = &mut 0;
         let sizeof_table = buffer.gread_with::<u32>(offset, scroll::BE)? as usize;
         let mut indexes = Vec::with_capacity(sizeof_table);
@@ -187,7 +186,7 @@ struct NameIndex {
 }
 
 impl NameIndex {
-    pub fn parse<R: scroll::Gread> (buffer: &R, offset: &mut usize, size: usize) -> Result<Self> {
+    pub fn parse<R: AsRef<[u8]>> (buffer: &R, offset: &mut usize, size: usize) -> Result<Self> {
         // This is a total hack, because strtab returns "" if idx == 0, need to change
         // but previous behavior might rely on this, as ELF strtab's have "" at 0th index...
         let hacked_size = size + 1;
@@ -239,7 +238,7 @@ impl Archive {
         Archive::parse(&buffer, buffer.len())
     }
 
-    pub fn parse<R: Read + scroll::Gread>(buffer: &R, size: usize) -> Result<Archive> {
+    pub fn parse<R: Read + AsRef<[u8]>>(buffer: &R, size: usize) -> Result<Archive> {
         let mut magic = [0u8; SIZEOF_MAGIC];
         let mut offset = &mut 0usize;
         buffer.gread_inout(offset, &mut magic)?;
@@ -329,7 +328,7 @@ impl Archive {
     }
 
     /// Returns a slice of the raw bytes for the given `member` in the scrollable `buffer`
-    pub fn extract<'a, R: scroll::Pread> (&self, member: &str, buffer: &'a R) -> Result<&'a [u8]> {
+    pub fn extract<'a, R: AsRef<[u8]>> (&self, member: &str, buffer: &'a R) -> Result<&'a [u8]> {
         if let Some(member) = self.get(member) {
             let bytes = buffer.pread_slice(member.offset as usize, member.size())?;
             Ok(bytes)

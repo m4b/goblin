@@ -110,10 +110,10 @@ pub mod elf32;
 #[cfg(feature = "mach64")]
 pub mod mach;
 
-#[cfg(feature = "archive")]
+#[cfg(all(feature = "archive", feature = "std"))]
 pub mod archive;
 
-#[cfg(feature = "pe32")]
+#[cfg(all(feature = "pe32", feature = "std"))]
 pub mod pe;
 
 pub mod container {

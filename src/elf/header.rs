@@ -1,9 +1,9 @@
 include!("constants_header.rs");
 
 use error::{self};
-use scroll::{self, ctx};
+use scroll::{self, ctx, Endian};
 use core::fmt;
-use container::{Container};
+use container::{Ctx, Container};
 
 #[derive(Clone, PartialEq)]
 pub struct ElfHeader {
@@ -40,8 +40,8 @@ impl ElfHeader {
             class => Err(Error::Malformed(format!("Invalid endianness in ElfHeader: {}", class)))
         }
     }
-    pub fn new(container: Container) -> Self {
-        let (typ, ehsize, phentsize, shentsize) = match container {
+    pub fn new(ctx: Ctx) -> Self {
+        let (typ, ehsize, phentsize, shentsize) = match ctx.container {
             Container::Little => {
                 (ELFCLASS32, super::super::elf32::header::SIZEOF_EHDR,
                  super::super::elf32::program_header::SIZEOF_PHDR,
@@ -53,6 +53,7 @@ impl ElfHeader {
                  super::super::elf64::section_header::SIZEOF_SHDR)
             }
         };
+        let byteorder = match ctx.le { Endian::Little => ELFDATA2LSB, Endian::Big => ELFDATA2MSB };
         ElfHeader {
             e_ident: [
                 127,
@@ -60,7 +61,7 @@ impl ElfHeader {
                 76,
                 70,
                 typ,
-                ELFDATANONE,
+                byteorder,
                 1,
                 0,
                 0,

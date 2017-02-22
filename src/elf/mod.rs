@@ -183,7 +183,7 @@ mod impure {
 
             let mut interpreter = None;
             for ph in &program_headers {
-                if ph.p_type == program_header::PT_INTERP {
+                if ph.p_type == program_header::PT_INTERP && ph.p_filesz != 0 {
                     let count = (ph.p_filesz - 1) as usize;
                     let offset = ph.p_offset as usize;
                     interpreter = Some(buffer.pread_slice::<str>(offset, count)?.to_string());

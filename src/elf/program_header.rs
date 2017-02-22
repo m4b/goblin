@@ -18,11 +18,11 @@ pub struct ElfProgramHeader {
 }
 
 impl ElfProgramHeader {
-    /// Return the size of the underlying program header, given a `container`
+    /// Return the size of the underlying program header, given a `Ctx`
     #[inline]
-    pub fn size(container: Container) -> usize {
+    pub fn size(ctx: &Ctx) -> usize {
         use scroll::ctx::SizeWith;
-        Self::size_with(&Ctx::from(container))
+        Self::size_with(&ctx)
     }
     /// Create a new X+R, `PT_LOAD` ELF program header
     pub fn new() -> Self {

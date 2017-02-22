@@ -28,7 +28,7 @@ impl ElfHeader {
     #[inline]
     pub fn size(ctx: &Ctx) -> usize {
         use scroll::ctx::SizeWith;
-        Self::size_with(ctx)
+        Self::size_with(&ctx.container)
     }
     /// Returns the container type this header specifies
     pub fn container(&self) -> error::Result<Container> {
@@ -121,14 +121,14 @@ impl fmt::Debug for ElfHeader {
     }
 }
 
-impl ctx::SizeWith<Ctx> for ElfHeader {
+impl ctx::SizeWith<Container> for ElfHeader {
     type Units = usize;
-    fn size_with(ctx: &Ctx) -> usize {
-        match ctx.container {
-            Container::Little => {
+    fn size_with(container: &Container) -> usize {
+        match container {
+            &Container::Little => {
                 super::super::elf32::header::SIZEOF_EHDR
             },
-            Container::Big => {
+            &Container::Big => {
                 super::super::elf64::header::SIZEOF_EHDR
             },
         }

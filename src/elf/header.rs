@@ -5,7 +5,7 @@ use scroll::{self, ctx, Endian};
 use core::fmt;
 use container::{Ctx, Container};
 
-#[derive(Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct ElfHeader {
     pub e_ident           : [u8; SIZEOF_IDENT],
     pub e_type            : u16,
@@ -24,6 +24,13 @@ pub struct ElfHeader {
 }
 
 impl ElfHeader {
+    /// Return the size of the underlying program header, given a `container`
+    #[inline]
+    pub fn size(ctx: &Ctx) -> usize {
+        use scroll::ctx::SizeWith;
+        Self::size_with(ctx)
+    }
+    /// Returns the container type this header specifies
     pub fn container(&self) -> error::Result<Container> {
         use error::Error;
         match self.e_ident[EI_CLASS] {
@@ -32,6 +39,7 @@ impl ElfHeader {
             class => Err(Error::Malformed(format!("Invalid class in ElfHeader: {}", class)))
         }
     }
+    /// Returns the byte order this header specifies
     pub fn endianness(&self) -> error::Result<scroll::Endian> {
         use error::Error;
         match self.e_ident[EI_DATA] {
@@ -110,6 +118,20 @@ impl fmt::Debug for ElfHeader {
                self.e_shentsize,
                self.e_shnum,
                self.e_shstrndx)
+    }
+}
+
+impl ctx::SizeWith<Ctx> for ElfHeader {
+    type Units = usize;
+    fn size_with(ctx: &Ctx) -> usize {
+        match ctx.container {
+            Container::Little => {
+                super::super::elf32::header::SIZEOF_EHDR
+            },
+            Container::Big => {
+                super::super::elf64::header::SIZEOF_EHDR
+            },
+        }
     }
 }
 

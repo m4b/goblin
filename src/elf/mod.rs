@@ -207,9 +207,9 @@ mod impure {
                     let size = shdr.sh_entsize;
                     let count = if size == 0 { 0 } else { shdr.sh_size / size };
                     syms = Sym::parse(buffer, shdr.sh_offset as usize, count as usize, ctx)?;
+                    let shdr = &section_headers[shdr.sh_link as usize];
+                    strtab = Strtab::parse(buffer, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0)?;
                 }
-                let shdr = &section_headers[shdr.sh_link as usize];
-                strtab = Strtab::parse(buffer, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0)?;
             }
 
             let mut soname = None;

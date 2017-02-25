@@ -24,19 +24,33 @@ impl ElfProgramHeader {
         use scroll::ctx::SizeWith;
         Self::size_with(&ctx)
     }
-    /// Create a new X+R, `PT_LOAD` ELF program header
+    /// Create a new `PT_LOAD` ELF program header
     pub fn new() -> Self {
         ElfProgramHeader {
             p_type  : PT_LOAD,
-            p_flags : PF_X | PF_R,
+            p_flags : 0,
             p_offset: 0,
             p_vaddr : 0,
             p_paddr : 0,
             p_filesz: 0,
             p_memsz : 0,
-            p_align : 2 << 8,
+            //TODO: check if this is true for 32-bit pt_load
+            p_align : 2 << 20,
         }
     }
+
+    pub fn executable(&mut self) {
+        self.p_flags = self.p_flags | PF_X;
+    }
+
+    pub fn write(&mut self) {
+        self.p_flags = self.p_flags | PF_W;
+    }
+
+    pub fn read(&mut self) {
+        self.p_flags = self.p_flags | PF_R;
+    }
+
     #[cfg(feature = "endian_fd")]
     pub fn parse<S: AsRef<[u8]>>(buffer: &S, mut offset: usize, count: usize, ctx: Ctx) -> error::Result<Vec<ElfProgramHeader>> {
         let mut program_headers = Vec::with_capacity(count);

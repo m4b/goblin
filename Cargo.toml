@@ -34,3 +34,11 @@ pe64 = ["std", "endian_fd"]
 goblin = []
 archive = ["std", "endian_fd"]
 endian_fd = ["scroll", "scroll_derive"]
+
+# [profile.dev]
+# opt-level = 0
+# debug = true
+# rpath = false
+# lto = false
+# debug-assertions = true
+# codegen-units = 4

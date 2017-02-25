@@ -192,6 +192,14 @@ mod impure {
 
             let section_headers = SectionHeader::parse(buffer, header.e_shoff as usize, header.e_shnum as usize, ctx)?;
 
+            let strtab_idx = header.e_shstrndx as usize;
+            let shdr_strtab = if strtab_idx >= section_headers.len() {
+                Strtab::default()
+            } else {
+                let shdr = &section_headers[strtab_idx];
+                try!(Strtab::parse(buffer, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0))
+            };
+
             let mut syms = vec![];
             let mut strtab = Strtab::default();
             for shdr in &section_headers {
@@ -200,18 +208,9 @@ mod impure {
                     let count = if size == 0 { 0 } else { shdr.sh_size / size };
                     syms = Sym::parse(buffer, shdr.sh_offset as usize, count as usize, ctx)?;
                 }
-                if shdr.sh_type as u32 == section_header::SHT_STRTAB {
-                    strtab = Strtab::parse(buffer, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0)?;
-                }
+                let shdr = &section_headers[shdr.sh_link as usize];
+                strtab = Strtab::parse(buffer, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0)?;
             }
-
-            let strtab_idx = header.e_shstrndx as usize;
-            let shdr_strtab = if strtab_idx >= section_headers.len() {
-                Strtab::default()
-            } else {
-                let shdr = &section_headers[strtab_idx];
-                try!(Strtab::parse(buffer, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0))
-            };
 
             let mut soname = None;
             let mut libraries = vec![];

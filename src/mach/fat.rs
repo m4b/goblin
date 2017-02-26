@@ -68,7 +68,7 @@ impl FatHeader {
     }
 
     /// Parse a mach-o fat header from the `buffer`
-    pub fn parse<S: scroll::Gread>(buffer: &S) -> error::Result<FatHeader> {
+    pub fn parse<S: AsRef<[u8]>>(buffer: &S) -> error::Result<FatHeader> {
         let mut header = FatHeader::default();
         let mut offset = 0;
         header.magic = buffer.gread_with(&mut offset, scroll::BE)?;
@@ -99,7 +99,7 @@ impl FatArch {
         self.cputype == cputype::CPU_TYPE_X86_64 || self.cputype == cputype::CPU_TYPE_ARM64
     }
 
-    pub fn parse_arches<S: scroll::Gread>(fd: &S, mut offset: usize, count: usize) -> error::Result<Vec<Self>> {
+    pub fn parse_arches<S: AsRef<[u8]>>(fd: &S, mut offset: usize, count: usize) -> error::Result<Vec<Self>> {
         let mut archs = Vec::with_capacity(count);
         let offset = &mut offset;
         for _ in 0..count {
@@ -124,7 +124,7 @@ impl FatArch {
     //     Ok(arches)
     // }
 
-    pub fn parse<S: scroll::Gread>(buffer: &S) -> error::Result<Vec<Self>> {
+    pub fn parse<S: AsRef<[u8]>>(buffer: &S) -> error::Result<Vec<Self>> {
         let header = FatHeader::parse(buffer)?;
         let arches = FatArch::parse_arches(buffer,
                                            SIZEOF_FAT_HEADER,

@@ -1,4 +1,4 @@
-use scroll;
+use scroll::{Pread};
 use pe::error;
 
 use super::section_table;
@@ -24,7 +24,7 @@ pub fn find_offset (rva: usize, sections: &[section_table::SectionTable]) -> Opt
     None
 }
 
-pub fn try_name<'a, B: scroll::Gread + scroll::Gread<scroll::ctx::StrCtx, scroll::Error>>(bytes: &'a B, rva: usize, sections: &[section_table::SectionTable]) -> error::Result<&'a str> {
+pub fn try_name<'a, B: AsRef<[u8]>>(bytes: &'a B, rva: usize, sections: &[section_table::SectionTable]) -> error::Result<&'a str> {
     match find_offset(rva, sections) {
         Some(offset) => {
             Ok(bytes.pread::<&str>(offset)?)

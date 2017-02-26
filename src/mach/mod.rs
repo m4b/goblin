@@ -19,7 +19,7 @@ pub struct Mach {
 }
 
 impl Mach {
-    fn get_header<S: scroll::Gread>(buffer: &S,
+    fn get_header<S: AsRef<[u8]>>(buffer: &S,
                   offset: usize,
                   size: usize,
                   le: scroll::Endian)

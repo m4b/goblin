@@ -1,7 +1,7 @@
 use pe::error;
 use super::data_directories;
 
-use scroll;
+use scroll::{self, Gread};
 
 /// standard COFF fields
 #[repr(C)]
@@ -27,7 +27,7 @@ pub const MAGIC_32: u16 = 0x10b;
 pub const MAGIC_64: u16 = 0x20b;
 
 impl StandardFields {
-    pub fn parse<B: scroll::Gread> (bytes: &B, offset: &mut usize) -> error::Result<Self> {
+    pub fn parse<B: AsRef<[u8]>> (bytes: &B, offset: &mut usize) -> error::Result<Self> {
         let mut standard_fields = StandardFields::default();
         standard_fields.magic = bytes.gread_with(offset, scroll::LE)?;
         standard_fields.major_linker_version = bytes.gread_with(offset, scroll::LE)?;
@@ -72,7 +72,7 @@ pub struct WindowsFields {
 pub const SIZEOF_WINDOWS_FIELDS: usize = (8 * 8) + 4;
 
 impl WindowsFields {
-    pub fn parse<B: scroll::Gread> (bytes: &B, offset: &mut usize) -> error::Result<Self> {
+    pub fn parse<B: AsRef<[u8]>> (bytes: &B, offset: &mut usize) -> error::Result<Self> {
         let mut windows_fields = WindowsFields::default();
         windows_fields.image_base = bytes.gread_with(offset, scroll::LE)?;
         windows_fields.section_alignment = bytes.gread_with(offset, scroll::LE)?;
@@ -109,7 +109,7 @@ pub struct OptionalHeader {
 }
 
 impl OptionalHeader {
-    pub fn parse<B: scroll::Gread> (bytes: &B, offset: &mut usize) -> error::Result<Self> {
+    pub fn parse<B: AsRef<[u8]>> (bytes: &B, offset: &mut usize) -> error::Result<Self> {
         let standard_fields = StandardFields::parse(bytes, offset)?;
         let windows_fields = WindowsFields::parse(bytes, offset)?;
         let data_directories = data_directories::DataDirectories::parse(bytes, windows_fields.number_of_rva_and_sizes as usize, offset)?;

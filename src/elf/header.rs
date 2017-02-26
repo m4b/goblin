@@ -347,7 +347,7 @@ macro_rules! elf_header_impure_impl {
             use elf::error::*;
             use elf::error;
 
-            use scroll::{self, ctx};
+            use scroll::{self, ctx, Gread};
             use std::fs::File;
             use std::io::{Read};
 
@@ -398,7 +398,6 @@ macro_rules! elf_header_impure_impl {
             impl<'a> ctx::TryFromCtx<'a> for Header {
                 type Error = error::Error;
                 fn try_from_ctx(buffer: &'a [u8], (mut offset, _): (usize, scroll::Endian)) -> result::Result<Self, Self::Error> {
-                    use scroll::Gread;
                     let mut elf_header = Header::default();
                     let mut offset = &mut offset;
                     buffer.gread_inout(offset, &mut elf_header.e_ident)?;
@@ -467,7 +466,7 @@ macro_rules! elf_header_impure_impl {
 
                 #[cfg(feature = "endian_fd")]
                 /// Parses an ELF header from the given buffer
-                pub fn parse<S: scroll::Gread>(buffer: &S) -> Result<Header> {
+                pub fn parse<S: AsRef<[u8]>>(buffer: &S) -> Result<Header> {
                     let mut elf_header = Header::default();
                     let mut offset = &mut 0;
                     for i in 0..SIZEOF_IDENT {
@@ -508,7 +507,7 @@ macro_rules! elf_header_test {
             extern crate scroll;
             use scroll::{Pwrite, Pread};
             use super::*;
-            use container::Container;
+            use container::{Ctx, Container};
             use scroll::Buffer;
             #[test]
             fn size_of() {
@@ -559,7 +558,7 @@ macro_rules! elf_header_test {
                 bytes.pwrite(header_, 0).unwrap();
                 let header2: ElfHeader = bytes.pread(0).unwrap();
                 assert_eq!(header, header2);
-                let header = ElfHeader::new(container);
+                let header = ElfHeader::new(Ctx::from(container));
                 println!("header: {:?}", &header);
 
                 let mut bytes = scroll::Buffer::with(0, 100);

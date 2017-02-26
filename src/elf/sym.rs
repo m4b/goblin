@@ -248,7 +248,7 @@ macro_rules! elf_sym_impure_impl {
             use core::fmt;
             use core::slice;
 
-            use scroll;
+            use scroll::{self, Gread};
             use std::fs::File;
             use std::io::{Read, Seek};
             use std::io::SeekFrom::Start;
@@ -325,7 +325,7 @@ macro_rules! elf_sym_impure_impl {
             }
 
             #[cfg(feature = "endian_fd")]
-            pub fn parse<S: scroll::Gread>(bytes: &S, mut offset: usize, count: usize, endianness: scroll::Endian) -> Result<Vec<Sym>> {
+            pub fn parse<S: AsRef<[u8]>>(bytes: &S, mut offset: usize, count: usize, endianness: scroll::Endian) -> Result<Vec<Sym>> {
                 let mut syms = Vec::with_capacity(count);
                 let mut offset = &mut offset;
                 for _ in 0..count {

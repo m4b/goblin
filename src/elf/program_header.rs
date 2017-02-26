@@ -226,7 +226,7 @@ macro_rules! elf_program_header_impure_impl { ($size:ty) => {
         use core::slice;
         use core::fmt;
 
-        use scroll;
+        use scroll::{self, Gread};
         use std::fs::File;
         use std::io::{Seek, Read};
         use std::io::SeekFrom::Start;
@@ -279,7 +279,7 @@ macro_rules! elf_program_header_impure_impl { ($size:ty) => {
 
         impl ProgramHeader {
             #[cfg(feature = "endian_fd")]
-            pub fn parse<S: scroll::Gread>(buffer: &S, mut offset: usize, count: usize, ctx: scroll::Endian) -> Result<Vec<ProgramHeader>> {
+            pub fn parse<S: AsRef<[u8]>>(buffer: &S, mut offset: usize, count: usize, ctx: scroll::Endian) -> Result<Vec<ProgramHeader>> {
                 let mut program_headers = vec![ProgramHeader::default(); count];
                 let mut offset = &mut offset;
                 buffer.gread_inout_with(offset, &mut program_headers, ctx)?;

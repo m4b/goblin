@@ -1,4 +1,4 @@
-use scroll;
+use scroll::{self, Pread, Gread};
 
 use pe::error;
 
@@ -26,7 +26,7 @@ pub struct ExportDirectoryTable {
 pub const SIZEOF_EXPORT_DIRECTORY_TABLE: usize = 40;
 
 impl ExportDirectoryTable {
-    pub fn parse<B: scroll::Gread>(bytes: &B, offset: usize) -> error::Result<Self> {
+    pub fn parse<B: AsRef<[u8]>>(bytes: &B, offset: usize) -> error::Result<Self> {
         let res = bytes.pread_with(offset, scroll::LE)?;
         Ok(res)
     }
@@ -63,7 +63,7 @@ pub struct ExportData {
 }
 
 impl ExportData {
-    pub fn parse<B: scroll::Gread>(bytes: &B, dd: &data_directories::DataDirectory, sections: &[section_table::SectionTable]) -> error::Result<Self> {
+    pub fn parse<B: AsRef<[u8]>>(bytes: &B, dd: &data_directories::DataDirectory, sections: &[section_table::SectionTable]) -> error::Result<Self> {
         let export_rva = dd.virtual_address as usize;
         let size = dd.size as usize;
         let export_offset = utils::find_offset(export_rva, sections).unwrap();
@@ -119,7 +119,7 @@ pub enum Reexport {
 
 // this compiles but cannot be used due to sized requirements which i don't understand :tada:
 impl<'a, B: ?Sized> scroll::ctx::TryFromCtx<'a, (usize, scroll::ctx::DefaultCtx), B> for Reexport
-    where B: scroll::Gread + scroll::Gread<scroll::ctx::StrCtx> + AsRef<[u8]> {
+    where B: AsRef<[u8]> {
     type Error = scroll::Error;
     #[inline]
     fn try_from_ctx(bytes: &'a B, (offset, _): (usize, scroll::ctx::DefaultCtx)) -> Result<Self, Self::Error> {
@@ -163,7 +163,7 @@ impl<'a, B: ?Sized> scroll::ctx::TryFromCtx<'a, (usize, scroll::ctx::DefaultCtx)
 }
 
 impl Reexport {
-    pub fn parse<B: scroll::Gread + scroll::Gread<scroll::ctx::StrCtx>>(bytes: &B, offset: usize) -> scroll::Result<Reexport> {
+    pub fn parse<B: AsRef<[u8]>>(bytes: &B, offset: usize) -> scroll::Result<Reexport> {
         use scroll::{Gread, Pread};
         let reexport: &str = bytes.pread::<&str>(offset)?;
         //println!("reexport: {}", &reexport);
@@ -221,7 +221,7 @@ struct ExportCtx<'a> {
     pub ordinals: &'a ExportOrdinalTable,
 }
 
-impl<'a, B> scroll::ctx::TryFromCtx<'a, ExportCtx<'a>, B> for Export where B: scroll::Gread + scroll::Gread<scroll::ctx::StrCtx> {
+impl<'a, B> scroll::ctx::TryFromCtx<'a, ExportCtx<'a>, B> for Export where B: AsRef<[u8]> {
     type Error = scroll::Error;
     #[inline]
     fn try_from_ctx(bytes: &'a B, ExportCtx { ptr, idx, sections, addresses, ordinals }: ExportCtx<'a>) -> Result<Self, Self::Error> {
@@ -258,7 +258,7 @@ impl<'a, B> scroll::ctx::TryFromCtx<'a, ExportCtx<'a>, B> for Export where B: sc
 }
 
 impl Export {
-    pub fn parse<B: scroll::Gread + scroll::Gread<scroll::ctx::StrCtx>>(bytes: &B, export_data: &ExportData, sections: &[section_table::SectionTable]) -> error::Result<Vec<Export>> {
+    pub fn parse<B: AsRef<[u8]>>(bytes: &B, export_data: &ExportData, sections: &[section_table::SectionTable]) -> error::Result<Vec<Export>> {
         let pointers = &export_data.export_name_pointer_table;
         let addresses = &export_data.export_address_table;
         let ordinals = &export_data.export_ordinal_table;

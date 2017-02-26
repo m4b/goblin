@@ -1,4 +1,4 @@
-use scroll;
+use scroll::{self, Pread, Gread};
 use pe::error;
 use pe::section_table;
 use pe::utils;
@@ -11,7 +11,7 @@ pub struct HintNameTableEntry {
 }
 
 impl HintNameTableEntry {
-    fn parse<B: scroll::Gread + scroll::Gread<scroll::ctx::StrCtx>>(bytes: &B, mut offset: usize) -> error::Result<Self> {
+    fn parse<B: AsRef<[u8]>>(bytes: &B, mut offset: usize) -> error::Result<Self> {
         let mut offset = &mut offset;
         let hint = bytes.gread_with(offset, scroll::LE)?;
         let name = bytes.pread::<&str>(*offset)?.to_string();
@@ -37,7 +37,7 @@ pub const IMPORT_BY_ORDINAL_32: u32 = 0x8000_0000;
 pub const IMPORT_RVA_MASK_32: u32 = 0x8fff_ffff;
 
 impl ImportLookupTableEntry {
-    pub fn parse<B: scroll::Gread + scroll::Gread<scroll::ctx::StrCtx>>(bytes: &B, mut offset: usize, sections: &[section_table::SectionTable])
+    pub fn parse<B: AsRef<[u8]>>(bytes: &B, mut offset: usize, sections: &[section_table::SectionTable])
                                                                       -> error::Result<ImportLookupTable> {
         let le = scroll::LE;
         let mut offset = &mut offset;
@@ -114,7 +114,7 @@ pub struct SyntheticImportDirectoryEntry {
 }
 
 impl SyntheticImportDirectoryEntry {
-    pub fn parse<B: scroll::Gread + scroll::Gread<scroll::ctx::StrCtx>>(bytes: &B, import_directory_entry: ImportDirectoryEntry, sections: &[section_table::SectionTable]) -> error::Result<Self> {
+    pub fn parse<B: AsRef<[u8]>>(bytes: &B, import_directory_entry: ImportDirectoryEntry, sections: &[section_table::SectionTable]) -> error::Result<Self> {
         let le = scroll::LE;
         let name_rva = import_directory_entry.name_rva;
         let name = utils::try_name(bytes, name_rva as usize, sections)?.to_string();
@@ -143,7 +143,7 @@ pub struct ImportData {
 }
 
 impl ImportData {
-    pub fn parse<B: scroll::Gread + scroll::Gread<scroll::ctx::StrCtx>>(bytes: &B, dd: &data_directories::DataDirectory, sections: &[section_table::SectionTable]) -> error::Result<Self> {
+    pub fn parse<B: AsRef<[u8]>>(bytes: &B, dd: &data_directories::DataDirectory, sections: &[section_table::SectionTable]) -> error::Result<Self> {
         let import_directory_table_rva = dd.virtual_address as usize;
         let mut offset = &mut utils::find_offset(import_directory_table_rva, sections).unwrap();
         let mut import_data = Vec::new();
@@ -173,7 +173,7 @@ pub struct Import {
 }
 
 impl Import {
-    pub fn parse<B: scroll::Gread + scroll::Gread<scroll::ctx::StrCtx>>(_bytes: &B, import_data: &ImportData, _sections: &[section_table::SectionTable]) -> error::Result<Vec<Self>> {
+    pub fn parse<B: AsRef<[u8]>>(_bytes: &B, import_data: &ImportData, _sections: &[section_table::SectionTable]) -> error::Result<Vec<Self>> {
         let mut imports = Vec::new();
         for data in &import_data.import_data {
             let import_lookup_table = &data.import_lookup_table;

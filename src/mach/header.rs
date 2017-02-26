@@ -1,6 +1,6 @@
 use std::mem;
 use std::fmt;
-use scroll;
+use scroll::{self, Gread};
 
 use error;
 
@@ -192,7 +192,7 @@ impl Header {
     }
 
     // #[cfg(feature = "no_endian_fd")]
-    pub fn parse<S: scroll::Gread>(buffer: &S, offset: usize, le: scroll::Endian) -> error::Result<Header> {
+    pub fn parse<S: AsRef<[u8]>>(buffer: &S, offset: usize, le: scroll::Endian) -> error::Result<Header> {
         let mut offset = offset;
         let offset = &mut offset;
         let magic = buffer.gread_with(offset, le)?;

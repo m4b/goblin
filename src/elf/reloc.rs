@@ -235,53 +235,6 @@ macro_rules! elf_reloc {
 
 include!("constants_relocation.rs");
 
-// TODO: parameterize this by architecture
-#[inline]
-pub fn type_to_str(typ: u32) -> &'static str {
-    match typ {
-        R_X86_64_NONE => "NONE",
-        R_X86_64_64 => "64",
-        R_X86_64_PC32 => "PC32",
-        R_X86_64_GOT32 => "GOT32",
-        R_X86_64_PLT32 => "PLT32",
-        R_X86_64_COPY => "COPY",
-        R_X86_64_GLOB_DAT => "GLOB_DAT",
-        R_X86_64_JUMP_SLOT => "JUMP_SLOT",
-        R_X86_64_RELATIVE => "RELATIVE",
-        R_X86_64_GOTPCREL => "GOTPCREL",
-        R_X86_64_32 => "32",
-        R_X86_64_32S => "32S",
-        R_X86_64_16 => "16",
-        R_X86_64_PC16 => "PC16",
-        R_X86_64_8 => "8",
-        R_X86_64_PC8 => "PC8",
-        R_X86_64_DTPMOD64 => "DTPMOD64",
-        R_X86_64_DTPOFF64 => "DTPOFF64",
-        R_X86_64_TPOFF64 => "TPOFF64",
-        R_X86_64_TLSGD => "TLSGD",
-        R_X86_64_TLSLD => "TLSLD",
-        R_X86_64_DTPOFF32 => "DTPOFF32",
-        R_X86_64_GOTTPOFF => "GOTTPOFF",
-        R_X86_64_TPOFF32 => "TPOFF32",
-        R_X86_64_PC64 => "PC64",
-        R_X86_64_GOTOFF64 => "GOTOFF64",
-        R_X86_64_GOTPC32 => "GOTPC32",
-        R_X86_64_GOT64 => "GOT64",
-        R_X86_64_GOTPCREL64 => "GOTPCREL64",
-        R_X86_64_GOTPC64 => "GOTPC64",
-        R_X86_64_GOTPLT64 => "GOTPLT64",
-        R_X86_64_PLTOFF64 => "PLTOFF64",
-        R_X86_64_SIZE32 => "SIZE32",
-        R_X86_64_SIZE64 => "SIZE64",
-        R_X86_64_GOTPC32_TLSDESC => "GOTPC32_TLSDESC",
-        R_X86_64_TLSDESC_CALL => "TLSDESC_CALL",
-        R_X86_64_TLSDESC => "TLSDESC",
-        R_X86_64_IRELATIVE => "IRELATIVE",
-        R_X86_64_RELATIVE64 => "RELATIVE64",
-        _ => "UNKNOWN_RELA_TYPE",
-    }
-}
-
 macro_rules! signed_from_unsigned {
   (u32) => {i32};
   (u64) => {i64}

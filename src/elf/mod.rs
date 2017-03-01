@@ -89,6 +89,7 @@ mod impure {
     pub type ProgramHeaders = Vec<ProgramHeader>;
     pub type SectionHeaders = Vec<section_header::ElfSectionHeader>;
     pub type Syms = Vec<Sym>;
+    pub type ShdrIdx = usize;
 
     #[derive(Debug)]
     /// An ELF binary. The underlying data structures are read according to the headers byte order and container size (32 or 64).
@@ -121,8 +122,8 @@ mod impure {
         pub dynrels: Vec<Reloc>,
         /// The plt relocation entries (procedure linkage table). For 32-bit binaries these are usually Rel (no addend)
         pub pltrelocs: Vec<Reloc>,
-        /// Section relocations (only present if this is a relocatable object file)
-        pub shdr_relocs: Vec<Reloc>,
+        /// Section relocations by section index (only present if this is a relocatable object file)
+        pub shdr_relocs: Vec<(ShdrIdx, Vec<Reloc>)>,
         /// The binary's soname, if it has one
         pub soname: Option<String>,
         /// The binary's program interpreter (e.g., dynamic linker), if it has one
@@ -242,17 +243,18 @@ mod impure {
                 pltrelocs = Reloc::parse(buffer, dyn_info.jmprel, dyn_info.pltrelsz, is_rela, ctx)?;
             }
 
+            // iterate through shdrs again iff we're an ET_REL
             let shdr_relocs = {
                 let mut relocs = vec![];
                 if header.e_type == header::ET_REL {
-                    for section in &section_headers {
+                    for (idx, section) in section_headers.iter().enumerate() {
                         if section.sh_type == section_header::SHT_REL {
                             let sh_relocs = Reloc::parse(buffer, section.sh_offset as usize, section.sh_size as usize, false, ctx)?;
-                            relocs.extend_from_slice(&sh_relocs);
+                            relocs.push((idx, sh_relocs));
                         }
                         if section.sh_type == section_header::SHT_RELA {
                             let sh_relocs = Reloc::parse(buffer, section.sh_offset as usize, section.sh_size as usize, true, ctx)?;
-                            relocs.extend_from_slice(&sh_relocs);
+                            relocs.push((idx, sh_relocs));
                         }
                     }
                 }

@@ -412,7 +412,7 @@ macro_rules! elf_header_std_impl {
             }
 
             impl ctx::TryIntoCtx for Header {
-                type Error = scroll::Error;
+                type Error = error::Error;
                 /// a Pwrite impl for Header: **note** we use the endianness value in the header, and not a parameter
                 fn try_into_ctx(self, mut bytes: &mut [u8], (mut offset, _endianness): (usize, scroll::Endian)) -> result::Result<(), Self::Error> {
                     use scroll::{Gwrite};
@@ -421,7 +421,7 @@ macro_rules! elf_header_std_impl {
                         match self.e_ident[EI_DATA] {
                             ELFDATA2LSB => scroll::LE,
                             ELFDATA2MSB => scroll::BE,
-                            d => return Err(scroll::Error::BadInput(format!("invalid ELF endianness DATA type {:x}", d)).into()),
+                            d => return Err(Error::Malformed(format!("invalid ELF DATA type {:x}", d)).into()),
                         };
                     for i in 0..self.e_ident.len() {
                         bytes.gwrite(self.e_ident[i], offset)?;
@@ -438,7 +438,8 @@ macro_rules! elf_header_std_impl {
                     bytes.gwrite_with(self.e_phnum     , offset, endianness)?;
                     bytes.gwrite_with(self.e_shentsize , offset, endianness)?;
                     bytes.gwrite_with(self.e_shnum     , offset, endianness)?;
-                    bytes.gwrite_with(self.e_shstrndx  , offset, endianness)
+                    bytes.gwrite_with(self.e_shstrndx  , offset, endianness)?;
+                    Ok(())
                 }
             }
 

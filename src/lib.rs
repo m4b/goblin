@@ -91,6 +91,7 @@ pub mod strtab;
 // Misc/Helper Modules
 /////////////////////////
 
+/// Binary container size information and byte-order context
 pub mod container {
     use scroll;
     #[derive(Debug, Copy, Clone, PartialEq)]

@@ -1,7 +1,6 @@
 //! The generic ELF module, which gives access to ELF constants and other helper functions, which are independent of ELF bithood.  Also defines an `Elf` struct which implements a unified parser that returns a wrapped `Elf64` or `Elf32` binary.
 //!
-//! To access the fields of the contents of the binary (i.e., `ph.p_type`),
-//! instead of directly getting the struct fields, you call the similarly named methods.
+//! To access the exact 32-bit or 64-bit versions, use [goblin::elf32::Header](header/header32/struct.Header.html)/[goblin::elf64::Header](header/header64/struct.Header.html), etc., for the various 32/64-bit structs.
 //!
 //! # Example
 //!
@@ -31,7 +30,7 @@
 //! See [goblin::elf::Elf](struct.Elf.html) for more information.
 //!
 //! You are still free to use the specific 32-bit or 64-bit versions by accessing them through `goblin::elf64`, etc., but you will have to parse and/or construct the various components yourself.
-//! In other words, there is no 32/64-bit `Elf` struct, only the unified version.
+//! In other words, there is no unified 32/64-bit `Elf` struct.
 //!
 //! # Note
 //! To use the automagic ELF datatype union parser, you _must_ enable/opt-in to the  `elf64`, `elf32`, and

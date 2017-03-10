@@ -1,124 +1,3 @@
-use core::fmt;
-use scroll::{self, ctx, Gread};
-use error;
-use core::result;
-use container::{Ctx, Container};
-
-#[cfg(feature = "std")]
-#[derive(Default, PartialEq, Clone)]
-pub struct ElfSym {
-    pub st_name:     usize,
-    pub st_info:     u8,
-    pub st_other:    u8,
-    pub st_shndx:    usize,
-    pub st_value:    u64,
-    pub st_size:     u64,
-}
-
-impl ElfSym {
-    pub fn size(container: Container) -> usize {
-        use scroll::ctx::SizeWith;
-        Self::size_with(&Ctx::from(container))
-    }
-    /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` bind and a `st_value` of 0
-    pub fn is_import(&self) -> bool {
-        let bind = self.st_bind();
-        (bind == STB_GLOBAL || bind == STB_WEAK) && self.st_value == 0
-    }
-    /// Checks whether this `Sym` has type `STT_FUNC`
-    pub fn is_function(&self) -> bool {
-        st_type(self.st_info) == STT_FUNC
-    }
-    /// Get the ST bind.
-    ///
-    /// This is the first four bits of the byte.
-    #[inline]
-    pub fn st_bind(&self) -> u8 {
-        self.st_info >> 4
-    }
-    /// Get the ST type.
-    ///
-    /// This is the last four bits of the byte.
-    #[inline]
-    pub fn st_type(&self) -> u8 {
-        self.st_info & 0xf
-    }
-    #[cfg(feature = "endian_fd")]
-    /// Parse `count` vector of ELF symbols from `offset`
-    pub fn parse<S: AsRef<[u8]>>(bytes: &S, mut offset: usize, count: usize, ctx: Ctx) -> error::Result<Vec<ElfSym>> {
-        let mut syms = Vec::with_capacity(count);
-        for _ in 0..count {
-            let sym = bytes.gread_with(&mut offset, ctx)?;
-            syms.push(sym);
-        }
-        Ok(syms)
-    }
-}
-
-impl fmt::Debug for ElfSym {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let bind = self.st_bind();
-        let typ = self.st_type();
-        write!(f,
-               "st_name: {} {} {} st_other: {} st_shndx: {} st_value: {:x} st_size: {}",
-               self.st_name,
-               bind_to_str(bind),
-               type_to_str(typ),
-               self.st_other,
-               self.st_shndx,
-               self.st_value,
-               self.st_size)
-    }
-}
-
-impl ctx::SizeWith<Ctx> for ElfSym {
-    type Units = usize;
-    fn size_with(&Ctx {container, .. }: &Ctx) -> usize {
-        match container {
-            Container::Little => {
-                super::super::elf32::sym::SIZEOF_SYM
-            },
-            Container::Big => {
-                super::super::elf64::sym::SIZEOF_SYM
-            },
-        }
-    }
-}
-
-impl<'a> ctx::TryFromCtx<'a, (usize, Ctx)> for ElfSym {
-    type Error = scroll::Error;
-    fn try_from_ctx(buffer: &'a [u8], (offset, Ctx { container, le}): (usize, Ctx)) -> result::Result<Self, Self::Error> {
-        use scroll::Pread;
-        let sym = match container {
-            Container::Little => {
-                buffer.pread_with::<super::super::elf32::sym::Sym>(offset, le)?.into()
-            },
-            Container::Big => {
-                buffer.pread_with::<super::super::elf64::sym::Sym>(offset, le)?.into()
-            }
-        };
-        Ok(sym)
-    }
-}
-
-impl ctx::TryIntoCtx<(usize, Ctx)> for ElfSym {
-    type Error = scroll::Error;
-    fn try_into_ctx(self, mut buffer: &mut [u8], (offset, Ctx {container, le}): (usize, Ctx)) -> result::Result<(), Self::Error> {
-        use scroll::Pwrite;
-        match container {
-            Container::Little => {
-                let sym: super::super::elf32::sym::Sym = self.into();
-                buffer.pwrite_with(sym, offset, le)?;
-            },
-            Container::Big => {
-                let sym: super::super::elf64::sym::Sym = self.into();
-                buffer.pwrite_with(sym, offset, le)?;
-            }
-        }
-        Ok(())
-    }
-}
-
 /// === Sym bindings ===
 /// Local symbol.
 pub const STB_LOCAL: u8 = 0;
@@ -225,7 +104,7 @@ pub fn type_to_str(typ: u8) -> &'static str {
     }
 }
 
-macro_rules! elf_sym_impure_impl {
+macro_rules! elf_sym_std_impl {
     ($size:ty) => {
 
         #[cfg(test)]
@@ -238,17 +117,17 @@ macro_rules! elf_sym_impure_impl {
         }
 
         #[cfg(feature = "std")]
-        pub use self::impure::*;
+        pub use self::std::*;
 
         #[cfg(feature = "std")]
-        mod impure {
+        mod std {
+            use elf::sym::Sym as ElfSym;
             use super::*;
             use elf::error::*;
 
             use core::fmt;
             use core::slice;
 
-            use scroll::{self, Gread};
             use std::fs::File;
             use std::io::{Read, Seek};
             use std::io::SeekFrom::Start;
@@ -325,7 +204,8 @@ macro_rules! elf_sym_impure_impl {
             }
 
             #[cfg(feature = "endian_fd")]
-            pub fn parse<S: AsRef<[u8]>>(bytes: &S, mut offset: usize, count: usize, endianness: scroll::Endian) -> Result<Vec<Sym>> {
+            pub fn parse<S: AsRef<[u8]>>(bytes: &S, mut offset: usize, count: usize, endianness: ::scroll::Endian) -> ::error::Result<Vec<Sym>> {
+                use scroll::Gread;
                 let mut syms = Vec::with_capacity(count);
                 let mut offset = &mut offset;
                 for _ in 0..count {
@@ -336,4 +216,188 @@ macro_rules! elf_sym_impure_impl {
             }
         }
     };
+}
+
+
+pub mod sym32 {
+    pub use elf::sym::*;
+
+    #[repr(C)]
+    #[derive(Clone, Copy, PartialEq, Default)]
+    #[cfg_attr(feature = "std", derive(Pread, Pwrite, SizeWith))]
+    /// 32-bit Sym - used for both static and dynamic symbol information in a binary
+    pub struct Sym {
+        /// Symbol name (string tbl index)
+        pub st_name: u32,
+        /// Symbol value
+        pub st_value: u32,
+        /// Symbol size
+        pub st_size: u32,
+        /// Symbol type and binding
+        pub st_info: u8,
+        /// Symbol visibility
+        pub st_other: u8,
+        /// Section index
+        pub st_shndx: u16,
+    }
+
+    pub const SIZEOF_SYM: usize = 4 + 1 + 1 + 2 + 4 + 4;
+
+    elf_sym_std_impl!(u32);
+}
+
+pub mod sym64 {
+    pub use elf::sym::*;
+
+    #[repr(C)]
+    #[derive(Clone, Copy, PartialEq, Default)]
+    #[cfg_attr(feature = "std", derive(Pread, Pwrite, SizeWith))]
+    /// 64-bit Sym - used for both static and dynamic symbol information in a binary
+    pub struct Sym {
+        /// Symbol name (string tbl index)
+        pub st_name: u32,
+        /// Symbol type and binding
+        pub st_info: u8,
+        /// Symbol visibility
+        pub st_other: u8,
+        /// Section index
+        pub st_shndx: u16,
+        /// Symbol value
+        pub st_value: u64,
+        /// Symbol size
+        pub st_size: u64,
+    }
+
+    pub const SIZEOF_SYM: usize = 4 + 1 + 1 + 2 + 8 + 8;
+
+    elf_sym_std_impl!(u64);
+}
+
+#[cfg(feature = "std")]
+pub use self::std::*;
+
+#[cfg(feature = "std")]
+mod std {
+    use super::*;
+
+    use core::fmt;
+    use scroll::{self, ctx};
+    use core::result;
+    use container::{Ctx, Container};
+
+    #[derive(Default, PartialEq, Clone)]
+    /// A unified Sym definition - convertable to and from 32-bit and 64-bit variants
+    pub struct Sym {
+        pub st_name:     usize,
+        pub st_info:     u8,
+        pub st_other:    u8,
+        pub st_shndx:    usize,
+        pub st_value:    u64,
+        pub st_size:     u64,
+    }
+
+    impl Sym {
+        pub fn size(container: Container) -> usize {
+            use scroll::ctx::SizeWith;
+            Self::size_with(&Ctx::from(container))
+        }
+        /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` bind and a `st_value` of 0
+        pub fn is_import(&self) -> bool {
+            let bind = self.st_bind();
+            (bind == STB_GLOBAL || bind == STB_WEAK) && self.st_value == 0
+        }
+        /// Checks whether this `Sym` has type `STT_FUNC`
+        pub fn is_function(&self) -> bool {
+            st_type(self.st_info) == STT_FUNC
+        }
+        /// Get the ST bind.
+        ///
+        /// This is the first four bits of the byte.
+        #[inline]
+        pub fn st_bind(&self) -> u8 {
+            self.st_info >> 4
+        }
+        /// Get the ST type.
+        ///
+        /// This is the last four bits of the byte.
+        #[inline]
+        pub fn st_type(&self) -> u8 {
+            self.st_info & 0xf
+        }
+        #[cfg(feature = "endian_fd")]
+        /// Parse `count` vector of ELF symbols from `offset`
+        pub fn parse<S: AsRef<[u8]>>(bytes: &S, mut offset: usize, count: usize, ctx: Ctx) -> ::error::Result<Vec<Sym>> {
+            use scroll::Gread;
+            let mut syms = Vec::with_capacity(count);
+            for _ in 0..count {
+                let sym = bytes.gread_with(&mut offset, ctx)?;
+                syms.push(sym);
+            }
+            Ok(syms)
+        }
+    }
+
+    impl fmt::Debug for Sym {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            let bind = self.st_bind();
+            let typ = self.st_type();
+            write!(f,
+                   "st_name: {} {} {} st_other: {} st_shndx: {} st_value: {:x} st_size: {}",
+                   self.st_name,
+                   bind_to_str(bind),
+                   type_to_str(typ),
+                   self.st_other,
+                   self.st_shndx,
+                   self.st_value,
+                   self.st_size)
+        }
+    }
+
+    impl ctx::SizeWith<Ctx> for Sym {
+        type Units = usize;
+        fn size_with(&Ctx {container, .. }: &Ctx) -> usize {
+            match container {
+                Container::Little => {
+                    sym32::SIZEOF_SYM
+                },
+                Container::Big => {
+                    sym64::SIZEOF_SYM
+                },
+            }
+        }
+    }
+
+    impl<'a> ctx::TryFromCtx<'a, (usize, Ctx)> for Sym {
+        type Error = scroll::Error;
+        fn try_from_ctx(buffer: &'a [u8], (offset, Ctx { container, le}): (usize, Ctx)) -> result::Result<Self, Self::Error> {
+            use scroll::Pread;
+            let sym = match container {
+                Container::Little => {
+                    buffer.pread_with::<sym32::Sym>(offset, le)?.into()
+                },
+                Container::Big => {
+                    buffer.pread_with::<sym64::Sym>(offset, le)?.into()
+                }
+            };
+            Ok(sym)
+        }
+    }
+
+    impl ctx::TryIntoCtx<(usize, Ctx)> for Sym {
+        type Error = scroll::Error;
+        fn try_into_ctx(self, mut buffer: &mut [u8], (offset, Ctx {container, le}): (usize, Ctx)) -> result::Result<(), Self::Error> {
+            use scroll::Pwrite;
+            match container {
+                Container::Little => {
+                    let sym: sym32::Sym = self.into();
+                    buffer.pwrite_with(sym, offset, le)?;
+                },
+                Container::Big => {
+                    let sym: sym64::Sym = self.into();
+                    buffer.pwrite_with(sym, offset, le)?;
+                }
+            }
+            Ok(())
+        }
+    }
 }

@@ -1,83 +1,11 @@
-use core::fmt;
-use core::result;
-use scroll::{self, ctx};
-use error::Result;
-use container::{Container, Ctx};
-
-#[derive(Default, PartialEq, Clone)]
-pub struct ElfSectionHeader {
-    /// Section name (string tbl index)
-    pub sh_name: usize,
-    /// Section type
-    pub sh_type: u32,
-    /// Section flags
-    pub sh_flags: u64,
-    /// Section virtual addr at execution
-    pub sh_addr: u64,
-    /// Section file offset
-    pub sh_offset: u64,
-    /// Section size in bytes
-    pub sh_size: u64,
-    /// Link to another section
-    pub sh_link: u32,
-    /// Additional section information
-    pub sh_info: u32,
-    /// Section alignment
-    pub sh_addralign: u64,
-    /// Entry size if section holds table
-    pub sh_entsize: u64,
-}
-
-impl ElfSectionHeader {
-    pub fn new() -> Self {
-        ElfSectionHeader {
-            sh_name: 0,
-            sh_type: SHT_PROGBITS,
-            sh_flags: SHF_ALLOC as u64,
-            sh_addr: 0,
-            sh_offset: 0,
-            sh_size: 0,
-            sh_link: 0,
-            sh_info: 0,
-            sh_addralign: 2 << 8,
-            sh_entsize: 0,
-        }
-    }
-    #[cfg(feature = "endian_fd")]
-    pub fn parse<S: AsRef<[u8]>>(buffer: &S, mut offset: usize, count: usize, ctx: Ctx) -> Result<Vec<ElfSectionHeader>> {
-        use scroll::Gread;
-        let mut section_headers = Vec::with_capacity(count);
-        for _ in 0..count {
-            let shdr = buffer.gread_with(&mut offset, ctx)?;
-            section_headers.push(shdr);
-        }
-        Ok(section_headers)
-    }
-}
-
-impl fmt::Debug for ElfSectionHeader {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,
-               "sh_name: {} sh_type {} sh_flags: 0x{:x} sh_addr: 0x{:x} sh_offset: 0x{:x} \
-                sh_size: 0x{:x} sh_link: 0x{:x} sh_info: 0x{:x} sh_addralign 0x{:x} sh_entsize 0x{:x}",
-               self.sh_name,
-               sht_to_str(self.sh_type as u32),
-               self.sh_flags,
-               self.sh_addr,
-               self.sh_offset,
-               self.sh_size,
-               self.sh_link,
-               self.sh_info,
-               self.sh_addralign,
-               self.sh_entsize)
-    }
-}
-
 macro_rules! elf_section_header {
     ($size:ident) => {
         #[repr(C)]
         #[derive(Copy, Clone, Eq, PartialEq, Default)]
-        #[cfg_attr(feature = "endian_fd", derive(Pread, Pwrite, SizeWith))]
+        #[cfg_attr(feature = "std", derive(Pread, Pwrite, SizeWith))]
+        /// Section Headers are typically used by humans and static linkers for additional information or how to relocate the object
+        ///
+        /// **NOTE** section headers are strippable from a binary without any loss of portability/executability; _do not_ rely on them being there!
         pub struct SectionHeader {
             /// Section name (string tbl index)
             pub sh_name: u32,
@@ -100,86 +28,23 @@ macro_rules! elf_section_header {
             /// Entry size if section holds table
             pub sh_entsize: $size,
         }
-        impl From<SectionHeader> for ElfSectionHeader {
-            fn from(sh: SectionHeader) -> Self {
-                ElfSectionHeader {
-                    sh_name: sh.sh_name as usize,
-                    sh_type: sh.sh_type,
-                    sh_flags: sh.sh_flags   as u64,
-                    sh_addr: sh.sh_addr     as u64,
-                    sh_offset: sh.sh_offset as u64,
-                    sh_size: sh.sh_size     as u64,
-                    sh_link: sh.sh_link,
-                    sh_info: sh.sh_info,
-                    sh_addralign: sh.sh_addralign as u64,
-                    sh_entsize: sh.sh_entsize as u64,
-                }
+        impl ::core::fmt::Debug for SectionHeader {
+            fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+                write!(f,
+                       "sh_name: {} sh_type {} sh_flags: 0x{:x} sh_addr: 0x{:x} sh_offset: 0x{:x} \
+                        sh_size: 0x{:x} sh_link: 0x{:x} sh_info: 0x{:x} sh_addralign 0x{:x} sh_entsize 0x{:x}",
+                       self.sh_name,
+                       sht_to_str(self.sh_type as u32),
+                       self.sh_flags,
+                       self.sh_addr,
+                       self.sh_offset,
+                       self.sh_size,
+                       self.sh_link,
+                       self.sh_info,
+                       self.sh_addralign,
+                       self.sh_entsize)
             }
         }
-        impl From<ElfSectionHeader> for SectionHeader {
-            fn from(sh: ElfSectionHeader) -> Self {
-                SectionHeader {
-                    sh_name     : sh.sh_name as u32,
-                    sh_type     : sh.sh_type,
-                    sh_flags    : sh.sh_flags as $size,
-                    sh_addr     : sh.sh_addr as $size,
-                    sh_offset   : sh.sh_offset as $size,
-                    sh_size     : sh.sh_size as $size,
-                    sh_link     : sh.sh_link,
-                    sh_info     : sh.sh_info,
-                    sh_addralign: sh.sh_addralign as $size,
-                    sh_entsize  : sh.sh_entsize as $size,
-                }
-            }
-        }
-    }
-}
-
-impl ctx::SizeWith<Ctx> for ElfSectionHeader {
-    type Units = usize;
-    fn size_with( &Ctx { container, .. }: &Ctx) -> Self::Units {
-        match container {
-            Container::Little => {
-                super::super::elf32::section_header::SIZEOF_SHDR
-            },
-            Container::Big => {
-                super::super::elf64::section_header::SIZEOF_SHDR
-            },
-        }
-    }
-}
-
-impl<'a> ctx::TryFromCtx<'a, (usize, Ctx)> for ElfSectionHeader {
-    type Error = scroll::Error;
-    fn try_from_ctx(buffer: &'a [u8], (offset, Ctx { container, le }): (usize, Ctx)) -> result::Result<Self, Self::Error> {
-        use scroll::Pread;
-        let shdr = match container {
-            Container::Little => {
-                buffer.pread_with::<super::super::elf32::section_header::SectionHeader>(offset, le)?.into()
-            },
-            Container::Big => {
-                buffer.pread_with::<super::super::elf64::section_header::SectionHeader>(offset, le)?.into()
-            }
-        };
-        Ok(shdr)
-    }
-}
-
-impl ctx::TryIntoCtx<(usize, Ctx)> for ElfSectionHeader {
-    type Error = scroll::Error;
-    fn try_into_ctx(self, mut buffer: &mut [u8], (offset, Ctx { container, le }): (usize, Ctx)) -> result::Result<(), Self::Error> {
-        use scroll::Pwrite;
-        match container {
-            Container::Little => {
-                let shdr: super::super::elf32::section_header::SectionHeader = self.into();
-                buffer.pwrite_with(shdr, offset, le)?;
-            },
-            Container::Big => {
-                let shdr: super::super::elf64::section_header::SectionHeader = self.into();
-                buffer.pwrite_with(shdr, offset, le)?;
-            }
-        }
-        Ok(())
     }
 }
 
@@ -350,7 +215,7 @@ pub fn sht_to_str(sht: u32) -> &'static str {
     }
 }
 
-macro_rules! elf_section_header_impure_impl { () => {
+macro_rules! elf_section_header_std_impl { ($size:ty) => {
 
     #[cfg(test)]
     mod test {
@@ -362,36 +227,51 @@ macro_rules! elf_section_header_impure_impl { () => {
     }
 
     #[cfg(feature = "std")]
-    pub use self::impure::*;
+    pub use self::std::*;
 
     #[cfg(feature = "std")]
-    mod impure {
+    mod std {
 
+        use elf::section_header::SectionHeader as ElfSectionHeader;
         use super::*;
         use elf::error::*;
 
         use core::slice;
-        use core::fmt;
 
         use std::fs::File;
         use std::io::{Read, Seek};
         use std::io::SeekFrom::Start;
 
-        impl fmt::Debug for SectionHeader {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                write!(f,
-                       "sh_name: {} sh_type {} sh_flags: 0x{:x} sh_addr: 0x{:x} sh_offset: 0x{:x} \
-                        sh_size: 0x{:x} sh_link: 0x{:x} sh_info: 0x{:x} sh_addralign 0x{:x} sh_entsize 0x{:x}",
-                       self.sh_name,
-                       sht_to_str(self.sh_type as u32),
-                       self.sh_flags,
-                       self.sh_addr,
-                       self.sh_offset,
-                       self.sh_size,
-                       self.sh_link,
-                       self.sh_info,
-                       self.sh_addralign,
-                       self.sh_entsize)
+        impl From<SectionHeader> for ElfSectionHeader {
+            fn from(sh: SectionHeader) -> Self {
+                ElfSectionHeader {
+                    sh_name: sh.sh_name as usize,
+                    sh_type: sh.sh_type,
+                    sh_flags: sh.sh_flags   as u64,
+                    sh_addr: sh.sh_addr     as u64,
+                    sh_offset: sh.sh_offset as u64,
+                    sh_size: sh.sh_size     as u64,
+                    sh_link: sh.sh_link,
+                    sh_info: sh.sh_info,
+                    sh_addralign: sh.sh_addralign as u64,
+                    sh_entsize: sh.sh_entsize as u64,
+                }
+            }
+        }
+        impl From<ElfSectionHeader> for SectionHeader {
+            fn from(sh: ElfSectionHeader) -> Self {
+                SectionHeader {
+                    sh_name     : sh.sh_name as u32,
+                    sh_type     : sh.sh_type,
+                    sh_flags    : sh.sh_flags as $size,
+                    sh_addr     : sh.sh_addr as $size,
+                    sh_offset   : sh.sh_offset as $size,
+                    sh_size     : sh.sh_size as $size,
+                    sh_link     : sh.sh_link,
+                    sh_info     : sh.sh_info,
+                    sh_addralign: sh.sh_addralign as $size,
+                    sh_entsize  : sh.sh_entsize as $size,
+                }
             }
         }
 
@@ -418,3 +298,160 @@ macro_rules! elf_section_header_impure_impl { () => {
         }
     }
 };}
+
+
+pub mod section_header32 {
+    pub use elf::section_header::*;
+
+    elf_section_header!(u32);
+
+    pub const SIZEOF_SHDR: usize = 40;
+
+    elf_section_header_std_impl!(u32);
+}
+
+
+pub mod section_header64 {
+
+    pub use elf::section_header::*;
+
+    elf_section_header!(u64);
+
+    pub const SIZEOF_SHDR: usize = 64;
+
+    elf_section_header_std_impl!(u64);
+}
+
+///////////////////////////////
+// Std/analysis/Unified Structs
+///////////////////////////////
+
+#[cfg(feature = "std")]
+pub use self::std::*;
+
+#[cfg(feature = "std")]
+mod std {
+    use super::*;
+    use core::fmt;
+    use core::result;
+    use scroll::{self, ctx};
+    use container::{Container, Ctx};
+
+    #[derive(Default, PartialEq, Clone)]
+    /// A unified SectionHeader - convertable to and from 32-bit and 64-bit variants
+    pub struct SectionHeader {
+        /// Section name (string tbl index)
+        pub sh_name: usize,
+        /// Section type
+        pub sh_type: u32,
+        /// Section flags
+        pub sh_flags: u64,
+        /// Section virtual addr at execution
+        pub sh_addr: u64,
+        /// Section file offset
+        pub sh_offset: u64,
+        /// Section size in bytes
+        pub sh_size: u64,
+        /// Link to another section
+        pub sh_link: u32,
+        /// Additional section information
+        pub sh_info: u32,
+        /// Section alignment
+        pub sh_addralign: u64,
+        /// Entry size if section holds table
+        pub sh_entsize: u64,
+    }
+
+    impl SectionHeader {
+        pub fn new() -> Self {
+            SectionHeader {
+                sh_name: 0,
+                sh_type: SHT_PROGBITS,
+                sh_flags: SHF_ALLOC as u64,
+                sh_addr: 0,
+                sh_offset: 0,
+                sh_size: 0,
+                sh_link: 0,
+                sh_info: 0,
+                sh_addralign: 2 << 8,
+                sh_entsize: 0,
+            }
+        }
+        #[cfg(feature = "endian_fd")]
+        pub fn parse<S: AsRef<[u8]>>(buffer: &S, mut offset: usize, count: usize, ctx: Ctx) -> ::error::Result<Vec<SectionHeader>> {
+            use scroll::Gread;
+            let mut section_headers = Vec::with_capacity(count);
+            for _ in 0..count {
+                let shdr = buffer.gread_with(&mut offset, ctx)?;
+                section_headers.push(shdr);
+            }
+            Ok(section_headers)
+        }
+    }
+
+    impl fmt::Debug for SectionHeader {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f,
+                   "sh_name: {} sh_type {} sh_flags: 0x{:x} sh_addr: 0x{:x} sh_offset: 0x{:x} \
+                    sh_size: 0x{:x} sh_link: 0x{:x} sh_info: 0x{:x} sh_addralign 0x{:x} sh_entsize 0x{:x}",
+                   self.sh_name,
+                   sht_to_str(self.sh_type as u32),
+                   self.sh_flags,
+                   self.sh_addr,
+                   self.sh_offset,
+                   self.sh_size,
+                   self.sh_link,
+                   self.sh_info,
+                   self.sh_addralign,
+                   self.sh_entsize)
+        }
+    }
+
+    impl ctx::SizeWith<Ctx> for SectionHeader {
+        type Units = usize;
+        fn size_with( &Ctx { container, .. }: &Ctx) -> Self::Units {
+            match container {
+                Container::Little => {
+                    section_header32::SIZEOF_SHDR
+                },
+                Container::Big => {
+                    section_header64::SIZEOF_SHDR
+                },
+            }
+        }
+    }
+
+    impl<'a> ctx::TryFromCtx<'a, (usize, Ctx)> for SectionHeader {
+        type Error = scroll::Error;
+        fn try_from_ctx(buffer: &'a [u8], (offset, Ctx { container, le }): (usize, Ctx)) -> result::Result<Self, Self::Error> {
+            use scroll::Pread;
+            let shdr = match container {
+                Container::Little => {
+                    buffer.pread_with::<section_header32::SectionHeader>(offset, le)?.into()
+                },
+                Container::Big => {
+                    buffer.pread_with::<section_header64::SectionHeader>(offset, le)?.into()
+                }
+            };
+            Ok(shdr)
+        }
+    }
+
+    impl ctx::TryIntoCtx<(usize, Ctx)> for SectionHeader {
+        type Error = scroll::Error;
+        fn try_into_ctx(self, mut buffer: &mut [u8], (offset, Ctx { container, le }): (usize, Ctx)) -> result::Result<(), Self::Error> {
+            use scroll::Pwrite;
+            match container {
+                Container::Little => {
+                    let shdr: section_header32::SectionHeader = self.into();
+                    buffer.pwrite_with(shdr, offset, le)?;
+                },
+                Container::Big => {
+                    let shdr: section_header64::SectionHeader = self.into();
+                    buffer.pwrite_with(shdr, offset, le)?;
+                }
+            }
+            Ok(())
+        }
+    }
+}

@@ -1,7 +1,7 @@
 /* because of this definition, all relocations should be max 32 bits
   hence we can define the type to be 32 for ease of use, and have rela::r_type return a u32
-#define ELF64_R_SYM(i)			((i) >> 32)
-#define ELF64_R_TYPE(i)			((i) & 0xffffffff)
+efine ELF64_R_SYM(i)			((i) >> 32)
+efine ELF64_R_TYPE(i)			((i) & 0xffffffff)
 */
 
 // AArch64 relocs

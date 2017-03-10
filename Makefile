@@ -22,4 +22,19 @@ test:
 example:
 	cargo run --example=rdr -- /bin/ls
 
-.PHONY: clean test
+api:
+	cargo build --no-default-features
+	cargo build --no-default-features --features="std"
+	cargo build --no-default-features --features="elf32"
+	cargo build --no-default-features --features="elf32 elf64"
+	cargo build --no-default-features --features="elf32 elf64 std"
+	cargo build --no-default-features --features="elf32 elf64 endian_fd"
+	cargo build --no-default-features --features="archive"
+	cargo build --no-default-features --features="mach64"
+	cargo build --no-default-features --features="mach32"
+	cargo build --no-default-features --features="mach64 mach32"
+	cargo build --no-default-features --features="pe32"
+	cargo build --no-default-features --features="pe32 pe64"
+	cargo build
+
+.PHONY: clean test example doc

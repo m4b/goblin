@@ -7,7 +7,7 @@ use core::str;
 use core::fmt;
 use std::borrow::Cow;
 use scroll::Pread;
-use elf::error;
+use error;
 
 /// A common string table format which is indexed by byte offsets (and not
 /// member index). Constructed using [`parse`](#method.parse)

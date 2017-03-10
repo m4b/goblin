@@ -52,15 +52,11 @@ mod gnu_hash;
 // These are shareable values for the 32/64 bit implementations.
 //
 // They are publicly re-exported by the pub-using module
-#[macro_use]
 pub mod header;
-#[macro_use]
 pub mod program_header;
-#[macro_use]
 pub mod section_header;
 #[macro_use]
 pub mod sym;
-#[macro_use]
 pub mod dyn;
 #[macro_use]
 pub mod reloc;
@@ -78,16 +74,16 @@ mod impure {
     use super::error;
     use super::container::{Container, Ctx};
 
-    pub type Header = header::ElfHeader;
-    pub type ProgramHeader = program_header::ElfProgramHeader;
-    pub type SectionHeader = section_header::ElfSectionHeader;
-    pub type Sym = sym::ElfSym;
-    pub type Dyn = dyn::ElfDyn;
+    pub type Header = header::Header;
+    pub type ProgramHeader = program_header::ProgramHeader;
+    pub type SectionHeader = section_header::SectionHeader;
+    pub type Sym = sym::Sym;
+    pub type Dyn = dyn::Dyn;
     pub type Dynamic = dyn::Dynamic;
     pub type Reloc = reloc::Reloc;
 
     pub type ProgramHeaders = Vec<ProgramHeader>;
-    pub type SectionHeaders = Vec<section_header::ElfSectionHeader>;
+    pub type SectionHeaders = Vec<SectionHeader>;
     pub type Syms = Vec<Sym>;
     pub type ShdrIdx = usize;
 

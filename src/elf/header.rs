@@ -1,181 +1,5 @@
 include!("constants_header.rs");
 
-use error::{self};
-use scroll::{self, ctx, Endian};
-use core::fmt;
-use container::{Ctx, Container};
-
-#[derive(Copy, Clone, PartialEq)]
-pub struct ElfHeader {
-    pub e_ident           : [u8; SIZEOF_IDENT],
-    pub e_type            : u16,
-    pub e_machine         : u16,
-    pub e_version         : u32,
-    pub e_entry           : u64,
-    pub e_phoff           : u64,
-    pub e_shoff           : u64,
-    pub e_flags           : u32,
-    pub e_ehsize          : u16,
-    pub e_phentsize       : u16,
-    pub e_phnum           : u16,
-    pub e_shentsize       : u16,
-    pub e_shnum           : u16,
-    pub e_shstrndx        : u16,
-}
-
-impl ElfHeader {
-    /// Return the size of the underlying program header, given a `container`
-    #[inline]
-    pub fn size(ctx: &Ctx) -> usize {
-        use scroll::ctx::SizeWith;
-        Self::size_with(&ctx.container)
-    }
-    /// Returns the container type this header specifies
-    pub fn container(&self) -> error::Result<Container> {
-        use error::Error;
-        match self.e_ident[EI_CLASS] {
-            ELFCLASS32 => { Ok(Container::Little) },
-            ELFCLASS64 => { Ok(Container::Big) },
-            class => Err(Error::Malformed(format!("Invalid class in ElfHeader: {}", class)))
-        }
-    }
-    /// Returns the byte order this header specifies
-    pub fn endianness(&self) -> error::Result<scroll::Endian> {
-        use error::Error;
-        match self.e_ident[EI_DATA] {
-            ELFDATA2LSB => { Ok(scroll::LE) },
-            ELFDATA2MSB => { Ok(scroll::BE) },
-            class => Err(Error::Malformed(format!("Invalid endianness in ElfHeader: {}", class)))
-        }
-    }
-    pub fn new(ctx: Ctx) -> Self {
-        let (typ, ehsize, phentsize, shentsize) = match ctx.container {
-            Container::Little => {
-                (ELFCLASS32, super::super::elf32::header::SIZEOF_EHDR,
-                 super::super::elf32::program_header::SIZEOF_PHDR,
-                 super::super::elf32::section_header::SIZEOF_SHDR)
-            },
-            Container::Big => {
-                (ELFCLASS64, super::super::elf64::header::SIZEOF_EHDR,
-                 super::super::elf64::program_header::SIZEOF_PHDR,
-                 super::super::elf64::section_header::SIZEOF_SHDR)
-            }
-        };
-        let byteorder = match ctx.le { Endian::Little => ELFDATA2LSB, Endian::Big => ELFDATA2MSB };
-        ElfHeader {
-            e_ident: [
-                127,
-                69,
-                76,
-                70,
-                typ,
-                byteorder,
-                1,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0
-            ],
-            e_type: ET_DYN,
-            e_machine: EM_NONE,
-            e_version: 1,
-            e_entry: 0x0,
-            e_phoff: 0x0,
-            e_shoff: 0x0,
-            e_flags: 0,
-            e_ehsize: ehsize as u16,
-            e_phentsize: phentsize as u16,
-            e_phnum: 0,
-            e_shentsize: shentsize as u16,
-            e_shnum: 0,
-            e_shstrndx: 0,
-        }
-    }
-}
-
-impl fmt::Debug for ElfHeader {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,
-               "e_ident: {:?} e_type: {} e_machine: 0x{:x} e_version: 0x{:x} e_entry: 0x{:x} \
-                e_phoff: 0x{:x} e_shoff: 0x{:x} e_flags: {:x} e_ehsize: {} e_phentsize: {} \
-                e_phnum: {} e_shentsize: {} e_shnum: {} e_shstrndx: {}",
-               self.e_ident,
-               et_to_str(self.e_type),
-               self.e_machine,
-               self.e_version,
-               self.e_entry,
-               self.e_phoff,
-               self.e_shoff,
-               self.e_flags,
-               self.e_ehsize,
-               self.e_phentsize,
-               self.e_phnum,
-               self.e_shentsize,
-               self.e_shnum,
-               self.e_shstrndx)
-    }
-}
-
-impl ctx::SizeWith<Container> for ElfHeader {
-    type Units = usize;
-    fn size_with(container: &Container) -> usize {
-        match container {
-            &Container::Little => {
-                super::super::elf32::header::SIZEOF_EHDR
-            },
-            &Container::Big => {
-                super::super::elf64::header::SIZEOF_EHDR
-            },
-        }
-    }
-}
-
-impl<'a> ctx::TryFromCtx<'a> for ElfHeader {
-    type Error = error::Error;
-    fn try_from_ctx(buffer: &'a [u8], (offset, _): (usize, scroll::Endian)) -> error::Result<Self> {
-        use scroll::{Pread};
-        use error::Error;
-        let ident: &[u8] = buffer.pread_slice(offset, SIZEOF_IDENT)?;
-        if &ident[0..SELFMAG] != ELFMAG {
-            let magic: u64 = ident.pread_with(offset, scroll::LE)?;
-            return Err(Error::BadMagic(magic).into());
-        }
-        let class = ident[EI_CLASS];
-        match class {
-            ELFCLASS32 => {
-                Ok(ElfHeader::from(buffer.pread::<super::super::elf32::header::Header>(offset)?))
-            },
-            ELFCLASS64 => {
-                Ok(ElfHeader::from(buffer.pread::<super::super::elf64::header::Header>(offset)?))
-            },
-            _ => {
-                return Err(Error::Malformed(format!("invalid ELF class {:x}", class)).into())
-            }
-        }
-    }
-}
-
-impl ctx::TryIntoCtx<(usize, scroll::ctx::DefaultCtx)> for ElfHeader {
-    type Error = error::Error;
-    fn try_into_ctx(self, buffer: &mut [u8], (offset, _): (usize, scroll::Endian)) -> Result<(), Self::Error> {
-        use scroll::Pwrite;
-        match self.container()? {
-            Container::Little => {
-                buffer.pwrite(super::super::elf32::header::Header::from(self), offset)?
-            },
-            Container::Big => {
-                buffer.pwrite(super::super::elf64::header::Header::from(self), offset)?
-            }
-        }
-        Ok(())
-    }
-}
-
 macro_rules! elf_header {
     ($size:ident) => {
         use core::fmt;
@@ -312,38 +136,201 @@ pub fn et_to_str(et: u16) -> &'static str {
 }
 
 #[cfg(feature = "std")]
-pub use self::impure::*;
+pub use self::std::*;
 
 #[cfg(feature = "std")]
-mod impure {
+mod std {
+
     use super::*;
+    use error::{self};
+    use scroll::{self, ctx, Endian};
+    use core::fmt;
+    use container::{Ctx, Container};
 
-    use scroll::{self, Pread};
-    use elf::error::*;
+    #[derive(Copy, Clone, PartialEq)]
+    pub struct Header {
+        pub e_ident           : [u8; SIZEOF_IDENT],
+        pub e_type            : u16,
+        pub e_machine         : u16,
+        pub e_version         : u32,
+        pub e_entry           : u64,
+        pub e_phoff           : u64,
+        pub e_shoff           : u64,
+        pub e_flags           : u32,
+        pub e_ehsize          : u16,
+        pub e_phentsize       : u16,
+        pub e_phnum           : u16,
+        pub e_shentsize       : u16,
+        pub e_shnum           : u16,
+        pub e_shstrndx        : u16,
+    }
 
-    /// Peek at important data in an ELF byte stream, and return the ELF class and endianness
-    /// if it's a valid byte sequence
-    pub fn peek<S: AsRef<[u8]>>(buffer: &S) -> Result<(u8, bool)> {
-        let ident: &[u8] = buffer.pread_slice(0, SIZEOF_IDENT)?;
-        if &ident[0..SELFMAG] != ELFMAG {
-            let magic: u64 = ident.pread_with(0, scroll::LE)?;
-            return Err(Error::BadMagic(magic).into());
+    impl Header {
+        /// Return the size of the underlying program header, given a `container`
+        #[inline]
+        pub fn size(ctx: &Ctx) -> usize {
+            use scroll::ctx::SizeWith;
+            Self::size_with(&ctx.container)
         }
-        let class = ident[EI_CLASS];
-        let is_lsb = ident[EI_DATA] == ELFDATA2LSB;
-        Ok((class, is_lsb))
+        /// Returns the container type this header specifies
+        pub fn container(&self) -> error::Result<Container> {
+            use error::Error;
+            match self.e_ident[EI_CLASS] {
+                ELFCLASS32 => { Ok(Container::Little) },
+                ELFCLASS64 => { Ok(Container::Big) },
+                class => Err(Error::Malformed(format!("Invalid class in Header: {}", class)))
+            }
+        }
+        /// Returns the byte order this header specifies
+        pub fn endianness(&self) -> error::Result<scroll::Endian> {
+            use error::Error;
+            match self.e_ident[EI_DATA] {
+                ELFDATA2LSB => { Ok(scroll::LE) },
+                ELFDATA2MSB => { Ok(scroll::BE) },
+                class => Err(Error::Malformed(format!("Invalid endianness in Header: {}", class)))
+            }
+        }
+        pub fn new(ctx: Ctx) -> Self {
+            use elf32;
+            use elf64;
+            let (typ, ehsize, phentsize, shentsize) = match ctx.container {
+                Container::Little => {
+                    (ELFCLASS32, header32::SIZEOF_EHDR,
+                     elf32::program_header::SIZEOF_PHDR,
+                     elf32::section_header::SIZEOF_SHDR)
+                },
+                Container::Big => {
+                    (ELFCLASS64, header64::SIZEOF_EHDR,
+                     elf64::program_header::SIZEOF_PHDR,
+                     elf64::section_header::SIZEOF_SHDR)
+                }
+            };
+            let byteorder = match ctx.le { Endian::Little => ELFDATA2LSB, Endian::Big => ELFDATA2MSB };
+            Header {
+                e_ident: [
+                    127,
+                    69,
+                    76,
+                    70,
+                    typ,
+                    byteorder,
+                    1,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ],
+                e_type: ET_DYN,
+                e_machine: EM_NONE,
+                e_version: 1,
+                e_entry: 0x0,
+                e_phoff: 0x0,
+                e_shoff: 0x0,
+                e_flags: 0,
+                e_ehsize: ehsize as u16,
+                e_phentsize: phentsize as u16,
+                e_phnum: 0,
+                e_shentsize: shentsize as u16,
+                e_shnum: 0,
+                e_shstrndx: 0,
+            }
+        }
+    }
+
+    impl fmt::Debug for Header {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f,
+                   "e_ident: {:?} e_type: {} e_machine: 0x{:x} e_version: 0x{:x} e_entry: 0x{:x} \
+                    e_phoff: 0x{:x} e_shoff: 0x{:x} e_flags: {:x} e_ehsize: {} e_phentsize: {} \
+                    e_phnum: {} e_shentsize: {} e_shnum: {} e_shstrndx: {}",
+                   self.e_ident,
+                   et_to_str(self.e_type),
+                   self.e_machine,
+                   self.e_version,
+                   self.e_entry,
+                   self.e_phoff,
+                   self.e_shoff,
+                   self.e_flags,
+                   self.e_ehsize,
+                   self.e_phentsize,
+                   self.e_phnum,
+                   self.e_shentsize,
+                   self.e_shnum,
+                   self.e_shstrndx)
+        }
+    }
+
+    impl ctx::SizeWith<Container> for Header {
+        type Units = usize;
+        fn size_with(container: &Container) -> usize {
+            match container {
+                &Container::Little => {
+                    header32::SIZEOF_EHDR
+                },
+                &Container::Big => {
+                    header64::SIZEOF_EHDR
+                },
+            }
+        }
+    }
+
+    impl<'a> ctx::TryFromCtx<'a> for Header {
+        type Error = error::Error;
+        fn try_from_ctx(buffer: &'a [u8], (offset, _): (usize, scroll::Endian)) -> error::Result<Self> {
+            use scroll::{Pread};
+            use error::Error;
+            let ident: &[u8] = buffer.pread_slice(offset, SIZEOF_IDENT)?;
+            if &ident[0..SELFMAG] != ELFMAG {
+                let magic: u64 = ident.pread_with(offset, scroll::LE)?;
+                return Err(Error::BadMagic(magic).into());
+            }
+            let class = ident[EI_CLASS];
+            match class {
+                ELFCLASS32 => {
+                    Ok(Header::from(buffer.pread::<header32::Header>(offset)?))
+                },
+                ELFCLASS64 => {
+                    Ok(Header::from(buffer.pread::<header64::Header>(offset)?))
+                },
+                _ => {
+                    return Err(Error::Malformed(format!("invalid ELF class {:x}", class)).into())
+                }
+            }
+        }
+    }
+
+    impl ctx::TryIntoCtx<(usize, scroll::ctx::DefaultCtx)> for Header {
+        type Error = error::Error;
+        fn try_into_ctx(self, buffer: &mut [u8], (offset, _): (usize, scroll::Endian)) -> Result<(), Self::Error> {
+            use scroll::Pwrite;
+            match self.container()? {
+                Container::Little => {
+                    buffer.pwrite(header32::Header::from(self), offset)?
+                },
+                Container::Big => {
+                    buffer.pwrite(header64::Header::from(self), offset)?
+                }
+            }
+            Ok(())
+        }
     }
 }
 
-macro_rules! elf_header_impure_impl {
+macro_rules! elf_header_std_impl {
     ($size:expr, $width:ty) => {
         #[cfg(feature = "std")]
-        pub use self::impure::*;
+        pub use self::std::*;
 
         #[cfg(feature = "std")]
-        mod impure {
+        mod std {
 
-            use super::*;
+            use elf::header::Header as ElfHeader;
+            use super::{Header, EI_DATA, SIZEOF_EHDR, ELFDATA2LSB, ELFDATA2MSB};
             use elf::error::*;
             use elf::error;
 
@@ -467,6 +454,8 @@ macro_rules! elf_header_impure_impl {
                 #[cfg(feature = "endian_fd")]
                 /// Parses an ELF header from the given buffer
                 pub fn parse<S: AsRef<[u8]>>(buffer: &S) -> Result<Header> {
+                    use super::{EI_DATA, ELFDATA2LSB, ELFDATA2MSB, SIZEOF_IDENT};
+
                     let mut elf_header = Header::default();
                     let mut offset = &mut 0;
                     for i in 0..SIZEOF_IDENT {
@@ -506,33 +495,20 @@ macro_rules! elf_header_test {
         mod test {
             extern crate scroll;
             use scroll::{Pwrite, Pread};
+            use elf::header::Header as ElfHeader;
             use super::*;
             use container::{Ctx, Container};
-            use scroll::Buffer;
             #[test]
             fn size_of() {
                 assert_eq!(::std::mem::size_of::<Header>(), SIZEOF_EHDR);
             }
             #[test]
-            fn test_peek () {
-                let v = vec![0x7f, 0x45, 0x4c, 0x46, $class, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x3e, 0x00, 0x01, 0x00, 0x00, 0x00, 0x70, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x8c];
-                let header = Buffer::new(v);
-                match peek(&header) {
-                    Err(_) => assert!(false),
-                    Ok((class, is_lsb)) => {
-                        assert_eq!(true, is_lsb);
-                        assert_eq!(class, $class)
-                    }
-                }
-            }
-
-            #[test]
             fn header_read_write () {
                 let crt1: Vec<u8> =
                     if $class == ELFCLASS64 {
-                        include!("../../../etc/crt1.rs")
+                        include!("../../etc/crt1.rs")
                     } else {
-                        include!("../../../etc/crt132.rs")
+                        include!("../../etc/crt132.rs")
                     };
                 let header: Header = crt1.pread(0).unwrap();
                 assert_eq!(header.e_type, ET_REL);
@@ -546,17 +522,17 @@ macro_rules! elf_header_test {
             fn elfheader_read_write () {
                 let (container, crt1): (Container, Vec<u8>) =
                     if $class == ELFCLASS64 {
-                        (Container::Big, include!("../../../etc/crt1.rs"))
+                        (Container::Big, include!("../../etc/crt1.rs"))
                     } else {
-                        (Container::Little, include!("../../../etc/crt132.rs"))
+                        (Container::Little, include!("../../etc/crt132.rs"))
                     };
-                let header: ElfHeader = crt1.pread(0).unwrap();
+                let header: Header = crt1.pread(0).unwrap();
                 assert_eq!(header.e_type, ET_REL);
                 println!("header: {:?}", &header);
                 let mut bytes = [0u8; SIZEOF_EHDR];
                 let header_ = Header::from(header.clone());
                 bytes.pwrite(header_, 0).unwrap();
-                let header2: ElfHeader = bytes.pread(0).unwrap();
+                let header2: Header = bytes.pread(0).unwrap();
                 assert_eq!(header, header2);
                 let header = ElfHeader::new(Ctx::from(container));
                 println!("header: {:?}", &header);
@@ -566,4 +542,26 @@ macro_rules! elf_header_test {
             }
         }
     }
+}
+
+pub mod header32 {
+    pub use super::*;
+
+    pub const SIZEOF_EHDR: usize = 52;
+    pub const ELFCLASS: u8 = ELFCLASS32;
+
+    elf_header!(u32);
+    elf_header_std_impl!(SIZEOF_EHDR, u32);
+    elf_header_test!(ELFCLASS);
+}
+
+pub mod header64 {
+    pub use super::*;
+
+    pub const SIZEOF_EHDR: usize = 64;
+    pub const ELFCLASS: u8 = ELFCLASS64;
+
+    elf_header!(u64);
+    elf_header_std_impl!(SIZEOF_EHDR, u64);
+    elf_header_test!(ELFCLASS);
 }

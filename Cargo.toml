@@ -14,7 +14,6 @@ documentation = "https://docs.rs/goblin"
 [dependencies.scroll]
 version = "0.3.0"
 git = "https://github.com/m4b/scroll"
-optional = true
 
 [dependencies.scroll_derive]
 version = "0.2.0"
@@ -22,8 +21,9 @@ git = "https://github.com/m4b/scroll_derive"
 optional = true
 
 [features]
-default = ["std", "elf32", "elf64", "mach32", "mach64", "pe32", "pe64", "goblin", "endian_fd", "archive"]
-std = []
+default = ["std", "elf32", "elf64", "mach32", "mach64", "pe32", "pe64", "goblin", "endian_fd", "archive", "scroll/std"]
+std = ["scroll/std", "scroll_derive"]
+endian_fd = ["std"]
 elf32 = []
 elf64 = []
 mach32 = []
@@ -31,9 +31,8 @@ mach32 = []
 mach64 = ["std", "endian_fd"]
 pe32 = ["std", "endian_fd"]
 pe64 = ["std", "endian_fd"]
+archive = ["elf32", "elf64", "endian_fd"]
 goblin = []
-archive = ["std", "endian_fd"]
-endian_fd = ["scroll", "scroll_derive"]
 
 # [profile.dev]
 # opt-level = 0

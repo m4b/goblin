@@ -72,49 +72,21 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-// if the no_endian feature flag is set the libary will only be able to
-// process files with the same endianess as the machine.
-#[cfg(feature = "endian_fd")]
 extern crate scroll;
-
-#[cfg(feature = "endian_fd")]
-#[macro_use]
-extern crate scroll_derive;
 
 #[cfg(feature = "std")]
 extern crate core;
 
+#[cfg(feature = "std")]
 #[macro_use]
-mod macros;
-
-#[cfg(any(feature = "elf64", feature = "elf32"))]
-#[macro_use]
-pub mod elf;
+extern crate scroll_derive;
 
 #[cfg(feature = "std")]
 pub mod error;
 
-// if racer gets path understanding, i think this is the way to go; it hides everything from the
-// user w.r.t. module internals like _64, etc.  though i did like the more declarative version
-// below, without using paths, i just for the life of me cannot get the compiler to reexport values
-// two mods down while keeping the internal mod name private... and i don't see anyone else doing
-// this
-#[cfg(feature = "elf64")]
-#[path = "elf/_64/mod.rs"]
-pub mod elf64;
-
-#[cfg(feature = "elf32")]
-#[path = "elf/_32/mod.rs"]
-pub mod elf32;
-
-#[cfg(feature = "mach64")]
-pub mod mach;
-
-#[cfg(all(feature = "archive", feature = "std"))]
-pub mod archive;
-
-#[cfg(all(feature = "pe32", feature = "std"))]
-pub mod pe;
+/////////////////////////
+// Misc/Helper Modules
+/////////////////////////
 
 pub mod container {
     use scroll;
@@ -170,10 +142,10 @@ pub mod container {
 }
 
 #[cfg(feature = "std")]
-pub use impure::*;
+pub use peek::*;
 
 #[cfg(all(feature = "std"))]
-mod impure {
+mod peek {
 
     #[derive(Debug, Default)]
     /// Information obtained from a peek `Hint`
@@ -193,7 +165,7 @@ mod impure {
     }
 
     /// Peeks at the underlying Read object. Requires the underlying bytes to have at least 16 byte length. Resets the seek after reading.
-#[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
+    #[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
     pub fn peek<R: ::std::io::Read + ::std::io::Seek>(fd: &mut R) -> super::error::Result<Hint> {
         use scroll::Pread;
         use std::io::SeekFrom;
@@ -222,3 +194,58 @@ mod impure {
         }
     }
 }
+
+/////////////////////////
+// Binary Modules
+/////////////////////////
+
+#[cfg(any(feature = "elf64", feature = "elf32"))]
+#[macro_use]
+pub mod elf;
+
+#[cfg(feature = "elf32")]
+/// The ELF 32-bit struct definitions and associated values, re-exported for easy "type-punning"
+pub mod elf32 {
+    pub use elf::header::header32 as header;
+    pub use elf::program_header::program_header32 as program_header;
+    pub use elf::section_header::section_header32 as section_header;
+    pub use elf::dyn::dyn32 as dyn;
+    pub use elf::sym::sym32 as sym;
+    pub use elf::reloc::reloc32 as reloc;
+
+    #[cfg(feature = "std")]
+    pub use elf::strtab;
+
+    #[cfg(feature = "std")]
+    pub mod gnu_hash {
+        elf_gnu_hash_impl!(u32);
+    }
+}
+
+#[cfg(feature = "elf64")]
+/// The ELF 64-bit struct definitions and associated values, re-exported for easy "type-punning"
+pub mod elf64 {
+    pub use elf::header::header64 as header;
+    pub use elf::program_header::program_header64 as program_header;
+    pub use elf::section_header::section_header64 as section_header;
+    pub use elf::dyn::dyn64 as dyn;
+    pub use elf::sym::sym64 as sym;
+    pub use elf::reloc::reloc64 as reloc;
+
+    #[cfg(feature = "std")]
+    pub use elf::strtab;
+
+    #[cfg(feature = "std")]
+    pub mod gnu_hash {
+        elf_gnu_hash_impl!(u64);
+    }
+}
+
+#[cfg(feature = "mach64")]
+pub mod mach;
+
+#[cfg(all(feature = "archive", feature = "std"))]
+pub mod archive;
+
+#[cfg(all(feature = "pe32", feature = "std"))]
+pub mod pe;

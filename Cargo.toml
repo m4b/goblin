@@ -31,7 +31,7 @@ mach32 = []
 mach64 = ["std", "endian_fd"]
 pe32 = ["std", "endian_fd"]
 pe64 = ["std", "endian_fd"]
-archive = ["elf32", "elf64", "endian_fd"]
+archive = ["endian_fd"]
 goblin = []
 
 # [profile.dev]

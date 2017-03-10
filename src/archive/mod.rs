@@ -7,7 +7,7 @@
 //! index for looking up symbols faster.
 
 use scroll::{self, Pread, Gread};
-use elf::strtab;
+use super::strtab;
 
 pub use super::error;
 

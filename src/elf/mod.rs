@@ -44,7 +44,7 @@ pub use super::error;
 pub use super::container;
 
 #[cfg(feature = "std")]
-pub mod strtab;
+pub use super::strtab;
 
 #[macro_use]
 mod gnu_hash;

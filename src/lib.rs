@@ -84,6 +84,9 @@ extern crate scroll_derive;
 #[cfg(feature = "std")]
 pub mod error;
 
+#[cfg(feature = "std")]
+pub mod strtab;
+
 /////////////////////////
 // Misc/Helper Modules
 /////////////////////////
@@ -214,7 +217,7 @@ pub mod elf32 {
     pub use elf::reloc::reloc32 as reloc;
 
     #[cfg(feature = "std")]
-    pub use elf::strtab;
+    pub use strtab;
 
     #[cfg(feature = "std")]
     pub mod gnu_hash {
@@ -233,7 +236,7 @@ pub mod elf64 {
     pub use elf::reloc::reloc64 as reloc;
 
     #[cfg(feature = "std")]
-    pub use elf::strtab;
+    pub use strtab;
 
     #[cfg(feature = "std")]
     pub mod gnu_hash {

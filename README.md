@@ -1,4 +1,4 @@
-# libgoblin [![Build Status](https://travis-ci.org/m4b/goblin.svg?branch=master)](https://travis-ci.org/m4b/goblin)
+# libgoblin [![Build Status](https://travis-ci.org/m4b/goblin.svg?branch=master)](https://travis-ci.org/m4b/goblin) [![Current Crates.io Version](https://img.shields.io/crates/v/goblin.svg)](https://crates.io/crates/goblin)
 
 ![say the right words](https://s-media-cache-ak0.pinimg.com/736x/1b/6a/aa/1b6aaa2bae005e2fed84b1a7c32ecb1b.jpg)
 
@@ -14,7 +14,7 @@ Add to your `Cargo.toml`
 
 ```toml
 [dependencies]
-goblin = "0.7.0"
+goblin = "0.8.0"
 ```
 
 ### Features

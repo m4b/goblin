@@ -35,7 +35,7 @@
 //!                     println!("pe: {:#?}", &pe);
 //!                 },
 //!                 // wip
-//!                 Hint::Mach => {
+//!                 Hint::Mach(_) => {
 //!                     let mach = mach::Mach::try_from(&mut fd)?;
 //!                     println!("mach: {:#?}", &mach);
 //!                 },

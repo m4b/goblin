@@ -1,8 +1,11 @@
 use std::mem;
 use std::fmt;
-use scroll::{self, Gread};
+use scroll::{self, ctx};
 
+use mach::constants::cputype::cpu_type_to_str;
 use error;
+use mach::utils;
+use container::{self, Container};
 
 // Constants for the flags field of the mach_header
 /// the object file has no undefined references
@@ -67,7 +70,8 @@ pub const MH_HAS_TLV_DESCRIPTORS: u32 = 0x800000;
 pub const MH_NO_HEAP_EXECUTION: u32 = 0x1000000;
 
 // TODO: verify this number is correct, it was previously 0x02000000 which could indicate a typo/data entry error
-pub const MH_APP_EXTENSION_SAFE: u32 = 0x2000000; // The code was linked for use in an application extension.
+/// The code was linked for use in an application extension.
+pub const MH_APP_EXTENSION_SAFE: u32 = 0x2000000;
 
 #[inline(always)]
 pub fn flag_to_str(flag: u32) -> &'static str {
@@ -152,28 +156,82 @@ pub fn filetype_to_str(filetype: u32) -> &'static str {
 
 #[repr(C)]
 #[derive(Clone, Copy, Default)]
-pub struct Header {
+#[derive(Pread, Pwrite, SizeWith)]
+/// A 32-bit Mach-o header
+pub struct Header32 {
+    /// mach magic number identifier
+    pub magic: u32,
+    /// cpu specifier
+    pub cputype: u32,
+    pub padding1: u8,
+    pub padding2: u8,
+    pub caps: u8,
+    /// machine specifier
+    pub cpusubtype: u8,
+    /// type of file
+    pub filetype: u32,
+    /// number of load commands
+    pub ncmds: u32,
+    /// the size of all the load commands
+    pub sizeofcmds: u32,
+    /// flags
+    pub flags: u32,
+}
+
+pub const SIZEOF_HEADER_32: usize = 0x1c;
+
+impl fmt::Debug for Header32 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f,
+               "0x{:x} {} {} 0x{:x} {} {} {} 0x{:x}",
+               self.magic,
+               cpu_type_to_str(self.cputype),
+               self.cpusubtype,
+               self.caps,
+               filetype_to_str(self.filetype),
+               self.ncmds,
+               self.sizeofcmds,
+               self.flags,
+        )
+    }
+}
+
+impl Header32 {
+    pub fn size(&self) -> usize {
+        SIZEOF_HEADER_32
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+#[derive(Pread, Pwrite, SizeWith)]
+/// A 64-bit Mach-o header
+pub struct Header64 {
     pub magic: u32,
     pub cputype: u32,
     pub cpusubtype: u8,
     pub padding1: u8,
     pub padding2: u8,
     pub caps: u8,
+    /// type of file
     pub filetype: u32,
+    /// number of load commands
     pub ncmds: u32,
+    /// the size of all the load commands
     pub sizeofcmds: u32,
+    /// flags
     pub flags: u32,
     pub reserved: u32,
 }
 
-pub const SIZEOF_MACH_HEADER: usize = 32;
+pub const SIZEOF_HEADER_64: usize = 32;
 
-impl fmt::Debug for Header {
+impl fmt::Debug for Header64 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f,
                "0x{:x} {} {} 0x{:x} {} {} {} 0x{:x} 0x{:x}",
                self.magic,
-               self.cputype,
+               cpu_type_to_str(self.cputype),
                self.cpusubtype,
                self.caps,
                filetype_to_str(self.filetype),
@@ -184,28 +242,161 @@ impl fmt::Debug for Header {
     }
 }
 
-impl Header {
+impl Header64 {
     /// Returns the corresponding Mach-o header from the given byte array
-    pub fn from_bytes(bytes: &[u8; SIZEOF_MACH_HEADER]) -> &Header {
-        let header: &Header = unsafe { mem::transmute(bytes) };
+    pub fn from_bytes(bytes: &[u8; SIZEOF_HEADER_64]) -> &Self {
+        let header: &Header64 = unsafe { mem::transmute(bytes) };
         header
     }
+    pub fn size(&self) -> usize {
+        SIZEOF_HEADER_64
+    }
+}
 
-    // #[cfg(feature = "no_endian_fd")]
-    pub fn parse<S: AsRef<[u8]>>(buffer: &S, offset: usize, le: scroll::Endian) -> error::Result<Header> {
-        let mut offset = offset;
-        let offset = &mut offset;
-        let magic = buffer.gread_with(offset, le)?;
-        let cputype = buffer.gread_with(offset, le)?;
-        let cpusubtype = buffer.gread(offset)?;
-        let padding1 = buffer.gread(offset)?;
-        let padding2 = buffer.gread(offset)?;
-        let caps = buffer.gread(offset)?;
-        let filetype = buffer.gread_with(offset, le)?;
-        let ncmds = buffer.gread_with(offset, le)?;
-        let sizeofcmds = buffer.gread_with(offset, le)?;
-        let flags = buffer.gread_with(offset, le)?;
-        let reserved = buffer.gread_with(offset, le)?;
-        Ok(Header { magic: magic, cputype: cputype, cpusubtype: cpusubtype, padding1: padding1, padding2: padding2, caps: caps, filetype: filetype, ncmds: ncmds, sizeofcmds: sizeofcmds, flags: flags, reserved: reserved })
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+/// Generic sized header
+pub struct Header {
+    pub magic: u32,
+    pub cputype: u32,
+    pub cpusubtype: u8,
+    pub padding1: u8,
+    pub padding2: u8,
+    pub caps: u8,
+    /// type of file
+    pub filetype: u32,
+    /// number of load commands
+    pub ncmds: usize,
+    /// the size of all the load commands
+    pub sizeofcmds: u32,
+    /// flags
+    pub flags: u32,
+    pub reserved: u32,
+}
+
+impl fmt::Debug for Header {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f,
+               "0x{:x} {} {} 0x{:x} {} {} {} 0x{:x} 0x{:x}",
+               self.magic,
+               cpu_type_to_str(self.cputype),
+               self.cpusubtype,
+               self.caps,
+               filetype_to_str(self.filetype),
+               self.ncmds,
+               self.sizeofcmds,
+               self.flags,
+               self.reserved)
+    }
+}
+
+impl From<Header32> for Header {
+    fn from (header: Header32) -> Self {
+        Header {
+            magic:      header.magic,
+            cputype:    header.cputype,
+            cpusubtype: header.cpusubtype,
+            padding1:   header.padding1,
+            padding2:   header.padding2,
+            caps:       header.caps,
+            filetype:   header.filetype,
+            ncmds:      header.ncmds as usize,
+            sizeofcmds: header.sizeofcmds,
+            flags:      header.flags,
+            reserved:   0,
+        }
+    }
+}
+
+impl From<Header64> for Header {
+    fn from (header: Header64) -> Self {
+        Header {
+            magic:      header.magic,
+            cputype:    header.cputype,
+            cpusubtype: header.cpusubtype,
+            padding1:   header.padding1,
+            padding2:   header.padding2,
+            caps:       header.caps,
+            filetype:   header.filetype,
+            ncmds:      header.ncmds as usize,
+            sizeofcmds: header.sizeofcmds,
+            flags:      header.flags,
+            reserved:   header.reserved,
+        }
+    }
+}
+
+impl Header {
+    #[inline]
+    pub fn is_little_endian(&self) -> bool {
+        #[cfg(target_endian="big")]
+        let res = self.magic == MH_CIGAM || self.magic == MH_CIGAM_64;
+        #[cfg(target_endian="little")]
+        let res = self.magic == MH_MAGIC || self.magic == MH_MAGIC_64;
+        res
+    }
+    #[inline]
+    pub fn container(&self) -> container::Container {
+        if self.magic == MH_MAGIC_64 || self.magic == MH_CIGAM_64 { Container::Big } else { Container::Little }
+    }
+    pub fn size(&self) -> usize {
+        use scroll::ctx::SizeWith;
+        Self::size_with(&self.container())
+    }
+    pub fn ctx(&self) -> error::Result<container::Ctx> {
+        // todo check magic is not junk, and error otherwise
+        let is_lsb = self.is_little_endian();
+        let endianness = scroll::Endian::from(is_lsb);
+        // todo check magic is 32 and not junk, and error otherwise
+        let container = self.container();
+        Ok(container::Ctx::new(container, endianness))
+    }
+}
+
+impl ctx::SizeWith<Container> for Header {
+    type Units = usize;
+    fn size_with(container: &Container) -> usize {
+        match container {
+            &Container::Little => {
+                SIZEOF_HEADER_32
+            },
+            &Container::Big => {
+                SIZEOF_HEADER_64
+            },
+        }
+    }
+}
+
+impl<'a> ctx::TryFromCtx<'a, (usize, ctx::DefaultCtx)> for Header {
+    type Error = error::Error;
+    fn try_from_ctx(buffer: &'a [u8], (offset, _): (usize, ctx::DefaultCtx)) -> error::Result<Self> {
+        use scroll::{Pread};
+        let size = buffer.len();
+        if size < SIZEOF_HEADER_32 || size < SIZEOF_HEADER_64 {
+            let error = error::Error::Malformed(format!("buffer size is smaller than an Mach-o header"));
+            Err(error)
+        } else {
+            let magic = utils::peek_magic(&buffer, offset)?;
+            match magic {
+                MH_CIGAM_64 | MH_CIGAM | MH_MAGIC_64 | MH_MAGIC => {
+                    let is_lsb = magic == MH_CIGAM || magic == MH_CIGAM_64;
+                    let le = scroll::Endian::from(is_lsb);
+                    // todo check magic is 32 and not junk, and error otherwise
+                    let container = if magic == MH_MAGIC_64 || magic == MH_CIGAM_64 { Container::Big } else { Container::Little };
+                    match container {
+                        Container::Little => {
+                            Ok(Header::from(buffer.pread_with::<Header32>(offset, le)?))
+                        },
+                        Container::Big => {
+                            Ok(Header::from(buffer.pread_with::<Header64>(offset, le)?))
+                        },
+                    }
+                },
+                _ => {
+                    let error = error::Error::BadMagic(magic as u64);
+                    Err(error)
+                }
+            }
+        }
     }
 }

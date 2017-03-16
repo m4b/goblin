@@ -196,7 +196,7 @@ pub mod cputype {
     pub fn cpu_type_to_str(cputype: u32) -> &'static str {
         match cputype {
             CPU_TYPE_ARM64 => "ARM64",
-            CPU_TYPE_X86_64 => "x86-64",
+            CPU_TYPE_X86_64 => "x86_64",
             CPU_TYPE_ARM => "ARM",
             CPU_TYPE_X86 => "x86",
             _ => "UNIMPLEMENTED CPUTYPE",

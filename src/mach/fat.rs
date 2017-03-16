@@ -114,16 +114,6 @@ impl FatArch {
         Ok(archs)
     }
 
-    // pub fn from_path(path: &Path) -> io::Result<Vec<Self>> {
-    //     let mut fd = try!(File::open(&path));
-    //     let header = try!(FatHeader::from_fd(&mut fd));
-    //     let arches = try!(FatArch::from_fd(&mut fd,
-    //                                        SIZEOF_FAT_HEADER as u64,
-    //                                        header.nfat_arch as usize
-    //                                        ));
-    //     Ok(arches)
-    // }
-
     pub fn parse<S: AsRef<[u8]>>(buffer: &S) -> error::Result<Vec<Self>> {
         let header = FatHeader::parse(buffer)?;
         let arches = FatArch::parse_arches(buffer,

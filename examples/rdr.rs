@@ -1,9 +1,11 @@
 extern crate goblin;
+extern crate scroll;
 
 use goblin::{error, Hint, pe, elf, mach, archive};
 use std::path::Path;
 use std::env;
 use std::fs::File;
+use scroll::Buffer;
 
 fn run () -> error::Result<()> {
     for (i, arg) in env::args().enumerate() {
@@ -20,8 +22,10 @@ fn run () -> error::Result<()> {
                     println!("pe: {:#?}", &pe);
                 },
                 // wip
-                Hint::Mach => {
-                    let mach = mach::Mach::try_from(&mut fd)?;
+                Hint::Mach(_) | Hint::MachFat => {
+                    //let mach = mach::Mach::try_from(&mut fd)?;
+                    let buffer = Buffer::try_from(fd)?;
+                    let mach = mach::Mach::parse(&buffer)?;
                     println!("mach: {:#?}", &mach);
                 },
                 Hint::Archive => {

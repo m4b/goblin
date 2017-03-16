@@ -162,7 +162,8 @@ mod peek {
     /// A hint at the underlying binary format for 16 bytes of arbitrary data
     pub enum Hint {
         Elf(HintData),
-        Mach,
+        Mach(HintData),
+        MachFat,
         PE,
         Archive,
         Unknown(u64),
@@ -194,7 +195,18 @@ mod peek {
         } else if (&bytes[0..2]).pread::<u16>(0)? == pe::header::DOS_MAGIC {
             Ok(Hint::PE)
         } else {
-            Ok(Hint::Unknown(bytes.pread::<u64>(0)?))
+            use mach::{fat, header};
+            let magic = mach::utils::peek_magic(&bytes, 0)?;
+            match magic {
+                fat::FAT_CIGAM => Ok(Hint::MachFat),
+                header::MH_CIGAM_64 | header::MH_CIGAM | header::MH_MAGIC_64 | header::MH_MAGIC => {
+                    let is_lsb = magic == header::MH_CIGAM || magic == header::MH_CIGAM_64;
+                    let is_64 = magic == header::MH_MAGIC_64 || magic == header::MH_CIGAM_64;
+                    Ok(Hint::Mach(HintData { is_lsb: is_lsb, is_64: Some(is_64) }))
+                },
+                // its something else
+                _ => Ok(Hint::Unknown(bytes.pread::<u64>(0)?))
+            }
         }
     }
 }

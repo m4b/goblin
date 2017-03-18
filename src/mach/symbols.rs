@@ -185,9 +185,11 @@ impl<'a> Symbols<'a> {
         Ok(bytes.pread_with(symtab.symoff as usize, SymbolsCtx { nsyms: symtab.nsyms as usize, strtab: symtab.stroff as usize, ctx: ctx })?)
     }
 
-    /// Parses a single Nlist symbol from the binary
-    pub fn get(&self, index: usize) -> scroll::Result<Nlist> {
-        self.data.pread_with(self.start + (index * Nlist::size_with(&self.ctx)), self.ctx)
+    /// Parses a single Nlist symbol from the binary, with its accompanying name
+    pub fn get(&self, index: usize) -> scroll::Result<(&str, Nlist)> {
+        let sym: Nlist = self.data.pread_with(self.start + (index * Nlist::size_with(&self.ctx)), self.ctx)?;
+        let name = self.data.pread(self.strtab + sym.n_strx)?;
+        Ok((name, sym))
     }
 }
 
@@ -196,12 +198,11 @@ impl<'a> Debug for Symbols<'a> {
         writeln!(fmt, "Symbols: {{")?;
         for i in 0..self.nsyms {
             match self.get(i) {
-                Ok(sym) => {
-                    let name = self.data.pread::<&str>(self.strtab + sym.n_strx as usize);
-                    writeln!(fmt, "  Name: {:?} {:?}", name, sym)?;
+                Ok((name, nlist)) => {
+                    writeln!(fmt, "{: >10x} {} sect: {:#x} type: {:#02x} desc: {:#03x}", nlist.n_value, name, nlist.n_sect, nlist.n_type, nlist.n_desc)?;
                 },
                 Err(error) => {
-                    writeln!(fmt, "  Bad symbol index: {}, {:?}", i, error)?;
+                    writeln!(fmt, "  Bad symbol, index: {}, sym: {:?}", i, error)?;
                 }
             }
         }

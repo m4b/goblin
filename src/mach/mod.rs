@@ -11,13 +11,13 @@ pub mod constants;
 pub mod fat;
 pub mod utils;
 pub mod load_command;
-// pub mod section;
-// pub mod symbol;
+pub mod symbols;
 
 #[derive(Debug)]
 pub struct MachO {
     pub header: header::Header,
     pub load_commands: Vec<load_command::LoadCommand>,
+    //pub symbols: Option<Symbols<'a>>,
 }
 
 impl MachO {

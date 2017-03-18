@@ -1195,6 +1195,60 @@ impl CommandVariant {
         };
         cmdsize as usize
     }
+    pub fn cmd(&self) -> u32 {
+        use self::CommandVariant::*;
+        let cmd = match *self {
+            Segment32              (comm) => comm.cmd,
+            Segment64              (comm) => comm.cmd,
+            Uuid                   (comm) => comm.cmd,
+            Symtab                 (comm) => comm.cmd,
+            Symseg                 (comm) => comm.cmd,
+            Thread                 (comm) => comm.cmd,
+            Unixthread             (comm) => comm.cmd,
+            LoadFvmlib             (comm) => comm.cmd,
+            IdFvmlib               (comm) => comm.cmd,
+            Ident                  (comm) => comm.cmd,
+            Fvmfile                (comm) => comm.cmd,
+            Prepage                (comm) => comm.cmd,
+            Dysymtab               (comm) => comm.cmd,
+            LoadDylib              (comm) => comm.cmd,
+            IdDylib                (comm) => comm.cmd,
+            LoadDylinker           (comm) => comm.cmd,
+            IdDylinker             (comm) => comm.cmd,
+            PreboundDylib          (comm) => comm.cmd,
+            Routines32             (comm) => comm.cmd,
+            Routines64             (comm) => comm.cmd,
+            SubFramework           (comm) => comm.cmd,
+            SubUmbrella            (comm) => comm.cmd,
+            SubClient              (comm) => comm.cmd,
+            SubLibrary             (comm) => comm.cmd,
+            TwolevelHints          (comm) => comm.cmd,
+            PrebindCksum           (comm) => comm.cmd,
+            LoadWeakDylib          (comm) => comm.cmd,
+            Rpath                  (comm) => comm.cmd,
+            CodeSignature          (comm) => comm.cmd,
+            SegmentSplitInfo       (comm) => comm.cmd,
+            ReexportDylib          (comm) => comm.cmd,
+            LazyLoadDylib          (comm) => comm.cmd,
+            EncryptionInfo32       (comm) => comm.cmd,
+            EncryptionInfo64       (comm) => comm.cmd,
+            DyldInfo               (comm) => comm.cmd,
+            DyldInfoOnly           (comm) => comm.cmd,
+            LoadUpwardDylib        (comm) => comm.cmd,
+            VersionMinMacosx       (comm) => comm.cmd,
+            VersionMinIphoneos     (comm) => comm.cmd,
+            FunctionStarts         (comm) => comm.cmd,
+            DyldEnvironment        (comm) => comm.cmd,
+            Main                   (comm) => comm.cmd,
+            DataInCode             (comm) => comm.cmd,
+            SourceVersion          (comm) => comm.cmd,
+            DylibCodeSignDrs       (comm) => comm.cmd,
+            LinkerOption           (comm) => comm.cmd,
+            LinkerOptimizationHint (comm) => comm.cmd,
+            Unimplemented          (comm) => comm.cmd,
+        };
+        cmd
+    }
 }
 
 #[derive(Debug)]

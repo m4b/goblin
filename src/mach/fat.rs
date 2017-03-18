@@ -69,11 +69,10 @@ impl FatHeader {
 
     /// Parse a mach-o fat header from the `buffer`
     pub fn parse<S: AsRef<[u8]>>(buffer: &S) -> error::Result<FatHeader> {
-        let mut header = FatHeader::default();
         let mut offset = 0;
-        header.magic = buffer.gread_with(&mut offset, scroll::BE)?;
-        header.nfat_arch = buffer.gread_with(&mut offset, scroll::BE)?;
-        Ok(header)
+        let magic = buffer.gread_with(&mut offset, scroll::BE)?;
+        let nfat_arch = buffer.gread_with(&mut offset, scroll::BE)?;
+        Ok(FatHeader { magic: magic, nfat_arch: nfat_arch })
     }
 
 }
@@ -114,6 +113,7 @@ impl FatArch {
         Ok(archs)
     }
 
+    // TODO: fixme this parser is now broken, hurray!
     pub fn parse<S: AsRef<[u8]>>(buffer: &S) -> error::Result<Vec<Self>> {
         let header = FatHeader::parse(buffer)?;
         let arches = FatArch::parse_arches(buffer,

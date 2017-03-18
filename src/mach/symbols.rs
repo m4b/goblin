@@ -141,9 +141,9 @@ pub struct SymbolsCtx {
     pub ctx: container::Ctx,
 }
 
-impl<'a> ctx::TryFromCtx<'a, (usize, SymbolsCtx)> for Symbols<'a> {
+impl<'a, T: ?Sized> ctx::TryFromCtx<'a, (usize, SymbolsCtx), T> for Symbols<'a> where T: AsRef<[u8]> {
     type Error = scroll::Error;
-    fn try_from_ctx(buffer: &'a [u8], (offset, SymbolsCtx {
+    fn try_from_ctx(buffer: &'a T, (offset, SymbolsCtx {
         nsyms, strtab, ctx
     }): (usize, SymbolsCtx)) -> scroll::Result<Self> {
         Ok (Symbols {
@@ -181,11 +181,11 @@ impl<'a> Symbols<'a> {
             ctx: container::Ctx::default(),
         })
     }
-    /// Parses the symbol table out of `bytes` using the necessary information in `symtab`, with a `ctx` parsing context.
     pub fn parse<'b, B: AsRef<[u8]>> (bytes: &'b B, symtab: &load_command::SymtabCommand, ctx: container::Ctx) -> error::Result<Symbols<'b>> {
-        Ok(bytes.pread_with::<Symbols>(symtab.symoff as usize, SymbolsCtx { nsyms: symtab.nsyms as usize, strtab: symtab.stroff as usize, ctx: ctx })?)
+        Ok(bytes.pread_with(symtab.symoff as usize, SymbolsCtx { nsyms: symtab.nsyms as usize, strtab: symtab.stroff as usize, ctx: ctx })?)
     }
 
+    /// Parses a single Nlist symbol from the binary
     pub fn get(&self, index: usize) -> scroll::Result<Nlist> {
         self.data.pread_with(self.start + (index * Nlist::size_with(&self.ctx)), self.ctx)
     }

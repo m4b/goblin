@@ -1,7 +1,6 @@
 //! The mach module: Work in Progress!
 
-use std::io::Read;
-use scroll::{self, Pread};
+use scroll::{Pread};
 
 use error;
 //use container::{self, Container};
@@ -14,37 +13,45 @@ pub mod load_command;
 pub mod symbols;
 
 #[derive(Debug)]
-pub struct MachO {
+/// A zero-copy, endian-aware, 32/64 bit Mach-o binary parser
+pub struct MachO<'a> {
     pub header: header::Header,
     pub load_commands: Vec<load_command::LoadCommand>,
-    //pub symbols: Option<Symbols<'a>>,
+    pub symbols: Option<symbols::Symbols<'a>>,
 }
 
-impl MachO {
-    pub fn parse<'a, B: AsRef<[u8]>> (buffer: &'a B, mut offset: usize) -> error::Result<Self> {
+impl<'a> MachO<'a> {
+    pub fn parse<'b, B: AsRef<[u8]>> (buffer: &'b B, mut offset: usize) -> error::Result<MachO<'b>> {
         let offset = &mut offset;
         let header: header::Header = buffer.pread(*offset)?;
         let ctx = header.ctx()?;
         *offset = *offset + header.size();
         let ncmds = header.ncmds;
         let mut cmds: Vec<load_command::LoadCommand> = Vec::with_capacity(ncmds);
+        let mut symbols = None;
         for _ in 0..ncmds {
             let cmd = load_command::LoadCommand::parse(buffer, offset, ctx.le)?;
+            match cmd.command {
+                load_command::CommandVariant::Symtab(command) => {
+                    symbols = Some(symbols::Symbols::parse(buffer, &command, ctx)?);
+                },
+                _ => ()
+            }
             cmds.push(cmd)
         }
-        Ok(MachO { header: header, load_commands: cmds })
+        Ok(MachO { header: header, load_commands: cmds, symbols: symbols })
     }
 }
 
 #[derive(Debug)]
 /// Either a fat collection of architectures, or a single mach-o binary
-pub enum Mach {
+pub enum Mach<'a> {
     Fat(Vec<fat::FatArch>),
-    Binary(MachO)
+    Binary(MachO<'a>)
 }
 
-impl Mach {
-    pub fn parse<'b, B: AsRef<[u8]>>(buffer: &'b B) -> error::Result<Mach> {
+impl<'a> Mach<'a> {
+    pub fn parse<'b, B: AsRef<[u8]>>(buffer: &'b B) -> error::Result<Mach<'b>> {
         let size = buffer.as_ref().len();
         if size < 4 {
             let error = error::Error::Malformed(
@@ -64,9 +71,5 @@ impl Mach {
                 Ok(Mach::Binary(binary))
             }
         }
-    }
-    pub fn try_from<R: Read>(fd: &mut R) -> error::Result<Mach> {
-        let buffer = scroll::Buffer::try_from(fd)?;
-        Self::parse(&buffer)
     }
 }

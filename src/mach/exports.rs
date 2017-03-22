@@ -129,10 +129,10 @@ impl<'a> ExportInfo<'a> {
 
 #[derive(Debug)]
 pub struct Export<'a> {
-    name: String,
-    info: ExportInfo<'a>,
-    size: usize,
-    offset: u64,
+    pub name: String,
+    pub info: ExportInfo<'a>,
+    pub size: usize,
+    pub offset: u64,
 }
 
 impl<'a> Export<'a> {
@@ -148,7 +148,6 @@ impl<'a> Export<'a> {
 pub struct ExportTrie<'a> {
     data: &'a [u8],
     location: Range<usize>,
-    //libs: Vec<&'a str>,
 }
 
 impl<'a> ExportTrie<'a> {

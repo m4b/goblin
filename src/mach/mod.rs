@@ -1,4 +1,4 @@
-//! The mach module: Work in Progress!
+//! The Mach-o binary format parser and raw struct definitions
 
 use scroll::{Pread};
 
@@ -13,6 +13,8 @@ pub mod load_command;
 pub mod symbols;
 pub mod exports;
 
+pub use self::constants::cputype as cputype;
+
 #[derive(Debug)]
 /// A zero-copy, endian-aware, 32/64 bit Mach-o binary parser
 pub struct MachO<'a> {
@@ -20,6 +22,7 @@ pub struct MachO<'a> {
     pub load_commands: Vec<load_command::LoadCommand>,
     pub symbols: Option<symbols::Symbols<'a>>,
     pub libs: Vec<&'a str>,
+    pub entry: u64,
     export_trie: Option<exports::ExportTrie<'a>>,
 }
 
@@ -43,6 +46,7 @@ impl<'a> MachO<'a> {
         let mut symbols = None;
         let mut libs = Vec::new();
         let mut export_trie = None;
+        let mut entry = 0x0;
         for _ in 0..ncmds {
             let cmd = load_command::LoadCommand::parse(buffer, offset, ctx.le)?;
             match cmd.command {
@@ -59,21 +63,20 @@ impl<'a> MachO<'a> {
                 | load_command::CommandVariant::DyldInfoOnly(command) => {
                     export_trie = Some(exports::ExportTrie::new(buffer, &command)?);
                 },
+                load_command::CommandVariant::Main(command) => {
+                    entry = command.entryoff;
+                }
                 _ => ()
             }
             cmds.push(cmd)
-        }
-        for cmd in &cmds {
-            match cmd.command {
-                _ => ()
-            }
         }
         Ok(MachO {
             header: header,
             load_commands: cmds,
             symbols: symbols,
             libs: libs,
-            export_trie: export_trie
+            export_trie: export_trie,
+            entry: entry,
         })
     }
 }

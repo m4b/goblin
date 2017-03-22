@@ -774,7 +774,7 @@ pub struct VersionMinCommand {
 pub const SIZEOF_VERSION_MIN_COMMAND: usize = 16;
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Default, Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
 pub struct DyldInfoCommand {
     /// LC_DYLD_INFO or LC_DYLD_INFO_ONLY
     pub cmd: u32,

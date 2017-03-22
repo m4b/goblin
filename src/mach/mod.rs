@@ -11,6 +11,7 @@ pub mod fat;
 pub mod utils;
 pub mod load_command;
 pub mod symbols;
+pub mod exports;
 
 #[derive(Debug)]
 /// A zero-copy, endian-aware, 32/64 bit Mach-o binary parser
@@ -18,9 +19,20 @@ pub struct MachO<'a> {
     pub header: header::Header,
     pub load_commands: Vec<load_command::LoadCommand>,
     pub symbols: Option<symbols::Symbols<'a>>,
+    pub libs: Vec<&'a str>,
+    export_trie: Option<exports::ExportTrie<'a>>,
 }
 
 impl<'a> MachO<'a> {
+    /// Return the exported symbols in this binary (if any)
+    pub fn exports(&self) -> error::Result<Vec<exports::Export>> {
+        if let Some(ref trie) = self.export_trie {
+            trie.exports(self.libs.as_slice())
+        } else {
+            Ok(vec![])
+        }
+    }
+    /// Parses the Mach-o binary from `buffer` at `offset`
     pub fn parse<'b, B: AsRef<[u8]>> (buffer: &'b B, mut offset: usize) -> error::Result<MachO<'b>> {
         let offset = &mut offset;
         let header: header::Header = buffer.pread(*offset)?;
@@ -29,17 +41,40 @@ impl<'a> MachO<'a> {
         let ncmds = header.ncmds;
         let mut cmds: Vec<load_command::LoadCommand> = Vec::with_capacity(ncmds);
         let mut symbols = None;
+        let mut libs = Vec::new();
+        let mut export_trie = None;
         for _ in 0..ncmds {
             let cmd = load_command::LoadCommand::parse(buffer, offset, ctx.le)?;
             match cmd.command {
                 load_command::CommandVariant::Symtab(command) => {
                     symbols = Some(symbols::Symbols::parse(buffer, &command, ctx)?);
                 },
+                  load_command::CommandVariant::LoadDylib    (command)
+                | load_command::CommandVariant::ReexportDylib(command)
+                | load_command::CommandVariant::LazyLoadDylib(command) => {
+                    let lib = buffer.pread::<&str>(cmd.offset + command.dylib.name as usize)?;
+                    libs.push(lib);
+                },
+                  load_command::CommandVariant::DyldInfo    (command)
+                | load_command::CommandVariant::DyldInfoOnly(command) => {
+                    export_trie = Some(exports::ExportTrie::new(buffer, &command)?);
+                },
                 _ => ()
             }
             cmds.push(cmd)
         }
-        Ok(MachO { header: header, load_commands: cmds, symbols: symbols })
+        for cmd in &cmds {
+            match cmd.command {
+                _ => ()
+            }
+        }
+        Ok(MachO {
+            header: header,
+            load_commands: cmds,
+            symbols: symbols,
+            libs: libs,
+            export_trie: export_trie
+        })
     }
 }
 

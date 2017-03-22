@@ -1,0 +1,280 @@
+// TODO:
+// (1) Weak of regular_symbol_info type probably needs to be added ?
+// (3) /usr/lib/libstdc++.6.0.9.dylib has flag 0xc at many offsets... they're weak 
+
+use core::ops::Range;
+use scroll::{self, Pread, Uleb128};
+use error;
+use core::fmt::{self, Debug};
+use mach::load_command;
+
+type Flag = u64;
+
+ // "The following are used on the flags byte of a terminal node
+ // in the export information."
+pub const EXPORT_SYMBOL_FLAGS_KIND_MASK         : Flag = 0x03;
+pub const EXPORT_SYMBOL_FLAGS_KIND_REGULAR      : Flag = 0x00;
+pub const EXPORT_SYMBOL_FLAGS_KIND_ABSOLUTE     : Flag = 0x02; // this is a symbol not present in the loader.h but only in the dyld compressed image loader source code, and only available with a #def macro for export flags but libobjc. def has this
+pub const EXPORT_SYMBOL_FLAGS_KIND_THREAD_LOCAL : Flag = 0x01;
+pub const EXPORT_SYMBOL_FLAGS_WEAK_DEFINITION   : Flag = 0x04;
+pub const EXPORT_SYMBOL_FLAGS_REEXPORT          : Flag = 0x08;
+pub const EXPORT_SYMBOL_FLAGS_STUB_AND_RESOLVER : Flag = 0x10;
+
+#[derive(Debug)]
+pub enum SymbolKind {
+    Regular,
+    Absolute,
+    ThreadLocal,
+    UnknownSymbolKind(Flag),
+}
+
+impl SymbolKind {
+    pub fn new(kind: Flag) -> SymbolKind {
+        match kind & EXPORT_SYMBOL_FLAGS_KIND_MASK {
+            0x00 => SymbolKind::Regular,
+            0x01 => SymbolKind::ThreadLocal,
+            0x02 => SymbolKind::Absolute,
+            _    => SymbolKind::UnknownSymbolKind(kind),
+        }
+    }
+    pub fn to_str(kind: SymbolKind) -> &'static str {
+        match kind {
+            SymbolKind::Regular => "Regular",
+            SymbolKind::Absolute => "Absolute",
+            SymbolKind::ThreadLocal => "Thread_LOCAL",
+            SymbolKind::UnknownSymbolKind(_k) => "Unknown",
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum ExportInfo<'a> {
+    Regular {
+        address: u64,
+        flags: Flag,
+    },
+    /// if lib_symbol_name None then same symbol name, otherwise reexport of lib_symbol_name with name in the trie
+    /// "If the string is zero length, then the symbol is re-export from the specified dylib with the same name"
+    Reexport {
+        lib: &'a str,
+        lib_symbol_name: Option<&'a str>,
+        flags: Flag,
+    },
+    /// If the flags is `EXPORT_SYMBOL_FLAGS_STUB_AND_RESOLVER`, then following the flags are two `Uleb128`s: the stub offset and the resolver offset. The stub is used by non-lazy pointers.  The resolver is used by lazy pointers and must be called to get the actual address to use
+    Stub {
+        stub_offset: scroll::Uleb128,
+        resolver_offset: scroll::Uleb128,
+        flags: Flag,
+    },
+}
+
+impl<'a> ExportInfo<'a> {
+    pub fn parse<'b, B: AsRef<[u8]>> (bytes: &'b B, libs: &[&'b str], flags: Flag, mut offset: usize) -> error::Result<ExportInfo<'b>> {
+        use self::ExportInfo::*;
+        let regular = |offset| -> error::Result<ExportInfo> {
+            let address = bytes.pread::<Uleb128>(offset)?;
+            Ok(Regular {
+                address: address.into(),
+                flags:   flags
+            })
+        };
+        let reexport = |mut offset| -> error::Result<ExportInfo> {
+            let lib_ordinal: u64 = {
+                let tmp = bytes.pread::<Uleb128>(offset)?;
+                offset += tmp.size();
+                tmp.into()
+            };
+            let lib_symbol_name = bytes.pread::<&str>(offset)?;
+            let lib = libs[lib_ordinal as usize];
+            let lib_symbol_name = if lib_symbol_name == "" { None } else { Some (lib_symbol_name)};
+            Ok(Reexport {
+                lib: lib,
+                lib_symbol_name: lib_symbol_name,
+                flags: flags
+            })
+        };
+        match SymbolKind::new(flags) {
+            SymbolKind::Regular => {
+                if flags & EXPORT_SYMBOL_FLAGS_REEXPORT != 0 {
+                    reexport(offset)
+                } else if flags & EXPORT_SYMBOL_FLAGS_STUB_AND_RESOLVER != 0 { // 0x10
+                    let stub_offset = bytes.pread::<Uleb128>(offset)?;
+                    offset += stub_offset.size();
+                    let resolver_offset = bytes.pread::<Uleb128>(offset)?;
+                    Ok(Stub {
+                        stub_offset: stub_offset,
+                        resolver_offset: resolver_offset,
+                        flags: flags
+                    })
+                    // else if (flags = kEXPORT_SYMBOL_FLAGS_WEAK_DEFINITION) then (*0x40 unused*)
+                } else {
+                    regular(offset)
+                }
+            },
+            SymbolKind::ThreadLocal | SymbolKind::Absolute => {
+                if flags & EXPORT_SYMBOL_FLAGS_REEXPORT != 0 {
+                    reexport(offset)
+                } else {
+                    regular(offset)
+                }
+            },
+            SymbolKind::UnknownSymbolKind(_kind) => {
+                // 0x5f causes errors, but parsing as regular symbol resolves...
+                //Err(error::Error::Malformed(format!("Unknown kind {:#x} from flags {:#x} in get_symbol_type at offset {}", kind, flags, offset)))
+                regular(offset)
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Export<'a> {
+    name: String,
+    info: ExportInfo<'a>,
+    size: usize,
+    offset: u64,
+}
+
+impl<'a> Export<'a> {
+    pub fn new<'b> (name: String, info: ExportInfo<'b>) -> Export<'b> {
+        let offset = match info {
+            ExportInfo::Regular { address, .. } => address,
+            _ => 0x0,
+        };
+        Export { name: name, info: info, size: 0, offset: offset }
+    }
+}
+
+pub struct ExportTrie<'a> {
+    data: &'a [u8],
+    location: Range<usize>,
+    //libs: Vec<&'a str>,
+}
+
+impl<'a> ExportTrie<'a> {
+
+    #[inline]
+    fn read_uleb(&self, offset: &mut usize) -> scroll::Result<u64> {
+       let tmp = self.data.pread::<Uleb128>(*offset)?;
+        *offset = *offset + tmp.size();
+        Ok(tmp.into())
+    }
+
+    #[inline]
+    fn walk_nodes<'b>(&'b self, libs: &[&'b str], branches: Vec<(String, usize)>, acc: &mut Vec<Export<'b>>) -> error::Result<()> {
+        for (symbol, next_node) in branches {
+            self.walk_trie(libs, symbol, next_node, acc)?;
+        }
+        Ok(())
+    }
+
+    // current_symbol can be a str iiuc
+    fn walk_branches<'b>(&'b self, nbranches: usize, current_symbol: String, mut offset: usize) -> error::Result<Vec<(String, usize)>> {
+        let mut branches = Vec::with_capacity(nbranches);
+        //println!("\t@{:#x}", *offset);
+        for _i in 0..nbranches {
+            // additional offset calculations are relative to the base we received
+            let offset = &mut offset;
+            let string = self.data.pread::<&str>(*offset)?;
+            let mut key = current_symbol.clone();
+            key.push_str(string);
+            // +1 for null terminator
+            *offset = *offset + string.len() + 1;
+            //println!("\t({}) string_len: {} offset: {:#x}", i, string.len(), *offset);
+            // value is relative to export trie base
+            let next_node = self.read_uleb(offset)? as usize + self.location.start;
+            //println!("\t({}) string: {} next_node: {:#x}", _i, key, next_node);
+            branches.push((key, next_node));
+        }
+        Ok(branches)
+    }
+
+    fn walk_trie<'b>(&'b self, libs: &[&'b str], current_symbol: String, start: usize, exports: &mut Vec<Export<'b>>) -> error::Result<()> {
+        if start < self.location.end {
+            let offset = &mut start.clone();
+            let terminal_size = self.read_uleb(offset)?;
+            // let mut input = String::new();
+            // ::std::io::stdin().read_line(&mut input).unwrap();
+            // println!("@ {:#x} node: {:#x} current_symbol: {}", start, terminal_size, current_symbol);
+            if terminal_size == 0 {
+                let nbranches = self.read_uleb(offset)? as usize;
+                //println!("\t@ {:#x} BRAN {}", *offset, nbranches);
+                let branches = self.walk_branches(nbranches, current_symbol, *offset)?;
+                self.walk_nodes(libs, branches, exports)
+            } else { // terminal node, but the tricky part is that they can have children...
+                let pos = *offset;
+                let children_start = &mut (pos + terminal_size as usize);
+                let nchildren = self.read_uleb(children_start)? as usize;
+                let flags = self.read_uleb(offset)?;
+                //println!("\t@ {:#x} TERM {} flags: {:#x}", *offset, nchildren, flags);
+                let info = ExportInfo::parse(&self.data, libs, flags, *offset)?;
+                let export = Export::new(current_symbol.clone(), info);
+                //println!("\t{:?}", &export);
+                exports.push(export);
+                if nchildren == 0 {
+                    // this branch is done
+                    Ok(())
+                } else {
+                    // more branches to walk
+                    let branches = self.walk_branches(nchildren, current_symbol, *children_start)?;
+                    self.walk_nodes(libs, branches, exports)
+                }
+            }
+        } else { Ok(()) }
+    }
+
+    /// Walk the export trie for symbols exported by this binary, using the provided `libs` to resolve re-exports
+    pub fn exports<'b>(&'b self, libs: &[&'b str]) -> error::Result<Vec<Export<'b>>> {
+        let offset = self.location.start.clone();
+        let current_symbol = String::new();
+        let mut exports = Vec::new();
+        self.walk_trie(libs, current_symbol, offset, &mut exports)?;
+        Ok(exports)
+    }
+
+    /// Create a new, lazy, zero-copy export trie from the `DyldInfo` `command`
+    pub fn new<'b, B: AsRef<[u8]>> (bytes: &'b B, command: &load_command::DyldInfoCommand) -> error::Result<ExportTrie<'b>> {
+        let start = command.export_off as usize;
+        let end = (command.export_size + command.export_off) as usize;
+        Ok(ExportTrie {
+            data: bytes.as_ref(),
+            location: start..end,
+        })
+    }
+}
+
+impl<'a> Debug for ExportTrie<'a> {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(fmt, "ExportTrie {{")?;
+        writeln!(fmt, "  Location: {:#x}..{:#x}", self.location.start, self.location.end)?;
+        writeln!(fmt, "  Bytes: {}", self.data.len())?;
+        writeln!(fmt, "  Exports:")?;
+        // match self.exports() {
+        //     Ok(exports) => {
+        //         writeln!(fmt, "{:#?}", exports)?;
+        //     },
+        //     Err(err) => {
+        //         writeln!(fmt, "{:#?}", err)?;
+        //     }
+        // }
+        writeln!(fmt, "}}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn export_trie () {
+        const EXPORTS: [u8; 64] = [0x00,0x01,0x5f,0x00,0x05,0x00,0x02,0x5f,0x6d,0x68,0x5f,0x65,0x78,0x65,0x63,0x75,0x74,0x65,0x5f,0x68,0x65,0x61,0x64,0x65,0x72,0x00,0x1f,0x6d,0x61,0x00,0x23,0x02,0x00,0x00,0x00,0x00,0x02,0x78,0x69,0x6d,0x75,0x6d,0x00,0x30,0x69,0x6e,0x00,0x35,0x03,0x00,0xc0,0x1e,0x00,0x03,0x00,0xd0,0x1e,0x00,0x00,0x00,0x00,0x00,0x00,0x00];
+        let exports = &EXPORTS[..];
+        let libs = vec!["/usr/lib/libderp.so", "/usr/lib/libthuglife.so"];
+        let mut command = load_command::DyldInfoCommand::default();
+        command.export_size = exports.len() as u32;
+        let trie = ExportTrie::new(&exports, libs, &command).unwrap();
+        println!("trie: {:#?}", &trie);
+        let exports = trie.exports().unwrap();
+        println!("len: {} exports: {:#?}", exports.len(), &exports);
+        assert_eq!(exports.len() as usize, 3usize)
+    }
+}

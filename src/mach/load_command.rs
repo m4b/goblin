@@ -1,6 +1,6 @@
 use error;
 use std::fmt::{self, Display};
-use scroll::{self, ctx, Endian};
+use scroll::{self, ctx, Endian, Pread};
 ///////////////////////////////////////
 // Load Commands from mach-o/loader.h
 // with some rusty additions
@@ -108,6 +108,12 @@ pub struct SegmentCommand32 {
 
 pub const SIZEOF_SEGMENT_COMMAND_32: usize = 56;
 
+impl SegmentCommand32 {
+    pub fn name(&self) -> error::Result<&str> {
+        Ok(self.segname.pread::<&str>(0)?)
+    }
+}
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
 pub struct SegmentCommand64 {
@@ -126,6 +132,11 @@ pub struct SegmentCommand64 {
 
 pub const SIZEOF_SEGMENT_COMMAND_64: usize = 72;
 
+impl SegmentCommand64 {
+    pub fn name(&self) -> error::Result<&str> {
+        Ok(self.segname.pread::<&str>(0)?)
+    }
+}
 /// Fixed virtual memory shared libraries are identified by two things.  The
 /// target pathname (the name of the library as found for execution), and the
 /// minor version number.  The address of where the headers are loaded is in

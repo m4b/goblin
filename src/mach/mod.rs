@@ -23,6 +23,7 @@ pub struct MachO<'a> {
     pub symbols: Option<symbols::Symbols<'a>>,
     pub libs: Vec<&'a str>,
     pub entry: u64,
+    pub name: Option<&'a str>,
     export_trie: Option<exports::ExportTrie<'a>>,
 }
 
@@ -47,15 +48,17 @@ impl<'a> MachO<'a> {
         let mut libs = Vec::new();
         let mut export_trie = None;
         let mut entry = 0x0;
+        let mut name = None;
         for _ in 0..ncmds {
             let cmd = load_command::LoadCommand::parse(buffer, offset, ctx.le)?;
             match cmd.command {
                 load_command::CommandVariant::Symtab(command) => {
                     symbols = Some(symbols::Symbols::parse(buffer, &command, ctx)?);
                 },
-                  load_command::CommandVariant::LoadDylib    (command)
-                | load_command::CommandVariant::ReexportDylib(command)
-                | load_command::CommandVariant::LazyLoadDylib(command) => {
+                  load_command::CommandVariant::LoadDylib      (command)
+                | load_command::CommandVariant::LoadUpwardDylib(command)
+                | load_command::CommandVariant::ReexportDylib  (command)
+                | load_command::CommandVariant::LazyLoadDylib  (command) => {
                     let lib = buffer.pread::<&str>(cmd.offset + command.dylib.name as usize)?;
                     libs.push(lib);
                 },
@@ -65,7 +68,10 @@ impl<'a> MachO<'a> {
                 },
                 load_command::CommandVariant::Main(command) => {
                     entry = command.entryoff;
-                }
+                },
+                load_command::CommandVariant::IdDylib(command) => {
+                    name = Some(buffer.pread::<&str>(cmd.offset + command.dylib.name as usize)?);
+                },
                 _ => ()
             }
             cmds.push(cmd)
@@ -77,6 +83,7 @@ impl<'a> MachO<'a> {
             libs: libs,
             export_trie: export_trie,
             entry: entry,
+            name: name,
         })
     }
 }

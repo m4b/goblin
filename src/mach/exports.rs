@@ -153,13 +153,6 @@ pub struct ExportTrie<'a> {
 impl<'a> ExportTrie<'a> {
 
     #[inline]
-    fn read_uleb(&self, offset: &mut usize) -> scroll::Result<u64> {
-       let tmp = self.data.pread::<Uleb128>(*offset)?;
-        *offset = *offset + tmp.size();
-        Ok(tmp.into())
-    }
-
-    #[inline]
     fn walk_nodes<'b>(&'b self, libs: &[&'b str], branches: Vec<(String, usize)>, acc: &mut Vec<Export<'b>>) -> error::Result<()> {
         for (symbol, next_node) in branches {
             self.walk_trie(libs, symbol, next_node, acc)?;
@@ -181,7 +174,7 @@ impl<'a> ExportTrie<'a> {
             *offset = *offset + string.len() + 1;
             //println!("\t({}) string_len: {} offset: {:#x}", i, string.len(), *offset);
             // value is relative to export trie base
-            let next_node = self.read_uleb(offset)? as usize + self.location.start;
+            let next_node = Uleb128::read(&self.data, offset)? as usize + self.location.start;
             //println!("\t({}) string: {} next_node: {:#x}", _i, key, next_node);
             branches.push((key, next_node));
         }
@@ -191,20 +184,20 @@ impl<'a> ExportTrie<'a> {
     fn walk_trie<'b>(&'b self, libs: &[&'b str], current_symbol: String, start: usize, exports: &mut Vec<Export<'b>>) -> error::Result<()> {
         if start < self.location.end {
             let offset = &mut start.clone();
-            let terminal_size = self.read_uleb(offset)?;
+            let terminal_size = Uleb128::read(&self.data, offset)?;
             // let mut input = String::new();
             // ::std::io::stdin().read_line(&mut input).unwrap();
             // println!("@ {:#x} node: {:#x} current_symbol: {}", start, terminal_size, current_symbol);
             if terminal_size == 0 {
-                let nbranches = self.read_uleb(offset)? as usize;
+                let nbranches = Uleb128::read(&self.data, offset)? as usize;
                 //println!("\t@ {:#x} BRAN {}", *offset, nbranches);
                 let branches = self.walk_branches(nbranches, current_symbol, *offset)?;
                 self.walk_nodes(libs, branches, exports)
             } else { // terminal node, but the tricky part is that they can have children...
                 let pos = *offset;
                 let children_start = &mut (pos + terminal_size as usize);
-                let nchildren = self.read_uleb(children_start)? as usize;
-                let flags = self.read_uleb(offset)?;
+                let nchildren = Uleb128::read(&self.data, children_start)? as usize;
+                let flags = Uleb128::read(&self.data, offset)?;
                 //println!("\t@ {:#x} TERM {} flags: {:#x}", *offset, nchildren, flags);
                 let info = ExportInfo::parse(&self.data, libs, flags, *offset)?;
                 let export = Export::new(current_symbol.clone(), info);

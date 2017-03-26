@@ -232,13 +232,13 @@ impl<'a> ExportTrie<'a> {
     }
 
     /// Create a new, lazy, zero-copy export trie from the `DyldInfo` `command`
-    pub fn new<'b, B: AsRef<[u8]>> (bytes: &'b B, command: &load_command::DyldInfoCommand) -> error::Result<ExportTrie<'b>> {
+    pub fn new<'b, B: AsRef<[u8]>> (bytes: &'b B, command: &load_command::DyldInfoCommand) -> ExportTrie<'b> {
         let start = command.export_off as usize;
         let end = (command.export_size + command.export_off) as usize;
-        Ok(ExportTrie {
+        ExportTrie {
             data: bytes.as_ref(),
             location: start..end,
-        })
+        }
     }
 }
 
@@ -246,16 +246,6 @@ impl<'a> Debug for ExportTrie<'a> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         writeln!(fmt, "ExportTrie {{")?;
         writeln!(fmt, "  Location: {:#x}..{:#x}", self.location.start, self.location.end)?;
-        writeln!(fmt, "  Bytes: {}", self.data.len())?;
-        writeln!(fmt, "  Exports:")?;
-        // match self.exports() {
-        //     Ok(exports) => {
-        //         writeln!(fmt, "{:#?}", exports)?;
-        //     },
-        //     Err(err) => {
-        //         writeln!(fmt, "{:#?}", err)?;
-        //     }
-        // }
         writeln!(fmt, "}}")
     }
 }
@@ -270,9 +260,9 @@ mod tests {
         let libs = vec!["/usr/lib/libderp.so", "/usr/lib/libthuglife.so"];
         let mut command = load_command::DyldInfoCommand::default();
         command.export_size = exports.len() as u32;
-        let trie = ExportTrie::new(&exports, libs, &command).unwrap();
+        let trie = ExportTrie::new(&exports, &command);
         println!("trie: {:#?}", &trie);
-        let exports = trie.exports().unwrap();
+        let exports = trie.exports(&libs).unwrap();
         println!("len: {} exports: {:#?}", exports.len(), &exports);
         assert_eq!(exports.len() as usize, 3usize)
     }

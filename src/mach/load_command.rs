@@ -1279,3 +1279,61 @@ impl LoadCommand {
         Ok(LoadCommand { offset: start, command: command })
     }
 }
+
+/// Generalized 32/64 bit Segment Command
+#[derive(Debug)]
+pub struct Segment {
+    pub cmd:      u32,
+    pub cmdsize:  u32,
+    pub segname:  [u8; 16],
+    pub vmaddr:   u64,
+    pub vmsize:   u64,
+    pub fileoff:  u64,
+    pub filesize: u64,
+    pub maxprot:  u32,
+    pub initprot: u32,
+    pub nsects:   u32,
+    pub flags:    u32,
+}
+
+impl Segment {
+    pub fn name(&self) -> error::Result<&str> {
+        Ok(self.segname.pread::<&str>(0)?)
+    }
+}
+
+impl From<SegmentCommand32> for Segment {
+    fn from(segment: SegmentCommand32) -> Self {
+        Segment {
+            cmd:      segment.cmd,
+            cmdsize:  segment.cmdsize,
+            segname:  segment.segname,
+            vmaddr:   segment.vmaddr   as u64,
+            vmsize:   segment.vmsize   as u64,
+            fileoff:  segment.fileoff  as u64,
+            filesize: segment.filesize as u64,
+            maxprot:  segment.maxprot,
+            initprot: segment.initprot,
+            nsects:   segment.nsects,
+            flags:    segment.flags,
+        }
+    }
+}
+
+impl From<SegmentCommand64> for Segment {
+    fn from(segment: SegmentCommand64) -> Self {
+        Segment {
+            cmd:      segment.cmd,
+            cmdsize:  segment.cmdsize,
+            segname:  segment.segname,
+            vmaddr:   segment.vmaddr,
+            vmsize:   segment.vmsize,
+            fileoff:  segment.fileoff,
+            filesize: segment.filesize,
+            maxprot:  segment.maxprot,
+            initprot: segment.initprot,
+            nsects:   segment.nsects,
+            flags:    segment.flags,
+        }
+    }
+}

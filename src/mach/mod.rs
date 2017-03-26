@@ -3,7 +3,7 @@
 use scroll::{Pread};
 
 use error;
-//use container::{self, Container};
+use container;
 
 pub mod header;
 pub mod constants;
@@ -12,19 +12,24 @@ pub mod utils;
 pub mod load_command;
 pub mod symbols;
 pub mod exports;
+pub mod imports;
+pub mod bind_opcodes;
 
 pub use self::constants::cputype as cputype;
 
 #[derive(Debug)]
-/// A zero-copy, endian-aware, 32/64 bit Mach-o binary parser
+/// A cross-platform, zero-copy, endian-aware, 32/64 bit Mach-o binary parser
 pub struct MachO<'a> {
     pub header: header::Header,
     pub load_commands: Vec<load_command::LoadCommand>,
+    pub segments: Vec<load_command::Segment>,
     pub symbols: Option<symbols::Symbols<'a>>,
     pub libs: Vec<&'a str>,
     pub entry: u64,
     pub name: Option<&'a str>,
+    ctx: container::Ctx,
     export_trie: Option<exports::ExportTrie<'a>>,
+    bind_interpreter: Option<imports::BindInterpreter<'a>>,
 }
 
 impl<'a> MachO<'a> {
@@ -32,6 +37,14 @@ impl<'a> MachO<'a> {
     pub fn exports(&self) -> error::Result<Vec<exports::Export>> {
         if let Some(ref trie) = self.export_trie {
             trie.exports(self.libs.as_slice())
+        } else {
+            Ok(vec![])
+        }
+    }
+    /// Return the imported symbols in this binary that dyld knows about (if any)
+    pub fn imports(&self) -> error::Result<Vec<imports::Import>> {
+        if let Some(ref interpreter) = self.bind_interpreter {
+            interpreter.imports(self.libs.as_slice(), self.segments.as_slice(), &self.ctx)
         } else {
             Ok(vec![])
         }
@@ -45,13 +58,21 @@ impl<'a> MachO<'a> {
         let ncmds = header.ncmds;
         let mut cmds: Vec<load_command::LoadCommand> = Vec::with_capacity(ncmds);
         let mut symbols = None;
-        let mut libs = Vec::new();
+        let mut libs = vec!["self"];
         let mut export_trie = None;
+        let mut bind_interpreter = None;
         let mut entry = 0x0;
         let mut name = None;
+        let mut segments = Vec::new();
         for _ in 0..ncmds {
             let cmd = load_command::LoadCommand::parse(buffer, offset, ctx.le)?;
             match cmd.command {
+                load_command::CommandVariant::Segment32(command) => {
+                    segments.push(load_command::Segment::from(command))
+                },
+                load_command::CommandVariant::Segment64(command) => {
+                    segments.push(load_command::Segment::from(command))
+                },
                 load_command::CommandVariant::Symtab(command) => {
                     symbols = Some(symbols::Symbols::parse(buffer, &command, ctx)?);
                 },
@@ -64,13 +85,16 @@ impl<'a> MachO<'a> {
                 },
                   load_command::CommandVariant::DyldInfo    (command)
                 | load_command::CommandVariant::DyldInfoOnly(command) => {
-                    export_trie = Some(exports::ExportTrie::new(buffer, &command)?);
+                    export_trie = Some(exports::ExportTrie::new(buffer, &command));
+                    bind_interpreter = Some(imports::BindInterpreter::new(buffer, &command));
                 },
                 load_command::CommandVariant::Main(command) => {
                     entry = command.entryoff;
                 },
                 load_command::CommandVariant::IdDylib(command) => {
-                    name = Some(buffer.pread::<&str>(cmd.offset + command.dylib.name as usize)?);
+                    let id = buffer.pread::<&str>(cmd.offset + command.dylib.name as usize)?;
+                    libs[0] = id;
+                    name = Some(id);
                 },
                 _ => ()
             }
@@ -79,11 +103,14 @@ impl<'a> MachO<'a> {
         Ok(MachO {
             header: header,
             load_commands: cmds,
+            segments: segments,
             symbols: symbols,
             libs: libs,
             export_trie: export_trie,
+            bind_interpreter: bind_interpreter,
             entry: entry,
             name: name,
+            ctx: ctx,
         })
     }
 }

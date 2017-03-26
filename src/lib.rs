@@ -19,6 +19,7 @@
 //! use std::path::Path;
 //! use std::env;
 //! use std::fs::File;
+//! use std::io::Read;
 //!
 //! fn run () -> error::Result<()> {
 //!     for (i, arg) in env::args().enumerate() {
@@ -36,7 +37,9 @@
 //!                 },
 //!                 // wip
 //!                 Hint::Mach(_) => {
-//!                     let mach = mach::Mach::try_from(&mut fd)?;
+//!                     let mut bytes = Vec::new();
+//!                     fd.read_to_end(&mut bytes)?;
+//!                     let mach = mach::Mach::parse(&bytes)?;
 //!                     println!("mach: {:#?}", &mach);
 //!                 },
 //!                 Hint::Archive => {
@@ -122,6 +125,13 @@ pub mod container {
     impl Ctx {
         pub fn new (container: Container, le: scroll::Endian) -> Self {
             Ctx { container: container, le: le }
+        }
+        pub fn size(&self) -> usize {
+            match self.container {
+                // TODO: require pointer size initialization/setting or default to container size with these values, e.g., avr pointer width will be smaller iirc
+                Container::Little => 4,
+                Container::Big    => 8,
+            }
         }
     }
 

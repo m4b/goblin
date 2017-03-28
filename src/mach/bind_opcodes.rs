@@ -1,13 +1,13 @@
-// Some uses of external symbols do not need to be bound immediately.
-// Instead they can be lazily bound on first use.  The lazy_bind
-// are contains a stream of BIND opcodes to bind all lazy symbols.
-// Normal use is that dyld ignores the lazy_bind section when
-// loading an image.  Instead the static linker arranged for a
-// lazy pointer to initially point to a helper function which 
-// pushes the offset into the lazy_bind area for the symbol
-// needing to be bound, then jumps to dyld which simply adds
-// the offset to lazy_bind_off to get the information on what 
-// to bind.  
+//! Some uses of external symbols do not need to be bound immediately.
+//! Instead they can be lazily bound on first use.  The lazy_bind
+//! are contains a stream of BIND opcodes to bind all lazy symbols.
+//! Normal use is that dyld ignores the lazy_bind section when
+//! loading an image.  Instead the static linker arranged for a
+//! lazy pointer to initially point to a helper function which
+//! pushes the offset into the lazy_bind area for the symbol
+//! needing to be bound, then jumps to dyld which simply adds
+//! the offset to lazy_bind_off to get the information on what
+//! to bind.
 
 pub type Opcode = u8;
 

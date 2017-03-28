@@ -14,23 +14,21 @@ Add to your `Cargo.toml`
 
 ```toml
 [dependencies]
-goblin = "0.8.0"
+goblin = "0.0.9"
 ```
 
 ### Features
 
 * awesome crate name
 * the best, most feature complete ELF64/32 implementation, ever - now with auto type punning!
+* zero-copy, cross-platform, endian-aware, 32/64 bit Mach-o parser - wow!
 * PE 32-bit support for binary analysis (raw writers are in the works)
 * many cfg options - it will make your head spin, and make you angry when reading the source!
-* slowly adding mach-o, mostly because it's boring and it's just a port of [rdr](http://github.com/m4b/rdr)
 * goblins (TBA)
 * tests
 
 `libgoblin` aims to be your one-stop shop for binary parsing, loading,
-and analysis.  Eventually, at some future date, once the holy trinity
-is finished (ELF, mach, PE), writers for the various binary
-formats are planned.
+and analysis.
 
 ### Use-cases
 
@@ -48,10 +46,10 @@ Here are some things you could do with this crate (or help to implement so they 
 
 * elf64 - 64-bit elf binaries
 * elf32 - 32-bit elf binaries
+* mach64 - 64-bit mach-o `repr(C)` struct defs
+* mach32 - 32-bit mach-o `repr(C)` struct defs
 * pe32 - 32-bit PE binary parser
 * archive - a Unix Archive parser
 * endian_fd - parses according to the endianness in the binary
 * std - to allow `no_std` environments
 * pe64 - wip
-* mach64 - wip
-* mach32 - wip

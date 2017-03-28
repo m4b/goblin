@@ -1,3 +1,5 @@
+//! Dynamically linked symbolic imports
+
 // table of tuples:
 // <seg-index, seg-offset, type, symbol-library-ordinal, symbol-name, addend>
 // symbol flags are undocumented 

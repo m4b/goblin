@@ -1,3 +1,5 @@
+//! Bind opcodes are interpreted by the dynamic linker to efficiently collect every symbol imported by this binary, and from which library using two-level namespacing
+//!
 //! Some uses of external symbols do not need to be bound immediately.
 //! Instead they can be lazily bound on first use.  The lazy_bind
 //! are contains a stream of BIND opcodes to bind all lazy symbols.

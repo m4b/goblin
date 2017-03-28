@@ -1,6 +1,6 @@
 //! The Mach-o binary format parser and raw struct definitions
 
-use scroll::{Pread};
+use scroll::{self, Pread};
 
 use error;
 use container;
@@ -8,7 +8,6 @@ use container;
 pub mod header;
 pub mod constants;
 pub mod fat;
-pub mod utils;
 pub mod load_command;
 pub mod symbols;
 pub mod exports;
@@ -16,6 +15,11 @@ pub mod imports;
 pub mod bind_opcodes;
 
 pub use self::constants::cputype as cputype;
+
+/// Returns a big endian magical number
+pub fn peek<S: AsRef<[u8]>>(buffer: &S, offset: usize) -> error::Result<u32> {
+    Ok(buffer.pread_with::<u32>(offset, scroll::BE)?)
+}
 
 #[derive(Debug)]
 /// A cross-platform, zero-copy, endian-aware, 32/64 bit Mach-o binary parser
@@ -130,7 +134,7 @@ impl<'a> Mach<'a> {
                                        format!("size is smaller than a magical number"));
             return Err(error);
         }
-        let magic = utils::peek_magic(&buffer, 0)?;
+        let magic = peek(&buffer, 0)?;
         match magic {
             fat::FAT_CIGAM => {
                 let arches = fat::FatArch::parse(&buffer)?;

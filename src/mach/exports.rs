@@ -1,3 +1,7 @@
+//! Symbols exported by this binary and available for dynamic linking are encoded in mach-o binaries using a special trie
+//!
+//! **Note**: the trie is constructed lazily in case it won't be used, and since computing exports will require allocation, to compute the exports, you need call the export trie's [exports()](struct.ExportTrie.html#method.exports) method.
+
 // TODO:
 // (1) Weak of regular_symbol_info type probably needs to be added ?
 // (3) /usr/lib/libstdc++.6.0.9.dylib has flag 0xc at many offsets... they're weak 
@@ -48,7 +52,9 @@ impl SymbolKind {
 }
 
 #[derive(Debug)]
+/// An export can be a regular export, a re-export, or a stub
 pub enum ExportInfo<'a> {
+    /// A regular exported symbol, which is an address where it is found, and the flags associated with it
     Regular {
         address: u64,
         flags: Flag,
@@ -69,6 +75,7 @@ pub enum ExportInfo<'a> {
 }
 
 impl<'a> ExportInfo<'a> {
+    /// Parse out the export info from `bytes`, at `offset`
     pub fn parse<'b, B: AsRef<[u8]>> (bytes: &'b B, libs: &[&'b str], flags: Flag, mut offset: usize) -> error::Result<ExportInfo<'b>> {
         use self::ExportInfo::*;
         let regular = |offset| -> error::Result<ExportInfo> {
@@ -128,14 +135,20 @@ impl<'a> ExportInfo<'a> {
 }
 
 #[derive(Debug)]
+/// A finalized symbolic export reconstructed from the export trie
 pub struct Export<'a> {
+    /// The reconsituted export name which dyld matches against
     pub name: String,
+    /// The export info in the node data
     pub info: ExportInfo<'a>,
+    /// How large this export is
     pub size: usize,
+    /// The offset this symbol export is found in the binary
     pub offset: u64,
 }
 
 impl<'a> Export<'a> {
+    /// Create a new export from `name` and `info`
     pub fn new<'b> (name: String, info: ExportInfo<'b>) -> Export<'b> {
         let offset = match info {
             ExportInfo::Regular { address, .. } => address,
@@ -145,6 +158,7 @@ impl<'a> Export<'a> {
     }
 }
 
+/// An export trie efficiently encodes all of the symbols exported by this binary for dynamic linking
 pub struct ExportTrie<'a> {
     data: &'a [u8],
     location: Range<usize>,

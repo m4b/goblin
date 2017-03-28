@@ -1,3 +1,5 @@
+//! A Mach-o fat binary is a multi-architecture binary container
+
 use std::fmt;
 use std::fs::File;
 use std::io::{self, Read};

@@ -1,3 +1,5 @@
+//! Load commands tell the kernel and dynamic linker anything from how to load this binary into memory, what the entry point is, apple specific information, to which libraries it requires for dynamic linking
+
 use error;
 use std::fmt::{self, Display};
 use scroll::{self, ctx, Endian, Pread};
@@ -8,6 +10,7 @@ use scroll::{self, ctx, Endian, Pread};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+/// Occurs at the beginning of every load command to serve as a sort of tagged union/enum discriminant
 pub struct LoadCommandHeader {
   pub cmd: u32,
   pub cmdsize: u32,

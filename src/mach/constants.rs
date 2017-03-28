@@ -1,3 +1,4 @@
+//! Miscellaneous constants used inside of and when constructing, Mach-o binaries
 // Convienence constants for return values from dyld_get_sdk_version() and friends.
 pub const DYLD_MACOSX_VERSION_10_4: u32 = 0x000A0400;
 pub const DYLD_MACOSX_VERSION_10_5: u32 = 0x000A0500;

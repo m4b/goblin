@@ -201,7 +201,7 @@ mod peek {
             Ok(Hint::PE)
         } else {
             use mach::{fat, header};
-            let magic = mach::utils::peek_magic(&bytes, 0)?;
+            let magic = mach::peek(&bytes, 0)?;
             match magic {
                 fat::FAT_CIGAM => Ok(Hint::MachFat),
                 header::MH_CIGAM_64 | header::MH_CIGAM | header::MH_MAGIC_64 | header::MH_MAGIC => {

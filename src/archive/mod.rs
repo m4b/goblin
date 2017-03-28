@@ -7,15 +7,12 @@
 //! index for looking up symbols faster.
 
 use scroll::{self, Pread, Gread};
-use super::strtab;
 
-pub use super::error;
-
+use strtab;
 use error::{Result, Error};
 
 use std::usize;
 use std::collections::HashMap;
-//use std::fmt::{self, Display};
 
 pub const SIZEOF_MAGIC: usize = 8;
 /// The magic number of a Unix Archive

@@ -24,13 +24,12 @@ pub fn main () {
             }
         }
         let path = Path::new(&path);
-        let fd = scroll::Buffer::try_from(File::open(&path).unwrap()).unwrap();
-        let len = fd.len();
-        match archive::Archive::parse(&fd, len) {
+        let buffer = scroll::Buffer::try_from(File::open(&path).unwrap()).unwrap();
+        match archive::Archive::parse(&buffer) {
             Ok(archive) => {
                 println!("{:#?}", &archive);
                 println!("start: {:?}", archive.member_of_symbol("_start"));
-                match archive.extract(&member, &fd) {
+                match archive.extract(&member, &buffer) {
                     Ok(bytes) => {
                         match elf::Elf::parse::<scroll::Buffer>(&scroll::Buffer::new(bytes)) {
                             Ok(elf) => {

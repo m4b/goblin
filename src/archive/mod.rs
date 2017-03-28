@@ -13,8 +13,6 @@ pub use super::error;
 
 use error::{Result, Error};
 
-use std::io::Read;
-use std::fs::File;
 use std::usize;
 use std::collections::HashMap;
 //use std::fmt::{self, Display};
@@ -24,8 +22,10 @@ pub const SIZEOF_MAGIC: usize = 8;
 pub const MAGIC: &'static [u8; SIZEOF_MAGIC] = b"!<arch>\x0A";
 
 const SIZEOF_FILE_IDENTIFER: usize = 16;
+const SIZEOF_FILE_SIZE: usize = 10;
 
-#[derive(Debug, Clone, PartialEq)]
+#[repr(C)]
+#[derive(Debug, Clone, PartialEq, Pread, Pwrite, SizeWith)]
 /// A Unix Archive Header - meta data for the file/byte blob/whatever that follows exactly after.
 /// All data is right-padded with spaces ASCII `0x20`. The Binary layout is as follows:
 ///
@@ -43,10 +43,9 @@ const SIZEOF_FILE_IDENTIFER: usize = 16;
 /// > Each archive file member begins on an even byte boundary; a newline is inserted between files
 /// > if necessary. Nevertheless, the size given reflects the actual size of the file exclusive
 /// > of padding.
-// TODO: serialize more values here
-pub struct Header {
+pub struct MemberHeader {
     /// The identifier, or name for this file/whatever.
-    pub identifier: String,
+    pub identifier: [u8; 16],
     /// The timestamp for when this file was last modified. Base 10 number
     pub timestamp: [u8; 12],
     /// The file's owner's id. Base 10 string number
@@ -56,62 +55,48 @@ pub struct Header {
     /// The file's permissions mode. Base 8 number number
     pub mode: [u8; 8],
     /// The size of this file. Base 10 string number
-    pub size: usize,
+    pub file_size: [u8; 10],
     /// The file header's terminator, always `0x60 0x0A`
     pub terminator: [u8; 2],
 }
 
-const SIZEOF_FILE_SIZE: usize = 10;
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Header<'a> {
+    pub name: &'a str,
+    pub size: usize,
+}
+
 pub const SIZEOF_HEADER: usize = SIZEOF_FILE_IDENTIFER + 12 + 6 + 6 + 8 + SIZEOF_FILE_SIZE + 2;
 
-impl Header {
-    pub fn parse<R: AsRef<[u8]>>(buffer: &R, offset: &mut usize) -> Result<Header> {
-        let file_identifier = buffer.gread_slice::<str>(offset, SIZEOF_FILE_IDENTIFER)?.to_string();
-        let mut file_modification_timestamp = [0u8; 12];
-        buffer.gread_inout(offset, &mut file_modification_timestamp)?;
-        let mut owner_id = [0u8; 6];
-        buffer.gread_inout(offset, &mut owner_id)?;
-        let mut group_id = [0u8; 6];
-        buffer.gread_inout(offset, &mut group_id)?;
-        let mut file_mode = [0u8; 8];
-        buffer.gread_inout(offset, &mut file_mode)?;
-        let file_size_pos = *offset;
-        let file_size_str = buffer.gread_slice::<str>(offset, SIZEOF_FILE_SIZE)?;
-        let mut terminator = [0u8; 2];
-        buffer.gread_inout(offset, &mut terminator)?;
-        let file_size = match usize::from_str_radix(file_size_str.trim_right(), 10) {
-            Ok(file_size) => file_size,
-            Err(err) => return Err(Error::Malformed(format!("{:?} Bad file_size {:?} at offset 0x{:X}: {:?} {:?} {:?} {:?} {:?} {:?}",
-                err, &file_size_str, file_size_pos, file_identifier, file_modification_timestamp, owner_id, group_id,
-                file_mode, &file_size_str)).into()),
-        };
-        Ok(Header {
-            identifier: file_identifier,
-            timestamp: file_modification_timestamp.clone(),
-            owner_id: owner_id.clone(),
-            group_id: group_id.clone(),
-            mode: file_mode.clone(),
-            size: file_size,
-            terminator: terminator,
-        })
+impl MemberHeader {
+    pub fn name(&self) -> Result<&str> {
+        Ok(self.identifier.pread_slice::<str>(0, SIZEOF_FILE_IDENTIFER)?)
+    }
+    pub fn size(&self) -> Result<usize> {
+        match usize::from_str_radix(self.file_size.pread_slice::<str>(0, self.file_size.len())?.trim_right(), 10) {
+            Ok(file_size) => Ok(file_size),
+            Err(err) => Err(Error::Malformed(format!("{:?} Bad file_size in header: {:?}", err, self)))
+        }
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 /// Represents a single entry in the archive
-pub struct Member {
+pub struct Member<'a> {
     /// The entry header
-    header: Header,
+    pub header: Header<'a>,
     /// File offset from the start of the archive to where the file begins
     pub offset: u64,
 }
 
-impl Member {
+impl<'a> Member<'a> {
     /// Tries to parse the header in `R`, as well as the offset in `R.
     /// **NOTE** the Seek will be pointing at the first byte of whatever the file is, skipping padding.
     /// This is because just like members in the archive, the data section is 2-byte aligned.
-    pub fn parse<R: AsRef<[u8]>>(buffer: &R, offset: &mut usize) -> Result<Self> {
-        let header = Header::parse(buffer, offset)?;
+    pub fn parse<R: AsRef<[u8]>>(buffer: &'a R, offset: &mut usize) -> Result<Member<'a>> {
+        let name = buffer.pread_slice::<str>(*offset, SIZEOF_FILE_IDENTIFER)?;
+        let archive_header = buffer.gread::<MemberHeader>(offset)?;
+        let header = Header { name: name, size: archive_header.size()? };
         // skip newline padding if we're on an uneven byte boundary
         if *offset & 1 == 1 {
             *offset += 1;
@@ -134,8 +119,8 @@ impl Member {
 
     /// The untrimmed raw member name, i.e., includes right-aligned space padding and `'/'` end-of-string
     /// identifier
-    pub fn name(&self) -> &str {
-        &self.header.identifier
+    pub fn name(&self) -> &'a str {
+        self.header.name
     }
 
 }
@@ -181,12 +166,12 @@ impl Index {
 /// where `idx` is an offset into a newline delimited string table directly following the `//` member
 /// of the archive.
 #[derive(Debug, Default)]
-struct NameIndex {
-    strtab: strtab::Strtab<'static>
+struct NameIndex<'a> {
+    strtab: strtab::Strtab<'a>
 }
 
-impl NameIndex {
-    pub fn parse<R: AsRef<[u8]>> (buffer: &R, offset: &mut usize, size: usize) -> Result<Self> {
+impl<'a> NameIndex<'a> {
+    pub fn parse<'b, R: AsRef<[u8]>> (buffer: &'b R, offset: &mut usize, size: usize) -> Result<NameIndex<'b>> {
         // This is a total hack, because strtab returns "" if idx == 0, need to change
         // but previous behavior might rely on this, as ELF strtab's have "" at 0th index...
         let hacked_size = size + 1;
@@ -220,25 +205,20 @@ impl NameIndex {
 // the values of the index symbols once implemented
 #[derive(Debug)]
 /// An in-memory representation of a parsed Unix Archive
-pub struct Archive {
+pub struct Archive<'a> {
     // we can chuck this because the symbol index is a better representation, but we keep for
     // debugging
     index: Index,
-    extended_names: NameIndex,
+    extended_names: NameIndex<'a>,
     // the array of members, which are indexed by the members hash and symbol index
-    member_array: Vec<Member>,
+    member_array: Vec<Member<'a>>,
     members: HashMap<String, usize>,
     // symbol -> member
     symbol_index: HashMap<String, usize>
 }
 
-impl Archive {
-    pub fn try_from(fd: &mut File) -> Result<Archive> {
-        let buffer = scroll::Buffer::try_from(fd)?;
-        Archive::parse(&buffer, buffer.len())
-    }
-
-    pub fn parse<R: Read + AsRef<[u8]>>(buffer: &R, size: usize) -> Result<Archive> {
+impl<'a> Archive<'a> {
+    pub fn parse<'b, R: AsRef<[u8]>>(buffer: &'b R) -> Result<Archive<'b>> {
         let mut magic = [0u8; SIZEOF_MAGIC];
         let mut offset = &mut 0usize;
         buffer.gread_inout(offset, &mut magic)?;
@@ -247,7 +227,7 @@ impl Archive {
             return Err(Error::BadMagic(magic.pread(0)?).into());
         }
         let mut member_array = Vec::new();
-        let size = size as u64;
+        let size = buffer.as_ref().len() as u64;
         let mut pos = 0u64;
         let mut index = Index::default();
         let mut extended_names = NameIndex::default();
@@ -258,20 +238,22 @@ impl Archive {
                 *offset += 1;
             }
             let member = Member::parse(buffer, offset)?;
-            if member.name() == INDEX_NAME {
+            let name = member.name();
+            let size = member.size();
+            if name == INDEX_NAME {
                 *offset = member.offset as usize;
                 // get the member data (the index in this case)
-                let data: &[u8] = buffer.gread_slice(offset, member.size())?;
+                let data: &[u8] = buffer.gread_slice(offset, size)?;
                 // parse it
-                index = Index::parse(&data, member.size())?;
+                index = Index::parse(&data, size)?;
                 pos = *offset as u64;
-            } else if member.name() == NAME_INDEX_NAME {
+            } else if name == NAME_INDEX_NAME {
                 *offset = member.offset as usize;
-                extended_names = NameIndex::parse(buffer, offset, member.size())?;
+                extended_names = NameIndex::parse(buffer, offset, size)?;
                 pos = *offset as u64;
             } else {
                 // we move the buffer past the file blob
-                *offset += member.size();
+                *offset += size;
                 pos = *offset as u64;
                 member_array.push(member);
             }
@@ -328,7 +310,7 @@ impl Archive {
     }
 
     /// Returns a slice of the raw bytes for the given `member` in the scrollable `buffer`
-    pub fn extract<'a, R: AsRef<[u8]>> (&self, member: &str, buffer: &'a R) -> Result<&'a [u8]> {
+    pub fn extract<'b, R: AsRef<[u8]>> (&self, member: &str, buffer: &'b R) -> Result<&'b [u8]> {
         if let Some(member) = self.get(member) {
             let bytes = buffer.pread_slice(member.offset as usize, member.size())?;
             Ok(bytes)
@@ -344,7 +326,7 @@ impl Archive {
     /// Returns the member's name which contains the given `symbol`, if it is in the archive
     pub fn member_of_symbol (&self, symbol: &str) -> Option<&str> {
         if let Some(idx) = self.symbol_index.get(symbol) {
-            let name = self.member_array[*idx].name();
+            let name = (self.member_array[*idx]).name();
             if name.starts_with("/") {
                 Some(self.extended_names.get(name).unwrap())
             } else {
@@ -381,16 +363,17 @@ mod tests {
                                                     0x32, 0x34, 0x34, 0x20, 0x20, 0x20, 0x20,
                                                     0x20, 0x20, 0x60, 0x0a];
         let buffer = scroll::Buffer::new(&file_header[..]);
-        match Header::parse(&buffer, &mut 0) {
+        match buffer.pread::<MemberHeader>(0) {
             Err(_) => assert!(false),
             Ok(file_header2) => {
-                let file_header = Header { identifier: "/               ".to_owned(),
+                let file_header = MemberHeader {
+                    identifier: [0x2f,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,],
                     timestamp: [48, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32],
                     owner_id: [48, 32, 32, 32, 32, 32],
                     group_id: [48, 32, 32, 32, 32, 32],
                     mode: [48, 32, 32, 32, 32, 32, 32, 32],
-                    size: 8244, terminator:
-                    [96, 10] };
+                    file_size: [56, 50, 52, 52, 32, 32, 32, 32, 32, 32],
+                    terminator: [96, 10] };
                 assert_eq!(file_header, file_header2)
             }
         }
@@ -400,9 +383,8 @@ mod tests {
     fn parse_archive() {
         let crt1a: Vec<u8> = include!("../../etc/crt1a.rs");
         const START: &'static str = "_start";
-        let len = crt1a.len();
         let buffer = scroll::Buffer::new(crt1a);
-        match Archive::parse(&buffer, len) {
+        match Archive::parse(&buffer) {
             Ok(archive) => {
                 assert_eq!(archive.member_of_symbol(START), Some("crt1.o"));
                 if let Some(member) = archive.get("crt1.o") {
@@ -423,8 +405,7 @@ mod tests {
         match File::open(path) {
           Ok(fd) => {
               let buffer = scroll::Buffer::try_from(fd).unwrap();
-              let size = buffer.len();
-              match Archive::parse(&buffer, size) {
+              match Archive::parse(&buffer) {
                   Ok(archive) => {
                       let mut found = false;
                       for member in archive.members() {

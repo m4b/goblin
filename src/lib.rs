@@ -26,24 +26,25 @@
 //!         if i == 1 {
 //!             let path = Path::new(arg.as_str());
 //!             let mut fd = File::open(path)?;
-//!             match goblin::peek(&mut fd)? {
+//!             let peek = goblin::peek(&mut fd)?;
+//!             let mut buffer = Vec::new();
+//!             fd.read_to_end(&mut buffer)?;
+//!             match peek {
 //!                 Hint::Elf(_) => {
-//!                     let elf = elf::Elf::try_from(&mut fd)?;
+//!                     let elf = elf::Elf::parse(&buffer)?;
 //!                     println!("elf: {:#?}", &elf);
 //!                 },
 //!                 Hint::PE => {
-//!                     let pe = pe::PE::try_from(&mut fd)?;
+//!                     let pe = pe::PE::parse(&buffer)?;
 //!                     println!("pe: {:#?}", &pe);
 //!                 },
 //!                 // wip
 //!                 Hint::Mach(_) => {
-//!                     let mut bytes = Vec::new();
-//!                     fd.read_to_end(&mut bytes)?;
-//!                     let mach = mach::Mach::parse(&bytes)?;
+//!                     let mach = mach::Mach::parse(&buffer)?;
 //!                     println!("mach: {:#?}", &mach);
 //!                 },
 //!                 Hint::Archive => {
-//!                     let archive = archive::Archive::try_from(&mut fd)?;
+//!                     let archive = archive::Archive::parse(&buffer)?;
 //!                     println!("archive: {:#?}", &archive);
 //!                 },
 //!                 _ => {}
@@ -81,8 +82,7 @@ extern crate scroll;
 extern crate core;
 
 #[cfg(feature = "std")]
-#[macro_use]
-extern crate scroll_derive;
+#[macro_use] extern crate scroll_derive;
 
 #[cfg(feature = "std")]
 pub mod error;
@@ -179,16 +179,11 @@ mod peek {
         Unknown(u64),
     }
 
-    /// Peeks at the underlying Read object. Requires the underlying bytes to have at least 16 byte length. Resets the seek after reading.
+    /// Peeks at `bytes`, and returns a `Hint`
     #[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
-    pub fn peek<R: ::std::io::Read + ::std::io::Seek>(fd: &mut R) -> super::error::Result<Hint> {
+    pub fn peek_bytes(bytes: &[u8; 16]) -> super::error::Result<Hint> {
         use scroll::Pread;
-        use std::io::SeekFrom;
         use super::*;
-        let mut bytes = [0u8; 16];
-        fd.seek(SeekFrom::Start(0))?;
-        fd.read_exact(&mut bytes)?;
-        fd.seek(SeekFrom::Start(0))?;
         if &bytes[0..elf::header::SELFMAG] == elf::header::ELFMAG {
             let class = bytes[elf::header::EI_CLASS];
             let is_lsb = bytes[elf::header::EI_DATA] == elf::header::ELFDATA2LSB;
@@ -218,6 +213,17 @@ mod peek {
                 _ => Ok(Hint::Unknown(bytes.pread::<u64>(0)?))
             }
         }
+    }
+
+    /// Peeks at the underlying Read object. Requires the underlying bytes to have at least 16 byte length. Resets the seek after reading.
+    #[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
+    pub fn peek<R: ::std::io::Read + ::std::io::Seek>(fd: &mut R) -> super::error::Result<Hint> {
+        use std::io::SeekFrom;
+        let mut bytes = [0u8; 16];
+        fd.seek(SeekFrom::Start(0))?;
+        fd.read_exact(&mut bytes)?;
+        fd.seek(SeekFrom::Start(0))?;
+        peek_bytes(&bytes)
     }
 }
 

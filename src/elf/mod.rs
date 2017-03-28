@@ -67,7 +67,6 @@ pub use self::impure::*;
 #[macro_use]
 mod impure {
     use scroll::{self, ctx, Pread, Endian};
-    use std::io::Read;
     use super::{header, program_header, section_header, sym, dyn, reloc};
     use super::strtab::Strtab;
     use super::error;
@@ -88,7 +87,7 @@ mod impure {
 
     #[derive(Debug)]
     /// An ELF binary. The underlying data structures are read according to the headers byte order and container size (32 or 64).
-    pub struct Elf {
+    pub struct Elf<'a> {
         /// The ELF header, which provides a rudimentary index into the rest of the binary
         pub header: Header,
         /// The program headers; they primarily tell the kernel and the dynamic linker
@@ -98,9 +97,9 @@ mod impure {
         /// here unless you're a static linker!
         pub section_headers: SectionHeaders,
         /// The section header string table
-        pub shdr_strtab: Strtab<'static>,
+        pub shdr_strtab: Strtab<'a>,
         /// The string table for the dynamically accessible symbols
-        pub dynstrtab: Strtab<'static>,
+        pub dynstrtab: Strtab<'a>,
         /// The dynamically accessible symbols, i.e., exports, imports.
         /// This is what the dynamic linker uses to dynamically load and link your binary,
         /// or find imported symbols for binaries which dynamically link against your library
@@ -108,7 +107,7 @@ mod impure {
         /// The debugging symbol array
         pub syms: Syms,
         /// The string table for the symbol array
-        pub strtab: Strtab<'static>,
+        pub strtab: Strtab<'a>,
         /// Contains dynamic linking information, with the _DYNAMIC array + a preprocessed DynamicInfo for that array
         pub dynamic: Option<Dynamic>,
         /// The dynamic relocation entries (strings, copy-data, etc.) with an addend
@@ -122,7 +121,7 @@ mod impure {
         /// The binary's soname, if it has one
         pub soname: Option<String>,
         /// The binary's program interpreter (e.g., dynamic linker), if it has one
-        pub interpreter: Option<String>,
+        pub interpreter: Option<&'a str>,
         /// A list of this binary's dynamic libraries it uses, if there are any
         pub libraries: Vec<String>,
         pub is_64: bool,
@@ -136,9 +135,9 @@ mod impure {
         pub little_endian: bool,
     }
 
-    impl Elf {
+    impl<'a> Elf<'a> {
         /// Parses the contents of the byte stream in `buffer`, and maybe returns a unified binary
-        pub fn parse<S: AsRef<[u8]>>(buffer: &S) -> error::Result<Self> {
+        pub fn parse<'b, S: AsRef<[u8]>>(buffer: &'b S) -> error::Result<Elf<'b>> {
             let header = buffer.pread::<Header>(0)?;
             let entry = header.e_entry as usize;
             let is_lib = header.e_type == header::ET_DYN;
@@ -147,8 +146,8 @@ mod impure {
             let class = header.e_ident[header::EI_CLASS];
             if class != header::ELFCLASS64 && class != header::ELFCLASS32 {
                 return Err(error::Error::Malformed(format!("Unknown values in ELF ident header: class: {} endianness: {}",
-                                                    class,
-                                                    header.e_ident[header::EI_DATA])).into());
+                                                           class,
+                                                           header.e_ident[header::EI_DATA])).into());
             }
             let is_64 = class == header::ELFCLASS64;
             let container = if is_64 { Container::Big } else { Container::Little };
@@ -182,7 +181,7 @@ mod impure {
                 if ph.p_type == program_header::PT_INTERP && ph.p_filesz != 0 {
                     let count = (ph.p_filesz - 1) as usize;
                     let offset = ph.p_offset as usize;
-                    interpreter = Some(buffer.pread_slice::<str>(offset, count)?.to_string());
+                    interpreter = Some(buffer.pread_slice::<str>(offset, count)?);
                 }
             }
 
@@ -279,17 +278,12 @@ mod impure {
                 little_endian: is_lsb,
             })
         }
-        /// Returns a unified ELF binary from `fd`. Allocates an in-memory byte array the size of the binary in order to increase performance.
-        pub fn try_from<R: Read> (fd: &mut R) -> error::Result<Self> {
-            let buffer = scroll::Buffer::try_from(fd)?;
-            Elf::parse(&buffer)
-        }
     }
 
-    impl<'a> ctx::TryFromCtx<'a> for Elf {
+    impl<'a, T> ctx::TryFromCtx<'a, (usize, Endian), T> for Elf<'a> where T: AsRef<[u8]> + 'a {
         type Error = error::Error;
-        fn try_from_ctx(src: &'a [u8], (_, _): (usize, Endian)) -> Result<Self, Self::Error> {
-            Elf::parse(&src)
+        fn try_from_ctx(src: &'a T, (_, _): (usize, Endian)) -> Result<Elf<'a>, Self::Error> {
+            Elf::parse(src)
         }
     }
 }

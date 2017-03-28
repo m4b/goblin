@@ -8,11 +8,12 @@ extern crate scroll;
 extern crate goblin;
 
 use goblin::{error, elf64, elf};
-use scroll::{Pwrite, Pread};
+use scroll::{Buffer,Pwrite, Pread};
 
 fn run () -> error::Result<()> {
     use Pread;
     let crt1: Vec<u8> = include!("../etc/crt1.rs");
+    let crt1 = Buffer::new(crt1);
     let header: elf64::header::Header = crt1.pread(0)?;
     assert_eq!(header.e_type, elf64::header::ET_REL);
     println!("header: {:?}", &header);
@@ -23,9 +24,9 @@ fn run () -> error::Result<()> {
     let header2: elf64::header::Header = bytes.pread(0)?;
     // they're the same
     assert_eq!(header, header2);
-    // but wait, lets just.pread the entire binary...
-    let elf: elf::Elf = crt1.pread(0)?;
-    // yup, that.just.happened.
+    // cannot pread binary anymore :/
+    // let elf: elf::Elf = crt1.pread(0)?;
+    let elf = elf::Elf::parse(&crt1)?;
     println!("elf: {:#?}", &elf);
     Ok(())
 } 

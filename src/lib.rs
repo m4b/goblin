@@ -173,7 +173,7 @@ mod peek {
     pub enum Hint {
         Elf(HintData),
         Mach(HintData),
-        MachFat,
+        MachFat(usize),
         PE,
         Archive,
         Unknown(u64),
@@ -182,7 +182,7 @@ mod peek {
     /// Peeks at `bytes`, and returns a `Hint`
     #[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
     pub fn peek_bytes(bytes: &[u8; 16]) -> super::error::Result<Hint> {
-        use scroll::Pread;
+        use scroll::{Pread, BE};
         use super::*;
         if &bytes[0..elf::header::SELFMAG] == elf::header::ELFMAG {
             let class = bytes[elf::header::EI_CLASS];
@@ -203,7 +203,11 @@ mod peek {
             use mach::{fat, header};
             let magic = mach::peek(&bytes, 0)?;
             match magic {
-                fat::FAT_MAGIC => Ok(Hint::MachFat),
+                fat::FAT_MAGIC => {
+                    // should probably verify this is always Big Endian...
+                    let narchitectures = bytes.pread_with::<u32>(4, BE)? as usize;
+                    Ok(Hint::MachFat(narchitectures))
+                },
                 header::MH_CIGAM_64 | header::MH_CIGAM | header::MH_MAGIC_64 | header::MH_MAGIC => {
                     let is_lsb = magic == header::MH_CIGAM || magic == header::MH_CIGAM_64;
                     let is_64 = magic == header::MH_MAGIC_64 || magic == header::MH_CIGAM_64;

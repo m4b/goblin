@@ -24,7 +24,7 @@ fn run () -> error::Result<()> {
                     let pe = pe::PE::parse(&buffer)?;
                     println!("pe: {:#?}", &pe);
                 },
-                Hint::Mach(_) | Hint::MachFat => {
+                Hint::Mach(_) | Hint::MachFat(_) => {
                     let mach = mach::Mach::parse(&buffer)?;
                     println!("mach: {:#?}", &mach);
                 },

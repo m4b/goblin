@@ -1,8 +1,12 @@
 //! Load commands tell the kernel and dynamic linker anything from how to load this binary into memory, what the entry point is, apple specific information, to which libraries it requires for dynamic linking
 
 use error;
+use container;
 use std::fmt::{self, Display};
-use scroll::{self, ctx, Endian, Pread};
+use core::ops::{Deref, DerefMut};
+use scroll::{self, ctx, Endian, Pread, Gread};
+use scroll::ctx::{FromCtx, SizeWith};
+
 ///////////////////////////////////////
 // Load Commands from mach-o/loader.h
 // with some rusty additions
@@ -31,8 +35,6 @@ pub const SIZEOF_LC_STR: usize = 4;
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
 pub struct Section32 {
-    pub cmd: u32,
-    pub cmdsize: u32,
     /// name of this section
     pub sectname:  [u8; 16],
     /// segment this section goes in
@@ -63,8 +65,6 @@ pub const SIZEOF_SECTION_32: usize = 68;
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
 pub struct Section64 {
-    pub cmd: u32,
-    pub cmdsize: u32,
     /// name of this section
     pub sectname:  [u8; 16],
     /// segment this section goes in
@@ -1273,7 +1273,6 @@ pub struct LoadCommand {
 
 impl LoadCommand {
     pub fn parse<'b, B: AsRef<[u8]>> (buffer: &'b B, mut offset: &mut usize, le: scroll::Endian) -> error::Result<Self> {
-        use scroll::{Pread};
         let buffer = buffer.as_ref();
         let start = *offset;
         let command = buffer.pread_with::<CommandVariant>(start, le)?;
@@ -1283,9 +1282,116 @@ impl LoadCommand {
     }
 }
 
+/// Generalized 32/64 bit Section, with attached section data
+pub struct Section<'a> {
+    /// name of this section
+    pub sectname:  [u8; 16],
+    /// segment this section goes in
+    pub segname:   [u8; 16],
+    /// memory address of this section
+    pub addr:      u64,
+    /// size in bytes of this section
+    pub size:      u64,
+    /// file offset of this section
+    pub offset:    u32,
+    /// section alignment (power of 2)
+    pub align:     u32,
+    /// file offset of relocation entries
+    pub reloff:    u32,
+    /// number of relocation entries
+    pub nreloc:    u32,
+    /// flags (section type and attributes
+    pub flags:     u32,
+    /// The data inside this section
+    pub data:      &'a [u8],
+}
+
+impl<'a> fmt::Debug for Section<'a> {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("Section")
+            .field("sectname", &self.sectname.pread::<&str>(0).unwrap())
+            .field("segname",  &self.segname.pread::<&str>(0).unwrap())
+            .field("addr",     &self.addr)
+            .field("size",     &self.size)
+            .field("offset",   &self.offset)
+            .field("align",    &self.align)
+            .field("reloff",   &self.reloff)
+            .field("nreloc",   &self.nreloc)
+            .field("flags",    &self.flags)
+            .field("data",     &self.data.len())
+            .finish()
+    }
+}
+
+// TODO: make these try_from_ctx as the offset + size can be bad and thus cause failure
+impl<'a> ctx::FromCtx<'a, Section32> for Section<'a> {
+    fn from_ctx(bytes: &'a [u8], section: Section32) -> Self {
+        let start = section.offset as usize;
+        let end = start + section.size as usize;
+        let data = &bytes[start..end];
+        Section {
+            sectname: section.sectname,
+            segname:  section.segname,
+            addr:     section.addr as u64,
+            size:     section.size as u64,
+            offset:   section.offset,
+            align:    section.align,
+            reloff:   section.reloff,
+            nreloc:   section.nreloc,
+            flags:    section.flags,
+            data:     data
+        }
+    }
+}
+
+impl<'a> ctx::FromCtx<'a, Section64> for Section<'a> {
+    fn from_ctx(bytes: &'a [u8], section: Section64) -> Self {
+        let start = section.offset as usize;
+        let end = start + section.size as usize;
+        let data = &bytes[start..end];
+        Section {
+            sectname: section.sectname,
+            segname:  section.segname,
+            addr:     section.addr,
+            size:     section.size,
+            offset:   section.offset,
+            align:    section.align,
+            reloff:   section.reloff,
+            nreloc:   section.nreloc,
+            flags:    section.flags,
+            data:     data
+        }
+    }
+}
+
+impl<'a> ctx::TryFromCtx<'a, (usize, container::Ctx)> for Section<'a> {
+    type Error = scroll::Error;
+    fn try_from_ctx(bytes: &'a [u8], (offset, ctx): (usize, container::Ctx)) -> Result<Self, Self::Error> {
+        match ctx.container {
+            container::Container::Little => {
+                let section = Section::from_ctx(bytes, bytes.pread_with::<Section32>(offset, ctx.le)?);
+                Ok(section)
+            },
+            container::Container::Big    => {
+                let section = Section::from_ctx(bytes, bytes.pread_with::<Section64>(offset, ctx.le)?);
+                Ok(section)
+            },
+        }
+    }
+}
+
+impl<'a> ctx::SizeWith<container::Ctx> for Section<'a> {
+    type Units = usize;
+    fn size_with(ctx: &container::Ctx) -> usize {
+        match ctx.container {
+            container::Container::Little => SIZEOF_SECTION_32,
+            container::Container::Big    => SIZEOF_SECTION_64,
+        }
+    }
+}
+
 /// Generalized 32/64 bit Segment Command
-#[derive(Debug)]
-pub struct Segment {
+pub struct Segment<'a> {
     pub cmd:      u32,
     pub cmdsize:  u32,
     pub segname:  [u8; 16],
@@ -1297,16 +1403,61 @@ pub struct Segment {
     pub initprot: u32,
     pub nsects:   u32,
     pub flags:    u32,
+    pub data:     &'a [u8],
+    offset:       usize,
+    raw_data:     &'a [u8],
+    ctx:          container::Ctx,
 }
 
-impl Segment {
-    pub fn name(&self) -> error::Result<&str> {
-        Ok(self.segname.pread::<&str>(0)?)
+impl<'a> fmt::Debug for Segment<'a> {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("Segment")
+            .field("cmd", &self.cmd)
+            .field("cmdsize", &self.cmdsize)
+            .field("segname", &self.segname.pread::<&str>(0).unwrap())
+            .field("vmaddr",  &self.vmaddr)
+            .field("vmsize",  &self.vmsize)
+            .field("fileoff", &self.fileoff)
+            .field("filesize", &self.filesize)
+            .field("maxprot", &self.maxprot)
+            .field("initprot", &self.initprot)
+            .field("nsects", &self.nsects)
+            .field("flags", &self.flags)
+            .field("data", &self.data.len())
+            .field("sections", &self.sections().unwrap())
+            .finish()
     }
 }
 
-impl From<SegmentCommand32> for Segment {
-    fn from(segment: SegmentCommand32) -> Self {
+impl<'a> ctx::SizeWith<container::Ctx> for Segment<'a> {
+    type Units = usize;
+    fn size_with(ctx: &container::Ctx) -> usize {
+        match ctx.container {
+            container::Container::Little => SIZEOF_SEGMENT_COMMAND_32,
+            container::Container::Big    => SIZEOF_SEGMENT_COMMAND_64,
+        }
+    }
+}
+
+impl<'a> Segment<'a> {
+    /// Get the name of this segment
+    pub fn name(&self) -> error::Result<&str> {
+        Ok(self.segname.pread::<&str>(0)?)
+    }
+    /// Get the sections from this segment
+    pub fn sections<'b>(&'b self) -> error::Result<Vec<Section<'b>>> {
+        let nsects = self.nsects as usize;
+        let mut sections = Vec::with_capacity(nsects);
+        let offset = &mut (self.offset + Self::size_with(&self.ctx));
+        for _ in 0..nsects {
+            let section = self.raw_data.gread_with::<Section>(offset, self.ctx)?;
+            sections.push(section);
+        }
+        Ok(sections)
+    }
+    /// Convert the raw C 32-bit segment command to a generalized version
+    pub fn from_32(bytes: &'a[u8], segment: &SegmentCommand32, offset: usize, ctx: container::Ctx) -> Self {
+        let data = &bytes[segment.fileoff as usize..(segment.fileoff + segment.filesize) as usize];
         Segment {
             cmd:      segment.cmd,
             cmdsize:  segment.cmdsize,
@@ -1319,12 +1470,15 @@ impl From<SegmentCommand32> for Segment {
             initprot: segment.initprot,
             nsects:   segment.nsects,
             flags:    segment.flags,
+            data:     data,
+            offset:   offset,
+            raw_data: bytes,
+            ctx:      ctx,
         }
     }
-}
-
-impl From<SegmentCommand64> for Segment {
-    fn from(segment: SegmentCommand64) -> Self {
+    /// Convert the raw C 64-bit segment command to a generalized version
+    pub fn from_64(bytes: &'a [u8], segment: &SegmentCommand64, offset: usize, ctx: container::Ctx) -> Self {
+        let data = &bytes[segment.fileoff as usize..(segment.fileoff + segment.filesize) as usize];
         Segment {
             cmd:      segment.cmd,
             cmdsize:  segment.cmdsize,
@@ -1337,6 +1491,48 @@ impl From<SegmentCommand64> for Segment {
             initprot: segment.initprot,
             nsects:   segment.nsects,
             flags:    segment.flags,
+            offset:   offset,
+            data:     data,
+            raw_data: bytes,
+            ctx:      ctx,
         }
+    }
+}
+
+#[derive(Debug, Default)]
+/// An opaque 32/64-bit container for Mach-o segments
+pub struct Segments<'a> {
+    segments: Vec<Segment<'a>>,
+    ctx: container::Ctx,
+}
+
+impl<'a> Deref for Segments<'a> {
+    type Target = Vec<Segment<'a>>;
+    fn deref(&self) -> &Self::Target {
+        &self.segments
+    }
+}
+
+impl<'a> DerefMut for Segments<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.segments
+    }
+}
+
+impl<'a> Segments<'a> {
+    /// Construct a new generalized segment container from this `ctx`
+    pub fn new(ctx: container::Ctx) -> Self {
+        Segments {
+            segments: Vec::new(),
+            ctx: ctx,
+        }
+    }
+    /// Get every section from every segment
+    pub fn sections<'b>(&'b self) -> error::Result<Vec<Vec<Section<'b>>>> {
+        let mut sections = Vec::new();
+        for segment in &self.segments {
+            sections.push(segment.sections()?);
+        }
+        Ok(sections)
     }
 }

@@ -1,4 +1,4 @@
-//! The Mach-o binary format parser and raw struct definitions
+//! The Mach-o, mostly zero-copy, binary format parser and raw struct definitions
 
 use scroll::{self, Pread};
 
@@ -26,7 +26,7 @@ pub fn peek<S: AsRef<[u8]>>(buffer: &S, offset: usize) -> error::Result<u32> {
 pub struct MachO<'a> {
     pub header: header::Header,
     pub load_commands: Vec<load_command::LoadCommand>,
-    pub segments: Vec<load_command::Segment>,
+    pub segments: load_command::Segments<'a>,
     pub symbols: Option<symbols::Symbols<'a>>,
     pub libs: Vec<&'a str>,
     pub entry: u64,
@@ -67,15 +67,15 @@ impl<'a> MachO<'a> {
         let mut bind_interpreter = None;
         let mut entry = 0x0;
         let mut name = None;
-        let mut segments = Vec::new();
+        let mut segments = load_command::Segments::new(ctx);
         for _ in 0..ncmds {
             let cmd = load_command::LoadCommand::parse(buffer, offset, ctx.le)?;
             match cmd.command {
                 load_command::CommandVariant::Segment32(command) => {
-                    segments.push(load_command::Segment::from(command))
+                    segments.push(load_command::Segment::from_32(buffer.as_ref(), &command, cmd.offset, ctx))
                 },
                 load_command::CommandVariant::Segment64(command) => {
-                    segments.push(load_command::Segment::from(command))
+                    segments.push(load_command::Segment::from_64(buffer.as_ref(), &command, cmd.offset, ctx))
                 },
                 load_command::CommandVariant::Symtab(command) => {
                     symbols = Some(symbols::Symbols::parse(buffer, &command, ctx)?);

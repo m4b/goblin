@@ -136,9 +136,8 @@ impl<'a> Mach<'a> {
         }
         let magic = peek(&buffer, 0)?;
         match magic {
-            fat::FAT_CIGAM => {
+            fat::FAT_MAGIC => {
                 let arches = fat::FatArch::parse(&buffer)?;
-                println!("{:?}", arches);
                 Ok(Mach::Fat(arches))
             },
             // we're a regular binary

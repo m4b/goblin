@@ -203,7 +203,7 @@ mod peek {
             use mach::{fat, header};
             let magic = mach::peek(&bytes, 0)?;
             match magic {
-                fat::FAT_CIGAM => Ok(Hint::MachFat),
+                fat::FAT_MAGIC => Ok(Hint::MachFat),
                 header::MH_CIGAM_64 | header::MH_CIGAM | header::MH_MAGIC_64 | header::MH_MAGIC => {
                     let is_lsb = magic == header::MH_CIGAM || magic == header::MH_CIGAM_64;
                     let is_64 = magic == header::MH_MAGIC_64 || magic == header::MH_CIGAM_64;
@@ -215,7 +215,7 @@ mod peek {
         }
     }
 
-    /// Peeks at the underlying Read object. Requires the underlying bytes to have at least 16 byte length. Resets the seek after reading.
+    /// Peeks at the underlying Read object. Requires the underlying bytes to have at least 16 byte length. Resets the seek to `Start` after reading.
     #[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
     pub fn peek<R: ::std::io::Read + ::std::io::Seek>(fd: &mut R) -> super::error::Result<Hint> {
         use std::io::SeekFrom;

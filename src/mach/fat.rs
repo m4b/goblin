@@ -41,14 +41,14 @@ pub struct FatArch {
 pub const SIZEOF_FAT_ARCH: usize = 20;
 
 impl fmt::Debug for FatArch {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,
-               "cputype: {} cpusubtype: {} offset: {} size: {} align: {}\n",
-               cputype::cpu_type_to_str(self.cputype),
-               self.cpusubtype,
-               self.offset,
-               self.size,
-               self.align)
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("FatArch")
+            .field("cputype", &cputype::cpu_type_to_str(self.cputype))
+            .field("cmdsize", &self.cpusubtype)
+            .field("offset",  &format_args!("{:#x}", &self.offset))
+            .field("size",    &self.size)
+            .field("align",   &self.align)
+            .finish()
     }
 }
 
@@ -115,7 +115,6 @@ impl FatArch {
         Ok(archs)
     }
 
-    // TODO: fixme this parser is now broken, hurray!
     pub fn parse<S: AsRef<[u8]>>(buffer: &S) -> error::Result<Vec<Self>> {
         let header = FatHeader::parse(buffer)?;
         let arches = FatArch::parse_arches(buffer,

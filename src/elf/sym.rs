@@ -132,7 +132,7 @@ macro_rules! elf_sym_std_impl {
             use std::io::{Read, Seek};
             use std::io::SeekFrom::Start;
 			
-			use tools::Slice;
+            use tools::Slice;
 
             impl Sym {
                 /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` bind and a `st_value` of 0

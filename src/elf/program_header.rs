@@ -239,7 +239,7 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
         use std::io::{Seek, Read};
         use std::io::SeekFrom::Start;
 		
-		use tools::Slice;
+        use tools::Slice;
 
         impl From<ProgramHeader> for ElfProgramHeader {
             fn from(ph: ProgramHeader) -> Self {
@@ -300,7 +300,7 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
 
             pub fn from_bytes(bytes: &[u8], phnum: usize) -> Vec<ProgramHeader> {
                 let phdrs = unsafe { bytes.retype_with_len(phnum) };
-				phdrs.to_vec()
+                phdrs.to_vec()
             }
 
             pub unsafe fn from_raw_parts<'a>(phdrp: *const ProgramHeader,

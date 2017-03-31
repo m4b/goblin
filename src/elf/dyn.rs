@@ -435,7 +435,7 @@ macro_rules! elf_dyn_std_impl {
             use elf::dyn::Dyn as ElfDyn;
             use super::*;
             
-			use tools::Slice;
+            use tools::Slice;
 
             impl From<ElfDyn> for Dyn {
                 fn from(dyn: ElfDyn) -> Self {

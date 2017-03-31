@@ -279,8 +279,8 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
 
         impl SectionHeader {
             pub fn from_bytes(bytes: &[u8], shnum: usize) -> Vec<SectionHeader> {
-				let shdrs = unsafe { bytes.retype_with_len(shnum) };
-				shdrs.to_vec()
+                let shdrs = unsafe { bytes.retype_with_len(shnum) };
+                shdrs.to_vec()
             }
 
             pub unsafe fn from_raw_parts<'a>(shdrp: *const SectionHeader,

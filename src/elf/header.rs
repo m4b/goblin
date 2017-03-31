@@ -39,10 +39,9 @@ macro_rules! elf_header {
         impl Header {
             /// Returns the corresponding ELF header from the given byte array.
             pub fn from_bytes(bytes: &[u8; SIZEOF_EHDR]) -> &Header {
-                // This is not unsafe because the header's size is encoded in the function,
+                // This is not unsafe because the header's size is the same as the byte array's,
                 // although the header can be semantically invalid.
-                let header: &Header = unsafe { ::core::mem::transmute(bytes) };
-                header
+                unsafe { &*(bytes.as_ptr() as *const Header) }
             }
         }
         impl fmt::Debug for Header {

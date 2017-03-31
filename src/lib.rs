@@ -90,6 +90,8 @@ pub mod error;
 #[cfg(feature = "std")]
 pub mod strtab;
 
+pub mod tools;
+
 /////////////////////////
 // Misc/Helper Modules
 /////////////////////////

@@ -242,7 +242,7 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
         use std::io::{Read, Seek};
         use std::io::SeekFrom::Start;
 		
-		use tools::{retype_slice_with_len,as_bytes_mut};
+        use tools::Slice;
 
         impl From<SectionHeader> for ElfSectionHeader {
             fn from(sh: SectionHeader) -> Self {
@@ -279,7 +279,7 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
 
         impl SectionHeader {
             pub fn from_bytes(bytes: &[u8], shnum: usize) -> Vec<SectionHeader> {
-				let shdrs = unsafe { retype_slice_with_len(bytes, shnum) };
+				let shdrs = unsafe { bytes.retype_with_len(shnum) };
 				shdrs.to_vec()
             }
 
@@ -292,7 +292,7 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
             pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> Result<Vec<SectionHeader>> {
                 let mut shdrs = vec![SectionHeader::default(); count];
                 try!(fd.seek(Start(offset)));
-                try!(fd.read(unsafe { as_bytes_mut(&mut shdrs) }));
+                try!(fd.read(unsafe{shdrs.as_mut_bytes()}));
                 Ok(shdrs)
             }
         }

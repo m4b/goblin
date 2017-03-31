@@ -116,7 +116,7 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
             use std::io::{Read, Seek};
             use std::io::SeekFrom::Start;
 			
-			use tools::{retype_slice, as_bytes_mut};
+			use tools::Slice;
 
             impl From<Rela> for Reloc {
                 fn from(rela: Rela) -> Self {
@@ -185,12 +185,12 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
 			
 			pub fn from_bytes_rela(bytes: &[u8]) -> &[Rela] {
 				// Safe because Rela is POD.
-				unsafe { retype_slice(bytes) }
+				unsafe { bytes.retype() }
 			}
 			
 			pub fn from_bytes_rel(bytes: &[u8]) -> &[Rel] {
 				// Safe because Rel is POD.
-				unsafe { retype_slice(bytes) }
+				unsafe { bytes.retype() }
 			}
 			
             pub fn from_fd(fd: &mut File, offset: usize, size: usize) -> Result<Vec<Rela>> {
@@ -198,7 +198,7 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
 				let mut relocs = vec![Rela::default(); count];
 				fd.seek(Start(offset as u64))?;
 				// Safe, as all values are legal in Rela (as far as Rust is concerned).
-				fd.read(unsafe { as_bytes_mut(&mut relocs) })?;
+				fd.read(unsafe{relocs.as_mut_bytes()})?;
                 Ok(relocs)
             }
         }

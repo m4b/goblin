@@ -239,7 +239,7 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
         use std::io::{Seek, Read};
         use std::io::SeekFrom::Start;
 		
-		use tools::retype_slice_with_len;
+		use tools::Slice;
 
         impl From<ProgramHeader> for ElfProgramHeader {
             fn from(ph: ProgramHeader) -> Self {
@@ -299,7 +299,7 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
 
 
             pub fn from_bytes(bytes: &[u8], phnum: usize) -> Vec<ProgramHeader> {
-				let phdrs = unsafe { retype_slice_with_len(bytes, phnum) };
+                let phdrs = unsafe { bytes.retype_with_len(phnum) };
 				phdrs.to_vec()
             }
 
@@ -310,10 +310,10 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
             }
 
             pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> Result<Vec<ProgramHeader>> {
-                let mut phdrs = vec![0u8; count * SIZEOF_PHDR];
+                let mut phdrs = vec![ProgramHeader::default(); count];
                 try!(fd.seek(Start(offset)));
-                try!(fd.read(&mut phdrs));
-                Ok(ProgramHeader::from_bytes(&phdrs, count))
+                try!(fd.read(unsafe{phdrs.as_mut_bytes()}));
+                Ok(phdrs)
             }
         }
     }

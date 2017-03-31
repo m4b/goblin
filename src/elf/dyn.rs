@@ -434,7 +434,8 @@ macro_rules! elf_dyn_std_impl {
 
             use elf::dyn::Dyn as ElfDyn;
             use super::*;
-			use tools::as_bytes_mut;
+            
+			use tools::Slice;
 
             impl From<ElfDyn> for Dyn {
                 fn from(dyn: ElfDyn) -> Self {
@@ -500,9 +501,7 @@ macro_rules! elf_dyn_std_impl {
                         let dync = filesz / SIZEOF_DYN;
                         let mut dyns = vec![Dyn::default(); dync];
                         try!(fd.seek(Start(phdr.p_offset as u64)));
-                        try!(unsafe {
-							fd.read(as_bytes_mut(&mut dyns))
-						});
+                        try!(fd.read(unsafe{dyns.as_mut_bytes()}));
                         dyns.dedup();
                         return Ok(Some(dyns));
                     }

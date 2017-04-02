@@ -278,7 +278,6 @@ impl<'a> ctx::TryFromCtx<'a> for OptionalHeader {
             },
             _ => return Err(error::Error::BadMagic(magic as u64))
         };
-        println!("standard_fields {:#?} windows_fields {:#?}", standard_fields, windows_fields);
         let data_directories = data_directories::DataDirectories::parse(&bytes, windows_fields.number_of_rva_and_sizes as usize, offset)?;
         Ok (OptionalHeader {
             standard_fields: standard_fields,

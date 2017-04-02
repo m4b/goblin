@@ -13,13 +13,11 @@ documentation = "https://docs.rs/goblin"
 
 [dependencies.scroll]
 version = "0.4.0"
-git = "https://github.com/m4b/scroll"
 default_features = false
 
 [dependencies.scroll_derive]
-version = "0.3.0"
+version = "0.4.0"
 optional = true
-git = "https://github.com/m4b/scroll_derive"
 
 [features]
 default = ["std", "elf32", "elf64", "mach32", "mach64", "pe32", "pe64", "goblin", "endian_fd", "archive", "scroll/std"]

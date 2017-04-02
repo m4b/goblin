@@ -11,9 +11,10 @@ pub mod import;
 mod utils;
 
 use error;
+use container;
 
 #[derive(Debug)]
-/// An analyzed PE binary
+/// An analyzed PE32/PE32+ binary
 pub struct PE<'a> {
     /// The PE header
     pub header: header::Header,
@@ -25,6 +26,8 @@ pub struct PE<'a> {
     pub name: Option<&'a str>,
     /// Whether this is a `dll` or not
     pub is_lib: bool,
+    /// Whether the binary is 64-bit (PE32+)
+    pub is_64: bool,
     /// the entry point of the binary
     pub entry: usize,
     /// The binary's RVA, or image base - useful for computing virtual addreses
@@ -60,9 +63,11 @@ impl<'a> PE<'a> {
         let mut imports = vec![];
         let mut import_data = None;
         let mut libraries = vec![];
+        let mut is_64 = false;
         if let Some(optional_header) = header.optional_header {
             entry = optional_header.standard_fields.address_of_entry_point as usize;
             image_base = optional_header.windows_fields.image_base as usize;
+            is_64 = optional_header.container()? == container::Container::Big;
             if let &Some(export_table) = optional_header.data_directories.get_export_table() {
                 let ed = export::ExportData::parse(bytes, &export_table, &sections)?;
                 exports = export::Export::parse(bytes, &ed, &sections)?;
@@ -84,6 +89,7 @@ impl<'a> PE<'a> {
             size: 0,
             name: name,
             is_lib: is_lib,
+            is_64: is_64,
             entry: entry,
             image_base: image_base,
             export_data: export_data,

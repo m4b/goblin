@@ -22,7 +22,7 @@ goblin = "0.0.9"
 * awesome crate name
 * the best, most feature complete ELF64/32 implementation, ever - now with auto type punning!
 * zero-copy, cross-platform, endian-aware, 32/64 bit Mach-o parser - wow!
-* PE 32-bit support for binary analysis (raw writers are in the works)
+* PE 32/64-bit parser
 * many cfg options - it will make your head spin, and make you angry when reading the source!
 * goblins (TBA)
 * tests
@@ -48,8 +48,8 @@ Here are some things you could do with this crate (or help to implement so they 
 * elf32 - 32-bit elf binaries
 * mach64 - 64-bit mach-o `repr(C)` struct defs
 * mach32 - 32-bit mach-o `repr(C)` struct defs
-* pe32 - 32-bit PE binary parser
+* pe32 - 32-bit PE `repr(C)` struct defs
+* pe64 - 64-bit PE `repr(C)` struct defs
 * archive - a Unix Archive parser
 * endian_fd - parses according to the endianness in the binary
 * std - to allow `no_std` environments
-* pe64 - wip

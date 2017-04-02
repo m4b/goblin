@@ -382,8 +382,34 @@ pub struct ThreadCommand {
     pub cmdsize: u32,
     pub flavor: u32,
     pub count: u32,
-    // TODO: unimplemented
-    //pub thread_state: u32;
+    /// NOTE: this is actually, in classic mach-o style, a semi-tagged union-esque struct, and is _not_ properly handled here for arches other than i386... e.g., this is incorrect for powerpc, armv7, etc.
+    /// TODO: We need to implement a simple getter for the thread state; or even better, a method that simply returns the entry point (which is what we usually want)
+    pub thread_state: I386ThreadState,
+}
+
+/// Main thread state consists of
+/// general registers, segment registers,
+/// eip and eflags.
+///
+#[repr(packed)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+pub struct I386ThreadState {
+    pub eax: u32,
+    pub ebx: u32,
+    pub ecx: u32,
+    pub edx: u32,
+    pub edi: u32,
+    pub esi: u32,
+    pub ebp: u32,
+    pub esp: u32,
+    pub ss: u32,
+    pub eflags: u32,
+    pub eip: u32,
+    pub cs: u32,
+    pub ds: u32,
+    pub es: u32,
+    pub fs: u32,
+    pub gs: u32,
 }
 
 /// The routines command contains the address of the dynamic shared library

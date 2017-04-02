@@ -92,6 +92,9 @@ impl<'a> MachO<'a> {
                     export_trie = Some(exports::ExportTrie::new(buffer, &command));
                     bind_interpreter = Some(imports::BindInterpreter::new(buffer, &command));
                 },
+                load_command::CommandVariant::Unixthread(command) => {
+                    entry = command.thread_state.eip as u64;
+                },
                 load_command::CommandVariant::Main(command) => {
                     entry = command.entryoff;
                 },

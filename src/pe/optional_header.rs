@@ -1,52 +1,104 @@
-use pe::error;
-use super::data_directories;
+use container;
+use error;
 
-use scroll::{self, Gread};
+use pe::data_directories;
+
+use scroll::{ctx, LE, Pread, Gread};
 
 /// standard COFF fields
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
-#[derive(Pread, Pwrite)]
-pub struct StandardFields {
+#[derive(Pread, Pwrite, SizeWith)]
+pub struct StandardFields32 {
     pub magic: u16,
     pub major_linker_version: u8,
     pub minor_linker_version: u8,
-    pub size_of_code: u32, // no these are all the same u32, only base of data is absent seems: all below mabye 64-bit addr
-    pub size_of_initialized_data: u32, // addr
-    pub size_of_uninitialized_data: u32, // addr
-    pub address_of_entry_point: u32, // addr
-    pub base_of_code: u32, // addr
+    pub size_of_code: u32,
+    pub size_of_initialized_data: u32,
+    pub size_of_uninitialized_data: u32,
+    pub address_of_entry_point: u32,
+    pub base_of_code: u32,
     /// absent in 64-bit PE32+
     pub base_of_data: u32,
 }
 
-pub const SIZEOF_STANDARD_FIELDS: usize = (3 * 8) + 4;
+pub const SIZEOF_STANDARD_FIELDS_32: usize = 28;
 
-pub const MAGIC_32: u16 = 0x10b;
-// TODO: verify this
-pub const MAGIC_64: u16 = 0x20b;
+/// standard 64-bit COFF fields
+#[repr(C)]
+#[derive(Debug, PartialEq, Copy, Clone, Default)]
+#[derive(Pread, Pwrite, SizeWith)]
+pub struct StandardFields64 {
+    pub magic: u16,
+    pub major_linker_version: u8,
+    pub minor_linker_version: u8,
+    pub size_of_code: u32,
+    pub size_of_initialized_data: u32,
+    pub size_of_uninitialized_data: u32,
+    pub address_of_entry_point: u32,
+    pub base_of_code: u32,
+}
 
-impl StandardFields {
-    pub fn parse<B: AsRef<[u8]>> (bytes: &B, offset: &mut usize) -> error::Result<Self> {
-        let mut standard_fields = StandardFields::default();
-        standard_fields.magic = bytes.gread_with(offset, scroll::LE)?;
-        standard_fields.major_linker_version = bytes.gread_with(offset, scroll::LE)?;
-        standard_fields.minor_linker_version = bytes.gread_with(offset, scroll::LE)?;
-        standard_fields.size_of_code = bytes.gread_with(offset, scroll::LE)?;
-        standard_fields.size_of_initialized_data = bytes.gread_with(offset, scroll::LE)?;
-        standard_fields.size_of_uninitialized_data = bytes.gread_with(offset, scroll::LE)?;
-        standard_fields.address_of_entry_point = bytes.gread_with(offset, scroll::LE)?;
-        standard_fields.base_of_code = bytes.gread_with(offset, scroll::LE)?;
-        standard_fields.base_of_data = bytes.gread_with(offset, scroll::LE)?;
-        Ok(standard_fields)
+pub const SIZEOF_STANDARD_FIELDS_64: usize = 24;
+
+/// Unified 32/64-bit COFF fields
+#[derive(Debug, PartialEq, Copy, Clone, Default)]
+pub struct StandardFields {
+    pub magic: u16,
+    pub major_linker_version: u8,
+    pub minor_linker_version: u8,
+    pub size_of_code: u64,
+    pub size_of_initialized_data: u64,
+    pub size_of_uninitialized_data: u64,
+    pub address_of_entry_point: u64,
+    pub base_of_code: u64,
+    /// absent in 64-bit PE32+
+    pub base_of_data: u32,
+}
+
+impl From<StandardFields32> for StandardFields {
+    fn from(fields: StandardFields32) -> Self {
+        StandardFields {
+            magic: fields.magic,
+            major_linker_version: fields.major_linker_version,
+            minor_linker_version: fields.minor_linker_version,
+            size_of_code: fields.size_of_code as u64,
+            size_of_initialized_data: fields.size_of_initialized_data as u64,
+            size_of_uninitialized_data: fields.size_of_uninitialized_data as u64,
+            address_of_entry_point: fields.address_of_entry_point as u64,
+            base_of_code: fields.base_of_code as u64,
+            base_of_data: fields.base_of_data,
+        }
     }
 }
+
+impl From<StandardFields64> for StandardFields {
+    fn from(fields: StandardFields64) -> Self {
+        StandardFields {
+            magic: fields.magic,
+            major_linker_version: fields.major_linker_version,
+            minor_linker_version: fields.minor_linker_version,
+            size_of_code: fields.size_of_code as u64,
+            size_of_initialized_data: fields.size_of_initialized_data as u64,
+            size_of_uninitialized_data: fields.size_of_uninitialized_data as u64,
+            address_of_entry_point: fields.address_of_entry_point as u64,
+            base_of_code: fields.base_of_code as u64,
+            base_of_data: 0,
+        }
+    }
+}
+
+/// Standard fields magic number for 32-bit binary
+pub const MAGIC_32: u16 = 0x10b;
+/// Standard fields magic number for 64-bit binary
+pub const MAGIC_64: u16 = 0x20b;
 
 /// Windows specific fields
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
-pub struct WindowsFields {
-    pub image_base: u32, // u64; 64-bit
+#[derive(Pread, Pwrite, SizeWith)]
+pub struct WindowsFields32 {
+    pub image_base: u32,
     pub section_alignment: u32,
     pub file_alignment: u32,
     pub major_operating_system_version: u16,
@@ -61,45 +113,129 @@ pub struct WindowsFields {
     pub check_sum: u32,
     pub subsystem: u16,
     pub dll_characteristics: u16,
-    pub size_of_stack_reserve: u32, // u64
-    pub size_of_stack_commit: u32, // u64
-    pub size_of_heap_reserve: u32, // u64
-    pub size_of_heap_commit: u32, // u64
+    pub size_of_stack_reserve: u32,
+    pub size_of_stack_commit: u32,
+    pub size_of_heap_reserve: u32,
+    pub size_of_heap_commit: u32,
     pub loader_flags: u32,
     pub number_of_rva_and_sizes: u32,
 }
 
-pub const SIZEOF_WINDOWS_FIELDS: usize = (8 * 8) + 4;
+pub const SIZEOF_WINDOWS_FIELDS_32: usize = 68;
 
-impl WindowsFields {
-    pub fn parse<B: AsRef<[u8]>> (bytes: &B, offset: &mut usize) -> error::Result<Self> {
-        let mut windows_fields = WindowsFields::default();
-        windows_fields.image_base = bytes.gread_with(offset, scroll::LE)?;
-        windows_fields.section_alignment = bytes.gread_with(offset, scroll::LE)?;
-        windows_fields.file_alignment = bytes.gread_with(offset, scroll::LE)?;
-        windows_fields.major_operating_system_version = bytes.gread_with(offset, scroll::LE)?;
-        windows_fields.minor_operating_system_version = bytes.gread_with(offset, scroll::LE)?;
-        windows_fields.major_image_version = bytes.gread_with(offset, scroll::LE)?;
-        windows_fields.minor_image_version = bytes.gread_with(offset, scroll::LE)?;
-        windows_fields.major_subsystem_version = bytes.gread_with(offset, scroll::LE)?;
-        windows_fields.minor_subsystem_version = bytes.gread_with(offset, scroll::LE)?;
-        windows_fields.win32_version_value = bytes.gread_with(offset, scroll::LE)?;
-        windows_fields.size_of_image = bytes.gread_with(offset, scroll::LE)?;
-        windows_fields.size_of_headers = bytes.gread_with(offset, scroll::LE)?;
-        windows_fields.check_sum = bytes.gread_with(offset, scroll::LE)?;
-        windows_fields.subsystem = bytes.gread_with(offset, scroll::LE)?;
-        windows_fields.dll_characteristics = bytes.gread_with(offset, scroll::LE)?;
-        windows_fields.size_of_stack_reserve = bytes.gread_with(offset, scroll::LE)?;
-        windows_fields.size_of_stack_commit = bytes.gread_with(offset, scroll::LE)?;
-        windows_fields.size_of_heap_reserve = bytes.gread_with(offset, scroll::LE)?;
-        windows_fields.size_of_heap_commit = bytes.gread_with(offset, scroll::LE)?;
-        windows_fields.loader_flags = bytes.gread_with(offset, scroll::LE)?;
-        windows_fields.number_of_rva_and_sizes = bytes.gread_with(offset, scroll::LE)?;
-        Ok(windows_fields)
+/// 64-bit Windows specific fields
+#[repr(C)]
+#[derive(Debug, PartialEq, Copy, Clone, Default)]
+#[derive(Pread, Pwrite, SizeWith)]
+pub struct WindowsFields64 {
+    pub image_base: u64,
+    pub section_alignment: u32,
+    pub file_alignment: u32,
+    pub major_operating_system_version: u16,
+    pub minor_operating_system_version: u16,
+    pub major_image_version: u16,
+    pub minor_image_version: u16,
+    pub major_subsystem_version: u16,
+    pub minor_subsystem_version: u16,
+    pub win32_version_value: u32,
+    pub size_of_image: u32,
+    pub size_of_headers: u32,
+    pub check_sum: u32,
+    pub subsystem: u16,
+    pub dll_characteristics: u16,
+    pub size_of_stack_reserve: u64,
+    pub size_of_stack_commit:  u64,
+    pub size_of_heap_reserve:  u64,
+    pub size_of_heap_commit:   u64,
+    pub loader_flags: u32,
+    pub number_of_rva_and_sizes: u32,
+}
+
+pub const SIZEOF_WINDOWS_FIELDS_64: usize = 88;
+
+// /// Generic 32/64-bit Windows specific fields
+// #[derive(Debug, PartialEq, Copy, Clone, Default)]
+// pub struct WindowsFields {
+//     pub image_base: u64,
+//     pub section_alignment: u32,
+//     pub file_alignment: u32,
+//     pub major_operating_system_version: u16,
+//     pub minor_operating_system_version: u16,
+//     pub major_image_version: u16,
+//     pub minor_image_version: u16,
+//     pub major_subsystem_version: u16,
+//     pub minor_subsystem_version: u16,
+//     pub win32_version_value: u32,
+//     pub size_of_image: u32,
+//     pub size_of_headers: u32,
+//     pub check_sum: u32,
+//     pub subsystem: u16,
+//     pub dll_characteristics: u16,
+//     pub size_of_stack_reserve: u64,
+//     pub size_of_stack_commit:  u64,
+//     pub size_of_heap_reserve:  u64,
+//     pub size_of_heap_commit:   u64,
+//     pub loader_flags: u32,
+//     pub number_of_rva_and_sizes: u32,
+// }
+
+impl From<WindowsFields32> for WindowsFields {
+    fn from(windows: WindowsFields32) -> Self {
+        WindowsFields {
+            image_base: windows.image_base as u64,
+            section_alignment: windows.section_alignment,
+            file_alignment: windows.file_alignment,
+            major_operating_system_version: windows.major_operating_system_version,
+            minor_operating_system_version: windows.minor_operating_system_version,
+            major_image_version: windows.major_image_version,
+            minor_image_version: windows.minor_image_version,
+            major_subsystem_version: windows.major_subsystem_version,
+            minor_subsystem_version: windows.minor_subsystem_version,
+            win32_version_value: windows.win32_version_value,
+            size_of_image: windows.size_of_image,
+            size_of_headers: windows.size_of_headers,
+            check_sum: windows.check_sum,
+            subsystem: windows.subsystem,
+            dll_characteristics: windows.dll_characteristics,
+            size_of_stack_reserve: windows.size_of_stack_reserve as u64,
+            size_of_stack_commit: windows.size_of_stack_commit as u64,
+            size_of_heap_reserve: windows.size_of_heap_reserve as u64,
+            size_of_heap_commit: windows.size_of_heap_commit as u64,
+            loader_flags: windows.loader_flags,
+            number_of_rva_and_sizes: windows.number_of_rva_and_sizes,
+        }
     }
 }
 
+// impl From<WindowsFields32> for WindowsFields {
+//     fn from(windows: WindowsFields32) -> Self {
+//         WindowsFields {
+//             image_base: windows.image_base,
+//             section_alignment: windows.section_alignment,
+//             file_alignment: windows.file_alignment,
+//             major_operating_system_version: windows.major_operating_system_version,
+//             minor_operating_system_version: windows.minor_operating_system_version,
+//             major_image_version: windows.major_image_version,
+//             minor_image_version: windows.minor_image_version,
+//             major_subsystem_version: windows.major_subsystem_version,
+//             minor_subsystem_version: windows.minor_subsystem_version,
+//             win32_version_value: windows.win32_version_value,
+//             size_of_image: windows.size_of_image,
+//             size_of_headers: windows.size_of_headers,
+//             check_sum: windows.check_sum,
+//             subsystem: windows.subsystem,
+//             dll_characteristics: windows.dll_characteristics,
+//             size_of_stack_reserve: windows.size_of_stack_reserve,
+//             size_of_stack_commit: windows.size_of_stack_commit,
+//             size_of_heap_reserve: windows.size_of_heap_reserve,
+//             size_of_heap_commit: windows.size_of_heap_commit,
+//             loader_flags: windows.loader_flags,
+//             number_of_rva_and_sizes: windows.number_of_rva_and_sizes,
+//         }
+//     }
+// }
 
+pub type WindowsFields = WindowsFields64;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct OptionalHeader {
@@ -109,14 +245,66 @@ pub struct OptionalHeader {
 }
 
 impl OptionalHeader {
-    pub fn parse<B: AsRef<[u8]>> (bytes: &B, offset: &mut usize) -> error::Result<Self> {
-        let standard_fields = StandardFields::parse(bytes, offset)?;
-        let windows_fields = WindowsFields::parse(bytes, offset)?;
-        let data_directories = data_directories::DataDirectories::parse(bytes, windows_fields.number_of_rva_and_sizes as usize, offset)?;
+    pub fn container(&self) -> error::Result<container::Container> {
+        match self.standard_fields.magic {
+            MAGIC_32 => {
+                Ok(container::Container::Little)
+            },
+            MAGIC_64 => {
+                Ok(container::Container::Big)
+            },
+            magic => {
+                Err(error::Error::BadMagic(magic as u64))
+            }
+        }
+    }
+}
+
+impl<'a> ctx::TryFromCtx<'a> for OptionalHeader {
+    type Error = error::Error;
+    fn try_from_ctx(bytes: &'a [u8], (mut offset, _): (usize, ctx::DefaultCtx)) -> error::Result<Self> {
+        let magic = bytes.pread_with::<u16>(offset, LE)?;
+        let offset = &mut offset;
+        let (standard_fields, windows_fields): (StandardFields, WindowsFields) = match magic {
+            MAGIC_32 => {
+                let standard_fields = bytes.gread_with::<StandardFields32>(offset, LE)?.into();
+                let windows_fields = bytes.gread_with::<WindowsFields32>(offset, LE)?.into();
+                (standard_fields, windows_fields)
+            },
+            MAGIC_64 => {
+                let standard_fields = bytes.gread_with::<StandardFields64>(offset, LE)?.into();
+                let windows_fields = bytes.gread_with::<WindowsFields64>(offset, LE)?;
+                (standard_fields, windows_fields)
+            },
+            _ => return Err(error::Error::BadMagic(magic as u64))
+        };
+        println!("standard_fields {:#?} windows_fields {:#?}", standard_fields, windows_fields);
+        let data_directories = data_directories::DataDirectories::parse(&bytes, windows_fields.number_of_rva_and_sizes as usize, offset)?;
         Ok (OptionalHeader {
             standard_fields: standard_fields,
             windows_fields: windows_fields, 
             data_directories: data_directories,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn sizeof_standards32() {
+        assert_eq!(::std::mem::size_of::<StandardFields32>(), SIZEOF_STANDARD_FIELDS_32);
+    }
+    #[test]
+    fn sizeof_windows32() {
+        assert_eq!(::std::mem::size_of::<WindowsFields32>(), SIZEOF_WINDOWS_FIELDS_32);
+    }
+    #[test]
+    fn sizeof_standards64() {
+        assert_eq!(::std::mem::size_of::<StandardFields64>(), SIZEOF_STANDARD_FIELDS_64);
+    }
+    #[test]
+    fn sizeof_windows64() {
+        assert_eq!(::std::mem::size_of::<WindowsFields64>(), SIZEOF_WINDOWS_FIELDS_64);
     }
 }

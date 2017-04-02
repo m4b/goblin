@@ -1,5 +1,6 @@
 use scroll::{self, Pread, Gread};
-use pe::error;
+use error;
+
 use pe::section_table;
 use pe::utils;
 use pe::data_directories;

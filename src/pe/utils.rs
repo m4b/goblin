@@ -1,5 +1,5 @@
 use scroll::{Pread};
-use pe::error;
+use error;
 
 use super::section_table;
 

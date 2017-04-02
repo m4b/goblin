@@ -1,10 +1,6 @@
-//! Implements a PE parser
+//! A PE32 and PE32+ parser
 //!
 
-use std::io::Read;
-use scroll::Buffer;
-
-pub use super::error;
 pub mod header;
 pub mod optional_header;
 pub mod characteristic;
@@ -14,11 +10,11 @@ pub mod export;
 pub mod import;
 mod utils;
 
-use error::*;
+use error;
 
 #[derive(Debug)]
 /// An analyzed PE binary
-pub struct PE {
+pub struct PE<'a> {
     /// The PE header
     pub header: header::Header,
     /// A list of the sections in this PE binary
@@ -26,7 +22,7 @@ pub struct PE {
     /// The size of the binary
     pub size: usize,
     /// The name of this `dll`, if it has one
-    pub name: Option<String>,
+    pub name: Option<&'a str>,
     /// Whether this is a `dll` or not
     pub is_lib: bool,
     /// the entry point of the binary
@@ -34,7 +30,7 @@ pub struct PE {
     /// The binary's RVA, or image base - useful for computing virtual addreses
     pub image_base: usize,
     /// Data about any exported symbols in this binary (e.g., if it's a `dll`)
-    pub export_data: Option<export::ExportData>,
+    pub export_data: Option<export::ExportData<'a>>,
     /// Data for any imported symbols, and from which `dll`, etc., in this binary
     pub import_data: Option<import::ImportData>,
     /// The list of exported symbols in this binary, contains synthetic information for easier analysis
@@ -45,9 +41,9 @@ pub struct PE {
     pub libraries: Vec<String>,
 }
 
-impl PE {
+impl<'a> PE<'a> {
     /// Reads a PE binary from the underlying `bytes`
-    pub fn parse<B: AsRef<[u8]>>(bytes: &B) -> Result<Self> {
+    pub fn parse<B: AsRef<[u8]>>(bytes: &'a B) -> error::Result<Self> {
         let header = header::Header::parse(bytes)?;
         let mut offset = &mut (header.dos_header.pe_pointer as usize + header::SIZEOF_COFF_HEADER + header.coff_header.size_of_optional_header as usize);
         let nsections = header.coff_header.number_of_sections as usize;
@@ -70,7 +66,7 @@ impl PE {
             if let &Some(export_table) = optional_header.data_directories.get_export_table() {
                 let ed = export::ExportData::parse(bytes, &export_table, &sections)?;
                 exports = export::Export::parse(bytes, &ed, &sections)?;
-                name = Some(ed.name.to_owned());
+                name = Some(ed.name);
                 export_data = Some(ed);
             }
             if let &Some(import_table) = optional_header.data_directories.get_import_table() {
@@ -96,14 +92,5 @@ impl PE {
             imports: imports,
             libraries: libraries,
         })
-    }
-
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        PE::parse(&bytes)
-    }
-
-    pub fn try_from<R: Read>(fd: &mut R) -> Result<Self> {
-        let buffer = Buffer::try_from(fd)?;
-        PE::parse(&buffer)
     }
 }

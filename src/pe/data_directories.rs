@@ -1,4 +1,4 @@
-use pe::error;
+use error;
 use scroll::{self, Gread};
 
 #[repr(C)]

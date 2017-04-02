@@ -1,10 +1,10 @@
 use scroll::{self, Pread, Gread};
 
-use pe::error;
+use error;
 
-use super::utils;
-use super::section_table;
-use super::data_directories;
+use pe::utils;
+use pe::section_table;
+use pe::data_directories;
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
@@ -54,16 +54,16 @@ pub type ExportOrdinalTable = Vec<u16>;
 
 #[derive(Debug, Default)]
 /// Export data contains the `dll` name which other libraries can import symbols by (two-level namespace), as well as other important indexing data allowing symbol lookups
-pub struct ExportData {
-    pub name: String,
+pub struct ExportData<'a> {
+    pub name: &'a str,
     pub export_directory_table: ExportDirectoryTable,
     pub export_name_pointer_table: ExportNamePointerTable,
     pub export_ordinal_table: ExportOrdinalTable,
     pub export_address_table: ExportAddressTable,
 }
 
-impl ExportData {
-    pub fn parse<B: AsRef<[u8]>>(bytes: &B, dd: &data_directories::DataDirectory, sections: &[section_table::SectionTable]) -> error::Result<Self> {
+impl<'a> ExportData<'a> {
+    pub fn parse<B: AsRef<[u8]>>(bytes: &'a B, dd: &data_directories::DataDirectory, sections: &[section_table::SectionTable]) -> error::Result<ExportData<'a>> {
         let export_rva = dd.virtual_address as usize;
         let size = dd.size as usize;
         let export_offset = utils::find_offset(export_rva, sections).unwrap();
@@ -99,7 +99,7 @@ impl ExportData {
 
         let name_offset = utils::find_offset(export_directory_table.name_rva as usize, sections).unwrap();
         //println!("<PEExport.get> pointers: 0x{:x}  ordinals: 0x{:x} addresses: 0x{:x}", name_pointer_table_offset, export_ordinal_table_offset, export_address_table_offset);
-        let name = bytes.pread_slice::<str>(name_offset, 8)?.to_string();
+        let name: &'a str = bytes.pread_slice::<str>(name_offset, 8)?;
         Ok(ExportData {
             name: name,
             export_directory_table: export_directory_table,

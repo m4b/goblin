@@ -10,6 +10,9 @@ macro_rules! elf_dyn {
             /// Integer value
             pub d_val: $size,
         }
+
+        use plain;
+        unsafe impl plain::Plain for Dyn {}
     }
 }
 
@@ -435,6 +438,8 @@ macro_rules! elf_dyn_std_impl {
             use elf::dyn::Dyn as ElfDyn;
             use super::*;
 
+            use plain::Methods;
+
             impl From<ElfDyn> for Dyn {
                 fn from(dyn: ElfDyn) -> Self {
                     Dyn {
@@ -497,12 +502,9 @@ macro_rules! elf_dyn_std_impl {
                     if phdr.p_type == PT_DYNAMIC {
                         let filesz = phdr.p_filesz as usize;
                         let dync = filesz / SIZEOF_DYN;
-                        let mut bytes = vec![0u8; filesz];
+                        let mut dyns = vec![Dyn::default(); dync];
                         try!(fd.seek(Start(phdr.p_offset as u64)));
-                        try!(fd.read(&mut bytes));
-                        let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Dyn, dync) };
-                        let mut dyns = Vec::with_capacity(dync);
-                        dyns.extend_from_slice(bytes);
+                        try!(fd.read(dyns.as_mut_bytes()));
                         dyns.dedup();
                         return Ok(Some(dyns));
                     }

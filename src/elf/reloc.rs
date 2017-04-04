@@ -71,6 +71,10 @@ macro_rules! elf_reloc {
             /// relocation type and symbol address
             pub r_info: $size,
         }
+        use plain;
+        unsafe impl plain::Plain for Rela {}
+        unsafe impl plain::Plain for Rel {}
+
         impl fmt::Debug for Rela {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 let sym = r_sym(self.r_info);
@@ -115,6 +119,8 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
             use std::fs::File;
             use std::io::{Read, Seek};
             use std::io::SeekFrom::Start;
+
+            use plain::Methods;
 
             impl From<Rela> for Reloc {
                 fn from(rela: Rela) -> Self {
@@ -183,12 +189,9 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
 
             pub fn from_fd(fd: &mut File, offset: usize, size: usize) -> Result<Vec<Rela>> {
                 let count = size / SIZEOF_RELA;
-                let mut bytes = vec![0u8; size];
+                let mut relocs = vec![Rela::default(); count];
                 fd.seek(Start(offset as u64))?;
-                fd.read(&mut bytes)?;
-                let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Rela, count) };
-                let mut relocs = Vec::with_capacity(count);
-                relocs.extend_from_slice(bytes);
+                fd.read(relocs.as_mut_bytes())?;
                 Ok(relocs)
             }
         }

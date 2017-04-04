@@ -126,11 +126,12 @@ macro_rules! elf_sym_std_impl {
             use elf::error::*;
 
             use core::fmt;
-            use core::slice;
 
             use std::fs::File;
             use std::io::{Read, Seek};
             use std::io::SeekFrom::Start;
+
+            use plain::Methods;
 
             impl Sym {
                 /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` bind and a `st_value` of 0
@@ -186,20 +187,11 @@ macro_rules! elf_sym_std_impl {
                 }
             }
 
-            pub unsafe fn from_raw<'a>(symp: *const Sym, count: usize) -> &'a [Sym] {
-                slice::from_raw_parts(symp, count)
-            }
-
             pub fn from_fd<'a>(fd: &mut File, offset: usize, count: usize) -> Result<Vec<Sym>> {
                 // TODO: AFAIK this shouldn't work, since i pass in a byte size...
-                // FIX THIS, unecessary allocations + unsafety here
-                let mut bytes = vec![0u8; count * SIZEOF_SYM];
+                let mut syms = vec![Sym::default(); count];
                 try!(fd.seek(Start(offset as u64)));
-                try!(fd.read(&mut bytes));
-                let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Sym, count) };
-                let mut syms = Vec::with_capacity(count);
-                syms.extend_from_slice(bytes);
-                syms.dedup();
+                try!(fd.read(syms.as_mut_bytes()));
                 Ok(syms)
             }
 
@@ -241,6 +233,10 @@ pub mod sym32 {
         pub st_shndx: u16,
     }
 
+    use plain;
+    // Declare that the type is plain.
+    unsafe impl plain::Plain for Sym {}
+
     pub const SIZEOF_SYM: usize = 4 + 1 + 1 + 2 + 4 + 4;
 
     elf_sym_std_impl!(u32);
@@ -267,6 +263,10 @@ pub mod sym64 {
         /// Symbol size
         pub st_size: u64,
     }
+
+    use plain;
+    // Declare that the type is plain.
+    unsafe impl plain::Plain for Sym {}
 
     pub const SIZEOF_SYM: usize = 4 + 1 + 1 + 2 + 8 + 8;
 

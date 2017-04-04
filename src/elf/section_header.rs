@@ -28,6 +28,11 @@ macro_rules! elf_section_header {
             /// Entry size if section holds table
             pub sh_entsize: $size,
         }
+
+        use plain;
+        // Declare that this is a plain type.
+        unsafe impl plain::Plain for SectionHeader {}
+
         impl ::core::fmt::Debug for SectionHeader {
             fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
                 write!(f,
@@ -236,11 +241,11 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
         use super::*;
         use elf::error::*;
 
-        use core::slice;
-
         use std::fs::File;
         use std::io::{Read, Seek};
         use std::io::SeekFrom::Start;
+
+        use plain::Methods;
 
         impl From<SectionHeader> for ElfSectionHeader {
             fn from(sh: SectionHeader) -> Self {
@@ -277,23 +282,17 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
 
         impl SectionHeader {
             pub fn from_bytes(bytes: &[u8], shnum: usize) -> Vec<SectionHeader> {
-                let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut SectionHeader, shnum) };
-                let mut shdrs = Vec::with_capacity(shnum);
-                shdrs.extend_from_slice(bytes);
+                let mut shdrs = vec![SectionHeader::default(); shnum];
+                // FIXME: copy_from_slice() panics if the slices are not equal length
+                shdrs.as_mut_bytes().copy_from_slice(bytes);
                 shdrs
             }
 
-            pub unsafe fn from_raw_parts<'a>(shdrp: *const SectionHeader,
-                                             shnum: usize)
-                                             -> &'a [SectionHeader] {
-                slice::from_raw_parts(shdrp, shnum)
-            }
-
-            pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> Result<Vec<SectionHeader>> {
-                let mut shdrs = vec![0u8; count * SIZEOF_SHDR];
+            pub fn from_fd(fd: &mut File, offset: u64, shnum: usize) -> Result<Vec<SectionHeader>> {
+                let mut shdrs = vec![SectionHeader::default(); shnum];
                 try!(fd.seek(Start(offset)));
-                try!(fd.read(&mut shdrs));
-                Ok(SectionHeader::from_bytes(&shdrs, count))
+                try!(fd.read(shdrs.as_mut_bytes()));
+                Ok(shdrs)
             }
         }
     }

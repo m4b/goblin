@@ -1,11 +1,12 @@
 //! A Mach-o fat binary is a multi-architecture binary container
 
-use std::fmt;
+use core::fmt;
+
 use std::fs::File;
 use std::io::{self, Read};
 
-use scroll::{self, Gread};
-use super::constants::cputype;
+use scroll::{self, Gread, Pread};
+use mach::constants::cputype;
 use error;
 
 pub const FAT_MAGIC: u32 = 0xcafebabe;
@@ -13,9 +14,12 @@ pub const FAT_CIGAM: u32 = 0xbebafeca;
 
 #[repr(C)]
 #[derive(Clone, Copy, Default)]
+#[cfg_attr(feature = "std", derive(Pread, Pwrite, SizeWith))]
 /// The Mach-o `FatHeader` always has its data bigendian
 pub struct FatHeader {
+    /// The magic number, `cafebabe`
     pub magic: u32,
+    /// How many fat architecture headers there are
     pub nfat_arch: u32,
 }
 
@@ -29,11 +33,15 @@ impl fmt::Debug for FatHeader {
 
 #[repr(C)]
 #[derive(Clone, Copy, Default)]
+#[cfg_attr(feature = "std", derive(Pread, Pwrite, SizeWith))]
 /// The Mach-o `FatArch` always has its data bigendian
 pub struct FatArch {
+    /// What kind of CPU this binary is
     pub cputype: u32,
     pub cpusubtype: u32,
+    /// Where in the fat binary it starts
     pub offset: u32,
+    /// How big the binary is
     pub size: u32,
     pub align: u32,
 }
@@ -53,6 +61,7 @@ impl fmt::Debug for FatArch {
 }
 
 impl FatHeader {
+    /// Reinterpret a `FatHeader` from `bytes`
     pub fn from_bytes(bytes: &[u8; SIZEOF_FAT_HEADER]) -> FatHeader {
         let mut offset = 0;
         let magic = bytes.gread_with(&mut offset, scroll::BE).unwrap();
@@ -63,6 +72,7 @@ impl FatHeader {
         }
     }
 
+    /// Reads a `FatHeader` from a `File` on disk
     pub fn from_fd(fd: &mut File) -> io::Result<FatHeader> {
         let mut header = [0; SIZEOF_FAT_HEADER];
         try!(fd.read(&mut header));
@@ -80,22 +90,14 @@ impl FatHeader {
 }
 
 impl FatArch {
-    pub fn new(bytes: &[u8; SIZEOF_FAT_ARCH]) -> FatArch {
-        let mut offset = 0;
-        let cputype = bytes.gread_with(&mut offset, scroll::BE).unwrap();
-        let cpusubtype = bytes.gread_with(&mut offset, scroll::BE).unwrap();
-        let offset_ = bytes.gread_with(&mut offset, scroll::BE).unwrap();
-        let size = bytes.gread_with(&mut offset, scroll::BE).unwrap();
-        let align = bytes.gread_with(&mut offset, scroll::BE).unwrap();
-        FatArch {
-            cputype: cputype,
-            cpusubtype: cpusubtype,
-            offset: offset_,
-            size: size,
-            align: align,
-        }
+    /// Get the slice of bytes this header describes from `bytes`
+    pub fn slice<'a>(&self, bytes: &'a [u8]) -> &'a [u8] {
+        let start = self.offset as usize;
+        let end = (self.offset + self.size) as usize;
+        &bytes[start..end]
     }
 
+    /// Whether this fat header describes a 64-bit binary
     pub fn is_64(&self) -> bool {
         self.cputype == cputype::CPU_TYPE_X86_64 || self.cputype == cputype::CPU_TYPE_ARM64
     }
@@ -104,17 +106,10 @@ impl FatArch {
         let mut archs = Vec::with_capacity(count);
         let offset = &mut offset;
         for _ in 0..count {
-            let mut arch = Self::default();
-            arch.cputype = fd.gread_with(offset, scroll::BE)?;
-            arch.cpusubtype = fd.gread_with(offset, scroll::BE)?;
-            arch.offset = fd.gread_with(offset, scroll::BE)?;
-            arch.size = fd.gread_with(offset, scroll::BE)?;
-            arch.align = fd.gread_with(offset, scroll::BE)?;
-            archs.push(arch);
+            archs.push(fd.gread_with::<FatArch>(offset, scroll::BE)?);
         }
         Ok(archs)
     }
-
     pub fn parse<S: AsRef<[u8]>>(buffer: &S) -> error::Result<Vec<Self>> {
         let header = FatHeader::parse(buffer)?;
         let arches = FatArch::parse_arches(buffer,
@@ -129,5 +124,52 @@ impl FatArch {
 
     pub fn find_64(arches: &[Self]) -> Option<&Self> {
         arches.iter().find(|arch| arch.is_64())
+    }
+}
+
+#[cfg(feature = "std")]
+/// A Mach-o multi architecture (Fat) binary container
+pub struct MultiArch<'a> {
+    data: &'a [u8],
+    pub narches: usize,
+}
+
+#[cfg(feature = "std")]
+impl<'a> MultiArch<'a> {
+    /// Lazily construct `Self`
+    pub fn new(bytes: &'a [u8]) -> error::Result<Self> {
+        let header = FatHeader::parse(&bytes)?;
+        Ok(MultiArch {
+            data: bytes,
+            narches: header.nfat_arch as usize
+        })
+    }
+    /// Return all the Architectures in this binary
+    pub fn arches(&self) -> error::Result<Vec<FatArch>> {
+        let mut arches = Vec::with_capacity(self.narches);
+        let offset = &mut 0;
+        for _ in 0..self.narches {
+            arches.push(self.data.gread_with::<FatArch>(offset, scroll::BE)?);
+        }
+        Ok(arches)
+    }
+    // pub fn get(&self, index: usize) -> error::Result<super::MachO<'a>> {
+    //     if index >= self.narches {
+    //         return Err(error::Error::Malformed(format!("Requested the {}-th binary, but there are only {} architectures in this container", index, self.narches).into()))
+    //     }
+    //     let mut offset = index * SIZEOF_FAT_ARCH;
+    //     let arch = self.data.pread_with::<FatArch>(offset, scroll::BE)?;
+    //     let bytes = arch.slice(self.data);
+    //     Ok(super::MachO::parse(bytes, 0)?)
+    // }
+}
+
+#[cfg(feature = "std")]
+impl<'a> fmt::Debug for MultiArch<'a> {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("MultiArch")
+            .field("arches:", &self.arches().unwrap())
+            .field("data",    &self.data.len())
+            .finish()
     }
 }

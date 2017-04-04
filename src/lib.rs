@@ -3,12 +3,12 @@
 //! ![say the right
 //! words](https://s-media-cache-ak0.pinimg.com/736x/1b/6a/aa/1b6aaa2bae005e2fed84b1a7c32ecb1b.jpg)
 //!
-//! `libgoblin` is a cross-platform trifecta of binary parsing and loading fun.  Currently, it supports:
+//! `libgoblin` is a cross-platform trifecta of binary parsing and loading fun.  It supports:
 //!
-//! * the ELF32/64 formats
+//! * An ELF32/64 parser, and raw C structs
+//! * A 32/64-bit, zero-copy, endian aware, Mach-o parser, and raw C structs
+//! * A PE32/PE32+ (64-bit) parser, and raw C structs
 //! * A Unix archive parser and loader
-//! * A PE 32-bit parser
-//! * The mach parser is in progress
 //!
 //! Goblin requires at least `rustc` 1.15
 //!
@@ -38,7 +38,6 @@
 //!                     let pe = pe::PE::parse(&buffer)?;
 //!                     println!("pe: {:#?}", &pe);
 //!                 },
-//!                 // wip
 //!                 Hint::Mach(_) => {
 //!                     let mach = mach::Mach::parse(&buffer)?;
 //!                     println!("mach: {:#?}", &mach);

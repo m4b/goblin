@@ -44,8 +44,8 @@ Here are some things you could do with this crate (or help to implement so they 
 
 `libgoblin` is designed to be massively configurable. The current flags are:
 
-* elf64 - 64-bit elf binaries
-* elf32 - 32-bit elf binaries
+* elf64 - 64-bit elf binaries, `repr(C)` struct defs
+* elf32 - 32-bit elf binaries, `repr(C)` struct defs
 * mach64 - 64-bit mach-o `repr(C)` struct defs
 * mach32 - 32-bit mach-o `repr(C)` struct defs
 * pe32 - 32-bit PE `repr(C)` struct defs

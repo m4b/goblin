@@ -130,6 +130,19 @@ pub enum Mach<'a> {
 }
 
 impl<'a> Mach<'a> {
+    // pub fn parse_at(&'a self, bytes: &'a [u8], idx: usize) -> error::Result<MachO<'a>> {
+    //     match *self {
+    //         Mach::Fat(arches) => {
+    //             let arch = arches[idx];
+    //             let start = arch.offset as usize;
+    //             let end = (arch.offset + arch.size) as usize;
+    //             // let bytes = arch.slice(bytes);
+    //             MachO::parse(bytes, arch.offset as usize)
+    //         },
+    //         Mach::Binary(binary) => Ok(binary)
+    //     }
+    // }
+
     pub fn parse<'b, B: AsRef<[u8]>>(buffer: &'b B) -> error::Result<Mach<'b>> {
         let size = buffer.as_ref().len();
         if size < 4 {

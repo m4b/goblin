@@ -17,8 +17,8 @@ pub mod bind_opcodes;
 pub use self::constants::cputype as cputype;
 
 /// Returns a big endian magical number
-pub fn peek<S: AsRef<[u8]>>(buffer: &S, offset: usize) -> error::Result<u32> {
-    Ok(buffer.pread_with::<u32>(offset, scroll::BE)?)
+pub fn peek<B: AsRef<[u8]>>(bytes: B, offset: usize) -> error::Result<u32> {
+    Ok(bytes.pread_with::<u32>(offset, scroll::BE)?)
 }
 
 #[derive(Debug)]
@@ -53,10 +53,10 @@ impl<'a> MachO<'a> {
             Ok(vec![])
         }
     }
-    /// Parses the Mach-o binary from `buffer` at `offset`
-    pub fn parse<'b, B: AsRef<[u8]>> (buffer: &'b B, mut offset: usize) -> error::Result<MachO<'b>> {
+    /// Parses the Mach-o binary from `bytes` at `offset`
+    pub fn parse<'b, B: AsRef<[u8]>> (bytes: &'b B, mut offset: usize) -> error::Result<MachO<'b>> {
         let offset = &mut offset;
-        let header: header::Header = buffer.pread(*offset)?;
+        let header: header::Header = bytes.pread(*offset)?;
         let ctx = header.ctx()?;
         *offset = *offset + header.size();
         let ncmds = header.ncmds;
@@ -69,28 +69,28 @@ impl<'a> MachO<'a> {
         let mut name = None;
         let mut segments = load_command::Segments::new(ctx);
         for _ in 0..ncmds {
-            let cmd = load_command::LoadCommand::parse(buffer, offset, ctx.le)?;
+            let cmd = load_command::LoadCommand::parse(bytes, offset, ctx.le)?;
             match cmd.command {
                 load_command::CommandVariant::Segment32(command) => {
-                    segments.push(load_command::Segment::from_32(buffer.as_ref(), &command, cmd.offset, ctx))
+                    segments.push(load_command::Segment::from_32(bytes.as_ref(), &command, cmd.offset, ctx))
                 },
                 load_command::CommandVariant::Segment64(command) => {
-                    segments.push(load_command::Segment::from_64(buffer.as_ref(), &command, cmd.offset, ctx))
+                    segments.push(load_command::Segment::from_64(bytes.as_ref(), &command, cmd.offset, ctx))
                 },
                 load_command::CommandVariant::Symtab(command) => {
-                    symbols = Some(symbols::Symbols::parse(buffer, &command, ctx)?);
+                    symbols = Some(symbols::Symbols::parse(bytes, &command, ctx)?);
                 },
                   load_command::CommandVariant::LoadDylib      (command)
                 | load_command::CommandVariant::LoadUpwardDylib(command)
                 | load_command::CommandVariant::ReexportDylib  (command)
                 | load_command::CommandVariant::LazyLoadDylib  (command) => {
-                    let lib = buffer.pread::<&str>(cmd.offset + command.dylib.name as usize)?;
+                    let lib = bytes.pread::<&str>(cmd.offset + command.dylib.name as usize)?;
                     libs.push(lib);
                 },
                   load_command::CommandVariant::DyldInfo    (command)
                 | load_command::CommandVariant::DyldInfoOnly(command) => {
-                    export_trie = Some(exports::ExportTrie::new(buffer, &command));
-                    bind_interpreter = Some(imports::BindInterpreter::new(buffer, &command));
+                    export_trie = Some(exports::ExportTrie::new(bytes, &command));
+                    bind_interpreter = Some(imports::BindInterpreter::new(bytes, &command));
                 },
                 load_command::CommandVariant::Unixthread(command) => {
                     entry = command.thread_state.eip as u64;
@@ -99,7 +99,7 @@ impl<'a> MachO<'a> {
                     entry = command.entryoff;
                 },
                 load_command::CommandVariant::IdDylib(command) => {
-                    let id = buffer.pread::<&str>(cmd.offset + command.dylib.name as usize)?;
+                    let id = bytes.pread::<&str>(cmd.offset + command.dylib.name as usize)?;
                     libs[0] = id;
                     name = Some(id);
                 },
@@ -143,22 +143,22 @@ impl<'a> Mach<'a> {
     //     }
     // }
 
-    pub fn parse<'b, B: AsRef<[u8]>>(buffer: &'b B) -> error::Result<Mach<'b>> {
-        let size = buffer.as_ref().len();
+    pub fn parse<'b, B: AsRef<[u8]>>(bytes: &'b B) -> error::Result<Mach<'b>> {
+        let size = bytes.as_ref().len();
         if size < 4 {
             let error = error::Error::Malformed(
                                        format!("size is smaller than a magical number"));
             return Err(error);
         }
-        let magic = peek(&buffer, 0)?;
+        let magic = peek(&bytes, 0)?;
         match magic {
             fat::FAT_MAGIC => {
-                let arches = fat::FatArch::parse(&buffer)?;
+                let arches = fat::FatArch::parse(bytes.as_ref())?;
                 Ok(Mach::Fat(arches))
             },
             // we're a regular binary
             _ => {
-                let binary = MachO::parse(buffer, 0)?;
+                let binary = MachO::parse(bytes, 0)?;
                 Ok(Mach::Binary(binary))
             }
         }

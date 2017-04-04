@@ -80,10 +80,10 @@ impl FatHeader {
     }
 
     /// Parse a mach-o fat header from the `buffer`
-    pub fn parse<S: AsRef<[u8]>>(buffer: &S) -> error::Result<FatHeader> {
+    pub fn parse(bytes: &[u8]) -> error::Result<FatHeader> {
         let mut offset = 0;
-        let magic = buffer.gread_with(&mut offset, scroll::BE)?;
-        let nfat_arch = buffer.gread_with(&mut offset, scroll::BE)?;
+        let magic = bytes.gread_with(&mut offset, scroll::BE)?;
+        let nfat_arch = bytes.gread_with(&mut offset, scroll::BE)?;
         Ok(FatHeader { magic: magic, nfat_arch: nfat_arch })
     }
 
@@ -102,17 +102,17 @@ impl FatArch {
         self.cputype == cputype::CPU_TYPE_X86_64 || self.cputype == cputype::CPU_TYPE_ARM64
     }
 
-    pub fn parse_arches<S: AsRef<[u8]>>(fd: &S, mut offset: usize, count: usize) -> error::Result<Vec<Self>> {
+    pub fn parse_arches<B: AsRef<[u8]>>(bytes: B, mut offset: usize, count: usize) -> error::Result<Vec<Self>> {
         let mut archs = Vec::with_capacity(count);
         let offset = &mut offset;
         for _ in 0..count {
-            archs.push(fd.gread_with::<FatArch>(offset, scroll::BE)?);
+            archs.push(bytes.gread_with::<FatArch>(offset, scroll::BE)?);
         }
         Ok(archs)
     }
-    pub fn parse<S: AsRef<[u8]>>(buffer: &S) -> error::Result<Vec<Self>> {
-        let header = FatHeader::parse(buffer)?;
-        let arches = FatArch::parse_arches(buffer,
+    pub fn parse(bytes: &[u8]) -> error::Result<Vec<Self>> {
+        let header = FatHeader::parse(bytes)?;
+        let arches = FatArch::parse_arches(bytes,
                                            SIZEOF_FAT_HEADER,
                                            header.nfat_arch as usize)?;
         Ok(arches)
@@ -138,7 +138,7 @@ pub struct MultiArch<'a> {
 impl<'a> MultiArch<'a> {
     /// Lazily construct `Self`
     pub fn new(bytes: &'a [u8]) -> error::Result<Self> {
-        let header = FatHeader::parse(&bytes)?;
+        let header = FatHeader::parse(bytes)?;
         Ok(MultiArch {
             data: bytes,
             narches: header.nfat_arch as usize

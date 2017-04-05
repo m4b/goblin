@@ -126,13 +126,13 @@ impl From<Nlist64> for Nlist {
 
 impl<'a> ctx::TryFromCtx<'a, (usize, container::Ctx)> for Nlist {
     type Error = scroll::Error;
-    fn try_from_ctx(buffer: &'a [u8], (offset, container::Ctx { container, le }): (usize, container::Ctx)) -> scroll::Result<Self> {
+    fn try_from_ctx(bytes: &'a [u8], (offset, container::Ctx { container, le }): (usize, container::Ctx)) -> scroll::Result<Self> {
         match container {
             Container::Little => {
-                Ok(buffer.pread_with::<Nlist32>(offset, le)?.into())
+                Ok(bytes.pread_with::<Nlist32>(offset, le)?.into())
             },
             Container::Big => {
-                Ok(buffer.pread_with::<Nlist64>(offset, le)?.into())
+                Ok(bytes.pread_with::<Nlist64>(offset, le)?.into())
             },
         }
     }
@@ -147,11 +147,11 @@ pub struct SymbolsCtx {
 
 impl<'a, T: ?Sized> ctx::TryFromCtx<'a, (usize, SymbolsCtx), T> for Symbols<'a> where T: AsRef<[u8]> {
     type Error = scroll::Error;
-    fn try_from_ctx(buffer: &'a T, (offset, SymbolsCtx {
+    fn try_from_ctx(bytes: &'a T, (offset, SymbolsCtx {
         nsyms, strtab, ctx
     }): (usize, SymbolsCtx)) -> scroll::Result<Self> {
         Ok (Symbols {
-            data: buffer.as_ref(),
+            data: bytes.as_ref(),
             start: offset,
             nsyms: nsyms,
             strtab: strtab,
@@ -185,7 +185,7 @@ impl<'a> Symbols<'a> {
             ctx: container::Ctx::default(),
         })
     }
-    pub fn parse<'b, B: AsRef<[u8]>> (bytes: &'b B, symtab: &load_command::SymtabCommand, ctx: container::Ctx) -> error::Result<Symbols<'b>> {
+    pub fn parse(bytes: &'a [u8], symtab: &load_command::SymtabCommand, ctx: container::Ctx) -> error::Result<Symbols<'a>> {
         Ok(bytes.pread_with(symtab.symoff as usize, SymbolsCtx { nsyms: symtab.nsyms as usize, strtab: symtab.stroff as usize, ctx: ctx })?)
     }
 

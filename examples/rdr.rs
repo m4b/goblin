@@ -26,7 +26,15 @@ fn run () -> error::Result<()> {
                 },
                 Hint::Mach(_) | Hint::MachFat(_) => {
                     let mach = mach::Mach::parse(&buffer)?;
-                    println!("mach: {:#?}", &mach);
+                    match mach {
+                        mach::Mach::Fat(multi) => {
+                            for i in 0..multi.narches {
+                                println!("binary: {:#?}", &multi.get(i));
+                            }
+
+                        },
+                        mach::Mach::Binary(mach) => println!("mach: {:#?}", &mach)
+                    }
                 },
                 Hint::Archive => {
                     let archive = archive::Archive::parse(&buffer)?;

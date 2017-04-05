@@ -107,7 +107,7 @@ impl<'a> Debug for BindInterpreter<'a> {
 
 impl<'a> BindInterpreter<'a> {
     /// Construct a new import binding interpreter from `bytes` and the load `command`
-    pub fn new<'b, B: AsRef<[u8]>> (bytes: &'b B, command: &load_command::DyldInfoCommand) -> BindInterpreter<'b> {
+    pub fn new(bytes: &'a [u8], command: &load_command::DyldInfoCommand) -> Self {
         let get_pos = |off: u32, size: u32| -> Range<usize> {
             off as usize..(off + size) as usize
         };

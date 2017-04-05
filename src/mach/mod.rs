@@ -1,4 +1,5 @@
 //! The Mach-o, mostly zero-copy, binary format parser and raw struct definitions
+use core::fmt;
 
 use scroll::{self, Pread};
 
@@ -54,7 +55,7 @@ impl<'a> MachO<'a> {
         }
     }
     /// Parses the Mach-o binary from `bytes` at `offset`
-    pub fn parse<'b, B: AsRef<[u8]>> (bytes: &'b B, mut offset: usize) -> error::Result<MachO<'b>> {
+    pub fn parse(bytes: &'a [u8], mut offset: usize) -> error::Result<MachO<'a>> {
         let offset = &mut offset;
         let header: header::Header = bytes.pread(*offset)?;
         let ctx = header.ctx()?;
@@ -122,29 +123,109 @@ impl<'a> MachO<'a> {
     }
 }
 
+#[cfg(feature = "std")]
+/// A Mach-o multi architecture (Fat) binary container
+pub struct MultiArch<'a> {
+    data: &'a [u8],
+    start: usize,
+    pub narches: usize,
+}
+
+/// Iterator over the fat architecture headers in a `MultiArch` container
+pub struct FatArchIterator<'a> {
+    index: usize,
+    data: &'a[u8],
+    narches: usize,
+    start: usize,
+}
+
+impl<'a> Iterator for FatArchIterator<'a> {
+    type Item = scroll::Result<fat::FatArch>;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.narches {
+            None
+        } else {
+            let offset = (self.index * fat::SIZEOF_FAT_ARCH) + self.start;
+            let arch = self.data.pread_with::<fat::FatArch>(offset, scroll::BE);
+            self.index += 1;
+            Some(arch)
+        }
+    }
+}
+
+impl<'a, 'b> IntoIterator for &'b MultiArch<'a> {
+    type Item = scroll::Result<fat::FatArch>;
+    type IntoIter = FatArchIterator<'a>;
+    fn into_iter(self) -> Self::IntoIter {
+        FatArchIterator {
+            index: 0,
+            data: self.data,
+            narches: self.narches,
+            start: self.start,
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl<'a> MultiArch<'a> {
+    /// Lazily construct `Self`
+    pub fn new(bytes: &'a [u8]) -> error::Result<Self> {
+        let header = fat::FatHeader::parse(bytes)?;
+        Ok(MultiArch {
+            data: bytes,
+            start: fat::SIZEOF_FAT_HEADER,
+            narches: header.nfat_arch as usize
+        })
+    }
+    /// Return all the architectures in this binary
+    pub fn arches(&self) -> error::Result<Vec<fat::FatArch>> {
+        let mut arches = Vec::with_capacity(self.narches);
+        for arch in self.into_iter() {
+            arches.push(arch?);
+        }
+        Ok(arches)
+    }
+    /// Try to get the Mach-o binary at `index`
+    pub fn get(&self, index: usize) -> error::Result<MachO> {
+        if index >= self.narches {
+            return Err(error::Error::Malformed(format!("Requested the {}-th binary, but there are only {} architectures in this container", index, self.narches).into()))
+        }
+        let offset = (index * fat::SIZEOF_FAT_ARCH) + self.start;
+        let arch = self.data.pread_with::<fat::FatArch>(offset, scroll::BE)?;
+        let bytes = arch.slice(self.data);
+        Ok(MachO::parse(bytes, 0)?)
+    }
+
+    /// Try and find the `cputype` in `Self`, if there is one
+    pub fn find_cputype(&self, cputype: u32) -> error::Result<Option<fat::FatArch>> {
+        for arch in self.into_iter() {
+            let arch = arch?;
+            if arch.cputype == cputype { return Ok(Some(arch)) }
+        }
+        Ok(None)
+    }
+}
+
+#[cfg(feature = "std")]
+impl<'a> fmt::Debug for MultiArch<'a> {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("MultiArch")
+            .field("arches",  &self.arches().unwrap())
+            .field("data",    &self.data.len())
+            .finish()
+    }
+}
+
 #[derive(Debug)]
-/// Either a fat collection of architectures, or a single mach-o binary
+/// Either a collection of multiple architectures, or a single mach-o binary
 pub enum Mach<'a> {
-    Fat(Vec<fat::FatArch>),
+    Fat(MultiArch<'a>),
     Binary(MachO<'a>)
 }
 
 impl<'a> Mach<'a> {
-    // pub fn parse_at(&'a self, bytes: &'a [u8], idx: usize) -> error::Result<MachO<'a>> {
-    //     match *self {
-    //         Mach::Fat(arches) => {
-    //             let arch = arches[idx];
-    //             let start = arch.offset as usize;
-    //             let end = (arch.offset + arch.size) as usize;
-    //             // let bytes = arch.slice(bytes);
-    //             MachO::parse(bytes, arch.offset as usize)
-    //         },
-    //         Mach::Binary(binary) => Ok(binary)
-    //     }
-    // }
-
-    pub fn parse<'b, B: AsRef<[u8]>>(bytes: &'b B) -> error::Result<Mach<'b>> {
-        let size = bytes.as_ref().len();
+    pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
+        let size = bytes.len();
         if size < 4 {
             let error = error::Error::Malformed(
                                        format!("size is smaller than a magical number"));
@@ -153,13 +234,38 @@ impl<'a> Mach<'a> {
         let magic = peek(&bytes, 0)?;
         match magic {
             fat::FAT_MAGIC => {
-                let arches = fat::FatArch::parse(bytes.as_ref())?;
-                Ok(Mach::Fat(arches))
+                let multi = MultiArch::new(bytes)?;
+                Ok(Mach::Fat(multi))
             },
             // we're a regular binary
             _ => {
                 let binary = MachO::parse(bytes, 0)?;
                 Ok(Mach::Binary(binary))
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn mach_fat_header() {
+        let bytes = [0xca, 0xfe, 0xba, 0xbe, 0x00, 0x00, 0x00, 0x02, 0x01, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x5e, 0xe0, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x70, 0x00, 0x00, 0x00, 0x5c, 0xf0, 0x00, 0x00, 0x00, 0x0c];
+        let mach = Mach::parse(&bytes[..]).unwrap();
+        match mach {
+            Mach::Fat(multi) => {
+                println!("multi: {:?}", multi);
+                assert_eq!(multi.narches, 2);
+                let arches = multi.arches().unwrap();
+                println!("arches: {:?}", arches);
+                assert_eq!(arches[0].is_64(), true);
+                assert_eq!(arches[1].is_64(), false);
+                assert_eq!(arches.get(2).is_none(), true);
+            },
+            _ => {
+                println!("got mach binary from fat");
+                assert!(false);
             }
         }
     }

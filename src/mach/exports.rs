@@ -76,7 +76,7 @@ pub enum ExportInfo<'a> {
 
 impl<'a> ExportInfo<'a> {
     /// Parse out the export info from `bytes`, at `offset`
-    pub fn parse<'b, B: AsRef<[u8]>> (bytes: &'b B, libs: &[&'b str], flags: Flag, mut offset: usize) -> error::Result<ExportInfo<'b>> {
+    pub fn parse(bytes: &'a [u8], libs: &[&'a str], flags: Flag, mut offset: usize) -> error::Result<ExportInfo<'a>> {
         use self::ExportInfo::*;
         let regular = |offset| -> error::Result<ExportInfo> {
             let address = bytes.pread::<Uleb128>(offset)?;
@@ -239,7 +239,7 @@ impl<'a> ExportTrie<'a> {
     }
 
     /// Create a new, lazy, zero-copy export trie from the `DyldInfo` `command`
-    pub fn new<'b, B: AsRef<[u8]>> (bytes: &'b B, command: &load_command::DyldInfoCommand) -> ExportTrie<'b> {
+    pub fn new(bytes: &'a [u8], command: &load_command::DyldInfoCommand) -> Self {
         let start = command.export_off as usize;
         let end = (command.export_size + command.export_off) as usize;
         ExportTrie {

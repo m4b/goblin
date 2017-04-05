@@ -189,7 +189,7 @@ macro_rules! elf_sym_std_impl {
             }
 
             pub unsafe fn from_raw<'a>(symp: *const Sym, count: usize) -> &'a [Sym] {
-                 slice::from_raw_parts(symp, count)
+                slice::from_raw_parts(symp, count)
             }
 
             pub fn from_fd<'a>(fd: &mut File, offset: usize, count: usize) -> Result<Vec<Sym>> {

@@ -126,6 +126,7 @@ macro_rules! elf_sym_std_impl {
             use elf::error::*;
 
             use core::fmt;
+            use core::slice;
 
             use std::fs::File;
             use std::io::{Read, Seek};
@@ -187,11 +188,16 @@ macro_rules! elf_sym_std_impl {
                 }
             }
 
+            pub unsafe fn from_raw<'a>(symp: *const Sym, count: usize) -> &'a [Sym] {
+                 slice::from_raw_parts(symp, count)
+            }
+
             pub fn from_fd<'a>(fd: &mut File, offset: usize, count: usize) -> Result<Vec<Sym>> {
                 // TODO: AFAIK this shouldn't work, since i pass in a byte size...
                 let mut syms = vec![Sym::default(); count];
                 try!(fd.seek(Start(offset as u64)));
                 try!(fd.read(syms.as_mut_bytes()));
+                syms.dedup();
                 Ok(syms)
             }
 

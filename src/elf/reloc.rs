@@ -62,7 +62,7 @@ macro_rules! elf_reloc {
             pub r_addend: $isize,
         }
         #[repr(C)]
-        #[derive(Clone, PartialEq, Default)]
+        #[derive(Clone, Copy, PartialEq, Default)]
         #[cfg_attr(feature = "std", derive(Pread, Pwrite, SizeWith))]
         /// Relocation without an addend
         pub struct Rel {
@@ -115,6 +115,8 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
             use std::fs::File;
             use std::io::{Read, Seek};
             use std::io::SeekFrom::Start;
+			
+            use tools::Slice;
 
             impl From<Rela> for Reloc {
                 fn from(rela: Rela) -> Self {
@@ -181,14 +183,22 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
                 slice::from_raw_parts(ptr, size / SIZEOF_REL)
             }
 
+            pub fn from_bytes_rela(bytes: &[u8]) -> &[Rela] {
+                // Safe because Rela is POD.
+                unsafe { bytes.retype() }
+            }
+
+            pub fn from_bytes_rel(bytes: &[u8]) -> &[Rel] {
+                // Safe because Rel is POD.
+                unsafe { bytes.retype() }
+            }
+
             pub fn from_fd(fd: &mut File, offset: usize, size: usize) -> Result<Vec<Rela>> {
                 let count = size / SIZEOF_RELA;
-                let mut bytes = vec![0u8; size];
+                let mut relocs = vec![Rela::default(); count];
                 fd.seek(Start(offset as u64))?;
-                fd.read(&mut bytes)?;
-                let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Rela, count) };
-                let mut relocs = Vec::with_capacity(count);
-                relocs.extend_from_slice(bytes);
+                // Safe, as all values are legal in Rela (as far as Rust is concerned).
+                fd.read(unsafe{relocs.as_mut_bytes()})?;
                 Ok(relocs)
             }
         }

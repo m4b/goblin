@@ -131,6 +131,8 @@ macro_rules! elf_sym_std_impl {
             use std::fs::File;
             use std::io::{Read, Seek};
             use std::io::SeekFrom::Start;
+			
+            use tools::Slice;
 
             impl Sym {
                 /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` bind and a `st_value` of 0
@@ -192,13 +194,9 @@ macro_rules! elf_sym_std_impl {
 
             pub fn from_fd<'a>(fd: &mut File, offset: usize, count: usize) -> Result<Vec<Sym>> {
                 // TODO: AFAIK this shouldn't work, since i pass in a byte size...
-                // FIX THIS, unecessary allocations + unsafety here
-                let mut bytes = vec![0u8; count * SIZEOF_SYM];
+                let mut syms = vec![Sym::default(); count];
                 try!(fd.seek(Start(offset as u64)));
-                try!(fd.read(&mut bytes));
-                let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut Sym, count) };
-                let mut syms = Vec::with_capacity(count);
-                syms.extend_from_slice(bytes);
+                try!(fd.read(unsafe{syms.as_mut_bytes()}));
                 syms.dedup();
                 Ok(syms)
             }

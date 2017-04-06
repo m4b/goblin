@@ -85,7 +85,7 @@ impl<'a> ExportInfo<'a> {
                 flags:   flags
             })
         };
-        let reexport = |mut offset| -> error::Result<ExportInfo> {
+        let reexport = |mut offset| -> error::Result<ExportInfo<'a>> {
             let lib_ordinal: u64 = {
                 let tmp = bytes.pread::<Uleb128>(offset)?;
                 offset += tmp.size();

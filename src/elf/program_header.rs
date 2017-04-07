@@ -239,6 +239,8 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
         use std::io::{Seek, Read};
         use std::io::SeekFrom::Start;
 
+        use plain::Methods;
+
         impl From<ProgramHeader> for ElfProgramHeader {
             fn from(ph: ProgramHeader) -> Self {
                 ElfProgramHeader {
@@ -295,11 +297,10 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
                 Ok(program_headers)
             }
 
-
             pub fn from_bytes(bytes: &[u8], phnum: usize) -> Vec<ProgramHeader> {
-                let bytes = unsafe { slice::from_raw_parts(bytes.as_ptr() as *mut ProgramHeader, phnum) };
-                let mut phdrs = Vec::with_capacity(phnum);
-                phdrs.extend_from_slice(bytes);
+                // FIXME: will panic if length of `bytes` is not equal to phnum * SIZEOF_PHDR.
+                let mut phdrs = vec![ProgramHeader::default(); phnum];
+                phdrs.as_mut_bytes().copy_from_slice(bytes);
                 phdrs
             }
 
@@ -310,10 +311,10 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
             }
 
             pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> Result<Vec<ProgramHeader>> {
-                let mut phdrs = vec![0u8; count * SIZEOF_PHDR];
+                let mut phdrs = vec![ProgramHeader::default(); count];
                 try!(fd.seek(Start(offset)));
-                try!(fd.read(&mut phdrs));
-                Ok(ProgramHeader::from_bytes(&phdrs, count))
+                try!(fd.read(phdrs.as_mut_bytes()));
+                Ok(phdrs)
             }
         }
     }
@@ -348,6 +349,10 @@ pub mod program_header32 {
 
     pub const SIZEOF_PHDR: usize = 32;
 
+    use plain;
+    // Declare that this is a plain type.
+    unsafe impl plain::Plain for ProgramHeader {}
+
     elf_program_header_std_impl!(u32);
 }
 
@@ -379,6 +384,10 @@ pub mod program_header64 {
     }
 
     pub const SIZEOF_PHDR: usize = 56;
+
+    use plain;
+    // Declare that this is a plain type.
+    unsafe impl plain::Plain for ProgramHeader {}
 
     elf_program_header_std_impl!(u64);
 }

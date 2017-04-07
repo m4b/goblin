@@ -85,6 +85,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate plain;
 extern crate scroll;
 
 #[cfg(feature = "std")]

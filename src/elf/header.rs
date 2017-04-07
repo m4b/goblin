@@ -36,13 +36,17 @@ macro_rules! elf_header {
             /// Section header string table index
             pub e_shstrndx: u16,
         }
+
+        use plain;
+        // Declare that this is a plain type.
+        unsafe impl plain::Plain for Header {}
+
         impl Header {
             /// Returns the corresponding ELF header from the given byte array.
             pub fn from_bytes(bytes: &[u8; SIZEOF_EHDR]) -> &Header {
-                // This is not unsafe because the header's size is encoded in the function,
-                // although the header can be semantically invalid.
-                let header: &Header = unsafe { ::core::mem::transmute(bytes) };
-                header
+                // FIXME: Length is ensured correct because it's encoded in the type,
+                // but it can still panic due to invalid alignment.
+                plain::from_bytes(bytes).unwrap()
             }
         }
         impl fmt::Debug for Header {

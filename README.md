@@ -32,6 +32,16 @@ and analysis.
 
 ### Use-cases
 
+Goblin primarily supports the following important use cases:
+
+1. Core, std-free `#[repr(C)]` structs, tiny compile time, 32/64 (or both) at your leisure
+
+2. Type punning. Define a function once on a type, but have it work on 32 or 64-bit variants - without really changing anything, and no macros! See `examples/automagic.rs` for a basic example.
+
+3. `std` mode. This throws in read and write impls via `Pread` and `Pwrite`, reading from file, convenience allocations, extra methods, etc. This is for clients who can allocate and want to read binaries off disk.
+
+4. `Endian_fd`. A truly terrible name :laughing: this is for binary analysis like in [panopticon](https://github.com/das-labor/panopticon) which needs to read binaries of foreign endianness, _or_ as a basis for constructing cross platform foreign architecture binutils, e.g. [cargo-sym](https://github.com/m4b/cargo-sym) and [bingrep](https://github.com/m4b/bingrep) are simple examples of this, but the sky is the limit.
+
 Here are some things you could do with this crate (or help to implement so they could be done):
 
 1. write a compiler and use it to generate binaries (all ELF32/64 have [`Pwrite`](https://github.com/m4b/scroll) derived)

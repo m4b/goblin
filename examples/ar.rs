@@ -31,7 +31,7 @@ pub fn main () {
                 println!("start: {:?}", archive.member_of_symbol("_start"));
                 match archive.extract(&member, &buffer) {
                     Ok(bytes) => {
-                        match elf::Elf::parse::<scroll::Buffer>(&scroll::Buffer::new(bytes)) {
+                        match elf::Elf::parse(&scroll::Buffer::new(bytes)) {
                             Ok(elf) => {
                                 println!("got elf: {:#?}", elf);
                             },

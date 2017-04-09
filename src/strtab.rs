@@ -5,57 +5,36 @@ use core::ops::Index;
 use core::slice;
 use core::str;
 use core::fmt;
-use std::borrow::Cow;
-use scroll::Pread;
+use scroll::{ctx, Pread};
+#[cfg(feature = "std")]
 use error;
 
 /// A common string table format which is indexed by byte offsets (and not
 /// member index). Constructed using [`parse`](#method.parse)
 /// with your choice of delimiter. Please be careful.
 pub struct Strtab<'a> {
-    // Thanks to SpaceManiac and Mutabah on #rust for suggestion and debugging this
-    bytes: Cow<'a, [u8]>,
-    delim: u8,
+    bytes: &'a[u8],
+    delim: ctx::StrCtx,
 }
 
 #[inline(always)]
-fn get_str(idx: usize, bytes: &[u8], delim: u8) -> &str {
-    let mut i = idx;
-    let len = bytes.len();
-    if i >= len {
-        return "";
-    }
-    let mut byte = bytes[i];
-    // TODO: this is still a hack and getting worse and worse
-    if byte == delim {
-        return "";
-    }
-    while byte != delim && i < len {
-        byte = bytes[i];
-        i += 1;
-    }
-    // we drop the null terminator unless we're at the end and the byte isn't a null terminator
-    if i < len || bytes[i - 1] == delim {
-        i -= 1;
-    }
-    str::from_utf8(&bytes[idx..i]).unwrap()
+fn get_str(idx: usize, bytes: &[u8], delim: ctx::StrCtx) -> &str {
+    bytes.pread_with::<&str>(idx, delim).unwrap()
 }
 
 impl<'a> Strtab<'a> {
-    pub fn new (bytes: Vec<u8>, delim: u8) -> Self {
-        Strtab { delim: delim, bytes: Cow::Owned(bytes) }
-    }
-    pub fn with (bytes: &'a [u8], delim: u8) -> Self {
-        Strtab { delim: delim, bytes: Cow::Borrowed(bytes) }
+    pub fn new (bytes: &'a [u8], delim: u8) -> Self {
+        Strtab { delim: ctx::StrCtx::from(delim), bytes: bytes }
     }
     pub unsafe fn from_raw(bytes_ptr: *const u8, size: usize, delim: u8) -> Strtab<'a> {
-        Strtab { delim: delim, bytes: Cow::Borrowed(slice::from_raw_parts(bytes_ptr, size)) }
+        Strtab { delim: ctx::StrCtx::from(delim), bytes: slice::from_raw_parts(bytes_ptr, size) }
     }
-    pub fn parse<S: AsRef<[u8]>>(fd: &S, offset: usize, len: usize, delim: u8) -> error::Result<Strtab<'static>> {
-        let bytes: &[u8] = fd.pread_slice(offset, len)?;
-        let bytes = Vec::from(bytes);
-        Ok(Strtab { bytes: Cow::Owned(bytes), delim: delim })
+    #[cfg(feature = "std")]
+    pub fn parse(bytes: &'a [u8], offset: usize, len: usize, delim: u8) -> error::Result<Strtab<'a>> {
+        let bytes: &'a [u8] = bytes.pread_slice(offset, len)?;
+        Ok(Strtab { bytes: bytes, delim: ctx::StrCtx::from(delim) })
     }
+    #[cfg(feature = "std")]
     pub fn to_vec(self) -> Vec<String> {
         let len = self.bytes.len();
         let mut strings = Vec::with_capacity(len);
@@ -75,13 +54,13 @@ impl<'a> Strtab<'a> {
 
 impl<'a> fmt::Debug for Strtab<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "delim: {:?} {:?}", self.delim as char, str::from_utf8(&self.bytes))
+        write!(f, "delim: {:?} {:?}", self.delim, str::from_utf8(&self.bytes))
     }
 }
 
 impl<'a> Default for Strtab<'a> {
-    fn default() -> Strtab<'static> {
-        Strtab { bytes: Cow::Owned(vec![]), delim: 0x0 }
+    fn default() -> Strtab<'a> {
+        Strtab { bytes: &[], delim: ctx::StrCtx::default() }
     }
 }
 

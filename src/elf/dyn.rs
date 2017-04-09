@@ -1,3 +1,4 @@
+
 macro_rules! elf_dyn {
     ($size:ty) => {
         #[repr(C)]
@@ -322,14 +323,14 @@ mod std {
 
     impl<'a> ctx::TryFromCtx<'a, (usize, Ctx)> for Dyn {
         type Error = scroll::Error;
-        fn try_from_ctx(buffer: &'a [u8], (offset, Ctx { container, le}): (usize, Ctx)) -> result::Result<Self, Self::Error> {
+        fn try_from_ctx(bytes: &'a [u8], (offset, Ctx { container, le}): (usize, Ctx)) -> result::Result<Self, Self::Error> {
             use scroll::Pread;
             let dyn = match container {
                 Container::Little => {
-                    buffer.pread_with::<dyn32::Dyn>(offset, le)?.into()
+                    bytes.pread_with::<dyn32::Dyn>(offset, le)?.into()
                 },
                 Container::Big => {
-                    buffer.pread_with::<dyn64::Dyn>(offset, le)?.into()
+                    bytes.pread_with::<dyn64::Dyn>(offset, le)?.into()
                 }
             };
             Ok(dyn)
@@ -338,16 +339,16 @@ mod std {
 
     impl ctx::TryIntoCtx<(usize, Ctx)> for Dyn {
         type Error = scroll::Error;
-        fn try_into_ctx(self, mut buffer: &mut [u8], (offset, Ctx { container, le}): (usize, Ctx)) -> result::Result<(), Self::Error> {
+        fn try_into_ctx(self, mut bytes: &mut [u8], (offset, Ctx { container, le}): (usize, Ctx)) -> result::Result<(), Self::Error> {
             use scroll::Pwrite;
             match container {
                 Container::Little => {
                     let dyn: dyn32::Dyn = self.into();
-                    buffer.pwrite_with(dyn, offset, le)?;
+                    bytes.pwrite_with(dyn, offset, le)?;
                 },
                 Container::Big => {
                     let dyn: dyn64::Dyn = self.into();
-                    buffer.pwrite_with(dyn, offset, le)?;
+                    bytes.pwrite_with(dyn, offset, le)?;
                 }
             }
             Ok(())
@@ -363,8 +364,8 @@ mod std {
 
     impl Dynamic {
         #[cfg(feature = "endian_fd")]
-        /// Returns a vector of dynamic entries from the underlying byte `buffer`, with `endianness`, using the provided `phdrs`
-        pub fn parse<S: AsRef<[u8]>> (buffer: &S, phdrs: &[::elf::program_header::ProgramHeader], bias: usize, ctx: Ctx) -> ::error::Result<Option<Self>> {
+        /// Returns a vector of dynamic entries from the underlying byte `bytes`, with `endianness`, using the provided `phdrs`
+        pub fn parse(bytes: &[u8], phdrs: &[::elf::program_header::ProgramHeader], bias: usize, ctx: Ctx) -> ::error::Result<Option<Self>> {
             use scroll::ctx::SizeWith;
             use scroll::Gread;
             use elf::program_header;
@@ -376,7 +377,7 @@ mod std {
                     let mut dyns = Vec::with_capacity(count);
                     let mut offset = phdr.p_offset as usize;
                     for _ in 0..count {
-                        let dyn = buffer.gread_with::<Dyn>(&mut offset, ctx)?;
+                        let dyn = bytes.gread_with::<Dyn>(&mut offset, ctx)?;
                         let tag = dyn.d_tag;
                         dyns.push(dyn);
                         if tag == DT_NULL { break }

@@ -24,8 +24,8 @@ fn run () -> error::Result<()> {
     let header2: elf64::header::Header = bytes.pread(0)?;
     // they're the same
     assert_eq!(header, header2);
-    // cannot pread binary anymore :/
-    // let elf: elf::Elf = crt1.pread(0)?;
+    let elf: elf::Elf = crt1.pread(0)?;
+    println!("elf: {:#?}", &elf);
     let elf = elf::Elf::parse(&crt1)?;
     println!("elf: {:#?}", &elf);
     Ok(())

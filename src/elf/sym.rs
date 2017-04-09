@@ -200,22 +200,9 @@ macro_rules! elf_sym_std_impl {
                 syms.dedup();
                 Ok(syms)
             }
-
-            #[cfg(feature = "endian_fd")]
-            pub fn parse<S: AsRef<[u8]>>(bytes: &S, mut offset: usize, count: usize, endianness: ::scroll::Endian) -> ::error::Result<Vec<Sym>> {
-                use scroll::Gread;
-                let mut syms = Vec::with_capacity(count);
-                let mut offset = &mut offset;
-                for _ in 0..count {
-                    let sym = bytes.gread_with(offset, endianness)?;
-                    syms.push(sym);
-                }
-                Ok(syms)
-            }
         }
     };
 }
-
 
 pub mod sym32 {
     pub use elf::sym::*;
@@ -332,7 +319,7 @@ mod std {
         }
         #[cfg(feature = "endian_fd")]
         /// Parse `count` vector of ELF symbols from `offset`
-        pub fn parse<S: AsRef<[u8]>>(bytes: &S, mut offset: usize, count: usize, ctx: Ctx) -> ::error::Result<Vec<Sym>> {
+        pub fn parse<S: AsRef<[u8]>>(bytes: S, mut offset: usize, count: usize, ctx: Ctx) -> ::error::Result<Vec<Sym>> {
             use scroll::Gread;
             let mut syms = Vec::with_capacity(count);
             for _ in 0..count {
@@ -375,14 +362,14 @@ mod std {
 
     impl<'a> ctx::TryFromCtx<'a, (usize, Ctx)> for Sym {
         type Error = scroll::Error;
-        fn try_from_ctx(buffer: &'a [u8], (offset, Ctx { container, le}): (usize, Ctx)) -> result::Result<Self, Self::Error> {
+        fn try_from_ctx(bytes: &'a [u8], (offset, Ctx { container, le}): (usize, Ctx)) -> result::Result<Self, Self::Error> {
             use scroll::Pread;
             let sym = match container {
                 Container::Little => {
-                    buffer.pread_with::<sym32::Sym>(offset, le)?.into()
+                    bytes.pread_with::<sym32::Sym>(offset, le)?.into()
                 },
                 Container::Big => {
-                    buffer.pread_with::<sym64::Sym>(offset, le)?.into()
+                    bytes.pread_with::<sym64::Sym>(offset, le)?.into()
                 }
             };
             Ok(sym)
@@ -391,16 +378,16 @@ mod std {
 
     impl ctx::TryIntoCtx<(usize, Ctx)> for Sym {
         type Error = scroll::Error;
-        fn try_into_ctx(self, mut buffer: &mut [u8], (offset, Ctx {container, le}): (usize, Ctx)) -> result::Result<(), Self::Error> {
+        fn try_into_ctx(self, mut bytes: &mut [u8], (offset, Ctx {container, le}): (usize, Ctx)) -> result::Result<(), Self::Error> {
             use scroll::Pwrite;
             match container {
                 Container::Little => {
                     let sym: sym32::Sym = self.into();
-                    buffer.pwrite_with(sym, offset, le)?;
+                    bytes.pwrite_with(sym, offset, le)?;
                 },
                 Container::Big => {
                     let sym: sym64::Sym = self.into();
-                    buffer.pwrite_with(sym, offset, le)?;
+                    bytes.pwrite_with(sym, offset, le)?;
                 }
             }
             Ok(())

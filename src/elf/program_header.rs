@@ -135,11 +135,11 @@ mod std {
         }
 
         #[cfg(feature = "endian_fd")]
-        pub fn parse<S: AsRef<[u8]>>(buffer: &S, mut offset: usize, count: usize, ctx: Ctx) -> ::error::Result<Vec<ProgramHeader>> {
+        pub fn parse(bytes: &[u8], mut offset: usize, count: usize, ctx: Ctx) -> ::error::Result<Vec<ProgramHeader>> {
             use scroll::Gread;
             let mut program_headers = Vec::with_capacity(count);
             for _ in 0..count {
-                let phdr = buffer.gread_with(&mut offset, ctx)?;
+                let phdr = bytes.gread_with(&mut offset, ctx)?;
                 program_headers.push(phdr);
             }
             Ok(program_headers)
@@ -178,14 +178,14 @@ mod std {
 
     impl<'a> ctx::TryFromCtx<'a, (usize, Ctx)> for ProgramHeader {
         type Error = scroll::Error;
-        fn try_from_ctx(buffer: &'a [u8], (offset, Ctx { container, le}): (usize, Ctx)) -> result::Result<Self, Self::Error> {
+        fn try_from_ctx(bytes: &'a [u8], (offset, Ctx { container, le}): (usize, Ctx)) -> result::Result<Self, Self::Error> {
             use scroll::Pread;
             let phdr = match container {
                 Container::Little => {
-                    buffer.pread_with::<program_header32::ProgramHeader>(offset, le)?.into()
+                    bytes.pread_with::<program_header32::ProgramHeader>(offset, le)?.into()
                 },
                 Container::Big => {
-                    buffer.pread_with::<program_header64::ProgramHeader>(offset, le)?.into()
+                    bytes.pread_with::<program_header64::ProgramHeader>(offset, le)?.into()
                 }
             };
             Ok(phdr)
@@ -194,16 +194,16 @@ mod std {
 
     impl ctx::TryIntoCtx<(usize, Ctx)> for ProgramHeader {
         type Error = scroll::Error;
-        fn try_into_ctx(self, mut buffer: &mut [u8], (offset, Ctx {container, le}): (usize, Ctx)) -> result::Result<(), Self::Error> {
+        fn try_into_ctx(self, mut bytes: &mut [u8], (offset, Ctx {container, le}): (usize, Ctx)) -> result::Result<(), Self::Error> {
             use scroll::Pwrite;
             match container {
                 Container::Little => {
                     let phdr: program_header32::ProgramHeader = self.into();
-                    buffer.pwrite_with(phdr, offset, le)?;
+                    bytes.pwrite_with(phdr, offset, le)?;
                 },
                 Container::Big => {
                     let phdr: program_header64::ProgramHeader = self.into();
-                    buffer.pwrite_with(phdr, offset, le)?;
+                    bytes.pwrite_with(phdr, offset, le)?;
                 }
             }
             Ok(())
@@ -289,11 +289,11 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
 
         impl ProgramHeader {
             #[cfg(feature = "endian_fd")]
-            pub fn parse<S: AsRef<[u8]>>(buffer: &S, mut offset: usize, count: usize, ctx: ::scroll::Endian) -> Result<Vec<ProgramHeader>> {
+            pub fn parse(bytes: &[u8], mut offset: usize, count: usize, ctx: ::scroll::Endian) -> Result<Vec<ProgramHeader>> {
                 use scroll::Gread;
                 let mut program_headers = vec![ProgramHeader::default(); count];
                 let mut offset = &mut offset;
-                buffer.gread_inout_with(offset, &mut program_headers, ctx)?;
+                bytes.gread_inout_with(offset, &mut program_headers, ctx)?;
                 Ok(program_headers)
             }
 

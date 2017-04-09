@@ -290,13 +290,13 @@ mod std {
             Reloc::size_with(&(is_rela, ctx))
         }
         #[cfg(feature = "endian_fd")]
-        pub fn parse<S: AsRef<[u8]>>(buffer: &S, mut offset: usize, filesz: usize, is_rela: bool, ctx: Ctx) -> ::error::Result<Vec<Reloc>> {
+        pub fn parse(bytes: &[u8], mut offset: usize, filesz: usize, is_rela: bool, ctx: Ctx) -> ::error::Result<Vec<Reloc>> {
             use scroll::Gread;
             let count = filesz / Reloc::size(is_rela, ctx);
             let mut relocs = Vec::with_capacity(count);
             let mut offset = &mut offset;
             for _ in 0..count {
-                let reloc = buffer.gread_with::<Reloc>(offset, (is_rela, ctx))?;
+                let reloc = bytes.gread_with::<Reloc>(offset, (is_rela, ctx))?;
                 relocs.push(reloc);
             }
             Ok(relocs)
@@ -321,21 +321,21 @@ mod std {
 
     impl<'a> ctx::TryFromCtx<'a, (usize, RelocCtx)> for Reloc {
         type Error = scroll::Error;
-        fn try_from_ctx(buffer: &'a [u8], (offset, (is_rela, Ctx { container, le })): (usize, RelocCtx)) -> result::Result<Self, Self::Error> {
+        fn try_from_ctx(bytes: &'a [u8], (offset, (is_rela, Ctx { container, le })): (usize, RelocCtx)) -> result::Result<Self, Self::Error> {
             use scroll::Pread;
             let reloc = match container {
                 Container::Little => {
                     if is_rela {
-                        buffer.pread_with::<reloc32::Rela>(offset, le)?.into()
+                        bytes.pread_with::<reloc32::Rela>(offset, le)?.into()
                     } else {
-                        buffer.pread_with::<reloc32::Rel>(offset, le)?.into()
+                        bytes.pread_with::<reloc32::Rel>(offset, le)?.into()
                     }
                 },
                 Container::Big => {
                     if is_rela {
-                        buffer.pread_with::<reloc64::Rela>(offset, le)?.into()
+                        bytes.pread_with::<reloc64::Rela>(offset, le)?.into()
                     } else {
-                        buffer.pread_with::<reloc64::Rel>(offset, le)?.into()
+                        bytes.pread_with::<reloc64::Rel>(offset, le)?.into()
                     }
                 }
             };
@@ -345,17 +345,17 @@ mod std {
 
     impl ctx::TryIntoCtx<(usize, Ctx)> for Reloc {
         type Error = scroll::Error;
-        /// Writes the relocation into `buffer`; forces `Rel` relocation records for 32-bit containers, and `Rela` for 64-bit containers
-        fn try_into_ctx(self, mut buffer: &mut [u8], (offset, Ctx { container, le }): (usize, Ctx)) -> result::Result<(), Self::Error> {
+        /// Writes the relocation into `bytes`; forces `Rel` relocation records for 32-bit containers, and `Rela` for 64-bit containers
+        fn try_into_ctx(self, mut bytes: &mut [u8], (offset, Ctx { container, le }): (usize, Ctx)) -> result::Result<(), Self::Error> {
             use scroll::Pwrite;
             match container {
                 Container::Little => {
                     let rel: reloc32::Rel = self.into();
-                    buffer.pwrite_with(rel, offset, le)?;
+                    bytes.pwrite_with(rel, offset, le)?;
                 },
                 Container::Big => {
                     let rela: reloc64::Rela = self.into();
-                    buffer.pwrite_with(rela, offset, le)?;
+                    bytes.pwrite_with(rela, offset, le)?;
                 },
             };
             Ok(())

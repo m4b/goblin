@@ -97,7 +97,6 @@ extern crate core;
 #[cfg(feature = "std")]
 pub mod error;
 
-#[cfg(feature = "std")]
 pub mod strtab;
 
 /////////////////////////
@@ -238,6 +237,28 @@ mod peek {
         fd.read_exact(&mut bytes)?;
         fd.seek(SeekFrom::Start(0))?;
         peek_bytes(&bytes)
+    }
+}
+
+#[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
+#[derive(Debug)]
+pub enum Object<'a> {
+    Elf(elf::Elf<'a>),
+    PE(pe::PE<'a>),
+    Mach(mach::Mach<'a>),
+    Archive(archive::Archive<'a>),
+    Unknown,
+}
+
+#[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
+pub fn parse(bytes: &[u8]) -> error::Result<Object> {
+    use std::io::Cursor;
+    match peek(&mut Cursor::new(&bytes))? {
+        Hint::Elf(_) => Ok(Object::Elf(elf::Elf::parse(bytes)?)),
+        Hint::Mach(_) | Hint::MachFat(_) => Ok(Object::Mach(mach::Mach::parse(bytes)?)),
+        Hint::Archive => Ok(Object::Archive(archive::Archive::parse(bytes)?)),
+        Hint::PE => Ok(Object::PE(pe::PE::parse(bytes)?)),
+        _ => Ok(Object::Unknown)
     }
 }
 

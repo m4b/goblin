@@ -26,7 +26,7 @@ pub struct ExportDirectoryTable {
 pub const SIZEOF_EXPORT_DIRECTORY_TABLE: usize = 40;
 
 impl ExportDirectoryTable {
-    pub fn parse<B: AsRef<[u8]>>(bytes: &B, offset: usize) -> error::Result<Self> {
+    pub fn parse<B: AsRef<[u8]>>(bytes: B, offset: usize) -> error::Result<Self> {
         let res = bytes.pread_with(offset, scroll::LE)?;
         Ok(res)
     }
@@ -63,7 +63,7 @@ pub struct ExportData<'a> {
 }
 
 impl<'a> ExportData<'a> {
-    pub fn parse<B: AsRef<[u8]>>(bytes: &'a B, dd: &data_directories::DataDirectory, sections: &[section_table::SectionTable]) -> error::Result<ExportData<'a>> {
+    pub fn parse(bytes: &'a [u8], dd: &data_directories::DataDirectory, sections: &[section_table::SectionTable]) -> error::Result<ExportData<'a>> {
         let export_rva = dd.virtual_address as usize;
         let size = dd.size as usize;
         let export_offset = utils::find_offset(export_rva, sections).unwrap();
@@ -117,53 +117,10 @@ pub enum Reexport {
   DLLOrdinal ((String, usize))
 }
 
-// this compiles but cannot be used due to sized requirements which i don't understand :tada:
-impl<'a, B: ?Sized> scroll::ctx::TryFromCtx<'a, (usize, scroll::ctx::DefaultCtx), B> for Reexport
-    where B: AsRef<[u8]> {
+impl<'a> scroll::ctx::TryFromCtx<'a, (usize, scroll::ctx::DefaultCtx)> for Reexport {
     type Error = scroll::Error;
     #[inline]
-    fn try_from_ctx(bytes: &'a B, (offset, _): (usize, scroll::ctx::DefaultCtx)) -> Result<Self, Self::Error> {
-        use scroll::{Gread, Pread};
-        let bytes = bytes.as_ref();
-        let reexport: &str = bytes.pread::<&str>(offset)?;
-        println!("reexport: {}", &reexport);
-        let bytes: &[u8] = reexport.as_bytes();
-        let mut o = &mut 0;
-        loop {
-            let c: u8 = bytes.gread(o)?;
-            println!("reexport offset: {:#x} char: {:#x}", *o, c);
-            match c {
-                // '.'
-                0x2e => {
-                    let i = *o - 1;
-                    let dll: &str = bytes.pread_slice(0, i)?;
-                    println!("dll: {:?}", &dll);
-                    let len = reexport.len() - i - 1;
-                    let rest: &[u8] = bytes.gread_slice(o, len)?;
-                    println!("rest: {:?}", &rest);
-                    match rest[0] {
-                        // '#'
-                        0x23 => {
-                            // UNTESTED
-                            let len = rest.len() - 1;
-                            let ordinal = rest.pread_slice::<str>(1, len)?;
-                            let ordinal = ordinal.parse::<u32>().unwrap();
-                            return Ok(Reexport::DLLOrdinal ((dll.to_string(), ordinal as usize)))
-                        },
-                        _ => {
-                            let rest = rest.pread_slice::<str>(0, rest.len())?;
-                            return Ok(Reexport::DLLName ((dll.to_string(), rest.to_string())))
-                        }
-                    }
-                },
-                _ => {}
-            }
-        }
-    }
-}
-
-impl Reexport {
-    pub fn parse<B: AsRef<[u8]>>(bytes: &B, offset: usize) -> scroll::Result<Reexport> {
+    fn try_from_ctx(bytes: &'a [u8], (offset, _): (usize, scroll::ctx::DefaultCtx)) -> Result<Self, Self::Error> {
         use scroll::{Gread, Pread};
         let reexport: &str = bytes.pread::<&str>(offset)?;
         //println!("reexport: {}", &reexport);
@@ -202,6 +159,12 @@ impl Reexport {
     }
 }
 
+impl Reexport {
+    pub fn parse(bytes: &[u8], offset: usize) -> scroll::Result<Reexport> {
+        bytes.pread(offset)
+    }
+}
+
 #[derive(Debug, Default)]
 /// An exported symbol in this binary, contains synthetic data (name offset, etc., are computed)
 pub struct Export {
@@ -221,10 +184,10 @@ struct ExportCtx<'a> {
     pub ordinals: &'a ExportOrdinalTable,
 }
 
-impl<'a, B> scroll::ctx::TryFromCtx<'a, ExportCtx<'a>, B> for Export where B: AsRef<[u8]> {
+impl<'a> scroll::ctx::TryFromCtx<'a, ExportCtx<'a>> for Export {
     type Error = scroll::Error;
     #[inline]
-    fn try_from_ctx(bytes: &'a B, ExportCtx { ptr, idx, sections, addresses, ordinals }: ExportCtx<'a>) -> Result<Self, Self::Error> {
+    fn try_from_ctx(bytes: &'a [u8], ExportCtx { ptr, idx, sections, addresses, ordinals }: ExportCtx<'a>) -> Result<Self, Self::Error> {
         use self::ExportAddressTableEntry::*;
         let i = idx;
         let name_offset = utils::find_offset(ptr as usize, sections).unwrap();
@@ -258,7 +221,7 @@ impl<'a, B> scroll::ctx::TryFromCtx<'a, ExportCtx<'a>, B> for Export where B: As
 }
 
 impl Export {
-    pub fn parse<B: AsRef<[u8]>>(bytes: &B, export_data: &ExportData, sections: &[section_table::SectionTable]) -> error::Result<Vec<Export>> {
+    pub fn parse(bytes: &[u8], export_data: &ExportData, sections: &[section_table::SectionTable]) -> error::Result<Vec<Export>> {
         let pointers = &export_data.export_name_pointer_table;
         let addresses = &export_data.export_address_table;
         let ordinals = &export_data.export_ordinal_table;

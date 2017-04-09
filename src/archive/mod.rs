@@ -90,7 +90,7 @@ impl<'a> Member<'a> {
     /// Tries to parse the header in `R`, as well as the offset in `R.
     /// **NOTE** the Seek will be pointing at the first byte of whatever the file is, skipping padding.
     /// This is because just like members in the archive, the data section is 2-byte aligned.
-    pub fn parse<R: AsRef<[u8]>>(buffer: &'a R, offset: &mut usize) -> Result<Member<'a>> {
+    pub fn parse(buffer: &'a [u8], offset: &mut usize) -> Result<Member<'a>> {
         let name = buffer.pread_slice::<str>(*offset, SIZEOF_FILE_IDENTIFER)?;
         let archive_header = buffer.gread::<MemberHeader>(offset)?;
         let header = Header { name: name, size: archive_header.size()? };
@@ -142,7 +142,7 @@ const NAME_INDEX_NAME: &'static str = "//              ";
 
 impl Index {
     /// Parses the given byte buffer into an Index. NB: the buffer must be the start of the index
-    pub fn parse<R: AsRef<[u8]>>(buffer: &R, size: usize) -> Result<Index> {
+    pub fn parse(buffer: &[u8], size: usize) -> Result<Index> {
         let mut offset = &mut 0;
         let sizeof_table = buffer.gread_with::<u32>(offset, scroll::BE)? as usize;
         let mut indexes = Vec::with_capacity(sizeof_table);
@@ -168,7 +168,7 @@ struct NameIndex<'a> {
 }
 
 impl<'a> NameIndex<'a> {
-    pub fn parse<'b, R: AsRef<[u8]>> (buffer: &'b R, offset: &mut usize, size: usize) -> Result<NameIndex<'b>> {
+    pub fn parse(buffer: &'a [u8], offset: &mut usize, size: usize) -> Result<NameIndex<'a>> {
         // This is a total hack, because strtab returns "" if idx == 0, need to change
         // but previous behavior might rely on this, as ELF strtab's have "" at 0th index...
         let hacked_size = size + 1;
@@ -215,7 +215,7 @@ pub struct Archive<'a> {
 }
 
 impl<'a> Archive<'a> {
-    pub fn parse<'b, R: AsRef<[u8]>>(buffer: &'b R) -> Result<Archive<'b>> {
+    pub fn parse(buffer: &'a [u8]) -> Result<Archive<'a>> {
         let mut magic = [0u8; SIZEOF_MAGIC];
         let mut offset = &mut 0usize;
         buffer.gread_inout(offset, &mut magic)?;
@@ -410,7 +410,7 @@ mod tests {
                               assert_eq!(archive.member_of_symbol("wow_so_meta_doge_symbol"), Some(member.as_str()));
                               match archive.extract(member.as_str(), &buffer) {
                                   Ok(bytes) => {
-                                      match elf::Elf::parse::<scroll::Buffer>(&scroll::Buffer::new(bytes)) {
+                                      match elf::Elf::parse(&scroll::Buffer::new(bytes)) {
                                           Ok(elf) => {
                                               assert!(elf.entry == 0);
                                               assert!(elf.bias == 0);

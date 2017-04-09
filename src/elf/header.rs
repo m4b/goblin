@@ -285,10 +285,10 @@ mod std {
 
     impl<'a> ctx::TryFromCtx<'a> for Header {
         type Error = error::Error;
-        fn try_from_ctx(buffer: &'a [u8], (offset, _): (usize, scroll::Endian)) -> error::Result<Self> {
+        fn try_from_ctx(bytes: &'a [u8], (offset, _): (usize, scroll::Endian)) -> error::Result<Self> {
             use scroll::{Pread};
             use error::Error;
-            let ident: &[u8] = buffer.pread_slice(offset, SIZEOF_IDENT)?;
+            let ident: &[u8] = bytes.pread_slice(offset, SIZEOF_IDENT)?;
             if &ident[0..SELFMAG] != ELFMAG {
                 let magic: u64 = ident.pread_with(offset, scroll::LE)?;
                 return Err(Error::BadMagic(magic).into());
@@ -296,10 +296,10 @@ mod std {
             let class = ident[EI_CLASS];
             match class {
                 ELFCLASS32 => {
-                    Ok(Header::from(buffer.pread::<header32::Header>(offset)?))
+                    Ok(Header::from(bytes.pread::<header32::Header>(offset)?))
                 },
                 ELFCLASS64 => {
-                    Ok(Header::from(buffer.pread::<header64::Header>(offset)?))
+                    Ok(Header::from(bytes.pread::<header64::Header>(offset)?))
                 },
                 _ => {
                     return Err(Error::Malformed(format!("invalid ELF class {:x}", class)).into())
@@ -310,14 +310,14 @@ mod std {
 
     impl ctx::TryIntoCtx<(usize, scroll::ctx::DefaultCtx)> for Header {
         type Error = error::Error;
-        fn try_into_ctx(self, buffer: &mut [u8], (offset, _): (usize, scroll::Endian)) -> Result<(), Self::Error> {
+        fn try_into_ctx(self, bytes: &mut [u8], (offset, _): (usize, scroll::Endian)) -> Result<(), Self::Error> {
             use scroll::Pwrite;
             match self.container()? {
                 Container::Little => {
-                    buffer.pwrite(header32::Header::from(self), offset)?
+                    bytes.pwrite(header32::Header::from(self), offset)?
                 },
                 Container::Big => {
-                    buffer.pwrite(header64::Header::from(self), offset)?
+                    bytes.pwrite(header64::Header::from(self), offset)?
                 }
             }
             Ok(())
@@ -388,29 +388,29 @@ macro_rules! elf_header_std_impl {
 
             impl<'a> ctx::TryFromCtx<'a> for Header {
                 type Error = error::Error;
-                fn try_from_ctx(buffer: &'a [u8], (mut offset, _): (usize, scroll::Endian)) -> result::Result<Self, Self::Error> {
+                fn try_from_ctx(bytes: &'a [u8], (mut offset, _): (usize, scroll::Endian)) -> result::Result<Self, Self::Error> {
                     let mut elf_header = Header::default();
                     let mut offset = &mut offset;
-                    buffer.gread_inout(offset, &mut elf_header.e_ident)?;
+                    bytes.gread_inout(offset, &mut elf_header.e_ident)?;
                     let endianness =
                         match elf_header.e_ident[EI_DATA] {
                             ELFDATA2LSB => scroll::LE,
                             ELFDATA2MSB => scroll::BE,
                             d => return Err(Error::Malformed(format!("invalid ELF endianness DATA type {:x}", d)).into()),
                         };
-                    elf_header.e_type =      buffer.gread_with(offset, endianness)?;
-                    elf_header.e_machine =   buffer.gread_with(offset, endianness)?;
-                    elf_header.e_version =   buffer.gread_with(offset, endianness)?;
-                    elf_header.e_entry =     buffer.gread_with(offset, endianness)?;
-                    elf_header.e_phoff =     buffer.gread_with(offset, endianness)?;
-                    elf_header.e_shoff =     buffer.gread_with(offset, endianness)?;
-                    elf_header.e_flags =     buffer.gread_with(offset, endianness)?;
-                    elf_header.e_ehsize =    buffer.gread_with(offset, endianness)?;
-                    elf_header.e_phentsize = buffer.gread_with(offset, endianness)?;
-                    elf_header.e_phnum =     buffer.gread_with(offset, endianness)?;
-                    elf_header.e_shentsize = buffer.gread_with(offset, endianness)?;
-                    elf_header.e_shnum =     buffer.gread_with(offset, endianness)?;
-                    elf_header.e_shstrndx =  buffer.gread_with(offset, endianness)?;
+                    elf_header.e_type =      bytes.gread_with(offset, endianness)?;
+                    elf_header.e_machine =   bytes.gread_with(offset, endianness)?;
+                    elf_header.e_version =   bytes.gread_with(offset, endianness)?;
+                    elf_header.e_entry =     bytes.gread_with(offset, endianness)?;
+                    elf_header.e_phoff =     bytes.gread_with(offset, endianness)?;
+                    elf_header.e_shoff =     bytes.gread_with(offset, endianness)?;
+                    elf_header.e_flags =     bytes.gread_with(offset, endianness)?;
+                    elf_header.e_ehsize =    bytes.gread_with(offset, endianness)?;
+                    elf_header.e_phentsize = bytes.gread_with(offset, endianness)?;
+                    elf_header.e_phnum =     bytes.gread_with(offset, endianness)?;
+                    elf_header.e_shentsize = bytes.gread_with(offset, endianness)?;
+                    elf_header.e_shnum =     bytes.gread_with(offset, endianness)?;
+                    elf_header.e_shstrndx =  bytes.gread_with(offset, endianness)?;
                     Ok(elf_header)
                 }
             }
@@ -450,21 +450,21 @@ macro_rules! elf_header_std_impl {
             impl Header {
 
                 /// Load a header from a file. **You must** ensure the seek is at the correct position.
-                pub fn from_fd(buffer: &mut File) -> Result<Header> {
+                pub fn from_fd(bytes: &mut File) -> Result<Header> {
                     let mut elf_header = [0; $size];
-                    buffer.read(&mut elf_header)?;
+                    bytes.read(&mut elf_header)?;
                     Ok(*Header::from_bytes(&elf_header))
                 }
 
                 #[cfg(feature = "endian_fd")]
-                /// Parses an ELF header from the given buffer
-                pub fn parse<S: AsRef<[u8]>>(buffer: &S) -> Result<Header> {
+                /// Parses an ELF header from the given bytes
+                pub fn parse(bytes: &[u8]) -> Result<Header> {
                     use super::{EI_DATA, ELFDATA2LSB, ELFDATA2MSB, SIZEOF_IDENT};
 
                     let mut elf_header = Header::default();
                     let mut offset = &mut 0;
                     for i in 0..SIZEOF_IDENT {
-                        elf_header.e_ident[i] = buffer.gread(&mut offset)?;
+                        elf_header.e_ident[i] = bytes.gread(&mut offset)?;
                     }
                     let endianness =
                         match elf_header.e_ident[EI_DATA] {
@@ -472,19 +472,19 @@ macro_rules! elf_header_std_impl {
                             ELFDATA2MSB => scroll::BE,
                             d => return Err(Error::Malformed(format!("invalid ELF DATA type {:x}", d)).into()),
                         };
-                    elf_header.e_type =      buffer.gread_with(offset, endianness)?;
-                    elf_header.e_machine =   buffer.gread_with(offset, endianness)?;
-                    elf_header.e_version =   buffer.gread_with(offset, endianness)?;
-                    elf_header.e_entry =     buffer.gread_with(offset, endianness)?;
-                    elf_header.e_phoff =     buffer.gread_with(offset, endianness)?;
-                    elf_header.e_shoff =     buffer.gread_with(offset, endianness)?;
-                    elf_header.e_flags =     buffer.gread_with(offset, endianness)?;
-                    elf_header.e_ehsize =    buffer.gread_with(offset, endianness)?;
-                    elf_header.e_phentsize = buffer.gread_with(offset, endianness)?;
-                    elf_header.e_phnum =     buffer.gread_with(offset, endianness)?;
-                    elf_header.e_shentsize = buffer.gread_with(offset, endianness)?;
-                    elf_header.e_shnum =     buffer.gread_with(offset, endianness)?;
-                    elf_header.e_shstrndx =  buffer.gread_with(offset, endianness)?;
+                    elf_header.e_type =      bytes.gread_with(offset, endianness)?;
+                    elf_header.e_machine =   bytes.gread_with(offset, endianness)?;
+                    elf_header.e_version =   bytes.gread_with(offset, endianness)?;
+                    elf_header.e_entry =     bytes.gread_with(offset, endianness)?;
+                    elf_header.e_phoff =     bytes.gread_with(offset, endianness)?;
+                    elf_header.e_shoff =     bytes.gread_with(offset, endianness)?;
+                    elf_header.e_flags =     bytes.gread_with(offset, endianness)?;
+                    elf_header.e_ehsize =    bytes.gread_with(offset, endianness)?;
+                    elf_header.e_phentsize = bytes.gread_with(offset, endianness)?;
+                    elf_header.e_phnum =     bytes.gread_with(offset, endianness)?;
+                    elf_header.e_shentsize = bytes.gread_with(offset, endianness)?;
+                    elf_header.e_shnum =     bytes.gread_with(offset, endianness)?;
+                    elf_header.e_shstrndx =  bytes.gread_with(offset, endianness)?;
                     Ok(elf_header)
                 }
             }

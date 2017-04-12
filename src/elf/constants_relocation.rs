@@ -77,6 +77,10 @@ pub const R_X86_64_TLSDESC: u32 = 36;
 pub const R_X86_64_IRELATIVE: u32 = 37;
 /// 64-bit adjust by program base.
 pub const R_X86_64_RELATIVE64: u32 = 38;
+///Load from 32 bit signed pc relative offset to GOT entry without REX prefix, relaxable.
+pub const R_X86_64_GOTPCRELX: u32 = 41;
+/// Load from 32 bit signed pc relative offset to GOT entry with REX prefix, relaxable.
+pub const R_X86_64_REX_GOTPCRELX: u32 = 42;
 pub const R_X86_64_NUM: u32 = 39;
 
 // Intel 80386 specific definitions

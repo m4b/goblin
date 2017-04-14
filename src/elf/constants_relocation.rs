@@ -922,7 +922,6 @@ pub fn r_to_str(typ: u32, machine: u16) -> &'static str {
         R_OR1K_TLS_TPOFF => "OR1K_TLS_TPOFF",
         R_OR1K_TLS_DTPOFF => "OR1K_TLS_DTPOFF",
         R_OR1K_TLS_DTPMOD => "OR1K_TLS_DTPMOD",
-        R_OR1K_NUM => "OR1K_NUM",
         _ => "R_UNKNOWN_OR1K",
         }},
         // arm64
@@ -1241,7 +1240,6 @@ pub fn r_to_str(typ: u32, machine: u16) -> &'static str {
         R_MIPS_GLOB_DAT => "R_MIPS_GLOB_DAT",
         R_MIPS_COPY => "R_MIPS_COPY",
         R_MIPS_JUMP_SLOT => "R_MIPS_JUMP_SLOT",
-        R_MIPS_NUM => "R_MIPS_NUM",
         _ => "R_UNKNOWN_MIPS",
         }} _ => "R_UNKNOWN"
     }

@@ -712,6 +712,88 @@ pub const R_OR1K_TLS_DTPOFF: u32 = 33;
 pub const R_OR1K_TLS_DTPMOD: u32 = 34;
 pub const R_OR1K_NUM: u32 = 35;
 
+/////////////////////
+// MIPS
+/////////////////////
+/// No reloc
+pub const R_MIPS_NONE: u32 = 0;
+/// Direct 16 bit
+pub const R_MIPS_16: u32 = 1;
+/// Direct 32 bit
+pub const R_MIPS_32: u32 = 2;
+/// PC relative 32 bit
+pub const R_MIPS_REL32: u32 = 3;
+/// Direct 26 bit shifted
+pub const R_MIPS_26: u32 = 4;
+/// High 16 bit
+pub const R_MIPS_HI16: u32 = 5;
+/// Low 16 bit
+pub const R_MIPS_LO16: u32 = 6;
+/// GP relative 16 bit
+pub const R_MIPS_GPREL16: u32 = 7;
+/// 16 bit literal entry
+pub const R_MIPS_LITERAL: u32 = 8;
+/// 16 bit GOT entry
+pub const R_MIPS_GOT16: u32 = 9;
+/// PC relative 16 bit
+pub const R_MIPS_PC16: u32 = 10;
+/// 16 bit GOT entry for function
+pub const R_MIPS_CALL16: u32 = 11;
+/// GP relative 32 bit
+pub const R_MIPS_GPREL32: u32 = 12;
+pub const R_MIPS_SHIFT5: u32 = 16;
+pub const R_MIPS_SHIFT6: u32 = 17;
+pub const R_MIPS_64: u32 = 18;
+pub const R_MIPS_GOT_DISP: u32 = 19;
+pub const R_MIPS_GOT_PAGE: u32 = 20;
+pub const R_MIPS_GOT_OFST: u32 = 21;
+pub const R_MIPS_GOT_HI16: u32 = 22;
+pub const R_MIPS_GOT_LO16: u32 = 23;
+pub const R_MIPS_SUB: u32 = 24;
+pub const R_MIPS_INSERT_A: u32 = 25;
+pub const R_MIPS_INSERT_B: u32 = 26;
+pub const R_MIPS_DELETE: u32 = 27;
+pub const R_MIPS_HIGHER: u32 = 28;
+pub const R_MIPS_HIGHEST: u32 = 29;
+pub const R_MIPS_CALL_HI16: u32 = 30;
+pub const R_MIPS_CALL_LO16: u32 = 31;
+pub const R_MIPS_SCN_DISP: u32 = 32;
+pub const R_MIPS_REL16: u32 = 33;
+pub const R_MIPS_ADD_IMMEDIATE: u32 = 34;
+pub const R_MIPS_PJUMP: u32 = 35;
+pub const R_MIPS_RELGOT: u32 = 36;
+pub const R_MIPS_JALR: u32 = 37;
+/// Module number 32 bit
+pub const R_MIPS_TLS_DTPMOD32: u32 = 38;
+/// Module-relative offset 32 bit
+pub const R_MIPS_TLS_DTPREL32: u32 = 39;
+/// Module number 64 bit
+pub const R_MIPS_TLS_DTPMOD64: u32 = 40;
+/// Module-relative offset 64 bit
+pub const R_MIPS_TLS_DTPREL64: u32 = 41;
+/// 16 bit GOT offset for GD
+pub const R_MIPS_TLS_GD: u32 = 42;
+/// 16 bit GOT offset for LDM
+pub const R_MIPS_TLS_LDM: u32 = 43;
+/// Module-relative offset, high 16 bits
+pub const R_MIPS_TLS_DTPREL_HI16: u32 = 44;
+/// Module-relative offset, low 16 bits
+pub const R_MIPS_TLS_DTPREL_LO16: u32 = 45;
+/// 16 bit GOT offset for IE
+pub const R_MIPS_TLS_GOTTPREL: u32 = 46;
+/// TP-relative offset, 32 bit6
+pub const R_MIPS_TLS_TPREL32: u32 = 47;
+/// TP-relative offset, 64 bit
+pub const R_MIPS_TLS_TPREL64: u32 = 48;
+/// TP-relative offset, high 16 bits
+pub const R_MIPS_TLS_TPREL_HI16: u32 = 49;
+/// TP-relative offset, low 16 bits
+pub const R_MIPS_TLS_TPREL_LO16: u32 = 50;
+pub const R_MIPS_GLOB_DAT: u32 = 51;
+pub const R_MIPS_COPY: u32 = 126;
+pub const R_MIPS_JUMP_SLOT: u32 = 127;
+pub const R_MIPS_NUM: u32 = 128;
+
 #[inline]
 pub fn r_to_str(typ: u32, machine: u16) -> &'static str {
     use elf::header::*;
@@ -1105,6 +1187,62 @@ pub fn r_to_str(typ: u32, machine: u16) -> &'static str {
         R_ARM_RPC24 => "ARM_RPC24",
         R_ARM_RBASE => "ARM_RBASE",
          _ => "R_UNKNOWN_ARM",
+        }},
+        // MIPS
+        EM_MIPS | EM_MIPS_RS3_LE | EM_MIPS_X => { match typ {
+        R_MIPS_NONE => "R_MIPS_NONE",
+        R_MIPS_16 => "R_MIPS_16",
+        R_MIPS_32 => "R_MIPS_32",
+        R_MIPS_REL32 => "R_MIPS_REL32",
+        R_MIPS_26 => "R_MIPS_26",
+        R_MIPS_HI16 => "R_MIPS_HI16",
+        R_MIPS_LO16 => "R_MIPS_LO16",
+        R_MIPS_GPREL16 => "R_MIPS_GPREL16",
+        R_MIPS_LITERAL => "R_MIPS_LITERAL",
+        R_MIPS_GOT16 => "R_MIPS_GOT16",
+        R_MIPS_PC16 => "R_MIPS_PC16",
+        R_MIPS_CALL16 => "R_MIPS_CALL16",
+        R_MIPS_GPREL32 => "R_MIPS_GPREL32",
+        R_MIPS_SHIFT5 => "R_MIPS_SHIFT5",
+        R_MIPS_SHIFT6 => "R_MIPS_SHIFT6",
+        R_MIPS_64 => "R_MIPS_64",
+        R_MIPS_GOT_DISP => "R_MIPS_GOT_DISP",
+        R_MIPS_GOT_PAGE => "R_MIPS_GOT_PAGE",
+        R_MIPS_GOT_OFST => "R_MIPS_GOT_OFST",
+        R_MIPS_GOT_HI16 => "R_MIPS_GOT_HI16",
+        R_MIPS_GOT_LO16 => "R_MIPS_GOT_LO16",
+        R_MIPS_SUB => "R_MIPS_SUB",
+        R_MIPS_INSERT_A => "R_MIPS_INSERT_A",
+        R_MIPS_INSERT_B => "R_MIPS_INSERT_B",
+        R_MIPS_DELETE => "R_MIPS_DELETE",
+        R_MIPS_HIGHER => "R_MIPS_HIGHER",
+        R_MIPS_HIGHEST => "R_MIPS_HIGHEST",
+        R_MIPS_CALL_HI16 => "R_MIPS_CALL_HI16",
+        R_MIPS_CALL_LO16 => "R_MIPS_CALL_LO16",
+        R_MIPS_SCN_DISP => "R_MIPS_SCN_DISP",
+        R_MIPS_REL16 => "R_MIPS_REL16",
+        R_MIPS_ADD_IMMEDIATE => "R_MIPS_ADD_IMMEDIATE",
+        R_MIPS_PJUMP => "R_MIPS_PJUMP",
+        R_MIPS_RELGOT => "R_MIPS_RELGOT",
+        R_MIPS_JALR => "R_MIPS_JALR",
+        R_MIPS_TLS_DTPMOD32 => "R_MIPS_TLS_DTPMOD32",
+        R_MIPS_TLS_DTPREL32 => "R_MIPS_TLS_DTPREL32",
+        R_MIPS_TLS_DTPMOD64 => "R_MIPS_TLS_DTPMOD64",
+        R_MIPS_TLS_DTPREL64 => "R_MIPS_TLS_DTPREL64",
+        R_MIPS_TLS_GD => "R_MIPS_TLS_GD",
+        R_MIPS_TLS_LDM => "R_MIPS_TLS_LDM",
+        R_MIPS_TLS_DTPREL_HI16 => "R_MIPS_TLS_DTPREL_HI16",
+        R_MIPS_TLS_DTPREL_LO16 => "R_MIPS_TLS_DTPREL_LO16",
+        R_MIPS_TLS_GOTTPREL => "R_MIPS_TLS_GOTTPREL",
+        R_MIPS_TLS_TPREL32 => "R_MIPS_TLS_TPREL32",
+        R_MIPS_TLS_TPREL64 => "R_MIPS_TLS_TPREL64",
+        R_MIPS_TLS_TPREL_HI16 => "R_MIPS_TLS_TPREL_HI16",
+        R_MIPS_TLS_TPREL_LO16 => "R_MIPS_TLS_TPREL_LO16",
+        R_MIPS_GLOB_DAT => "R_MIPS_GLOB_DAT",
+        R_MIPS_COPY => "R_MIPS_COPY",
+        R_MIPS_JUMP_SLOT => "R_MIPS_JUMP_SLOT",
+        R_MIPS_NUM => "R_MIPS_NUM",
+        _ => "R_UNKNOWN_MIPS",
         }} _ => "R_UNKNOWN"
     }
 }

@@ -151,35 +151,52 @@ pub const SHT_HIUSER: u32 = 0x8fffffff;
 
 // Legal values for sh_flags (section flags)
 /// Writable.
-pub const SHF_WRITE: u32 = 1 << 0;
+pub const SHF_WRITE: u32 = 0x1;
 /// Occupies memory during execution.
-pub const SHF_ALLOC: u32 = 1 << 1;
+pub const SHF_ALLOC: u32 = 0x2;
 /// Executable.
-pub const SHF_EXECINSTR: u32 = 1 << 2;
+pub const SHF_EXECINSTR: u32 = 0x4;
 /// Might be merged.
-pub const SHF_MERGE: u32 = 1 << 4;
+pub const SHF_MERGE: u32 = 0x10;
 /// Contains nul-terminated strings.
-pub const SHF_STRINGS: u32 = 1 << 5;
+pub const SHF_STRINGS: u32 = 0x20;
 /// `sh_info' contains SHT index.
-pub const SHF_INFO_LINK: u32 = 1 << 6;
+pub const SHF_INFO_LINK: u32 = 0x40;
 /// Preserve order after combining.
-pub const SHF_LINK_ORDER: u32 = 1 << 7;
+pub const SHF_LINK_ORDER: u32 = 0x80;
 /// Non-standard OS specific handling required.
-pub const SHF_OS_NONCONFORMING: u32 = 1 << 8;
+pub const SHF_OS_NONCONFORMING: u32 = 0x100;
 /// Section is member of a group.
-pub const SHF_GROUP: u32 = 1 << 9;
+pub const SHF_GROUP: u32 = 0x200;
 /// Section hold thread-local data.
-pub const SHF_TLS: u32 = 1 << 10;
+pub const SHF_TLS: u32 = 0x400;
 /// Section with compressed data.
-pub const SHF_COMPRESSED: u32 = 1 << 11;
+pub const SHF_COMPRESSED: u32 = 0x800;
 /// OS-specific..
 pub const SHF_MASKOS: u32 = 0x0ff00000;
 /// Processor-specific.
 pub const SHF_MASKPROC: u32 = 0xf0000000;
 /// Special ordering requirement (Solaris).
 pub const SHF_ORDERED: u32 = 1 << 30;
+/// Number of "regular" section header flags
+pub const SHF_NUM_REGULAR_FLAGS: usize = 12;
 // /// Section is excluded unless referenced or allocated (Solaris).
 // pub const SHF_EXCLUDE: u32 = 1U << 31;
+
+pub const SHF_FLAGS: [u32; SHF_NUM_REGULAR_FLAGS] = [
+    SHF_WRITE,
+    SHF_ALLOC,
+    SHF_EXECINSTR,
+    SHF_MERGE,
+    SHF_STRINGS,
+    SHF_INFO_LINK,
+    SHF_LINK_ORDER,
+    SHF_OS_NONCONFORMING,
+    SHF_GROUP,
+    SHF_TLS,
+    SHF_COMPRESSED,
+    SHF_ORDERED,
+];
 
 pub fn sht_to_str(sht: u32) -> &'static str {
     match sht {
@@ -217,6 +234,25 @@ pub fn sht_to_str(sht: u32) -> &'static str {
         SHT_LOUSER => "SHT_LOUSER",
         SHT_HIUSER => "SHT_HIUSER",
         _ => "UNKNOWN_SHT",
+    }
+}
+
+pub fn shf_to_str(shf: u32) -> &'static str {
+    match shf {
+        SHF_WRITE => "SHF_WRITE",
+        SHF_ALLOC => "SHF_ALLOC",
+        SHF_EXECINSTR => "SHF_EXECINSTR",
+        SHF_MERGE => "SHF_MERGE",
+        SHF_STRINGS => "SHF_STRINGS",
+        SHF_INFO_LINK => "SHF_INFO_LINK",
+        SHF_LINK_ORDER => "SHF_LINK_ORDER",
+        SHF_OS_NONCONFORMING => "SHF_OS_NONCONFORMING",
+        SHF_GROUP => "SHF_GROUP",
+        SHF_TLS => "SHF_TLS",
+        SHF_COMPRESSED => "SHF_COMPRESSED",
+        //SHF_MASKOS..SHF_MASKPROC => "SHF_OSFLAG",
+        SHF_ORDERED => "SHF_ORDERED",
+        _ => "SHF_UNKNOWN"
     }
 }
 

@@ -152,6 +152,7 @@ mod std {
     use container::{Ctx, Container};
 
     #[derive(Copy, Clone, PartialEq)]
+    /// An ELF header
     pub struct Header {
         pub e_ident           : [u8; SIZEOF_IDENT],
         pub e_type            : u16,

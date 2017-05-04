@@ -107,6 +107,7 @@ pub mod strtab;
 pub mod container {
     use scroll;
     #[derive(Debug, Copy, Clone, PartialEq)]
+    /// The size of a binary container
     pub enum Container {
         Little,
         Big,
@@ -126,6 +127,7 @@ pub mod container {
     }
 
     #[derive(Debug, Copy, Clone, PartialEq)]
+    /// A binary parsing context, including the container size and underlying byte endianness
     pub struct Ctx {
         pub container: Container,
         pub le: scroll::Endian,

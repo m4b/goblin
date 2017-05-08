@@ -245,28 +245,3 @@ impl<'a> Mach<'a> {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn mach_fat_header() {
-        let bytes = [0xca, 0xfe, 0xba, 0xbe, 0x00, 0x00, 0x00, 0x02, 0x01, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x5e, 0xe0, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x70, 0x00, 0x00, 0x00, 0x5c, 0xf0, 0x00, 0x00, 0x00, 0x0c];
-        let mach = Mach::parse(&bytes[..]).unwrap();
-        match mach {
-            Mach::Fat(multi) => {
-                println!("multi: {:?}", multi);
-                assert_eq!(multi.narches, 2);
-                let arches = multi.arches().unwrap();
-                println!("arches: {:?}", arches);
-                assert_eq!(arches[0].is_64(), true);
-                assert_eq!(arches[1].is_64(), false);
-                assert_eq!(arches.get(2).is_none(), true);
-            },
-            _ => {
-                println!("got mach binary from fat");
-                assert!(false);
-            }
-        }
-    }
-}

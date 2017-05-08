@@ -4,7 +4,7 @@ use error;
 use container;
 use std::fmt::{self, Display};
 use core::ops::{Deref, DerefMut};
-use scroll::{self, ctx, Endian, Pread, Gread};
+use scroll::{self, ctx, Endian, Pread};
 use scroll::ctx::{FromCtx, SizeWith};
 
 ///////////////////////////////////////
@@ -1331,6 +1331,15 @@ pub struct Section<'a> {
     pub data:      &'a [u8],
 }
 
+impl<'a> Section<'a> {
+    pub fn name(&self) -> scroll::Result<&str> {
+        self.sectname.pread::<&str>(0)
+    }
+    pub fn segname(&self) -> scroll::Result<&str> {
+        self.segname.pread::<&str>(0)
+    }
+}
+
 impl<'a> fmt::Debug for Section<'a> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("Section")
@@ -1470,13 +1479,15 @@ impl<'a> Segment<'a> {
         Ok(self.segname.pread::<&str>(0)?)
     }
     /// Get the sections from this segment
-    pub fn sections<'b>(&'b self) -> error::Result<Vec<Section<'b>>> {
+    pub fn sections(&self) -> error::Result<Vec<Section<'a>>> {
         let nsects = self.nsects as usize;
         let mut sections = Vec::with_capacity(nsects);
-        let offset = &mut (self.offset + Self::size_with(&self.ctx));
+        let mut offset = self.offset + Self::size_with(&self.ctx);
+        let size = Section::size_with(&self.ctx);
         for _ in 0..nsects {
-            let section = self.raw_data.gread_with::<Section>(offset, self.ctx)?;
+            let section = self.raw_data.pread_with::<Section<'a>>(offset, self.ctx)?;
             sections.push(section);
+            offset += size;
         }
         Ok(sections)
     }

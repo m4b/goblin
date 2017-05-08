@@ -422,6 +422,15 @@ mod std {
             }
             Ok(section_headers)
         }
+        pub fn is_executable(&self) -> bool {
+            self.is_alloc() && self.sh_flags as u32 & SHF_EXECINSTR == SHF_EXECINSTR
+        }
+        pub fn is_writable(&self) -> bool {
+            self.is_alloc() && self.sh_flags as u32 & SHF_WRITE == SHF_WRITE
+        }
+        pub fn is_alloc(&self) -> bool {
+            self.sh_flags as u32 & SHF_ALLOC == SHF_ALLOC
+        }
     }
 
     impl fmt::Debug for SectionHeader {

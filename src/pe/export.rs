@@ -137,18 +137,18 @@ impl<'a> scroll::ctx::TryFromCtx<'a, (usize, scroll::ctx::DefaultCtx)> for Reexp
                     let len = reexport_len - i - 1;
                     let rest: &'a [u8] = bytes.pread_slice(offset + o, len)?;
                     //println!("rest: {:?}", &rest);
+                    let len = rest.len() - 1;
                     match rest[0] {
                         // '#'
                         0x23 => {
                             // UNTESTED
-                            let len = rest.len() - 1;
                             let ordinal = rest.pread_slice::<str>(1, len)?;
                             let ordinal = ordinal.parse::<u32>().map_err(|_e| scroll::Error::BadInput(offset..(offset + o), bytes.len(), "Cannot parse reexport ordinal"))?;
                             return Ok(Reexport::DLLOrdinal { export: dll, ordinal: ordinal as usize })
                         },
                         _ => {
-                            let rest = rest.pread_slice::<str>(0, rest.len())?;
-                            return Ok(Reexport::DLLName { export: dll, lib: rest })
+                            let export = rest.pread_slice::<str>(1, len)?;
+                            return Ok(Reexport::DLLName { export: export, lib: dll })
                         }
                     }
                 },

@@ -1,6 +1,8 @@
 //! A PE32 and PE32+ parser
 //!
 
+// TODO: panics with unwrap on None for apisetschema.dll, fhuxgraphics.dll and some others
+
 pub mod header;
 pub mod optional_header;
 pub mod characteristic;

@@ -1067,6 +1067,7 @@ pub fn cmd_to_str(cmd: u32) -> &'static str {
 ///////////////////////////////////////////
 
 #[derive(Debug)]
+/// The various load commands as a cast-free variant/enum
 pub enum CommandVariant {
     Segment32              (SegmentCommand32),
     Segment64              (SegmentCommand64),
@@ -1175,7 +1176,7 @@ impl<'a> ctx::TryFromCtx<'a, (usize, ctx::DefaultCtx)> for CommandVariant {
             LC_DYLIB_CODE_SIGN_DRS => {     let comm = bytes.pread_with::<LinkeditDataCommand>    (offset, le)?;  Ok(DylibCodeSignDrs       (comm))},
             LC_LINKER_OPTION => {           let comm = bytes.pread_with::<LinkeditDataCommand>    (offset, le)?;  Ok(LinkerOption           (comm))},
             LC_LINKER_OPTIMIZATION_HINT => {let comm = bytes.pread_with::<LinkeditDataCommand>    (offset, le)?;  Ok(LinkerOptimizationHint (comm))},
-            _ =>                                                                                                   Ok(Unimplemented          (lc.clone())),
+            _ =>                                                                                                  Ok(Unimplemented          (lc.clone())),
         }
     }
 }
@@ -1292,12 +1293,16 @@ impl CommandVariant {
 }
 
 #[derive(Debug)]
+/// A tagged LoadCommand union
 pub struct LoadCommand {
+    /// The offset this load command occurs at
     pub offset: usize,
+    /// Which load command this is inside a variant
     pub command: CommandVariant,
 }
 
 impl LoadCommand {
+    /// Parse a load command from `bytes` at `offset` with the `le` endianness
     pub fn parse(bytes: &[u8], mut offset: &mut usize, le: scroll::Endian) -> error::Result<Self> {
         let start = *offset;
         let command = bytes.pread_with::<CommandVariant>(start, le)?;
@@ -1332,9 +1337,11 @@ pub struct Section<'a> {
 }
 
 impl<'a> Section<'a> {
+    /// The name of this section
     pub fn name(&self) -> scroll::Result<&str> {
         self.sectname.pread::<&str>(0)
     }
+    /// The containing segment's name
     pub fn segname(&self) -> scroll::Result<&str> {
         self.segname.pread::<&str>(0)
     }

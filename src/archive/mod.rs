@@ -154,7 +154,7 @@ impl Index {
         Ok (Index {
             size: sizeof_table,
             symbol_indexes: indexes,
-            strtab: strtab.to_vec(), // because i'm lazy
+            strtab: strtab.to_vec()?, // because i'm lazy
         })
     }
 }

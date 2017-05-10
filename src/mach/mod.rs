@@ -31,7 +31,7 @@ pub struct MachO<'a> {
     pub load_commands: Vec<load_command::LoadCommand>,
     /// The load command "segments" - typically the pieces of the binary that are loaded into memory
     pub segments: load_command::Segments<'a>,
-    /// The Nlist style symbols in this binary - strippable
+    /// The "Nlist" style symbols in this binary - strippable
     pub symbols: Option<symbols::Symbols<'a>>,
     /// The dylibs this library depends on
     pub libs: Vec<&'a str>,
@@ -234,7 +234,9 @@ impl<'a> fmt::Debug for MultiArch<'a> {
 #[derive(Debug)]
 /// Either a collection of multiple architectures, or a single mach-o binary
 pub enum Mach<'a> {
+    /// A "fat" multi-architecture binary container
     Fat(MultiArch<'a>),
+    /// A regular Mach-o binary
     Binary(MachO<'a>)
 }
 

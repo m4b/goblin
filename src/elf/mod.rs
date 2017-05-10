@@ -223,7 +223,7 @@ mod impure {
                                           0x0)?;
 
                 if dyn_info.soname != 0 {
-                    soname = Some(dynstrtab.get(dyn_info.soname).to_owned())
+                    soname = Some(dynstrtab.get(dyn_info.soname)?.to_owned())
                 }
                 if dyn_info.needed_count > 0 {
                     libraries = dynamic.get_libraries(&dynstrtab);

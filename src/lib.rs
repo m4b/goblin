@@ -109,15 +109,18 @@ pub mod container {
     }
 
     impl Container {
+        /// Is this a 64-bit container or not?
         pub fn is_big(&self) -> bool {
             *self == Container::Big
         }
     }
 
     #[cfg(not(target_pointer_width = "64"))]
+    /// The default binary container size - either `Big` or `Little`, depending on whether the host machine's pointer size is 64 or not
     pub const CONTAINER: Container =  Container::Little;
 
     #[cfg(target_pointer_width = "64")]
+    /// The default binary container size - either `Big` or `Little`, depending on whether the host machine's pointer size is 64 or not
     pub const CONTAINER: Container =  Container::Big;
 
     impl Default for Container {
@@ -135,9 +138,11 @@ pub mod container {
     }
 
     impl Ctx {
+        /// Create a new binary container context
         pub fn new (container: Container, le: scroll::Endian) -> Self {
             Ctx { container: container, le: le }
         }
+        /// Return a dubious pointer/address byte size for the container
         pub fn size(&self) -> usize {
             match self.container {
                 // TODO: require pointer size initialization/setting or default to container size with these values, e.g., avr pointer width will be smaller iirc
@@ -167,6 +172,7 @@ pub mod container {
     }
 }
 
+// peek at the underlying bytes
 #[cfg(feature = "std")]
 pub use peek::*;
 
@@ -247,10 +253,15 @@ mod peek {
 #[derive(Debug)]
 /// A parseable object that goblin understands
 pub enum Object<'a> {
+    /// An ELF32/ELF64!
     Elf(elf::Elf<'a>),
+    /// A PE32/PE32+!
     PE(pe::PE<'a>),
+    /// A 32/64-bit Mach-o binary _OR_ it is a multi-architecture binary container!
     Mach(mach::Mach<'a>),
+    /// A Unix archive
     Archive(archive::Archive<'a>),
+    /// None of the above, with the given magic value
     Unknown(u64),
 }
 

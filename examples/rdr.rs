@@ -14,7 +14,7 @@ fn run () -> error::Result<()> {
             let fd = File::open(path)?;
             let buffer = Buffer::try_from(fd)?;
             let res = goblin::parse(&buffer)?;
-            println!("res: {:?}", res);
+            println!("res: {:#?}", res);
         }
     }
     Ok(())

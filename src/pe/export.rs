@@ -99,7 +99,7 @@ impl<'a> ExportData<'a> {
 
         let name_offset = utils::find_offset(export_directory_table.name_rva as usize, sections).unwrap();
         //println!("<PEExport.get> pointers: 0x{:x}  ordinals: 0x{:x} addresses: 0x{:x}", name_pointer_table_offset, export_ordinal_table_offset, export_address_table_offset);
-        let name: &'a str = bytes.pread_slice::<str>(name_offset, 8)?;
+        let name: &'a str = bytes.pread(name_offset)?;
         Ok(ExportData {
             name: name,
             export_directory_table: export_directory_table,
@@ -112,31 +112,30 @@ impl<'a> ExportData<'a> {
 
 #[derive(Debug)]
 /// PE binaries have two kinds of reexports, either specifying the dll's name, or the ordinal value of the dll
-pub enum Reexport {
-  DLLName ((String, String)),
-  DLLOrdinal ((String, usize))
+pub enum Reexport<'a> {
+  DLLName { export: &'a str, lib: &'a str },
+  DLLOrdinal { export: &'a str, ordinal: usize }
 }
 
-impl<'a> scroll::ctx::TryFromCtx<'a, (usize, scroll::ctx::DefaultCtx)> for Reexport {
+impl<'a> scroll::ctx::TryFromCtx<'a, (usize, scroll::ctx::DefaultCtx)> for Reexport<'a> {
     type Error = scroll::Error;
     #[inline]
     fn try_from_ctx(bytes: &'a [u8], (offset, _): (usize, scroll::ctx::DefaultCtx)) -> Result<Self, Self::Error> {
-        use scroll::{Gread, Pread};
-        let reexport: &str = bytes.pread::<&str>(offset)?;
+        use scroll::{Pread};
+        let reexport = bytes.pread::<&str>(offset)?;
+        let reexport_len = reexport.len();
         //println!("reexport: {}", &reexport);
-        let bytes: &[u8] = reexport.as_bytes();
-        let mut o = &mut 0;
-        loop {
-            let c: u8 = bytes.gread(o)?;
+        for o in 0..reexport_len {
+            let c: u8 = bytes.pread(offset+o)?;
             //println!("reexport offset: {:#x} char: {:#x}", *o, c);
             match c {
                 // '.'
                 0x2e => {
-                    let i = *o - 1;
-                    let dll: &str = bytes.pread_slice(0, i)?;
+                    let i = o - 1;
+                    let dll: &'a str = bytes.pread_slice(offset, i)?;
                     //println!("dll: {:?}", &dll);
-                    let len = reexport.len() - i - 1;
-                    let rest: &[u8] = bytes.gread_slice(o, len)?;
+                    let len = reexport_len - i - 1;
+                    let rest: &'a [u8] = bytes.pread_slice(offset + o, len)?;
                     //println!("rest: {:?}", &rest);
                     match rest[0] {
                         // '#'
@@ -144,35 +143,36 @@ impl<'a> scroll::ctx::TryFromCtx<'a, (usize, scroll::ctx::DefaultCtx)> for Reexp
                             // UNTESTED
                             let len = rest.len() - 1;
                             let ordinal = rest.pread_slice::<str>(1, len)?;
-                            let ordinal = ordinal.parse::<u32>().unwrap();
-                            return Ok(Reexport::DLLOrdinal ((dll.to_string(), ordinal as usize)))
+                            let ordinal = ordinal.parse::<u32>().map_err(|_e| scroll::Error::BadInput(offset..(offset + o), bytes.len(), "Cannot parse reexport ordinal"))?;
+                            return Ok(Reexport::DLLOrdinal { export: dll, ordinal: ordinal as usize })
                         },
                         _ => {
                             let rest = rest.pread_slice::<str>(0, rest.len())?;
-                            return Ok(Reexport::DLLName ((dll.to_string(), rest.to_string())))
+                            return Ok(Reexport::DLLName { export: dll, lib: rest })
                         }
                     }
                 },
                 _ => {}
             }
         }
+        Err(scroll::Error::Custom(format!("Reexport {:#} at {:#x} is malformed", reexport, offset)))
     }
 }
 
-impl Reexport {
-    pub fn parse(bytes: &[u8], offset: usize) -> scroll::Result<Reexport> {
+impl<'a> Reexport<'a> {
+    pub fn parse(bytes: &'a [u8], offset: usize) -> scroll::Result<Reexport<'a>> {
         bytes.pread(offset)
     }
 }
 
 #[derive(Debug, Default)]
 /// An exported symbol in this binary, contains synthetic data (name offset, etc., are computed)
-pub struct Export {
-    pub name: String,
+pub struct Export<'a> {
+    pub name: &'a str,
     pub offset: usize,
     pub rva: usize,
     pub size: usize,
-    pub reexport: Option<Reexport>,
+    pub reexport: Option<Reexport<'a>>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -184,14 +184,14 @@ struct ExportCtx<'a> {
     pub ordinals: &'a ExportOrdinalTable,
 }
 
-impl<'a> scroll::ctx::TryFromCtx<'a, ExportCtx<'a>> for Export {
+impl<'a, 'b> scroll::ctx::TryFromCtx<'a, ExportCtx<'b>> for Export<'a> {
     type Error = scroll::Error;
     #[inline]
-    fn try_from_ctx(bytes: &'a [u8], ExportCtx { ptr, idx, sections, addresses, ordinals }: ExportCtx<'a>) -> Result<Self, Self::Error> {
+    fn try_from_ctx(bytes: &'a [u8], ExportCtx { ptr, idx, sections, addresses, ordinals }: ExportCtx<'b>) -> Result<Self, Self::Error> {
         use self::ExportAddressTableEntry::*;
         let i = idx;
         let name_offset = utils::find_offset(ptr as usize, sections).unwrap();
-        let name = bytes.pread::<&str>(name_offset)?.to_string();
+        let name = bytes.pread::<&str>(name_offset)?;
         let ordinal = ordinals[i];
         let address_index = ordinal as usize;
         //println!("name: {} name_offset: {:#x} ordinal: {} address_index: {}", name, name_offset, ordinal, address_index);
@@ -220,8 +220,8 @@ impl<'a> scroll::ctx::TryFromCtx<'a, ExportCtx<'a>> for Export {
     }
 }
 
-impl Export {
-    pub fn parse(bytes: &[u8], export_data: &ExportData, sections: &[section_table::SectionTable]) -> error::Result<Vec<Export>> {
+impl<'a> Export<'a> {
+    pub fn parse(bytes: &'a [u8], export_data: &ExportData, sections: &[section_table::SectionTable]) -> error::Result<Vec<Export<'a>>> {
         let pointers = &export_data.export_name_pointer_table;
         let addresses = &export_data.export_address_table;
         let ordinals = &export_data.export_ordinal_table;

@@ -35,13 +35,13 @@ pub struct PE<'a> {
     /// Data about any exported symbols in this binary (e.g., if it's a `dll`)
     pub export_data: Option<export::ExportData<'a>>,
     /// Data for any imported symbols, and from which `dll`, etc., in this binary
-    pub import_data: Option<import::ImportData>,
+    pub import_data: Option<import::ImportData<'a>>,
     /// The list of exported symbols in this binary, contains synthetic information for easier analysis
-    pub exports: Vec<export::Export>,
+    pub exports: Vec<export::Export<'a>>,
     /// The list symbols imported by this binary from other `dll`s
-    pub imports: Vec<import::Import>,
+    pub imports: Vec<import::Import<'a>>,
     /// The list of libraries which this binary imports symbols from
-    pub libraries: Vec<String>,
+    pub libraries: Vec<&'a str>,
 }
 
 impl<'a> PE<'a> {
@@ -77,7 +77,7 @@ impl<'a> PE<'a> {
             if let &Some(import_table) = optional_header.data_directories.get_import_table() {
                 let id = import::ImportData::parse(bytes, &import_table, &sections)?;
                 imports = import::Import::parse(bytes, &id, &sections)?;
-                libraries = id.import_data.iter().map( | data | { data.name.to_owned() }).collect::<Vec<String>>();
+                libraries = id.import_data.iter().map( | data | { data.name }).collect::<Vec<&'a str>>();
                 libraries.sort();
                 libraries.dedup();
                 import_data = Some(id);

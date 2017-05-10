@@ -50,9 +50,9 @@ impl<'a> Strtab<'a> {
         }
         Ok(strings)
     }
-    /// Safely gets a str reference from the backing bytes starting at byte `offset`
-    pub fn get(&self, offset: usize) -> error::Result<&'a str> {
-        Ok(get_str(offset, self.bytes, self.delim)?)
+    /// Safely parses and gets a str reference from the backing bytes starting at byte `offset`
+    pub fn get(&self, offset: usize) -> scroll::Result<&'a str> {
+        get_str(offset, self.bytes, self.delim)
     }
 }
 

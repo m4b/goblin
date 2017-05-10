@@ -25,14 +25,23 @@ pub fn peek<B: AsRef<[u8]>>(bytes: B, offset: usize) -> error::Result<u32> {
 #[derive(Debug)]
 /// A cross-platform, zero-copy, endian-aware, 32/64 bit Mach-o binary parser
 pub struct MachO<'a> {
+    /// The mach-o header
     pub header: header::Header,
+    /// The load commands tell the kernel and dynamic linker how to use/interpret this binary
     pub load_commands: Vec<load_command::LoadCommand>,
+    /// The load command "segments" - typically the pieces of the binary that are loaded into memory
     pub segments: load_command::Segments<'a>,
+    /// The Nlist style symbols in this binary - strippable
     pub symbols: Option<symbols::Symbols<'a>>,
+    /// The dylibs this library depends on
     pub libs: Vec<&'a str>,
+    /// The entry point, 0 if none
     pub entry: u64,
+    /// The name of the dylib, if any
     pub name: Option<&'a str>,
+    /// Are we a little-endian binary?
     pub little_endian: bool,
+    /// Are we a 64-bit binary
     pub is_64: bool,
     ctx: container::Ctx,
     export_trie: Option<exports::ExportTrie<'a>>,
@@ -230,6 +239,7 @@ pub enum Mach<'a> {
 }
 
 impl<'a> Mach<'a> {
+    /// Parse from `bytes` either a multi-arch binary or a regular mach-o binary
     pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
         let size = bytes.len();
         if size < 4 {

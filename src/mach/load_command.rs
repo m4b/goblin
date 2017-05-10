@@ -1480,14 +1480,13 @@ impl<'a> Segment<'a> {
     }
     /// Get the sections from this segment
     pub fn sections(&self) -> error::Result<Vec<Section<'a>>> {
+        use scroll::Gread;
         let nsects = self.nsects as usize;
         let mut sections = Vec::with_capacity(nsects);
-        let mut offset = self.offset + Self::size_with(&self.ctx);
-        let size = Section::size_with(&self.ctx);
+        let offset = &mut (self.offset + Self::size_with(&self.ctx));
         for _ in 0..nsects {
-            let section = self.raw_data.pread_with::<Section<'a>>(offset, self.ctx)?;
+            let section = self.raw_data.gread_with::<Section<'a>>(offset, self.ctx)?;
             sections.push(section);
-            offset += size;
         }
         Ok(sections)
     }
@@ -1564,7 +1563,7 @@ impl<'a> Segments<'a> {
         }
     }
     /// Get every section from every segment
-    pub fn sections<'b>(&'b self) -> error::Result<Vec<Vec<Section<'b>>>> {
+    pub fn sections(&self) -> error::Result<Vec<Vec<Section<'a>>>> {
         let mut sections = Vec::new();
         for segment in &self.segments {
             sections.push(segment.sections()?);

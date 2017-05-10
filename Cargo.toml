@@ -15,7 +15,7 @@ documentation = "https://docs.rs/goblin"
 plain = "0.0.2"
 
 [dependencies.scroll]
-version = "0.4.0"
+version = "0.5.0"
 default_features = false
 
 [dependencies.scroll_derive]

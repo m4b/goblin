@@ -32,6 +32,8 @@ pub struct MachO<'a> {
     pub libs: Vec<&'a str>,
     pub entry: u64,
     pub name: Option<&'a str>,
+    pub little_endian: bool,
+    pub is_64: bool,
     ctx: container::Ctx,
     export_trie: Option<exports::ExportTrie<'a>>,
     bind_interpreter: Option<imports::BindInterpreter<'a>>,
@@ -59,6 +61,8 @@ impl<'a> MachO<'a> {
         let offset = &mut offset;
         let header: header::Header = bytes.pread(*offset)?;
         let ctx = header.ctx()?;
+        let little_endian = ctx.le.is_little();
+        let is_64 = ctx.container.is_big();
         *offset = *offset + header.size();
         let ncmds = header.ncmds;
         let mut cmds: Vec<load_command::LoadCommand> = Vec::with_capacity(ncmds);
@@ -119,6 +123,8 @@ impl<'a> MachO<'a> {
             entry: entry,
             name: name,
             ctx: ctx,
+            is_64: is_64,
+            little_endian: little_endian,
         })
     }
 }

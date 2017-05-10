@@ -108,6 +108,12 @@ pub mod container {
         Big,
     }
 
+    impl Container {
+        pub fn is_big(&self) -> bool {
+            *self == Container::Big
+        }
+    }
+
     #[cfg(not(target_pointer_width = "64"))]
     pub const CONTAINER: Container =  Container::Little;
 

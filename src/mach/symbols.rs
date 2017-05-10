@@ -175,10 +175,10 @@ impl<'a> Symbols<'a> {
     /// Creates a new symbol table with `count` elements, from the `start` offset, using the string table at `strtab`, with a _default_ ctx.
     ////
     /// **Beware**, this will provide incorrect results if you construct this on a 32-bit mach binary, using a 64-bit machine; use `parse` instead if you want 32/64 bit support
-    pub fn new<B: AsRef<[u8]>> (b: &B, start: usize, count: usize, strtab: usize) -> error::Result<Symbols> {
+    pub fn new(bytes: &'a [u8], start: usize, count: usize, strtab: usize) -> error::Result<Symbols<'a>> {
         let nsyms = count;
         Ok (Symbols {
-            data: b.as_ref(),
+            data: bytes,
             start: start,
             nsyms: nsyms,
             strtab: strtab,
@@ -190,7 +190,7 @@ impl<'a> Symbols<'a> {
     }
 
     /// Parses a single Nlist symbol from the binary, with its accompanying name
-    pub fn get(&self, index: usize) -> scroll::Result<(&str, Nlist)> {
+    pub fn get(&self, index: usize) -> scroll::Result<(&'a str, Nlist)> {
         let sym: Nlist = self.data.pread_with(self.start + (index * Nlist::size_with(&self.ctx)), self.ctx)?;
         let name = self.data.pread(self.strtab + sym.n_strx)?;
         Ok((name, sym))

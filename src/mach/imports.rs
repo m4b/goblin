@@ -70,7 +70,7 @@ pub struct Import<'a> {
 
 impl<'a> Import<'a> {
     /// Create a new import from the import binding information in `bi`
-    fn new<'b>(bi: &BindInformation<'b>, libs: &[&'b str], segments: &[load_command::Segment]) -> Import<'b> {
+    fn new(bi: &BindInformation<'a>, libs: &[&'a str], segments: &[load_command::Segment]) -> Import<'a> {
         let offset = {
             let segment = &segments[bi.seg_index as usize];
             segment.fileoff + bi.seg_offset
@@ -120,13 +120,13 @@ impl<'a> BindInterpreter<'a> {
         }
     }
     /// Return the imports in this binary
-    pub fn imports<'b> (&'b self, libs: &[&'b str], segments: &[load_command::Segment], ctx: &container::Ctx) -> error::Result<Vec<Import<'b>>>{
+    pub fn imports(&self, libs: &[&'a str], segments: &[load_command::Segment], ctx: &container::Ctx) -> error::Result<Vec<Import<'a>>>{
         let mut imports = Vec::new();
         self.run(false, libs, segments, ctx, &mut imports)?;
         self.run( true, libs, segments, ctx, &mut imports)?;
         Ok(imports)
     }
-    fn run<'b> (&'b self, is_lazy: bool, libs: &[&'b str], segments: &[load_command::Segment], ctx: &container::Ctx, imports: &mut Vec<Import<'b>>) -> error::Result<()>{
+    fn run(&self, is_lazy: bool, libs: &[&'a str], segments: &[load_command::Segment], ctx: &container::Ctx, imports: &mut Vec<Import<'a>>) -> error::Result<()>{
         use mach::bind_opcodes::*;
         let location = if is_lazy {
             &self.location

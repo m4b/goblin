@@ -1,8 +1,8 @@
 //! A header contains minimal architecture information, the binary kind, the number of load commands, as well as an endianness hint
 
-use std::mem;
 use std::fmt;
 use scroll::{self, ctx};
+use plain::{self, Plain};
 
 use mach::constants::cputype::cpu_type_to_str;
 use error;
@@ -181,6 +181,8 @@ pub struct Header32 {
 
 pub const SIZEOF_HEADER_32: usize = 0x1c;
 
+unsafe impl Plain for Header32 {}
+
 impl fmt::Debug for Header32 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f,
@@ -198,6 +200,10 @@ impl fmt::Debug for Header32 {
 }
 
 impl Header32 {
+    /// Transmutes the given byte array into the corresponding 32-bit Mach-o header
+    pub fn from_bytes(bytes: &[u8; SIZEOF_HEADER_32]) -> &Self {
+        plain::from_bytes(bytes).unwrap()
+    }
     pub fn size(&self) -> usize {
         SIZEOF_HEADER_32
     }
@@ -225,6 +231,8 @@ pub struct Header64 {
     pub reserved: u32,
 }
 
+unsafe impl Plain for Header64 {}
+
 pub const SIZEOF_HEADER_64: usize = 32;
 
 impl fmt::Debug for Header64 {
@@ -244,10 +252,9 @@ impl fmt::Debug for Header64 {
 }
 
 impl Header64 {
-    /// Returns the corresponding Mach-o header from the given byte array
+    /// Transmutes the given byte array into the corresponding 64-bit Mach-o header
     pub fn from_bytes(bytes: &[u8; SIZEOF_HEADER_64]) -> &Self {
-        let header: &Header64 = unsafe { mem::transmute(bytes) };
-        header
+        plain::from_bytes(bytes).unwrap()
     }
     pub fn size(&self) -> usize {
         SIZEOF_HEADER_64

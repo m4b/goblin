@@ -149,7 +149,7 @@ pub struct Export<'a> {
 
 impl<'a> Export<'a> {
     /// Create a new export from `name` and `info`
-    pub fn new<'b> (name: String, info: ExportInfo<'b>) -> Export<'b> {
+    pub fn new(name: String, info: ExportInfo<'a>) -> Export<'a> {
         let offset = match info {
             ExportInfo::Regular { address, .. } => address,
             _ => 0x0,
@@ -167,7 +167,7 @@ pub struct ExportTrie<'a> {
 impl<'a> ExportTrie<'a> {
 
     #[inline]
-    fn walk_nodes<'b>(&'b self, libs: &[&'b str], branches: Vec<(String, usize)>, acc: &mut Vec<Export<'b>>) -> error::Result<()> {
+    fn walk_nodes(&self, libs: &[&'a str], branches: Vec<(String, usize)>, acc: &mut Vec<Export<'a>>) -> error::Result<()> {
         for (symbol, next_node) in branches {
             self.walk_trie(libs, symbol, next_node, acc)?;
         }
@@ -175,7 +175,7 @@ impl<'a> ExportTrie<'a> {
     }
 
     // current_symbol can be a str iiuc
-    fn walk_branches<'b>(&'b self, nbranches: usize, current_symbol: String, mut offset: usize) -> error::Result<Vec<(String, usize)>> {
+    fn walk_branches(&self, nbranches: usize, current_symbol: String, mut offset: usize) -> error::Result<Vec<(String, usize)>> {
         let mut branches = Vec::with_capacity(nbranches);
         //println!("\t@{:#x}", *offset);
         for _i in 0..nbranches {
@@ -195,7 +195,7 @@ impl<'a> ExportTrie<'a> {
         Ok(branches)
     }
 
-    fn walk_trie<'b>(&'b self, libs: &[&'b str], current_symbol: String, start: usize, exports: &mut Vec<Export<'b>>) -> error::Result<()> {
+    fn walk_trie(&self, libs: &[&'a str], current_symbol: String, start: usize, exports: &mut Vec<Export<'a>>) -> error::Result<()> {
         if start < self.location.end {
             let offset = &mut start.clone();
             let terminal_size = Uleb128::read(&self.data, offset)?;
@@ -230,7 +230,7 @@ impl<'a> ExportTrie<'a> {
     }
 
     /// Walk the export trie for symbols exported by this binary, using the provided `libs` to resolve re-exports
-    pub fn exports<'b>(&'b self, libs: &[&'b str]) -> error::Result<Vec<Export<'b>>> {
+    pub fn exports(&self, libs: &[&'a str]) -> error::Result<Vec<Export<'a>>> {
         let offset = self.location.start.clone();
         let current_symbol = String::new();
         let mut exports = Vec::new();

@@ -10,9 +10,13 @@ use std::io;
 #[derive(Debug)]
 /// A custom Goblin error
 pub enum Error {
+    /// An IO based error
     IO(io::Error),
+    /// An error emanating from reading and interpreting bytes
     Scroll(scroll::Error),
+    /// The binary is malformed somehow
     Malformed(String),
+    /// The binary's magic is unknown or bad
     BadMagic(u64),
 }
 
@@ -58,4 +62,5 @@ impl Display for Error {
     }
 }
 
+/// An impish result
 pub type Result<T> = result::Result<T, Error>;

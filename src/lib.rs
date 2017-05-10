@@ -25,7 +25,7 @@
 //! # Example
 //!
 //! ```rust
-//! use goblin::{error, Hint, pe, elf, mach, archive};
+//! use goblin::{error, Object};
 //! use std::path::Path;
 //! use std::env;
 //! use std::fs::File;
@@ -36,27 +36,22 @@
 //!         if i == 1 {
 //!             let path = Path::new(arg.as_str());
 //!             let mut fd = File::open(path)?;
-//!             let peek = goblin::peek(&mut fd)?;
 //!             let mut buffer = Vec::new();
 //!             fd.read_to_end(&mut buffer)?;
-//!             match peek {
-//!                 Hint::Elf(_) => {
-//!                     let elf = elf::Elf::parse(&buffer)?;
+//!             match goblin::parse(&buffer)? {
+//!                 Object::Elf(elf) => {
 //!                     println!("elf: {:#?}", &elf);
 //!                 },
-//!                 Hint::PE => {
-//!                     let pe = pe::PE::parse(&buffer)?;
+//!                 Object::PE(pe) => {
 //!                     println!("pe: {:#?}", &pe);
 //!                 },
-//!                 Hint::Mach(_) => {
-//!                     let mach = mach::Mach::parse(&buffer)?;
+//!                 Object::Mach(mach) => {
 //!                     println!("mach: {:#?}", &mach);
 //!                 },
-//!                 Hint::Archive => {
-//!                     let archive = archive::Archive::parse(&buffer)?;
+//!                 Object::Archive(archive) => {
 //!                     println!("archive: {:#?}", &archive);
 //!                 },
-//!                 _ => {}
+//!                 Object::Unknown(magic) => { println!("unknown magic: {:#x}", magic) }
 //!             }
 //!         }
 //!     }
@@ -244,15 +239,17 @@ mod peek {
 
 #[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
 #[derive(Debug)]
+/// A parseable object that goblin understands
 pub enum Object<'a> {
     Elf(elf::Elf<'a>),
     PE(pe::PE<'a>),
     Mach(mach::Mach<'a>),
     Archive(archive::Archive<'a>),
-    Unknown,
+    Unknown(u64),
 }
 
 #[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
+/// Parses an `Object` from `bytes`.
 pub fn parse(bytes: &[u8]) -> error::Result<Object> {
     use std::io::Cursor;
     match peek(&mut Cursor::new(&bytes))? {
@@ -260,7 +257,7 @@ pub fn parse(bytes: &[u8]) -> error::Result<Object> {
         Hint::Mach(_) | Hint::MachFat(_) => Ok(Object::Mach(mach::Mach::parse(bytes)?)),
         Hint::Archive => Ok(Object::Archive(archive::Archive::parse(bytes)?)),
         Hint::PE => Ok(Object::PE(pe::PE::parse(bytes)?)),
-        _ => Ok(Object::Unknown)
+        Hint::Unknown(magic) => Ok(Object::Unknown(magic))
     }
 }
 
@@ -282,10 +279,6 @@ pub mod elf32 {
     pub use elf::sym::sym32 as sym;
     pub use elf::reloc::reloc32 as reloc;
 
-    #[cfg(feature = "std")]
-    pub use strtab;
-
-    #[cfg(feature = "std")]
     pub mod gnu_hash {
         elf_gnu_hash_impl!(u32);
     }
@@ -301,20 +294,16 @@ pub mod elf64 {
     pub use elf::sym::sym64 as sym;
     pub use elf::reloc::reloc64 as reloc;
 
-    #[cfg(feature = "std")]
-    pub use strtab;
-
-    #[cfg(feature = "std")]
     pub mod gnu_hash {
         elf_gnu_hash_impl!(u64);
     }
 }
 
-#[cfg(feature = "mach64")]
+#[cfg(all(feature = "mach32", feature = "mach64", feature = "endian_fd"))]
 pub mod mach;
+
+#[cfg(all(feature = "pe32", feature = "pe64", feature = "endian_fd"))]
+pub mod pe;
 
 #[cfg(all(feature = "archive", feature = "std"))]
 pub mod archive;
-
-#[cfg(all(feature = "pe32", feature = "std"))]
-pub mod pe;

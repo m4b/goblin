@@ -19,7 +19,7 @@ macro_rules! elf_gnu_hash_impl {
 
         use core::slice;
         use core::mem;
-        use elf::strtab::Strtab;
+        use strtab::Strtab;
         use super::sym;
 
         /// GNU hash function: takes a string and returns the u32 hash of that string

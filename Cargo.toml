@@ -28,8 +28,8 @@ std = ["scroll/std", "scroll_derive"]
 endian_fd = ["std"]
 elf32 = []
 elf64 = []
-mach32 = []
-# for now we will require mach64 and pe to be std + endian_fd
+# for now we will require mach and pe to be std + endian_fd
+mach32 = ["std", "endian_fd"]
 mach64 = ["std", "endian_fd"]
 pe32 = ["std", "endian_fd"]
 pe64 = ["std", "endian_fd"]

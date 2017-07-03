@@ -319,23 +319,23 @@ mod std {
         }
     }
 
-    impl<'a> ctx::TryFromCtx<'a, (usize, RelocCtx)> for Reloc {
+    impl<'a> ctx::TryFromCtx<'a, RelocCtx> for Reloc {
         type Error = scroll::Error;
-        fn try_from_ctx(bytes: &'a [u8], (offset, (is_rela, Ctx { container, le })): (usize, RelocCtx)) -> result::Result<Self, Self::Error> {
+        fn try_from_ctx(bytes: &'a [u8], (is_rela, Ctx { container, le }): RelocCtx) -> result::Result<Self, Self::Error> {
             use scroll::Pread;
             let reloc = match container {
                 Container::Little => {
                     if is_rela {
-                        bytes.pread_with::<reloc32::Rela>(offset, le)?.into()
+                        bytes.pread_with::<reloc32::Rela>(0, le)?.into()
                     } else {
-                        bytes.pread_with::<reloc32::Rel>(offset, le)?.into()
+                        bytes.pread_with::<reloc32::Rel>(0, le)?.into()
                     }
                 },
                 Container::Big => {
                     if is_rela {
-                        bytes.pread_with::<reloc64::Rela>(offset, le)?.into()
+                        bytes.pread_with::<reloc64::Rela>(0, le)?.into()
                     } else {
-                        bytes.pread_with::<reloc64::Rel>(offset, le)?.into()
+                        bytes.pread_with::<reloc64::Rel>(0, le)?.into()
                     }
                 }
             };
@@ -343,19 +343,19 @@ mod std {
         }
     }
 
-    impl ctx::TryIntoCtx<(usize, Ctx)> for Reloc {
+    impl ctx::TryIntoCtx<Ctx> for Reloc {
         type Error = scroll::Error;
         /// Writes the relocation into `bytes`; forces `Rel` relocation records for 32-bit containers, and `Rela` for 64-bit containers
-        fn try_into_ctx(self, mut bytes: &mut [u8], (offset, Ctx { container, le }): (usize, Ctx)) -> result::Result<(), Self::Error> {
+        fn try_into_ctx(self, mut bytes: &mut [u8], Ctx {container, le}: Ctx) -> result::Result<(), Self::Error> {
             use scroll::Pwrite;
             match container {
                 Container::Little => {
                     let rel: reloc32::Rel = self.into();
-                    bytes.pwrite_with(rel, offset, le)?;
+                    bytes.pwrite_with(rel, 0, le)?;
                 },
                 Container::Big => {
                     let rela: reloc64::Rela = self.into();
-                    bytes.pwrite_with(rela, offset, le)?;
+                    bytes.pwrite_with(rela, 0, le)?;
                 },
             };
             Ok(())

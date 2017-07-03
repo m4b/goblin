@@ -8,6 +8,7 @@ use goblin::archive;
 use std::env;
 use std::path::Path;
 use std::fs::File;
+use std::io::Read;
 
 pub fn main () {
     let len = env::args().len();
@@ -24,14 +25,14 @@ pub fn main () {
             }
         }
         let path = Path::new(&path);
-        let buffer = scroll::Buffer::try_from(File::open(&path).unwrap()).unwrap();
+        let buffer = { let mut v = Vec::new(); let mut f = File::open(&path).unwrap(); f.read_to_end(&mut v).unwrap(); v};
         match archive::Archive::parse(&buffer) {
             Ok(archive) => {
                 println!("{:#?}", &archive);
                 println!("start: {:?}", archive.member_of_symbol("_start"));
                 match archive.extract(&member, &buffer) {
                     Ok(bytes) => {
-                        match elf::Elf::parse(&scroll::Buffer::new(bytes)) {
+                        match elf::Elf::parse(&bytes) {
                             Ok(elf) => {
                                 println!("got elf: {:#?}", elf);
                             },

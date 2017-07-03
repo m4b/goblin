@@ -67,10 +67,10 @@ pub const SIZEOF_HEADER: usize = SIZEOF_FILE_IDENTIFER + 12 + 6 + 6 + 8 + SIZEOF
 
 impl MemberHeader {
     pub fn name(&self) -> Result<&str> {
-        Ok(self.identifier.pread_slice::<str>(0, SIZEOF_FILE_IDENTIFER)?)
+        Ok(self.identifier.pread_with::<&str>(0, ::scroll::ctx::StrCtx::Length(SIZEOF_FILE_IDENTIFER))?)
     }
     pub fn size(&self) -> Result<usize> {
-        match usize::from_str_radix(self.file_size.pread_slice::<str>(0, self.file_size.len())?.trim_right(), 10) {
+        match usize::from_str_radix(self.file_size.pread_with::<&str>(0, ::scroll::ctx::StrCtx::Length(self.file_size.len()))?.trim_right(), 10) {
             Ok(file_size) => Ok(file_size),
             Err(err) => Err(Error::Malformed(format!("{:?} Bad file_size in header: {:?}", err, self)))
         }
@@ -91,7 +91,7 @@ impl<'a> Member<'a> {
     /// **NOTE** the Seek will be pointing at the first byte of whatever the file is, skipping padding.
     /// This is because just like members in the archive, the data section is 2-byte aligned.
     pub fn parse(buffer: &'a [u8], offset: &mut usize) -> Result<Member<'a>> {
-        let name = buffer.pread_slice::<str>(*offset, SIZEOF_FILE_IDENTIFER)?;
+        let name = buffer.pread_with::<&str>(*offset, ::scroll::ctx::StrCtx::Length(SIZEOF_FILE_IDENTIFER))?;
         let archive_header = buffer.gread::<MemberHeader>(offset)?;
         let header = Header { name: name, size: archive_header.size()? };
         // skip newline padding if we're on an uneven byte boundary
@@ -240,7 +240,10 @@ impl<'a> Archive<'a> {
             if name == INDEX_NAME {
                 *offset = member.offset as usize;
                 // get the member data (the index in this case)
-                let data: &[u8] = buffer.gread_slice(offset, size)?;
+                // FIXME, TODO: gread_slice needs to return
+                //let data: &[u8] = buffer.gread_slice(offset, size)?;
+                let data: &[u8] = &buffer[*offset..];
+                *offset += size;
                 // parse it
                 index = Index::parse(&data, size)?;
                 pos = *offset as u64;
@@ -307,10 +310,17 @@ impl<'a> Archive<'a> {
     }
 
     /// Returns a slice of the raw bytes for the given `member` in the scrollable `buffer`
-    pub fn extract<'b, R: AsRef<[u8]>> (&self, member: &str, buffer: &'b R) -> Result<&'b [u8]> {
+    pub fn extract<'b>(&self, member: &str, buffer: &'b [u8]) -> Result<&'b [u8]> {
         if let Some(member) = self.get(member) {
-            let bytes = buffer.pread_slice(member.offset as usize, member.size())?;
-            Ok(bytes)
+            let len = member.size();
+            if member.offset as usize + len >= buffer.len() {
+                Err(Error::Malformed(format!("Cannot extract member {:?} -- too big", member).into()))
+            } else {
+                // TODO: when pread_slice comes back
+                // let bytes = buffer.pread_slice(member.offset as usize, member.size())?;
+                let bytes = &buffer[member.offset as usize..member.offset as usize + member.size()];
+                Ok(bytes)
+            }
         } else {
             Err(Error::Malformed(format!("Cannot extract member {:?}", member).into()))
         }

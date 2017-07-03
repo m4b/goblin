@@ -17,7 +17,7 @@ fn parse_file_header() {
                                             0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x38,
                                             0x32, 0x34, 0x34, 0x20, 0x20, 0x20, 0x20,
                                             0x20, 0x20, 0x60, 0x0a];
-    let buffer = scroll::Buffer::new(&file_header[..]);
+    let buffer = &file_header[..];
     match buffer.pread::<MemberHeader>(0) {
         Err(_) => assert!(false),
         Ok(file_header2) => {
@@ -38,8 +38,7 @@ fn parse_file_header() {
 fn parse_archive() {
     let crt1a: Vec<u8> = include!("../etc/crt1a.rs");
     const START: &'static str = "_start";
-    let buffer = scroll::Buffer::new(crt1a);
-    match Archive::parse(&buffer) {
+    match Archive::parse(&crt1a) {
         Ok(archive) => {
             assert_eq!(archive.member_of_symbol(START), Some("crt1.o"));
             if let Some(member) = archive.get("crt1.o") {
@@ -56,10 +55,11 @@ fn parse_archive() {
 
 #[test]
 fn parse_self_wow_so_meta_doge() {
+    use std::io::Read;
     let path = Path::new("target").join("debug").join("libgoblin.rlib");
     match File::open(path) {
-        Ok(fd) => {
-            let buffer = scroll::Buffer::try_from(fd).unwrap();
+        Ok(mut fd) => {
+            let buffer = { let mut v = Vec::new(); fd.read_to_end(&mut v).unwrap(); v};
             match Archive::parse(&buffer) {
                 Ok(archive) => {
                     let mut found = false;

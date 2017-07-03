@@ -321,34 +321,34 @@ mod std {
         }
     }
 
-    impl<'a> ctx::TryFromCtx<'a, (usize, Ctx)> for Dyn {
+    impl<'a> ctx::TryFromCtx<'a, Ctx> for Dyn {
         type Error = scroll::Error;
-        fn try_from_ctx(bytes: &'a [u8], (offset, Ctx { container, le}): (usize, Ctx)) -> result::Result<Self, Self::Error> {
+        fn try_from_ctx(bytes: &'a [u8], Ctx { container, le}: Ctx) -> result::Result<Self, Self::Error> {
             use scroll::Pread;
             let dyn = match container {
                 Container::Little => {
-                    bytes.pread_with::<dyn32::Dyn>(offset, le)?.into()
+                    bytes.pread_with::<dyn32::Dyn>(0, le)?.into()
                 },
                 Container::Big => {
-                    bytes.pread_with::<dyn64::Dyn>(offset, le)?.into()
+                    bytes.pread_with::<dyn64::Dyn>(0, le)?.into()
                 }
             };
             Ok(dyn)
         }
     }
 
-    impl ctx::TryIntoCtx<(usize, Ctx)> for Dyn {
+    impl ctx::TryIntoCtx<Ctx> for Dyn {
         type Error = scroll::Error;
-        fn try_into_ctx(self, mut bytes: &mut [u8], (offset, Ctx { container, le}): (usize, Ctx)) -> result::Result<(), Self::Error> {
+        fn try_into_ctx(self, mut bytes: &mut [u8], Ctx { container, le}: Ctx) -> result::Result<(), Self::Error> {
             use scroll::Pwrite;
             match container {
                 Container::Little => {
                     let dyn: dyn32::Dyn = self.into();
-                    bytes.pwrite_with(dyn, offset, le)?;
+                    bytes.pwrite_with(dyn, 0, le)?;
                 },
                 Container::Big => {
                     let dyn: dyn64::Dyn = self.into();
-                    bytes.pwrite_with(dyn, offset, le)?;
+                    bytes.pwrite_with(dyn, 0, le)?;
                 }
             }
             Ok(())

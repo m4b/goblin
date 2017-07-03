@@ -219,7 +219,7 @@ mod peek {
             Ok(Hint::PE)
         } else {
             use mach::{fat, header};
-            let magic = mach::peek(&bytes, 0)?;
+            let magic = mach::peek(bytes, 0)?;
             match magic {
                 fat::FAT_MAGIC => {
                     // should probably verify this is always Big Endian...

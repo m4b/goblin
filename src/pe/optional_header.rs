@@ -3,7 +3,7 @@ use error;
 
 use pe::data_directories;
 
-use scroll::{ctx, LE, Pread, Gread};
+use scroll::{ctx, Endian, LE, Pread, Gread};
 
 /// standard COFF fields
 #[repr(C)]
@@ -260,11 +260,11 @@ impl OptionalHeader {
     }
 }
 
-impl<'a> ctx::TryFromCtx<'a> for OptionalHeader {
+impl<'a> ctx::TryFromCtx<'a, Endian> for OptionalHeader {
     type Error = error::Error;
-    fn try_from_ctx(bytes: &'a [u8], (mut offset, _): (usize, ctx::DefaultCtx)) -> error::Result<Self> {
-        let magic = bytes.pread_with::<u16>(offset, LE)?;
-        let offset = &mut offset;
+    fn try_from_ctx(bytes: &'a [u8], _: Endian) -> error::Result<Self> {
+        let magic = bytes.pread_with::<u16>(0, LE)?;
+        let offset = &mut 0;
         let (standard_fields, windows_fields): (StandardFields, WindowsFields) = match magic {
             MAGIC_32 => {
                 let standard_fields = bytes.gread_with::<StandardFields32>(offset, LE)?.into();

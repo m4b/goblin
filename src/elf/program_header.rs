@@ -176,34 +176,34 @@ mod std {
         }
     }
 
-    impl<'a> ctx::TryFromCtx<'a, (usize, Ctx)> for ProgramHeader {
+    impl<'a> ctx::TryFromCtx<'a, Ctx> for ProgramHeader {
         type Error = scroll::Error;
-        fn try_from_ctx(bytes: &'a [u8], (offset, Ctx { container, le}): (usize, Ctx)) -> result::Result<Self, Self::Error> {
+        fn try_from_ctx(bytes: &'a [u8], Ctx { container, le}: Ctx) -> result::Result<Self, Self::Error> {
             use scroll::Pread;
             let phdr = match container {
                 Container::Little => {
-                    bytes.pread_with::<program_header32::ProgramHeader>(offset, le)?.into()
+                    bytes.pread_with::<program_header32::ProgramHeader>(0, le)?.into()
                 },
                 Container::Big => {
-                    bytes.pread_with::<program_header64::ProgramHeader>(offset, le)?.into()
+                    bytes.pread_with::<program_header64::ProgramHeader>(0, le)?.into()
                 }
             };
             Ok(phdr)
         }
     }
 
-    impl ctx::TryIntoCtx<(usize, Ctx)> for ProgramHeader {
+    impl ctx::TryIntoCtx<Ctx> for ProgramHeader {
         type Error = scroll::Error;
-        fn try_into_ctx(self, mut bytes: &mut [u8], (offset, Ctx {container, le}): (usize, Ctx)) -> result::Result<(), Self::Error> {
+        fn try_into_ctx(self, mut bytes: &mut [u8], Ctx {container, le}: Ctx) -> result::Result<(), Self::Error> {
             use scroll::Pwrite;
             match container {
                 Container::Little => {
                     let phdr: program_header32::ProgramHeader = self.into();
-                    bytes.pwrite_with(phdr, offset, le)?;
+                    bytes.pwrite_with(phdr, 0, le)?;
                 },
                 Container::Big => {
                     let phdr: program_header64::ProgramHeader = self.into();
-                    bytes.pwrite_with(phdr, offset, le)?;
+                    bytes.pwrite_with(phdr, 0, le)?;
                 }
             }
             Ok(())

@@ -18,7 +18,7 @@ pub mod bind_opcodes;
 pub use self::constants::cputype as cputype;
 
 /// Returns a big endian magical number
-pub fn peek<B: AsRef<[u8]>>(bytes: B, offset: usize) -> error::Result<u32> {
+pub fn peek(bytes: &[u8], offset: usize) -> error::Result<u32> {
     Ok(bytes.pread_with::<u32>(offset, scroll::BE)?)
 }
 

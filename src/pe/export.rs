@@ -26,7 +26,7 @@ pub struct ExportDirectoryTable {
 pub const SIZEOF_EXPORT_DIRECTORY_TABLE: usize = 40;
 
 impl ExportDirectoryTable {
-    pub fn parse<B: AsRef<[u8]>>(bytes: B, offset: usize) -> error::Result<Self> {
+    pub fn parse(bytes: &[u8], offset: usize) -> error::Result<Self> {
         let res = bytes.pread_with(offset, scroll::LE)?;
         Ok(res)
     }
@@ -117,37 +117,39 @@ pub enum Reexport<'a> {
   DLLOrdinal { export: &'a str, ordinal: usize }
 }
 
-impl<'a> scroll::ctx::TryFromCtx<'a, (usize, scroll::ctx::DefaultCtx)> for Reexport<'a> {
+impl<'a> scroll::ctx::TryFromCtx<'a, scroll::Endian> for Reexport<'a> {
     type Error = scroll::Error;
     #[inline]
-    fn try_from_ctx(bytes: &'a [u8], (offset, _): (usize, scroll::ctx::DefaultCtx)) -> Result<Self, Self::Error> {
+    fn try_from_ctx(bytes: &'a [u8], _ctx: scroll::Endian) -> Result<Self, Self::Error> {
         use scroll::{Pread};
-        let reexport = bytes.pread::<&str>(offset)?;
+        let reexport = bytes.pread::<&str>(0)?;
         let reexport_len = reexport.len();
         //println!("reexport: {}", &reexport);
         for o in 0..reexport_len {
-            let c: u8 = bytes.pread(offset+o)?;
+            let c: u8 = bytes.pread(o)?;
             //println!("reexport offset: {:#x} char: {:#x}", *o, c);
             match c {
                 // '.'
                 0x2e => {
                     let i = o - 1;
-                    let dll: &'a str = bytes.pread_slice(offset, i)?;
+                    let dll: &'a str = bytes.pread_with(0, ::scroll::ctx::StrCtx::Length(i))?;
                     //println!("dll: {:?}", &dll);
                     let len = reexport_len - i - 1;
-                    let rest: &'a [u8] = bytes.pread_slice(offset + o, len)?;
+                    // until we get pread_slice back
+                    //let rest: &'a [u8] = bytes.pread_slice(o, len)?;
+                    let rest: &'a [u8] = &bytes[o..o+len];
                     //println!("rest: {:?}", &rest);
                     let len = rest.len() - 1;
                     match rest[0] {
                         // '#'
                         0x23 => {
                             // UNTESTED
-                            let ordinal = rest.pread_slice::<str>(1, len)?;
-                            let ordinal = ordinal.parse::<u32>().map_err(|_e| scroll::Error::BadInput(offset..(offset + o), bytes.len(), "Cannot parse reexport ordinal"))?;
+                            let ordinal = rest.pread_with::<&str>(1, ::scroll::ctx::StrCtx::Length(len))?;
+                            let ordinal = ordinal.parse::<u32>().map_err(|_e| scroll::Error::BadInput{size: bytes.len(), msg: "Cannot parse reexport ordinal"})?;
                             return Ok(Reexport::DLLOrdinal { export: dll, ordinal: ordinal as usize })
                         },
                         _ => {
-                            let export = rest.pread_slice::<str>(1, len)?;
+                            let export = rest.pread_with::<&str>(1, ::scroll::ctx::StrCtx::Length(len))?;
                             return Ok(Reexport::DLLName { export: export, lib: dll })
                         }
                     }
@@ -155,7 +157,7 @@ impl<'a> scroll::ctx::TryFromCtx<'a, (usize, scroll::ctx::DefaultCtx)> for Reexp
                 _ => {}
             }
         }
-        Err(scroll::Error::Custom(format!("Reexport {:#} at {:#x} is malformed", reexport, offset)))
+        Err(scroll::Error::Custom(format!("Reexport {:#} is malformed", reexport)))
     }
 }
 

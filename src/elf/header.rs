@@ -284,41 +284,44 @@ mod std {
         }
     }
 
-    impl<'a> ctx::TryFromCtx<'a> for Header {
+    impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Header {
         type Error = error::Error;
-        fn try_from_ctx(bytes: &'a [u8], (offset, _): (usize, scroll::Endian)) -> error::Result<Self> {
-            use scroll::{Pread};
-            use error::Error;
-            let ident: &[u8] = bytes.pread_slice(offset, SIZEOF_IDENT)?;
+        fn try_from_ctx(bytes: &'a [u8], _ctx: scroll::Endian) -> error::Result<Self> {
+            use scroll::Pread;
+            use super::super::error;
+            if bytes.len() < SIZEOF_IDENT {
+                return Err(error::Error::Malformed("Too small".to_string()));
+            }
+            let ident: &[u8] = &bytes[..SIZEOF_IDENT];
             if &ident[0..SELFMAG] != ELFMAG {
-                let magic: u64 = ident.pread_with(offset, scroll::LE)?;
-                return Err(Error::BadMagic(magic).into());
+                let magic: u64 = ident.pread_with(0, scroll::LE)?;
+                return Err(error::Error::BadMagic(magic).into());
             }
             let class = ident[EI_CLASS];
             match class {
                 ELFCLASS32 => {
-                    Ok(Header::from(bytes.pread::<header32::Header>(offset)?))
+                    Ok(Header::from(bytes.pread::<header32::Header>(0)?))
                 },
                 ELFCLASS64 => {
-                    Ok(Header::from(bytes.pread::<header64::Header>(offset)?))
+                    Ok(Header::from(bytes.pread::<header64::Header>(0)?))
                 },
                 _ => {
-                    return Err(Error::Malformed(format!("invalid ELF class {:x}", class)).into())
+                    return Err(error::Error::Malformed(format!("invalid ELF class {:x}", class)).into())
                 }
             }
         }
     }
 
-    impl ctx::TryIntoCtx<(usize, scroll::ctx::DefaultCtx)> for Header {
+    impl ctx::TryIntoCtx<scroll::Endian> for Header {
         type Error = error::Error;
-        fn try_into_ctx(self, bytes: &mut [u8], (offset, _): (usize, scroll::Endian)) -> Result<(), Self::Error> {
+        fn try_into_ctx(self, bytes: &mut [u8], _ctx: scroll::Endian) -> Result<(), Self::Error> {
             use scroll::Pwrite;
             match self.container()? {
                 Container::Little => {
-                    bytes.pwrite(header32::Header::from(self), offset)?
+                    bytes.pwrite(header32::Header::from(self), 0)?
                 },
                 Container::Big => {
-                    bytes.pwrite(header64::Header::from(self), offset)?
+                    bytes.pwrite(header64::Header::from(self), 0)?
                 }
             }
             Ok(())
@@ -387,11 +390,11 @@ macro_rules! elf_header_std_impl {
                 }
             }
 
-            impl<'a> ctx::TryFromCtx<'a> for Header {
+            impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Header {
                 type Error = error::Error;
-                fn try_from_ctx(bytes: &'a [u8], (mut offset, _): (usize, scroll::Endian)) -> result::Result<Self, Self::Error> {
+                fn try_from_ctx(bytes: &'a [u8], _: scroll::Endian) -> result::Result<Self, Self::Error> {
                     let mut elf_header = Header::default();
-                    let mut offset = &mut offset;
+                    let mut offset = &mut 0;
                     bytes.gread_inout(offset, &mut elf_header.e_ident)?;
                     let endianness =
                         match elf_header.e_ident[EI_DATA] {
@@ -416,12 +419,12 @@ macro_rules! elf_header_std_impl {
                 }
             }
 
-            impl ctx::TryIntoCtx for Header {
+            impl ctx::TryIntoCtx<scroll::Endian> for Header {
                 type Error = error::Error;
                 /// a Pwrite impl for Header: **note** we use the endianness value in the header, and not a parameter
-                fn try_into_ctx(self, mut bytes: &mut [u8], (mut offset, _endianness): (usize, scroll::Endian)) -> result::Result<(), Self::Error> {
+                fn try_into_ctx(self, mut bytes: &mut [u8], _endianness: scroll::Endian) -> result::Result<(), Self::Error> {
                     use scroll::{Gwrite};
-                    let mut offset = &mut offset;
+                    let mut offset = &mut 0;
                     let endianness =
                         match self.e_ident[EI_DATA] {
                             ELFDATA2LSB => scroll::LE,
@@ -543,7 +546,7 @@ macro_rules! elf_header_test {
                 let header = ElfHeader::new(Ctx::from(container));
                 println!("header: {:?}", &header);
 
-                let mut bytes = scroll::Buffer::with(0, 100);
+                let mut bytes = vec![0; 100];
                 bytes.pwrite(header, 0).unwrap();
             }
         }

@@ -44,3 +44,7 @@ goblin = []
 # lto = false
 # debug-assertions = true
 # codegen-units = 4
+
+[badges.travis-ci]
+branch = "master"
+repository = "m4b/goblin"

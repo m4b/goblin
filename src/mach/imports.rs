@@ -6,7 +6,7 @@
 
 use core::ops::Range;
 use core::fmt::{self, Debug};
-use scroll::{Sleb128, Uleb128, Gread, Pread};
+use scroll::{Sleb128, Uleb128, Pread};
 
 use container;
 use error;

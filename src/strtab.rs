@@ -25,17 +25,19 @@ fn get_str(offset: usize, bytes: &[u8], delim: ctx::StrCtx) -> scroll::Result<&s
 impl<'a> Strtab<'a> {
     /// Construct a new strtab with `bytes` as the backing string table, using `delim` as the delimiter between entries
     pub fn new (bytes: &'a [u8], delim: u8) -> Self {
-        Strtab { delim: ctx::StrCtx::from(delim), bytes: bytes }
+        Strtab { delim: ctx::StrCtx::Delimiter(delim), bytes: bytes }
     }
     /// Construct a strtab from a `ptr`, and a `size`, using `delim` as the delimiter
     pub unsafe fn from_raw(ptr: *const u8, size: usize, delim: u8) -> Strtab<'a> {
-        Strtab { delim: ctx::StrCtx::from(delim), bytes: slice::from_raw_parts(ptr, size) }
+        Strtab { delim: ctx::StrCtx::Delimiter(delim), bytes: slice::from_raw_parts(ptr, size) }
     }
     #[cfg(feature = "std")]
     /// Parses a strtab from `bytes` at `offset` with `len` size as the backing string table, using `delim` as the delimiter
     pub fn parse(bytes: &'a [u8], offset: usize, len: usize, delim: u8) -> error::Result<Strtab<'a>> {
-        let bytes: &'a [u8] = bytes.pread_slice(offset, len)?;
-        Ok(Strtab { bytes: bytes, delim: ctx::StrCtx::from(delim) })
+        if offset + len >= bytes.len () {
+            return Err(error::Error::Malformed(format!("Strtable size ({}) + offset ({}) is out of bounds", len, offset)));
+        }
+        Ok(Strtab { bytes: &bytes[offset..offset+len], delim: ctx::StrCtx::Delimiter(delim) })
     }
     #[cfg(feature = "std")]
     /// Converts the string table to a vector, with the original `delim` used to separate the strings
@@ -51,6 +53,7 @@ impl<'a> Strtab<'a> {
         Ok(strings)
     }
     /// Safely parses and gets a str reference from the backing bytes starting at byte `offset`
+    #[inline]
     pub fn get(&self, offset: usize) -> scroll::Result<&'a str> {
         get_str(offset, self.bytes, self.delim)
     }
@@ -72,6 +75,7 @@ impl<'a> Index<usize> for Strtab<'a> {
     type Output = str;
     /// Gets str reference at starting at byte `offset`.
     /// **NB**: this will panic if the underlying bytes are not valid utf8, or the offset is invalid
+    #[inline(always)]
     fn index(&self, offset: usize) -> &Self::Output {
         get_str(offset, &self.bytes, self.delim).unwrap()
     }

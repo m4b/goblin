@@ -1,7 +1,7 @@
 //! A header contains minimal architecture information, the binary kind, the number of load commands, as well as an endianness hint
 
 use std::fmt;
-use scroll::{self, ctx};
+use scroll::{self, ctx, Endian};
 use plain::{self, Plain};
 
 use mach::constants::cputype::cpu_type_to_str;
@@ -375,9 +375,10 @@ impl ctx::SizeWith<Container> for Header {
     }
 }
 
-impl<'a> ctx::TryFromCtx<'a, (usize, ctx::DefaultCtx)> for Header {
+impl<'a> ctx::TryFromCtx<'a, Endian> for Header {
     type Error = error::Error;
-    fn try_from_ctx(bytes: &'a [u8], (offset, _): (usize, ctx::DefaultCtx)) -> error::Result<Self> {
+    type Size = usize;
+    fn try_from_ctx(bytes: &'a [u8], _: Endian) -> error::Result<(Self, Self::Size)> {
         use mach;
         use scroll::{Pread};
         let size = bytes.len();
@@ -385,7 +386,7 @@ impl<'a> ctx::TryFromCtx<'a, (usize, ctx::DefaultCtx)> for Header {
             let error = error::Error::Malformed(format!("bytes size is smaller than an Mach-o header"));
             Err(error)
         } else {
-            let magic = mach::peek(&bytes, offset)?;
+            let magic = mach::peek(&bytes, 0)?;
             match magic {
                 MH_CIGAM_64 | MH_CIGAM | MH_MAGIC_64 | MH_MAGIC => {
                     let is_lsb = magic == MH_CIGAM || magic == MH_CIGAM_64;
@@ -394,10 +395,10 @@ impl<'a> ctx::TryFromCtx<'a, (usize, ctx::DefaultCtx)> for Header {
                     let container = if magic == MH_MAGIC_64 || magic == MH_CIGAM_64 { Container::Big } else { Container::Little };
                     match container {
                         Container::Little => {
-                            Ok(Header::from(bytes.pread_with::<Header32>(offset, le)?))
+                            Ok((Header::from(bytes.pread_with::<Header32>(0, le)?), SIZEOF_HEADER_32))
                         },
                         Container::Big => {
-                            Ok(Header::from(bytes.pread_with::<Header64>(offset, le)?))
+                            Ok((Header::from(bytes.pread_with::<Header64>(0, le)?), SIZEOF_HEADER_64))
                         },
                     }
                 },

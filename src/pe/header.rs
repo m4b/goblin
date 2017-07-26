@@ -1,7 +1,7 @@
 use error;
 
 use pe::optional_header;
-use scroll::{self, Pread, Gread};
+use scroll::{self, Pread};
 
 /// DOS header present in all PE binaries
 #[repr(C)]
@@ -17,7 +17,7 @@ pub const DOS_MAGIC: u16 = 0x5a4d;
 pub const PE_POINTER_OFFSET: u32 = 0x3c;
 
 impl DosHeader {
-    pub fn parse<B: AsRef<[u8]>> (bytes: B) -> error::Result<Self> {
+    pub fn parse(bytes: &[u8]) -> error::Result<Self> {
         let signature = bytes.pread_with(0, scroll::LE)?;
         let pe_pointer = bytes.pread_with(PE_POINTER_OFFSET as usize, scroll::LE)?;
         Ok (DosHeader { signature: signature, pe_pointer: pe_pointer })
@@ -47,7 +47,7 @@ pub const COFF_MACHINE_X86: u16 = 0x14c;
 pub const COFF_MACHINE_X86_64: u16 = 0x8664;
 
 impl CoffHeader {
-    pub fn parse<B: AsRef<[u8]>> (bytes: B, offset: &mut usize) -> error::Result<Self> {
+    pub fn parse(bytes: &[u8], offset: &mut usize) -> error::Result<Self> {
         let mut coff = CoffHeader::default();
         coff.signature = bytes.gread_with(offset, scroll::LE)?;
         coff.machine = bytes.gread_with(offset, scroll::LE)?;
@@ -69,7 +69,7 @@ pub struct Header {
 }
 
 impl Header {
-    pub fn parse<B: AsRef<[u8]>> (bytes: B) -> error::Result<Self> {
+    pub fn parse(bytes: &[u8]) -> error::Result<Self> {
         let dos_header = DosHeader::parse(&bytes)?;
         let mut offset = dos_header.pe_pointer as usize;
         let coff_header = CoffHeader::parse(&bytes, &mut offset)?;

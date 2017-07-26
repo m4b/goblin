@@ -181,7 +181,7 @@ mod impure {
                 if ph.p_type == program_header::PT_INTERP && ph.p_filesz != 0 {
                     let count = (ph.p_filesz - 1) as usize;
                     let offset = ph.p_offset as usize;
-                    interpreter = Some(bytes.pread_slice::<str>(offset, count)?);
+                    interpreter = Some(bytes.pread_with::<&str>(offset, ::scroll::ctx::StrCtx::Length(count))?);
                 }
             }
 
@@ -282,8 +282,10 @@ mod impure {
 
     impl<'a> ctx::TryFromCtx<'a, (usize, Endian)> for Elf<'a> {
         type Error = error::Error;
-        fn try_from_ctx(src: &'a [u8], (_, _): (usize, Endian)) -> Result<Elf<'a>, Self::Error> {
-            Elf::parse(src)
+        type Size = usize;
+        fn try_from_ctx(src: &'a [u8], (_, _): (usize, Endian)) -> Result<(Elf<'a>, Self::Size), Self::Error> {
+            let elf = Elf::parse(src)?;
+            Ok((elf, src.len()))
         }
     }
 }
@@ -292,13 +294,10 @@ mod impure {
 mod tests {
     use super::*;
 
-    use scroll;
-
     #[test]
     fn parse_crt1_64bit() {
         let crt1: Vec<u8> = include!("../../etc/crt1.rs");
-        let bytes = scroll::Buffer::new(crt1);
-        match Elf::parse(&bytes) {
+        match Elf::parse(&crt1) {
             Ok (binary) => {
                 assert!(binary.is_64);
                 assert!(!binary.is_lib);
@@ -328,8 +327,7 @@ mod tests {
     #[test]
     fn parse_crt1_32bit() {
         let crt1: Vec<u8> = include!("../../etc/crt132.rs");
-        let bytes = scroll::Buffer::new(crt1);
-        match Elf::parse(&bytes) {
+        match Elf::parse(&crt1) {
             Ok (binary) => {
                 assert!(!binary.is_64);
                 assert!(!binary.is_lib);

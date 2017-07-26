@@ -8,12 +8,11 @@ extern crate scroll;
 extern crate goblin;
 
 use goblin::{error, elf64, elf};
-use scroll::{Buffer,Pwrite, Pread};
+use scroll::{Pwrite, Pread};
 
 fn run () -> error::Result<()> {
     use Pread;
     let crt1: Vec<u8> = include!("../etc/crt1.rs");
-    let crt1 = Buffer::new(crt1);
     let header: elf64::header::Header = crt1.pread(0)?;
     assert_eq!(header.e_type, elf64::header::ET_REL);
     println!("header: {:?}", &header);

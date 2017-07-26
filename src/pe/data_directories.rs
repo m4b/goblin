@@ -1,5 +1,5 @@
 use error;
-use scroll::{self, Gread};
+use scroll::{self, Pread};
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
@@ -13,7 +13,7 @@ pub const SIZEOF_DATA_DIRECTORY: usize = 8;
 const NUM_DATA_DIRECTORIES: usize = 16;
 
 impl DataDirectory {
-    pub fn parse<B: AsRef<[u8]>>(bytes: &B, offset: &mut usize) -> error::Result<Self> {
+    pub fn parse(bytes: &[u8], offset: &mut usize) -> error::Result<Self> {
         let dd = bytes.gread_with(offset, scroll::LE)?;
         Ok (dd)
     }
@@ -25,7 +25,7 @@ pub struct DataDirectories {
 }
 
 impl DataDirectories {
-    pub fn parse<B: AsRef<[u8]>>(bytes: &B, count: usize, offset: &mut usize) -> error::Result<Self> {
+    pub fn parse(bytes: &[u8], count: usize, offset: &mut usize) -> error::Result<Self> {
         let mut data_directories = [None; NUM_DATA_DIRECTORIES];
         if count > NUM_DATA_DIRECTORIES { return Err (error::Error::Malformed(format!("data directory count ({}) is greater than maximum number of data directories ({})", count, NUM_DATA_DIRECTORIES))) }
         for i in 0..count {

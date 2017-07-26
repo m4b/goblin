@@ -5,14 +5,14 @@ use goblin::error;
 use std::path::Path;
 use std::env;
 use std::fs::File;
-use scroll::{Buffer};
+use std::io::Read;
 
 fn run () -> error::Result<()> {
     for (i, arg) in env::args().enumerate() {
         if i == 1 {
             let path = Path::new(arg.as_str());
-            let fd = File::open(path)?;
-            let buffer = Buffer::try_from(fd)?;
+            let mut fd = File::open(path)?;
+            let buffer = { let mut v = Vec::new(); fd.read_to_end(&mut v).unwrap(); v};
             let res = goblin::parse(&buffer)?;
             println!("res: {:#?}", res);
         }

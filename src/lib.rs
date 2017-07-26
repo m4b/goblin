@@ -101,6 +101,8 @@ pub mod strtab;
 /// Binary container size information and byte-order context
 pub mod container {
     use scroll;
+    pub use scroll::Endian as Endian;
+
     #[derive(Debug, Copy, Clone, PartialEq)]
     /// The size of a binary container
     pub enum Container {
@@ -219,7 +221,7 @@ mod peek {
             Ok(Hint::PE)
         } else {
             use mach::{fat, header};
-            let magic = mach::peek(&bytes, 0)?;
+            let magic = mach::peek(bytes, 0)?;
             match magic {
                 fat::FAT_MAGIC => {
                     // should probably verify this is always Big Endian...

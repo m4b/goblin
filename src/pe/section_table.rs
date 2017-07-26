@@ -1,4 +1,4 @@
-use scroll::{self, Gread};
+use scroll::{self, Pread};
 use error;
 
 #[repr(C)]
@@ -19,7 +19,7 @@ pub struct SectionTable {
 pub const SIZEOF_SECTION_TABLE: usize = 8 * 5;
 
 impl SectionTable {
-    pub fn parse<B: AsRef<[u8]>> (bytes: B, offset: &mut usize) -> error::Result<Self> {
+    pub fn parse(bytes: &[u8], offset: &mut usize) -> error::Result<Self> {
         let mut table = SectionTable::default();
         let mut name = [0u8; 8];
         for i in 0..8 {

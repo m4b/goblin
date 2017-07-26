@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use scroll::{self, Pread, Gread};
+use scroll::{self, Pread};
 use error;
 
 use pe::section_table;

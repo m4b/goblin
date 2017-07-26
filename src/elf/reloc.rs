@@ -151,7 +151,7 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
                     let r_info = r_info(rela.r_sym as $size, rela.r_type as $size);
                     Rela {
                         r_offset: rela.r_offset as $size,
-                        r_info,
+                        r_info: r_info,
                         r_addend: rela.r_addend as $isize,
                     }
                 }
@@ -162,7 +162,7 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
                     let r_info = r_info(rel.r_sym as $size, rel.r_type as $size);
                     Rel {
                         r_offset: rel.r_offset as $size,
-                        r_info,
+                        r_info: r_info,
                     }
                 }
             }

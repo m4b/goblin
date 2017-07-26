@@ -369,6 +369,7 @@ mod std {
     use super::*;
     use core::fmt;
     use core::result;
+    use core::ops::Range;
     use scroll::{self, ctx};
     use container::{Container, Ctx};
 
@@ -398,6 +399,12 @@ mod std {
     }
 
     impl SectionHeader {
+        /// Return the size of the underlying program header, given a `container`
+        #[inline]
+        pub fn size(ctx: &Ctx) -> usize {
+            use scroll::ctx::SizeWith;
+            Self::size_with(&ctx)
+        }
         pub fn new() -> Self {
             SectionHeader {
                 sh_name: 0,
@@ -412,15 +419,21 @@ mod std {
                 sh_entsize: 0,
             }
         }
+        pub fn to_range(&self) -> Range<usize> {
+            (self.sh_offset as usize..self.sh_offset as usize + self.sh_size as usize)
+        }
         #[cfg(feature = "endian_fd")]
         pub fn parse(bytes: &[u8], mut offset: usize, count: usize, ctx: Ctx) -> ::error::Result<Vec<SectionHeader>> {
-            use scroll::Gread;
+            use scroll::Pread;
             let mut section_headers = Vec::with_capacity(count);
             for _ in 0..count {
                 let shdr = bytes.gread_with(&mut offset, ctx)?;
                 section_headers.push(shdr);
             }
             Ok(section_headers)
+        }
+        pub fn is_relocation(&self) -> bool {
+            self.sh_type == SHT_RELA
         }
         pub fn is_executable(&self) -> bool {
             self.is_alloc() && self.sh_flags as u32 & SHF_EXECINSTR == SHF_EXECINSTR
@@ -467,35 +480,51 @@ mod std {
 
     impl<'a> ctx::TryFromCtx<'a, Ctx> for SectionHeader {
         type Error = scroll::Error;
-        fn try_from_ctx(bytes: &'a [u8], Ctx {container, le}: Ctx) -> result::Result<Self, Self::Error> {
+        type Size = usize;
+        fn try_from_ctx(bytes: &'a [u8], Ctx {container, le}: Ctx) -> result::Result<(Self, Self::Size), Self::Error> {
             use scroll::Pread;
-            let shdr = match container {
+            let res = match container {
                 Container::Little => {
-                    bytes.pread_with::<section_header32::SectionHeader>(0, le)?.into()
+                    (bytes.pread_with::<section_header32::SectionHeader>(0, le)?.into(), section_header32::SIZEOF_SHDR)
                 },
                 Container::Big => {
-                    bytes.pread_with::<section_header64::SectionHeader>(0, le)?.into()
+                    (bytes.pread_with::<section_header64::SectionHeader>(0, le)?.into(), section_header64::SIZEOF_SHDR)
                 }
             };
-            Ok(shdr)
+            Ok(res)
         }
     }
 
     impl ctx::TryIntoCtx<Ctx> for SectionHeader {
         type Error = scroll::Error;
-        fn try_into_ctx(self, mut bytes: &mut [u8], Ctx {container, le}: Ctx) -> result::Result<(), Self::Error> {
+        type Size = usize;
+        fn try_into_ctx(self, mut bytes: &mut [u8], Ctx {container, le}: Ctx) -> result::Result<Self::Size, Self::Error> {
             use scroll::Pwrite;
             match container {
                 Container::Little => {
                     let shdr: section_header32::SectionHeader = self.into();
-                    bytes.pwrite_with(shdr, 0, le)?;
+                    bytes.pwrite_with(shdr, 0, le)
                 },
                 Container::Big => {
                     let shdr: section_header64::SectionHeader = self.into();
-                    bytes.pwrite_with(shdr, 0, le)?;
+                    bytes.pwrite_with(shdr, 0, le)
                 }
             }
-            Ok(())
+        }
+    }
+    impl ctx::IntoCtx<Ctx> for SectionHeader {
+        fn into_ctx(self, mut bytes: &mut [u8], Ctx {container, le}: Ctx) {
+            use scroll::Pwrite;
+            match container {
+                Container::Little => {
+                    let shdr: section_header32::SectionHeader = self.into();
+                    bytes.pwrite_with(shdr, 0, le).unwrap();
+                },
+                Container::Big => {
+                    let shdr: section_header64::SectionHeader = self.into();
+                    bytes.pwrite_with(shdr, 0, le).unwrap();
+                }
+            }
         }
     }
 }

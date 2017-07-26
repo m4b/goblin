@@ -377,7 +377,8 @@ impl ctx::SizeWith<Container> for Header {
 
 impl<'a> ctx::TryFromCtx<'a, Endian> for Header {
     type Error = error::Error;
-    fn try_from_ctx(bytes: &'a [u8], _: Endian) -> error::Result<Self> {
+    type Size = usize;
+    fn try_from_ctx(bytes: &'a [u8], _: Endian) -> error::Result<(Self, Self::Size)> {
         use mach;
         use scroll::{Pread};
         let size = bytes.len();
@@ -394,10 +395,10 @@ impl<'a> ctx::TryFromCtx<'a, Endian> for Header {
                     let container = if magic == MH_MAGIC_64 || magic == MH_CIGAM_64 { Container::Big } else { Container::Little };
                     match container {
                         Container::Little => {
-                            Ok(Header::from(bytes.pread_with::<Header32>(0, le)?))
+                            Ok((Header::from(bytes.pread_with::<Header32>(0, le)?), SIZEOF_HEADER_32))
                         },
                         Container::Big => {
-                            Ok(Header::from(bytes.pread_with::<Header64>(0, le)?))
+                            Ok((Header::from(bytes.pread_with::<Header64>(0, le)?), SIZEOF_HEADER_64))
                         },
                     }
                 },

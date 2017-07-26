@@ -1,5 +1,5 @@
 use error;
-use scroll::{self, Gread};
+use scroll::{self, Pread};
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default)]

@@ -1,7 +1,7 @@
 use error;
 
 use pe::optional_header;
-use scroll::{self, Pread, Gread};
+use scroll::{self, Pread};
 
 /// DOS header present in all PE binaries
 #[repr(C)]

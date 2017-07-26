@@ -175,7 +175,7 @@ mod std {
         #[inline]
         pub fn size(ctx: &Ctx) -> usize {
             use scroll::ctx::SizeWith;
-            Self::size_with(&ctx.container)
+            Self::size_with(&ctx)
         }
         /// Returns the container type this header specifies
         pub fn container(&self) -> error::Result<Container> {
@@ -270,14 +270,14 @@ mod std {
         }
     }
 
-    impl ctx::SizeWith<Container> for Header {
+    impl ctx::SizeWith<::container::Ctx> for Header {
         type Units = usize;
-        fn size_with(container: &Container) -> usize {
-            match container {
-                &Container::Little => {
+        fn size_with(ctx: &::container::Ctx) -> usize {
+            match ctx.container {
+                Container::Little => {
                     header32::SIZEOF_EHDR
                 },
-                &Container::Big => {
+                Container::Big => {
                     header64::SIZEOF_EHDR
                 },
             }
@@ -286,7 +286,8 @@ mod std {
 
     impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Header {
         type Error = error::Error;
-        fn try_from_ctx(bytes: &'a [u8], _ctx: scroll::Endian) -> error::Result<Self> {
+        type Size = usize;
+        fn try_from_ctx(bytes: &'a [u8], _ctx: scroll::Endian) -> error::Result<(Self, Self::Size)> {
             use scroll::Pread;
             use super::super::error;
             if bytes.len() < SIZEOF_IDENT {
@@ -300,10 +301,10 @@ mod std {
             let class = ident[EI_CLASS];
             match class {
                 ELFCLASS32 => {
-                    Ok(Header::from(bytes.pread::<header32::Header>(0)?))
+                    Ok((Header::from(bytes.pread::<header32::Header>(0)?), header32::SIZEOF_EHDR))
                 },
                 ELFCLASS64 => {
-                    Ok(Header::from(bytes.pread::<header64::Header>(0)?))
+                    Ok((Header::from(bytes.pread::<header64::Header>(0)?), header64::SIZEOF_EHDR))
                 },
                 _ => {
                     return Err(error::Error::Malformed(format!("invalid ELF class {:x}", class)).into())
@@ -312,19 +313,33 @@ mod std {
         }
     }
 
+    // TODO: i think we should remove this forcing of the information in the header, it causes too many conflicts
     impl ctx::TryIntoCtx<scroll::Endian> for Header {
         type Error = error::Error;
-        fn try_into_ctx(self, bytes: &mut [u8], _ctx: scroll::Endian) -> Result<(), Self::Error> {
+        type Size = usize;
+        fn try_into_ctx(self, bytes: &mut [u8], _ctx: scroll::Endian) -> Result<Self::Size, Self::Error> {
             use scroll::Pwrite;
             match self.container()? {
                 Container::Little => {
-                    bytes.pwrite(header32::Header::from(self), 0)?
+                    bytes.pwrite(header32::Header::from(self), 0)
                 },
                 Container::Big => {
-                    bytes.pwrite(header64::Header::from(self), 0)?
+                    bytes.pwrite(header64::Header::from(self), 0)
                 }
             }
-            Ok(())
+        }
+    }
+    impl ctx::IntoCtx<::container::Ctx> for Header {
+        fn into_ctx(self, bytes: &mut [u8], ctx: ::container::Ctx) -> () {
+            use scroll::Pwrite;
+            match ctx.container {
+                Container::Little => {
+                    bytes.pwrite_with(header32::Header::from(self), 0, ctx.le).unwrap()
+                },
+                Container::Big => {
+                    bytes.pwrite_with(header64::Header::from(self), 0, ctx.le).unwrap()
+                }
+            };
         }
     }
 }
@@ -342,7 +357,7 @@ macro_rules! elf_header_std_impl {
             use elf::error::*;
             use elf::error;
 
-            use scroll::{self, ctx, Gread};
+            use scroll::{self, ctx, Pread};
             use std::fs::File;
             use std::io::{Read};
 
@@ -392,7 +407,8 @@ macro_rules! elf_header_std_impl {
 
             impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Header {
                 type Error = error::Error;
-                fn try_from_ctx(bytes: &'a [u8], _: scroll::Endian) -> result::Result<Self, Self::Error> {
+                type Size = usize;
+                fn try_from_ctx(bytes: &'a [u8], _: scroll::Endian) -> result::Result<(Self, Self::Size), Self::Error> {
                     let mut elf_header = Header::default();
                     let mut offset = &mut 0;
                     bytes.gread_inout(offset, &mut elf_header.e_ident)?;
@@ -415,15 +431,16 @@ macro_rules! elf_header_std_impl {
                     elf_header.e_shentsize = bytes.gread_with(offset, endianness)?;
                     elf_header.e_shnum =     bytes.gread_with(offset, endianness)?;
                     elf_header.e_shstrndx =  bytes.gread_with(offset, endianness)?;
-                    Ok(elf_header)
+                    Ok((elf_header, SIZEOF_EHDR))
                 }
             }
 
             impl ctx::TryIntoCtx<scroll::Endian> for Header {
                 type Error = error::Error;
+                type Size = usize;
                 /// a Pwrite impl for Header: **note** we use the endianness value in the header, and not a parameter
-                fn try_into_ctx(self, mut bytes: &mut [u8], _endianness: scroll::Endian) -> result::Result<(), Self::Error> {
-                    use scroll::{Gwrite};
+                fn try_into_ctx(self, mut bytes: &mut [u8], _endianness: scroll::Endian) -> result::Result<Self::Size, Self::Error> {
+                    use scroll::{Pwrite};
                     let mut offset = &mut 0;
                     let endianness =
                         match self.e_ident[EI_DATA] {
@@ -447,7 +464,7 @@ macro_rules! elf_header_std_impl {
                     bytes.gwrite_with(self.e_shentsize , offset, endianness)?;
                     bytes.gwrite_with(self.e_shnum     , offset, endianness)?;
                     bytes.gwrite_with(self.e_shstrndx  , offset, endianness)?;
-                    Ok(())
+                    Ok(SIZEOF_EHDR)
                 }
             }
 

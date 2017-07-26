@@ -282,8 +282,10 @@ mod impure {
 
     impl<'a> ctx::TryFromCtx<'a, (usize, Endian)> for Elf<'a> {
         type Error = error::Error;
-        fn try_from_ctx(src: &'a [u8], (_, _): (usize, Endian)) -> Result<Elf<'a>, Self::Error> {
-            Elf::parse(src)
+        type Size = usize;
+        fn try_from_ctx(src: &'a [u8], (_, _): (usize, Endian)) -> Result<(Elf<'a>, Self::Size), Self::Error> {
+            let elf = Elf::parse(src)?;
+            Ok((elf, src.len()))
         }
     }
 }

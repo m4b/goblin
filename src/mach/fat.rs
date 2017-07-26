@@ -5,7 +5,7 @@ use core::fmt;
 use std::fs::File;
 use std::io::{self, Read};
 
-use scroll::{self, Pread, Gread};
+use scroll::{self, Pread};
 use mach::constants::cputype;
 use error;
 

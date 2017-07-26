@@ -1,4 +1,4 @@
-use scroll::{self, Gread};
+use scroll::{self, Pread};
 use error;
 
 #[repr(C)]

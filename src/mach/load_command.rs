@@ -1121,7 +1121,8 @@ pub enum CommandVariant {
 
 impl<'a> ctx::TryFromCtx<'a, Endian> for CommandVariant {
     type Error = error::Error;
-    fn try_from_ctx(bytes: &'a [u8], le: Endian) -> error::Result<Self> {
+    type Size = usize;
+    fn try_from_ctx(bytes: &'a [u8], le: Endian) -> error::Result<(Self, Self::Size)> {
         use scroll::{Pread};
         use self::CommandVariant::*;
         let lc = bytes.pread_with::<LoadCommandHeader>(0, le)?;
@@ -1129,54 +1130,54 @@ impl<'a> ctx::TryFromCtx<'a, Endian> for CommandVariant {
         //println!("offset {:#x} cmd: {:#x} size: {:?} ctx: {:?}", offset, lc.cmd, size, le);
         if size > bytes.len() { return Err(error::Error::Malformed(format!("{} has size larger than remainder of binary: {:?}", &lc, bytes.len()))) }
         match lc.cmd {
-            LC_SEGMENT    => {              let comm = bytes.pread_with::<SegmentCommand32>       (0, le)?;  Ok(Segment32              (comm))},
-            LC_SEGMENT_64 => {              let comm = bytes.pread_with::<SegmentCommand64>       (0, le)?;  Ok(Segment64              (comm))},
-            LC_DYSYMTAB => {                let comm = bytes.pread_with::<DysymtabCommand>        (0, le)?;  Ok(Dysymtab               (comm))},
-            LC_LOAD_DYLINKER => {           let comm = bytes.pread_with::<DylinkerCommand>        (0, le)?;  Ok(LoadDylinker           (comm))},
-            LC_ID_DYLINKER => {             let comm = bytes.pread_with::<DylinkerCommand>        (0, le)?;  Ok(IdDylinker             (comm))},
-            LC_UUID => {                    let comm = bytes.pread_with::<UuidCommand>            (0, le)?;  Ok(Uuid                   (comm))},
-            LC_SYMTAB => {                  let comm = bytes.pread_with::<SymtabCommand>          (0, le)?;  Ok(Symtab                 (comm))},
-            LC_SYMSEG => {                  let comm = bytes.pread_with::<SymsegCommand>          (0, le)?;  Ok(Symseg                 (comm))},
-            LC_THREAD => {                  let comm = bytes.pread_with::<ThreadCommand>          (0, le)?;  Ok(Thread                 (comm))},
-            LC_UNIXTHREAD => {              let comm = bytes.pread_with::<ThreadCommand>          (0, le)?;  Ok(Unixthread             (comm))},
-            LC_LOADFVMLIB => {              let comm = bytes.pread_with::<FvmlibCommand>          (0, le)?;  Ok(LoadFvmlib             (comm))},
-            LC_IDFVMLIB => {                let comm = bytes.pread_with::<FvmlibCommand>          (0, le)?;  Ok(IdFvmlib               (comm))},
-            LC_IDENT => {                   let comm = bytes.pread_with::<IdentCommand>           (0, le)?;  Ok(Ident                  (comm))},
-            LC_FVMFILE => {                 let comm = bytes.pread_with::<FvmfileCommand>         (0, le)?;  Ok(Fvmfile                (comm))},
-            LC_PREPAGE => {                 let comm = bytes.pread_with::<LoadCommandHeader>      (0, le)?;  Ok(Prepage                (comm))},
-            LC_LOAD_DYLIB => {              let comm = bytes.pread_with::<DylibCommand>           (0, le)?;  Ok(LoadDylib              (comm))},
-            LC_ID_DYLIB => {                let comm = bytes.pread_with::<DylibCommand>           (0, le)?;  Ok(IdDylib                (comm))},
-            LC_PREBOUND_DYLIB => {          let comm = bytes.pread_with::<PreboundDylibCommand>   (0, le)?;  Ok(PreboundDylib          (comm))},
-            LC_ROUTINES => {                let comm = bytes.pread_with::<RoutinesCommand32>      (0, le)?;  Ok(Routines32             (comm))},
-            LC_ROUTINES_64 => {             let comm = bytes.pread_with::<RoutinesCommand64>      (0, le)?;  Ok(Routines64             (comm))},
-            LC_SUB_FRAMEWORK => {           let comm = bytes.pread_with::<SubFrameworkCommand>    (0, le)?;  Ok(SubFramework           (comm))},
-            LC_SUB_UMBRELLA => {            let comm = bytes.pread_with::<SubUmbrellaCommand>     (0, le)?;  Ok(SubUmbrella            (comm))},
-            LC_SUB_CLIENT => {              let comm = bytes.pread_with::<SubClientCommand>       (0, le)?;  Ok(SubClient              (comm))},
-            LC_SUB_LIBRARY => {             let comm = bytes.pread_with::<SubLibraryCommand>      (0, le)?;  Ok(SubLibrary             (comm))},
-            LC_TWOLEVEL_HINTS => {          let comm = bytes.pread_with::<TwolevelHintsCommand>   (0, le)?;  Ok(TwolevelHints          (comm))},
-            LC_PREBIND_CKSUM => {           let comm = bytes.pread_with::<PrebindCksumCommand>    (0, le)?;  Ok(PrebindCksum           (comm))},
-            LC_LOAD_WEAK_DYLIB => {         let comm = bytes.pread_with::<DylibCommand>           (0, le)?;  Ok(LoadWeakDylib          (comm))},
-            LC_RPATH => {                   let comm = bytes.pread_with::<RpathCommand>           (0, le)?;  Ok(Rpath                  (comm))},
-            LC_CODE_SIGNATURE => {          let comm = bytes.pread_with::<LinkeditDataCommand>    (0, le)?;  Ok(CodeSignature          (comm))},
-            LC_SEGMENT_SPLIT_INFO => {      let comm = bytes.pread_with::<LinkeditDataCommand>    (0, le)?;  Ok(SegmentSplitInfo       (comm))},
-            LC_REEXPORT_DYLIB => {          let comm = bytes.pread_with::<DylibCommand>           (0, le)?;  Ok(ReexportDylib          (comm))},
-            LC_LAZY_LOAD_DYLIB => {         let comm = bytes.pread_with::<DylibCommand>           (0, le)?;  Ok(LazyLoadDylib          (comm))},
-            LC_ENCRYPTION_INFO => {         let comm = bytes.pread_with::<EncryptionInfoCommand32>(0, le)?;  Ok(EncryptionInfo32       (comm))},
-            LC_ENCRYPTION_INFO_64 => {      let comm = bytes.pread_with::<EncryptionInfoCommand64>(0, le)?;  Ok(EncryptionInfo64       (comm))},
-            LC_DYLD_INFO => {               let comm = bytes.pread_with::<DyldInfoCommand>        (0, le)?;  Ok(DyldInfo               (comm))},
-            LC_DYLD_INFO_ONLY => {          let comm = bytes.pread_with::<DyldInfoCommand>        (0, le)?;  Ok(DyldInfoOnly           (comm))},
-            LC_LOAD_UPWARD_DYLIB => {       let comm = bytes.pread_with::<DylibCommand>           (0, le)?;  Ok(LoadUpwardDylib        (comm))},
-            LC_VERSION_MIN_MACOSX => {      let comm = bytes.pread_with::<VersionMinCommand>      (0, le)?;  Ok(VersionMinMacosx       (comm))},
-            LC_VERSION_MIN_IPHONEOS => {    let comm = bytes.pread_with::<VersionMinCommand>      (0, le)?;  Ok(VersionMinIphoneos     (comm))},
-            LC_FUNCTION_STARTS => {         let comm = bytes.pread_with::<LinkeditDataCommand>    (0, le)?;  Ok(FunctionStarts         (comm))},
-            LC_DYLD_ENVIRONMENT => {        let comm = bytes.pread_with::<DylinkerCommand>        (0, le)?;  Ok(DyldEnvironment        (comm))},
-            LC_MAIN => {                    let comm = bytes.pread_with::<EntryPointCommand>      (0, le)?;  Ok(Main                   (comm))},
-            LC_DATA_IN_CODE => {            let comm = bytes.pread_with::<LinkeditDataCommand>    (0, le)?;  Ok(DataInCode             (comm))},
-            LC_SOURCE_VERSION => {          let comm = bytes.pread_with::<SourceVersionCommand>   (0, le)?;  Ok(SourceVersion          (comm))},
-            LC_DYLIB_CODE_SIGN_DRS => {     let comm = bytes.pread_with::<LinkeditDataCommand>    (0, le)?;  Ok(DylibCodeSignDrs       (comm))},
-            LC_LINKER_OPTION => {           let comm = bytes.pread_with::<LinkeditDataCommand>    (0, le)?;  Ok(LinkerOption           (comm))},
-            LC_LINKER_OPTIMIZATION_HINT => {let comm = bytes.pread_with::<LinkeditDataCommand>    (0, le)?;  Ok(LinkerOptimizationHint (comm))},
-            _ =>                                                                                                  Ok(Unimplemented          (lc.clone())),
+            LC_SEGMENT    => {              let comm = bytes.pread_with::<SegmentCommand32>       (0, le)?;  Ok((Segment32              (comm), size))},
+            LC_SEGMENT_64 => {              let comm = bytes.pread_with::<SegmentCommand64>       (0, le)?;  Ok((Segment64              (comm), size))},
+            LC_DYSYMTAB => {                let comm = bytes.pread_with::<DysymtabCommand>        (0, le)?;  Ok((Dysymtab               (comm), size))},
+            LC_LOAD_DYLINKER => {           let comm = bytes.pread_with::<DylinkerCommand>        (0, le)?;  Ok((LoadDylinker           (comm), size))},
+            LC_ID_DYLINKER => {             let comm = bytes.pread_with::<DylinkerCommand>        (0, le)?;  Ok((IdDylinker             (comm), size))},
+            LC_UUID => {                    let comm = bytes.pread_with::<UuidCommand>            (0, le)?;  Ok((Uuid                   (comm), size))},
+            LC_SYMTAB => {                  let comm = bytes.pread_with::<SymtabCommand>          (0, le)?;  Ok((Symtab                 (comm), size))},
+            LC_SYMSEG => {                  let comm = bytes.pread_with::<SymsegCommand>          (0, le)?;  Ok((Symseg                 (comm), size))},
+            LC_THREAD => {                  let comm = bytes.pread_with::<ThreadCommand>          (0, le)?;  Ok((Thread                 (comm), size))},
+            LC_UNIXTHREAD => {              let comm = bytes.pread_with::<ThreadCommand>          (0, le)?;  Ok((Unixthread             (comm), size))},
+            LC_LOADFVMLIB => {              let comm = bytes.pread_with::<FvmlibCommand>          (0, le)?;  Ok((LoadFvmlib             (comm), size))},
+            LC_IDFVMLIB => {                let comm = bytes.pread_with::<FvmlibCommand>          (0, le)?;  Ok((IdFvmlib               (comm), size))},
+            LC_IDENT => {                   let comm = bytes.pread_with::<IdentCommand>           (0, le)?;  Ok((Ident                  (comm), size))},
+            LC_FVMFILE => {                 let comm = bytes.pread_with::<FvmfileCommand>         (0, le)?;  Ok((Fvmfile                (comm), size))},
+            LC_PREPAGE => {                 let comm = bytes.pread_with::<LoadCommandHeader>      (0, le)?;  Ok((Prepage                (comm), size))},
+            LC_LOAD_DYLIB => {              let comm = bytes.pread_with::<DylibCommand>           (0, le)?;  Ok((LoadDylib              (comm), size))},
+            LC_ID_DYLIB => {                let comm = bytes.pread_with::<DylibCommand>           (0, le)?;  Ok((IdDylib                (comm), size))},
+            LC_PREBOUND_DYLIB => {          let comm = bytes.pread_with::<PreboundDylibCommand>   (0, le)?;  Ok((PreboundDylib          (comm), size))},
+            LC_ROUTINES => {                let comm = bytes.pread_with::<RoutinesCommand32>      (0, le)?;  Ok((Routines32             (comm), size))},
+            LC_ROUTINES_64 => {             let comm = bytes.pread_with::<RoutinesCommand64>      (0, le)?;  Ok((Routines64             (comm), size))},
+            LC_SUB_FRAMEWORK => {           let comm = bytes.pread_with::<SubFrameworkCommand>    (0, le)?;  Ok((SubFramework           (comm), size))},
+            LC_SUB_UMBRELLA => {            let comm = bytes.pread_with::<SubUmbrellaCommand>     (0, le)?;  Ok((SubUmbrella            (comm), size))},
+            LC_SUB_CLIENT => {              let comm = bytes.pread_with::<SubClientCommand>       (0, le)?;  Ok((SubClient              (comm), size))},
+            LC_SUB_LIBRARY => {             let comm = bytes.pread_with::<SubLibraryCommand>      (0, le)?;  Ok((SubLibrary             (comm), size))},
+            LC_TWOLEVEL_HINTS => {          let comm = bytes.pread_with::<TwolevelHintsCommand>   (0, le)?;  Ok((TwolevelHints          (comm), size))},
+            LC_PREBIND_CKSUM => {           let comm = bytes.pread_with::<PrebindCksumCommand>    (0, le)?;  Ok((PrebindCksum           (comm), size))},
+            LC_LOAD_WEAK_DYLIB => {         let comm = bytes.pread_with::<DylibCommand>           (0, le)?;  Ok((LoadWeakDylib          (comm), size))},
+            LC_RPATH => {                   let comm = bytes.pread_with::<RpathCommand>           (0, le)?;  Ok((Rpath                  (comm), size))},
+            LC_CODE_SIGNATURE => {          let comm = bytes.pread_with::<LinkeditDataCommand>    (0, le)?;  Ok((CodeSignature          (comm), size))},
+            LC_SEGMENT_SPLIT_INFO => {      let comm = bytes.pread_with::<LinkeditDataCommand>    (0, le)?;  Ok((SegmentSplitInfo       (comm), size))},
+            LC_REEXPORT_DYLIB => {          let comm = bytes.pread_with::<DylibCommand>           (0, le)?;  Ok((ReexportDylib          (comm), size))},
+            LC_LAZY_LOAD_DYLIB => {         let comm = bytes.pread_with::<DylibCommand>           (0, le)?;  Ok((LazyLoadDylib          (comm), size))},
+            LC_ENCRYPTION_INFO => {         let comm = bytes.pread_with::<EncryptionInfoCommand32>(0, le)?;  Ok((EncryptionInfo32       (comm), size))},
+            LC_ENCRYPTION_INFO_64 => {      let comm = bytes.pread_with::<EncryptionInfoCommand64>(0, le)?;  Ok((EncryptionInfo64       (comm), size))},
+            LC_DYLD_INFO => {               let comm = bytes.pread_with::<DyldInfoCommand>        (0, le)?;  Ok((DyldInfo               (comm), size))},
+            LC_DYLD_INFO_ONLY => {          let comm = bytes.pread_with::<DyldInfoCommand>        (0, le)?;  Ok((DyldInfoOnly           (comm), size))},
+            LC_LOAD_UPWARD_DYLIB => {       let comm = bytes.pread_with::<DylibCommand>           (0, le)?;  Ok((LoadUpwardDylib        (comm), size))},
+            LC_VERSION_MIN_MACOSX => {      let comm = bytes.pread_with::<VersionMinCommand>      (0, le)?;  Ok((VersionMinMacosx       (comm), size))},
+            LC_VERSION_MIN_IPHONEOS => {    let comm = bytes.pread_with::<VersionMinCommand>      (0, le)?;  Ok((VersionMinIphoneos     (comm), size))},
+            LC_FUNCTION_STARTS => {         let comm = bytes.pread_with::<LinkeditDataCommand>    (0, le)?;  Ok((FunctionStarts         (comm), size))},
+            LC_DYLD_ENVIRONMENT => {        let comm = bytes.pread_with::<DylinkerCommand>        (0, le)?;  Ok((DyldEnvironment        (comm), size))},
+            LC_MAIN => {                    let comm = bytes.pread_with::<EntryPointCommand>      (0, le)?;  Ok((Main                   (comm), size))},
+            LC_DATA_IN_CODE => {            let comm = bytes.pread_with::<LinkeditDataCommand>    (0, le)?;  Ok((DataInCode             (comm), size))},
+            LC_SOURCE_VERSION => {          let comm = bytes.pread_with::<SourceVersionCommand>   (0, le)?;  Ok((SourceVersion          (comm), size))},
+            LC_DYLIB_CODE_SIGN_DRS => {     let comm = bytes.pread_with::<LinkeditDataCommand>    (0, le)?;  Ok((DylibCodeSignDrs       (comm), size))},
+            LC_LINKER_OPTION => {           let comm = bytes.pread_with::<LinkeditDataCommand>    (0, le)?;  Ok((LinkerOption           (comm), size))},
+            LC_LINKER_OPTIMIZATION_HINT => {let comm = bytes.pread_with::<LinkeditDataCommand>    (0, le)?;  Ok((LinkerOptimizationHint (comm), size))},
+            _ =>                                                                                             Ok((Unimplemented          (lc.clone()), size)),
         }
     }
 }
@@ -1367,11 +1368,12 @@ impl<'a> fmt::Debug for Section<'a> {
 // TODO: make these try_from_ctx as the offset + size can be bad and thus cause failure
 impl<'a> ctx::TryFromCtx<'a, Section32> for Section<'a> {
     type Error = scroll::Error;
-    fn try_from_ctx(bytes: &'a [u8], section: Section32) -> Result<Self, Self::Error> {
+    type Size = usize;
+    fn try_from_ctx(bytes: &'a [u8], section: Section32) -> Result<(Self, Self::Size), Self::Error> {
         let start = section.offset as usize;
         let end = start + section.size as usize;
         let data = &bytes[start..end];
-        Ok(Section {
+        Ok((Section {
             sectname: section.sectname,
             segname:  section.segname,
             addr:     section.addr as u64,
@@ -1382,17 +1384,18 @@ impl<'a> ctx::TryFromCtx<'a, Section32> for Section<'a> {
             nreloc:   section.nreloc,
             flags:    section.flags,
             data:     data
-        })
+        }, SIZEOF_SECTION_32))
     }
 }
 
 impl<'a> TryFromCtx<'a, Section64> for Section<'a> {
     type Error = scroll::Error;
-    fn try_from_ctx(bytes: &'a [u8], section: Section64) -> Result<Self, Self::Error> {
+    type Size = usize;
+    fn try_from_ctx(bytes: &'a [u8], section: Section64) -> Result<(Self, Self::Size), Self::Error> {
         let start = section.offset as usize;
         let end = start + section.size as usize;
         let data = &bytes[start..end];
-        Ok(Section {
+        Ok((Section {
             sectname: section.sectname,
             segname:  section.segname,
             addr:     section.addr,
@@ -1403,13 +1406,14 @@ impl<'a> TryFromCtx<'a, Section64> for Section<'a> {
             nreloc:   section.nreloc,
             flags:    section.flags,
             data:     data
-        })
+        }, SIZEOF_SECTION_64))
     }
 }
 
 impl<'a> TryFromCtx<'a, container::Ctx> for Section<'a> {
     type Error = scroll::Error;
-    fn try_from_ctx(bytes: &'a [u8], ctx: container::Ctx) -> Result<Self, Self::Error> {
+    type Size = usize;
+    fn try_from_ctx(bytes: &'a [u8], ctx: container::Ctx) -> Result<(Self, Self::Size), Self::Error> {
         match ctx.container {
             container::Container::Little => {
                 let section = Section::try_from_ctx(bytes, bytes.pread_with::<Section32>(0, ctx.le)?)?;
@@ -1489,7 +1493,7 @@ impl<'a> Segment<'a> {
     }
     /// Get the sections from this segment
     pub fn sections(&self) -> error::Result<Vec<Section<'a>>> {
-        use scroll::Gread;
+        use scroll::Pread;
         let nsects = self.nsects as usize;
         let mut sections = Vec::with_capacity(nsects);
         let offset = &mut (self.offset + Self::size_with(&self.ctx));

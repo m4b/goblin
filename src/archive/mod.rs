@@ -6,7 +6,7 @@
 //! names in the archive with a / as a sigil for the end of the name, and uses a special symbol
 //! index for looking up symbols faster.
 
-use scroll::{self, Pread, Gread};
+use scroll::{self, Pread};
 
 use strtab;
 use error::{Result, Error};
@@ -312,15 +312,8 @@ impl<'a> Archive<'a> {
     /// Returns a slice of the raw bytes for the given `member` in the scrollable `buffer`
     pub fn extract<'b>(&self, member: &str, buffer: &'b [u8]) -> Result<&'b [u8]> {
         if let Some(member) = self.get(member) {
-            let len = member.size();
-            if member.offset as usize + len >= buffer.len() {
-                Err(Error::Malformed(format!("Cannot extract member {:?} -- too big", member).into()))
-            } else {
-                // TODO: when pread_slice comes back
-                // let bytes = buffer.pread_slice(member.offset as usize, member.size())?;
-                let bytes = &buffer[member.offset as usize..member.offset as usize + member.size()];
-                Ok(bytes)
-            }
+            let bytes = buffer.pread_with(member.offset as usize, member.size())?;
+            Ok(bytes)
         } else {
             Err(Error::Malformed(format!("Cannot extract member {:?}", member).into()))
         }

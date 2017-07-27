@@ -1313,6 +1313,28 @@ impl LoadCommand {
     }
 }
 
+pub struct RelocationIterator<'a> {
+    data: &'a [u8],
+    nrelocs: usize,
+    offset: usize,
+    count: usize,
+    ctx: scroll::Endian,
+}
+
+use mach::relocation::RelocationInfo;
+
+impl<'a> Iterator for RelocationIterator<'a> {
+    type Item = scroll::Result<RelocationInfo>;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.count >= self.nrelocs {
+            None
+        } else {
+            self.count += 1;
+            Some(self.data.gread_with(&mut self.offset, self.ctx))
+        }
+    }
+}
+
 /// Generalized 32/64 bit Section, with attached section data
 pub struct Section<'a> {
     /// name of this section
@@ -1346,6 +1368,15 @@ impl<'a> Section<'a> {
     pub fn segname(&self) -> scroll::Result<&str> {
         self.segname.pread::<&str>(0)
     }
+    pub fn iter_relocations(&self, ctx: scroll::Endian) -> RelocationIterator {
+        RelocationIterator {
+            offset: self.reloff as usize,
+            nrelocs: self.nreloc as usize,
+            count: 0,
+            data: self.data,
+            ctx: ctx,
+        }
+    }
 }
 
 impl<'a> fmt::Debug for Section<'a> {
@@ -1361,18 +1392,15 @@ impl<'a> fmt::Debug for Section<'a> {
             .field("nreloc",   &self.nreloc)
             .field("flags",    &self.flags)
             .field("data",     &self.data.len())
+            .field("relocations",     &self.iter_relocations(scroll::LE).collect::<Vec<_>>())
             .finish()
     }
 }
 
-// TODO: make these try_from_ctx as the offset + size can be bad and thus cause failure
 impl<'a> ctx::TryFromCtx<'a, Section32> for Section<'a> {
     type Error = scroll::Error;
     type Size = usize;
     fn try_from_ctx(bytes: &'a [u8], section: Section32) -> Result<(Self, Self::Size), Self::Error> {
-        let start = section.offset as usize;
-        let end = start + section.size as usize;
-        let data = &bytes[start..end];
         Ok((Section {
             sectname: section.sectname,
             segname:  section.segname,
@@ -1383,7 +1411,7 @@ impl<'a> ctx::TryFromCtx<'a, Section32> for Section<'a> {
             reloff:   section.reloff,
             nreloc:   section.nreloc,
             flags:    section.flags,
-            data:     data
+            data:     bytes
         }, SIZEOF_SECTION_32))
     }
 }
@@ -1392,9 +1420,6 @@ impl<'a> TryFromCtx<'a, Section64> for Section<'a> {
     type Error = scroll::Error;
     type Size = usize;
     fn try_from_ctx(bytes: &'a [u8], section: Section64) -> Result<(Self, Self::Size), Self::Error> {
-        let start = section.offset as usize;
-        let end = start + section.size as usize;
-        let data = &bytes[start..end];
         Ok((Section {
             sectname: section.sectname,
             segname:  section.segname,
@@ -1405,7 +1430,7 @@ impl<'a> TryFromCtx<'a, Section64> for Section<'a> {
             reloff:   section.reloff,
             nreloc:   section.nreloc,
             flags:    section.flags,
-            data:     data
+            data:     bytes
         }, SIZEOF_SECTION_64))
     }
 }

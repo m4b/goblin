@@ -64,3 +64,26 @@ fn parse_sections() {
         }
     }
 }
+
+#[test]
+fn iter_symbols() {
+    let bytes = &DEADBEEF_MACH_64;
+    let mach = Mach::parse(&bytes[..]).unwrap();
+    match mach {
+        Mach::Binary(binary) => {
+            println!("binary: {:?}", binary);
+            let symbols = binary.symbols.unwrap();
+            for symbol in symbols.iter() {
+                println!("symbol: {:?}", symbol);
+                let (name, symbol) = symbol.unwrap();
+                assert!(name.len() > 0);
+            }
+            let symbols = symbols.iter().collect::<Vec<_>>();
+            assert_eq!(symbols.len(), 4);
+        },
+        _ => {
+            println!("got mach fat from regular binary");
+            assert!(false);
+        }
+    }
+}

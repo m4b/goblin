@@ -14,6 +14,7 @@ pub mod symbols;
 pub mod exports;
 pub mod imports;
 pub mod bind_opcodes;
+pub mod relocation;
 
 pub use self::constants::cputype as cputype;
 

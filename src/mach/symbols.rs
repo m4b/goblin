@@ -153,13 +153,45 @@ impl<'a, T: ?Sized> ctx::TryFromCtx<'a, SymbolsCtx, T> for Symbols<'a> where T: 
     fn try_from_ctx(bytes: &'a T, SymbolsCtx {
         nsyms, strtab, ctx
     }: SymbolsCtx) -> scroll::Result<(Self, Self::Size)> {
+        let data = bytes.as_ref();
         Ok ((Symbols {
-            data: bytes.as_ref(),
+            data: data,
             start: 0,
             nsyms: nsyms,
             strtab: strtab,
             ctx: ctx,
-        }, bytes.as_ref().len()))
+        }, data.len()))
+    }
+}
+
+pub struct SymbolIterator<'a> {
+    data: &'a [u8],
+    nsyms: usize,
+    offset: usize,
+    count: usize,
+    ctx: container::Ctx,
+    strtab: usize,
+}
+
+impl<'a> Iterator for SymbolIterator<'a> {
+    type Item = error::Result<(&'a str, Nlist)>;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.count >= self.nsyms {
+            None
+        } else {
+            self.count += 1;
+            match self.data.gread_with::<Nlist>(&mut self.offset, self.ctx) {
+                Ok(symbol) => {
+                    match self.data.pread(self.strtab + symbol.n_strx) {
+                        Ok(name) => {
+                            Some(Ok((name, symbol)))
+                        },
+                        Err(e) => return Some(Err(e.into()))
+                    }
+                },
+                Err(e) => return Some(Err(e.into()))
+            }
+        }
     }
 }
 
@@ -167,8 +199,7 @@ impl<'a, T: ?Sized> ctx::TryFromCtx<'a, SymbolsCtx, T> for Symbols<'a> where T: 
 pub struct Symbols<'a> {
     data: &'a [u8],
     start: usize,
-    // TODO: add iterator and remove pub
-    pub nsyms: usize,
+    nsyms: usize,
     // TODO: we can use an actual strtab here and tie it to symbols lifetime
     strtab: usize,
     ctx: container::Ctx,
@@ -189,7 +220,20 @@ impl<'a> Symbols<'a> {
         })
     }
     pub fn parse(bytes: &'a [u8], symtab: &load_command::SymtabCommand, ctx: container::Ctx) -> error::Result<Symbols<'a>> {
-        Ok(bytes.pread_with(symtab.symoff as usize, SymbolsCtx { nsyms: symtab.nsyms as usize, strtab: symtab.stroff as usize, ctx: ctx })?)
+        // we need to normalize the strtab offset before we receive the truncated bytes in pread_with
+        let strtab = symtab.stroff - symtab.symoff;
+        Ok(bytes.pread_with(symtab.symoff as usize, SymbolsCtx { nsyms: symtab.nsyms as usize, strtab: strtab as usize, ctx: ctx })?)
+    }
+
+    pub fn iter(&self) -> SymbolIterator {
+        SymbolIterator {
+            offset: self.start as usize,
+            nsyms: self.nsyms as usize,
+            count: 0,
+            data: self.data,
+            ctx: self.ctx,
+            strtab: self.strtab,
+        }
     }
 
     /// Parses a single Nlist symbol from the binary, with its accompanying name
@@ -202,9 +246,10 @@ impl<'a> Symbols<'a> {
 
 impl<'a> Debug for Symbols<'a> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(fmt, "Data: {} start: {:#?}, nsyms: {} strtab: {:#x}", self.data.len(), self.start, self.nsyms, self.strtab)?;
         writeln!(fmt, "Symbols: {{")?;
-        for i in 0..self.nsyms {
-            match self.get(i) {
+        for (i, res) in self.iter().enumerate() {
+            match res {
                 Ok((name, nlist)) => {
                     writeln!(fmt, "{: >10x} {} sect: {:#x} type: {:#02x} desc: {:#03x}", nlist.n_value, name, nlist.n_sect, nlist.n_type, nlist.n_desc)?;
                 },

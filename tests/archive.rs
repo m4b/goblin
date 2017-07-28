@@ -64,7 +64,12 @@ fn parse_self_wow_so_meta_doge() {
                 Ok(archive) => {
                     let mut found = false;
                     for member in archive.members() {
-                        if member.starts_with("goblin") && member.ends_with("0.o") {
+                        println!("member: {:?}", member);
+                        if member.starts_with("goblin") &&
+                            // pre 1.18
+                            (member.ends_with("0.o") ||
+                             // >= 1.18
+                             member.ends_with("goblin-archive.o")) {
                             assert_eq!(archive.member_of_symbol("wow_so_meta_doge_symbol"), Some(member.as_str()));
                             match archive.extract(member.as_str(), &buffer) {
                                 Ok(bytes) => {

@@ -1476,7 +1476,7 @@ pub struct SectionIterator<'a> {
 impl<'a> Iterator for SectionIterator<'a> {
     type Item = error::Result<Section<'a>>;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.count >= self.count {
+        if self.idx >= self.count {
             None
         } else {
             self.idx += 1;
@@ -1484,6 +1484,20 @@ impl<'a> Iterator for SectionIterator<'a> {
                 Ok(res) => Some(Ok(res)),
                 Err(e) => Some(Err(e.into()))
             }
+        }
+    }
+}
+
+impl<'a, 'b> IntoIterator for &'b Segment<'a> {
+    type Item = error::Result<Section<'a>>;
+    type IntoIter = SectionIterator<'a>;
+    fn into_iter(self) -> Self::IntoIter {
+        SectionIterator {
+            data: self.raw_data,
+            count: self.nsects as usize,
+            offset: self.offset + Segment::size_with(&self.ctx),
+            idx: 0,
+            ctx: self.ctx,
         }
     }
 }
@@ -1542,15 +1556,11 @@ impl<'a> Segment<'a> {
     pub fn name(&self) -> error::Result<&str> {
         Ok(self.segname.pread::<&str>(0)?)
     }
-    /// Get the sections from this segment
+    /// Get the sections from this segment, erroring if any section couldn't be retrieved
     pub fn sections(&self) -> error::Result<Vec<Section<'a>>> {
-        use scroll::Pread;
-        let nsects = self.nsects as usize;
-        let mut sections = Vec::with_capacity(nsects);
-        let offset = &mut (self.offset + Self::size_with(&self.ctx));
-        for _ in 0..nsects {
-            let section = self.raw_data.gread_with::<Section<'a>>(offset, self.ctx)?;
-            sections.push(section);
+        let mut sections = Vec::new();
+        for section in self.into_iter() {
+            sections.push(section?);
         }
         Ok(sections)
     }
@@ -1615,6 +1625,14 @@ impl<'a> Deref for Segments<'a> {
 impl<'a> DerefMut for Segments<'a> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.segments
+    }
+}
+
+impl<'a, 'b> IntoIterator for &'b Segments<'a> {
+    type Item = &'b Segment<'a>;
+    type IntoIter = ::std::slice::Iter<'b, Segment<'a>>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.segments.iter()
     }
 }
 

@@ -29,19 +29,23 @@ const DEADBEEF_MACH_64: [u8; 8496] = [0xCF,0xFA,0xED,0xFE,0x7,0x0,0x0,0x1,0x3,0x
 fn macho_get_section<'a>(macho: &MachO<'a>, section_name: &str) -> Option<&'a [u8]> {
     let segment_name = "__TEXT";
 
-    for segment in &*macho.segments {
+    for segment in &macho.segments {
         if let Ok(name) = segment.name() {
             println!("segment.name: {}", name);
             if name == segment_name {
-                if let Ok(sections) = segment.sections() {
-                    for section in sections {
-                        let sname = section.name().unwrap();
-                        println!("section.name: {}", sname);
-                        if section_name == sname {
-                            return Some(section.data);
-                        }
+                println!("MATCH: {:?}", segment);
+                for section in segment {
+                    println!("section {:?}", section);
+                    let section = section.unwrap();
+                    let sname = section.name().unwrap();
+                    println!("section.name: {}", sname);
+                    if section_name == sname {
+                        return Some(section.data);
                     }
                 }
+                println!("Section not found :/")
+            } else {
+                println!("no match");
             }
         }
     }
@@ -75,7 +79,7 @@ fn iter_symbols() {
             let symbols = binary.symbols.unwrap();
             for symbol in symbols.iter() {
                 println!("symbol: {:?}", symbol);
-                let (name, symbol) = symbol.unwrap();
+                let (name, _symbol) = symbol.unwrap();
                 assert!(name.len() > 0);
             }
             let symbols = symbols.iter().collect::<Vec<_>>();

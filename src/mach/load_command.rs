@@ -7,6 +7,8 @@ use core::ops::{Deref, DerefMut};
 use scroll::{self, ctx, Endian, Pread};
 use scroll::ctx::{TryFromCtx, SizeWith};
 
+use mach::relocation::RelocationInfo;
+
 ///////////////////////////////////////
 // Load Commands from mach-o/loader.h
 // with some rusty additions
@@ -1321,16 +1323,17 @@ pub struct RelocationIterator<'a> {
     ctx: scroll::Endian,
 }
 
-use mach::relocation::RelocationInfo;
-
 impl<'a> Iterator for RelocationIterator<'a> {
-    type Item = scroll::Result<RelocationInfo>;
+    type Item = error::Result<RelocationInfo>;
     fn next(&mut self) -> Option<Self::Item> {
         if self.count >= self.nrelocs {
             None
         } else {
             self.count += 1;
-            Some(self.data.gread_with(&mut self.offset, self.ctx))
+            match self.data.gread_with(&mut self.offset, self.ctx) {
+                Ok(res) => Some(Ok(res)),
+                Err(e) => Some(Err(e.into()))
+            }
         }
     }
 }
@@ -1458,6 +1461,29 @@ impl<'a> ctx::SizeWith<container::Ctx> for Section<'a> {
         match ctx.container {
             container::Container::Little => SIZEOF_SECTION_32,
             container::Container::Big    => SIZEOF_SECTION_64,
+        }
+    }
+}
+
+pub struct SectionIterator<'a> {
+    data: &'a [u8],
+    count: usize,
+    offset: usize,
+    idx: usize,
+    ctx: container::Ctx,
+}
+
+impl<'a> Iterator for SectionIterator<'a> {
+    type Item = error::Result<Section<'a>>;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.count >= self.count {
+            None
+        } else {
+            self.idx += 1;
+            match self.data.gread_with(&mut self.offset, self.ctx) {
+                Ok(res) => Some(Ok(res)),
+                Err(e) => Some(Err(e.into()))
+            }
         }
     }
 }

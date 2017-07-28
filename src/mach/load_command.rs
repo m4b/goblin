@@ -1360,6 +1360,7 @@ pub struct Section<'a> {
     pub flags:     u32,
     /// The data inside this section
     pub data:      &'a [u8],
+    ctx: container::Ctx,
 }
 
 impl<'a> Section<'a> {
@@ -1371,13 +1372,13 @@ impl<'a> Section<'a> {
     pub fn segname(&self) -> scroll::Result<&str> {
         self.segname.pread::<&str>(0)
     }
-    pub fn iter_relocations(&self, ctx: scroll::Endian) -> RelocationIterator {
+    pub fn iter_relocations(&self) -> RelocationIterator {
         RelocationIterator {
             offset: self.reloff as usize,
             nrelocs: self.nreloc as usize,
             count: 0,
             data: self.data,
-            ctx: ctx,
+            ctx: self.ctx.le,
         }
     }
 }
@@ -1395,15 +1396,15 @@ impl<'a> fmt::Debug for Section<'a> {
             .field("nreloc",   &self.nreloc)
             .field("flags",    &self.flags)
             .field("data",     &self.data.len())
-            .field("relocations",     &self.iter_relocations(scroll::LE).collect::<Vec<_>>())
+            .field("relocations", &self.iter_relocations().collect::<Vec<_>>())
             .finish()
     }
 }
 
-impl<'a> ctx::TryFromCtx<'a, Section32> for Section<'a> {
+impl<'a> ctx::TryFromCtx<'a, (container::Ctx, Section32)> for Section<'a> {
     type Error = scroll::Error;
     type Size = usize;
-    fn try_from_ctx(bytes: &'a [u8], section: Section32) -> Result<(Self, Self::Size), Self::Error> {
+    fn try_from_ctx(bytes: &'a [u8], (ctx, section): (container::Ctx, Section32)) -> Result<(Self, Self::Size), Self::Error> {
         Ok((Section {
             sectname: section.sectname,
             segname:  section.segname,
@@ -1414,15 +1415,16 @@ impl<'a> ctx::TryFromCtx<'a, Section32> for Section<'a> {
             reloff:   section.reloff,
             nreloc:   section.nreloc,
             flags:    section.flags,
-            data:     bytes
+            data:     bytes,
+            ctx:      ctx,
         }, SIZEOF_SECTION_32))
     }
 }
 
-impl<'a> TryFromCtx<'a, Section64> for Section<'a> {
+impl<'a> TryFromCtx<'a, (container::Ctx, Section64)> for Section<'a> {
     type Error = scroll::Error;
     type Size = usize;
-    fn try_from_ctx(bytes: &'a [u8], section: Section64) -> Result<(Self, Self::Size), Self::Error> {
+    fn try_from_ctx(bytes: &'a [u8], (ctx, section): (container::Ctx, Section64)) -> Result<(Self, Self::Size), Self::Error> {
         Ok((Section {
             sectname: section.sectname,
             segname:  section.segname,
@@ -1433,7 +1435,8 @@ impl<'a> TryFromCtx<'a, Section64> for Section<'a> {
             reloff:   section.reloff,
             nreloc:   section.nreloc,
             flags:    section.flags,
-            data:     bytes
+            data:     bytes,
+            ctx:      ctx,
         }, SIZEOF_SECTION_64))
     }
 }
@@ -1444,11 +1447,11 @@ impl<'a> TryFromCtx<'a, container::Ctx> for Section<'a> {
     fn try_from_ctx(bytes: &'a [u8], ctx: container::Ctx) -> Result<(Self, Self::Size), Self::Error> {
         match ctx.container {
             container::Container::Little => {
-                let section = Section::try_from_ctx(bytes, bytes.pread_with::<Section32>(0, ctx.le)?)?;
+                let section = Section::try_from_ctx(bytes, (ctx, bytes.pread_with::<Section32>(0, ctx.le)?))?;
                 Ok(section)
             },
             container::Container::Big    => {
-                let section = Section::try_from_ctx(bytes, bytes.pread_with::<Section64>(0, ctx.le)?)?;
+                let section = Section::try_from_ctx(bytes, (ctx, bytes.pread_with::<Section64>(0, ctx.le)?))?;
                 Ok(section)
             },
         }

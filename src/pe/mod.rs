@@ -10,6 +10,7 @@ pub mod section_table;
 pub mod data_directories;
 pub mod export;
 pub mod import;
+pub mod debug;
 mod utils;
 
 use error;
@@ -44,6 +45,8 @@ pub struct PE<'a> {
     pub imports: Vec<import::Import<'a>>,
     /// The list of libraries which this binary imports symbols from
     pub libraries: Vec<&'a str>,
+    /// Debug information, if any, contained in the PE header
+    pub debug_data: Option<debug::DebugData<'a>>
 }
 
 impl<'a> PE<'a> {
@@ -65,6 +68,7 @@ impl<'a> PE<'a> {
         let mut imports = vec![];
         let mut import_data = None;
         let mut libraries = vec![];
+        let mut debug_data = None;
         let mut is_64 = false;
         if let Some(optional_header) = header.optional_header {
             entry = optional_header.standard_fields.address_of_entry_point as usize;
@@ -84,6 +88,9 @@ impl<'a> PE<'a> {
                 libraries.dedup();
                 import_data = Some(id);
             }
+            if let &Some(debug_table) = optional_header.data_directories.get_debug_table() {
+                debug_data = Some(debug::DebugData::parse(bytes, &debug_table, &sections)?);
+            }
         }
         Ok( PE {
             header: header,
@@ -99,6 +106,7 @@ impl<'a> PE<'a> {
             exports: exports,
             imports: imports,
             libraries: libraries,
+            debug_data,
         })
     }
 }

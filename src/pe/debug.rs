@@ -56,8 +56,8 @@ pub const IMAGE_DEBUG_TYPE_BORLAND: u32 = 9;
 impl ImageDebugDirectory {
     fn parse(bytes: &[u8], dd: &data_directories::DataDirectory, sections: &[section_table::SectionTable]) -> error::Result<Self> {
         let rva = dd.virtual_address as usize;
-        let mut offset = &mut utils::find_offset(rva, sections).unwrap();
-        let idd: Self = bytes.gread_with(offset, scroll::LE)?;
+        let offset = utils::find_offset(rva, sections).unwrap();
+        let idd: Self = bytes.pread_with(offset, scroll::LE)?;
         Ok (idd)
     }
 }

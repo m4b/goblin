@@ -106,7 +106,7 @@ impl<'a> PE<'a> {
             exports: exports,
             imports: imports,
             libraries: libraries,
-            debug_data,
+            debug_data: debug_data,
         })
     }
 }

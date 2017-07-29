@@ -17,8 +17,8 @@ impl<'a> DebugData<'a> {
         let codeview_pdb70_debug_info = CodeviewPDB70DebugInfo::parse(bytes, &image_debug_directory)?;
 
         Ok(DebugData{
-            image_debug_directory,
-            codeview_pdb70_debug_info
+            image_debug_directory: image_debug_directory,
+            codeview_pdb70_debug_info: codeview_pdb70_debug_info
         })
     }
     

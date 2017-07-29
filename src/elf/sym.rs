@@ -132,8 +132,6 @@ macro_rules! elf_sym_std_impl {
             use std::io::{Read, Seek};
             use std::io::SeekFrom::Start;
 
-            use plain::Methods;
-
             impl Sym {
                 /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` bind and a `st_value` of 0
                 pub fn is_import(&self) -> bool {
@@ -196,7 +194,9 @@ macro_rules! elf_sym_std_impl {
                 // TODO: AFAIK this shouldn't work, since i pass in a byte size...
                 let mut syms = vec![Sym::default(); count];
                 try!(fd.seek(Start(offset as u64)));
-                try!(fd.read(syms.as_mut_bytes()));
+                unsafe {
+                    try!(fd.read(plain::as_mut_bytes(&mut *syms)));
+                }
                 syms.dedup();
                 Ok(syms)
             }

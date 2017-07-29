@@ -281,7 +281,7 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
         use std::io::{Read, Seek};
         use std::io::SeekFrom::Start;
 
-        use plain::Methods;
+        use plain::Plain;
 
         impl From<SectionHeader> for ElfSectionHeader {
             fn from(sh: SectionHeader) -> Self {
@@ -319,15 +319,16 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
         impl SectionHeader {
             pub fn from_bytes(bytes: &[u8], shnum: usize) -> Vec<SectionHeader> {
                 let mut shdrs = vec![SectionHeader::default(); shnum];
-                // FIXME: copy_from_slice() panics if the slices are not equal length
-                shdrs.as_mut_bytes().copy_from_slice(bytes);
+                shdrs.copy_from_bytes(bytes).expect("buffer is too short for given number of entries");
                 shdrs
             }
 
             pub fn from_fd(fd: &mut File, offset: u64, shnum: usize) -> Result<Vec<SectionHeader>> {
                 let mut shdrs = vec![SectionHeader::default(); shnum];
                 try!(fd.seek(Start(offset)));
-                try!(fd.read(shdrs.as_mut_bytes()));
+                unsafe {
+                    try!(fd.read(plain::as_mut_bytes(&mut *shdrs)));
+                }
                 Ok(shdrs)
             }
         }

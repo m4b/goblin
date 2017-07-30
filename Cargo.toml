@@ -13,7 +13,7 @@ categories = ["parsing"]
 [lib]
 
 [dependencies]
-plain = "0.0.2"
+plain = "0.2.1"
 
 [dependencies.scroll]
 git = "https://github.com/m4b/scroll"

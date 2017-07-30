@@ -244,7 +244,7 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
         use std::io::{Seek, Read};
         use std::io::SeekFrom::Start;
 
-        use plain::Methods;
+        use plain::Plain;
 
         impl From<ProgramHeader> for ElfProgramHeader {
             fn from(ph: ProgramHeader) -> Self {
@@ -303,9 +303,8 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
             }
 
             pub fn from_bytes(bytes: &[u8], phnum: usize) -> Vec<ProgramHeader> {
-                // FIXME: will panic if length of `bytes` is not equal to phnum * SIZEOF_PHDR.
                 let mut phdrs = vec![ProgramHeader::default(); phnum];
-                phdrs.as_mut_bytes().copy_from_slice(bytes);
+                phdrs.copy_from_bytes(bytes).expect("buffer is too short for given number of entries");
                 phdrs
             }
 
@@ -318,7 +317,9 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
             pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> Result<Vec<ProgramHeader>> {
                 let mut phdrs = vec![ProgramHeader::default(); count];
                 try!(fd.seek(Start(offset)));
-                try!(fd.read(phdrs.as_mut_bytes()));
+                unsafe {
+                    try!(fd.read(plain::as_mut_bytes(&mut *phdrs)));
+                }
                 Ok(phdrs)
             }
         }

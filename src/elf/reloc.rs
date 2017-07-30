@@ -120,8 +120,6 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
             use std::io::{Read, Seek};
             use std::io::SeekFrom::Start;
 
-            use plain::Methods;
-
             impl From<Rela> for Reloc {
                 fn from(rela: Rela) -> Self {
                     Reloc {
@@ -191,7 +189,9 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
                 let count = size / SIZEOF_RELA;
                 let mut relocs = vec![Rela::default(); count];
                 fd.seek(Start(offset as u64))?;
-                fd.read(relocs.as_mut_bytes())?;
+                unsafe {
+                    fd.read(plain::as_mut_bytes(&mut *relocs))?;
+                }
                 Ok(relocs)
             }
         }

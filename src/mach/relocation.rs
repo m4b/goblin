@@ -23,6 +23,7 @@
 // by the link-editor.  The value R_ABS is used for relocation entries for
 // absolute symbols which need no further relocation.
 #[derive(Copy, Clone, Debug, Pread, Pwrite, IOwrite, IOread)]
+#[repr(C)]
 pub struct RelocationInfo {
     /// offset in the section to what is being relocated
     pub r_address: i32,

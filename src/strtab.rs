@@ -46,16 +46,20 @@ impl<'a> Strtab<'a> {
         let mut strings = Vec::with_capacity(len);
         let mut i = 0;
         while i < len {
-            let string = self.get(i)?;
+            let string = self.get(i).unwrap()?;
             i = i + string.len() + 1;
             strings.push(string.to_string());
         }
         Ok(strings)
     }
-    /// Safely parses and gets a str reference from the backing bytes starting at byte `offset`
-    #[inline]
-    pub fn get(&self, offset: usize) -> scroll::Result<&'a str> {
-        get_str(offset, self.bytes, self.delim)
+    /// Safely parses and gets a str reference from the backing bytes starting at byte `offset`.
+    /// If the index is out of bounds, `None` is returned
+    pub fn get(&self, offset: usize) -> Option<error::Result<&'a str>> {
+        if offset >= self.bytes.len() {
+            None
+        } else {
+            Some(get_str(offset, self.bytes, self.delim).map_err(|e| e.into()))
+        }
     }
 }
 

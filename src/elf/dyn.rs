@@ -395,13 +395,16 @@ mod std {
             Ok(None)
         }
 
-        pub fn get_libraries<'a>(&self, strtab: &Strtab<'a>) -> Vec<String> {
+        pub fn get_libraries<'a>(&self, strtab: &Strtab<'a>) -> Vec<&'a str> {
             let count = self.info.needed_count;
             let mut needed = Vec::with_capacity(count);
             for dyn in &self.dyns {
                 if dyn.d_tag as u64 == DT_NEEDED {
-                    let lib = &strtab[dyn.d_val as usize];
-                    needed.push(lib.to_owned());
+                    match strtab.get(dyn.d_val as usize) {
+                        Some(Ok(lib)) => needed.push(lib),
+                        // FIXME: warn! here
+                        _ => (),
+                    }
                 }
             }
             needed

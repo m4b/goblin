@@ -119,11 +119,11 @@ mod impure {
         /// Section relocations by section index (only present if this is a relocatable object file)
         pub shdr_relocs: Vec<(ShdrIdx, Vec<Reloc>)>,
         /// The binary's soname, if it has one
-        pub soname: Option<String>,
+        pub soname: Option<&'a str>,
         /// The binary's program interpreter (e.g., dynamic linker), if it has one
         pub interpreter: Option<&'a str>,
         /// A list of this binary's dynamic libraries it uses, if there are any
-        pub libraries: Vec<String>,
+        pub libraries: Vec<&'a str>,
         pub is_64: bool,
         /// Whether this is a shared object or not
         pub is_lib: bool,
@@ -223,7 +223,8 @@ mod impure {
                                           0x0)?;
 
                 if dyn_info.soname != 0 {
-                    soname = Some(dynstrtab.get(dyn_info.soname)?.to_owned())
+                    // FIXME: warn! here
+                    soname = match dynstrtab.get(dyn_info.soname) { Some(Ok(soname)) => Some(soname), _ => None };
                 }
                 if dyn_info.needed_count > 0 {
                     libraries = dynamic.get_libraries(&dynstrtab);

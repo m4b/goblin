@@ -337,8 +337,3 @@ impl<'a> Archive<'a> {
         }
     }
 }
-
-#[no_mangle]
-/// Wow. So Meta. Such symbols.
-/// Actually just an unmangled, external symbol used for unit testing itself.  Call it.  I dare you.
-pub extern fn wow_so_meta_doge_symbol() { println!("wow_so_meta_doge_symbol")}

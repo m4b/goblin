@@ -54,7 +54,7 @@ fn parse_archive() {
 }
 
 #[test]
-fn parse_self_wow_so_meta_doge() {
+fn parse_self() {
     use std::io::Read;
     let path = Path::new("target").join("debug").join("libgoblin.rlib");
     match File::open(path) {
@@ -70,7 +70,6 @@ fn parse_self_wow_so_meta_doge() {
                             (member.ends_with("0.o") ||
                              // >= 1.18
                              member.ends_with("goblin-archive.o")) {
-                            assert_eq!(archive.member_of_symbol("wow_so_meta_doge_symbol"), Some(member.as_str()));
                             match archive.extract(member.as_str(), &buffer) {
                                 Ok(bytes) => {
                                     match elf::Elf::parse(&bytes) {

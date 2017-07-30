@@ -22,7 +22,9 @@
 // sections.  And further could have still different ordinals when combined
 // by the link-editor.  The value R_ABS is used for relocation entries for
 // absolute symbols which need no further relocation.
-#[derive(Copy, Clone, Debug, Pread, Pwrite, IOwrite, IOread)]
+use core::fmt;
+
+#[derive(Copy, Clone, Pread, Pwrite, IOwrite, IOread)]
 #[repr(C)]
 pub struct RelocationInfo {
     /// offset in the section to what is being relocated
@@ -65,3 +67,17 @@ impl RelocationInfo {
 
 /// Absolute relocation type for Mach-O files
 pub const R_ABS: u8 = 0;
+
+impl fmt::Debug for RelocationInfo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("RelocationInfo")
+            .field("r_address", &format_args!("{:#x}", &self.r_address))
+            .field("r_info", &format_args!("{:#x}", &self.r_info))
+            .field("r_symbolnum", &format_args!("{:#x}", &self.r_symbolnum()))
+            .field("r_pcrel", &(self.r_pcrel() == 0))
+            .field("r_length", &self.r_length())
+            .field("r_extern", &self.is_extern())
+            .field("r_type", &self.r_type())
+            .finish()
+    }
+}

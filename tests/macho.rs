@@ -91,3 +91,35 @@ fn iter_symbols() {
         }
     }
 }
+
+#[test]
+fn relocations() {
+    use relocation::*;
+    let reloc = RelocationInfo {
+        r_address: 0,
+        r_info: 0xe000009
+    };
+    println!("reloc: {:?}", reloc);
+    assert_eq!(reloc.r_length(), 3);
+    assert_eq!(reloc.r_type(), 0);
+    assert_eq!(reloc.is_pic(), false);
+    assert_eq!(reloc.is_extern(), true);
+    let reloc = RelocationInfo {
+        r_address: 0,
+        r_info: 0x15000002
+    };
+    println!("reloc: {:?}", reloc);
+    assert_eq!(reloc.r_length(), 2);
+    assert_eq!(reloc.r_type(), 1);
+    assert_eq!(reloc.is_pic(), true);
+    assert_eq!(reloc.is_extern(), false);
+    let reloc = RelocationInfo {
+        r_address: 0,
+        r_info: 0x2d000002
+    };
+    println!("reloc: {:?}", reloc);
+    assert_eq!(reloc.r_length(), 2);
+    assert_eq!(reloc.r_type(), 2);
+    assert_eq!(reloc.is_pic(), true);
+    assert_eq!(reloc.is_extern(), true);
+}

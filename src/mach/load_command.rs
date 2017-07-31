@@ -1366,12 +1366,12 @@ pub struct Section<'a> {
 
 impl<'a> Section<'a> {
     /// The name of this section
-    pub fn name(&self) -> scroll::Result<&str> {
-        self.sectname.pread::<&str>(0)
+    pub fn name(&self) -> error::Result<&str> {
+        Ok(self.sectname.pread::<&str>(0)?)
     }
     /// The containing segment's name
-    pub fn segname(&self) -> scroll::Result<&str> {
-        self.segname.pread::<&str>(0)
+    pub fn segname(&self) -> error::Result<&str> {
+        Ok(self.segname.pread::<&str>(0)?)
     }
     pub fn iter_relocations(&self) -> RelocationIterator {
         RelocationIterator {
@@ -1387,8 +1387,8 @@ impl<'a> Section<'a> {
 impl<'a> fmt::Debug for Section<'a> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("Section")
-            .field("sectname", &self.sectname.pread::<&str>(0).unwrap())
-            .field("segname",  &self.segname.pread::<&str>(0).unwrap())
+            .field("sectname", &self.name().unwrap())
+            .field("segname",  &self.segname().unwrap())
             .field("addr",     &self.addr)
             .field("size",     &self.size)
             .field("offset",   &self.offset)

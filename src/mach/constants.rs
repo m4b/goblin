@@ -186,15 +186,17 @@ pub const SEG_IMPORT: &'static str = "__IMPORT";
 
 pub mod cputype {
 
-    pub const CPU_ARCH_MASK: u32 = 0xff000000;
-    pub const CPU_ARCH_ABI64: u32 = 0x01000000;
-    pub const CPU_TYPE_X86: u32 = 7;
-    pub const CPU_TYPE_ARM: u32 = 12;
-    pub const CPU_TYPE_X86_64: u32 = CPU_TYPE_X86 | CPU_ARCH_ABI64;
-    pub const CPU_TYPE_ARM64: u32 = CPU_TYPE_ARM | CPU_ARCH_ABI64;
+    pub type CpuType = u32;
+
+    pub const CPU_ARCH_MASK: CpuType = 0xff000000;
+    pub const CPU_ARCH_ABI64: CpuType = 0x01000000;
+    pub const CPU_TYPE_X86: CpuType = 7;
+    pub const CPU_TYPE_ARM: CpuType = 12;
+    pub const CPU_TYPE_X86_64: CpuType = CPU_TYPE_X86 | CPU_ARCH_ABI64;
+    pub const CPU_TYPE_ARM64: CpuType = CPU_TYPE_ARM | CPU_ARCH_ABI64;
 
     #[inline(always)]
-    pub fn cpu_type_to_str(cputype: u32) -> &'static str {
+    pub fn cpu_type_to_str(cputype: CpuType) -> &'static str {
         match cputype {
             CPU_TYPE_ARM64 => "ARM64",
             CPU_TYPE_X86_64 => "x86_64",

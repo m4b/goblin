@@ -156,24 +156,53 @@ pub struct FatArchIterator<'a> {
 }
 
 impl<'a> Iterator for FatArchIterator<'a> {
-    type Item = scroll::Result<fat::FatArch>;
+    type Item = error::Result<fat::FatArch>;
     fn next(&mut self) -> Option<Self::Item> {
         if self.index >= self.narches {
             None
         } else {
             let offset = (self.index * fat::SIZEOF_FAT_ARCH) + self.start;
-            let arch = self.data.pread_with::<fat::FatArch>(offset, scroll::BE);
+            let arch = self.data.pread_with::<fat::FatArch>(offset, scroll::BE).map_err(|e| e.into());
             self.index += 1;
             Some(arch)
         }
     }
 }
 
+/// Iterator over every `MachO` binary contained in this `MultiArch` container
+pub struct MachOIterator<'a> {
+    index: usize,
+    data: &'a[u8],
+    narches: usize,
+    start: usize,
+}
+
+impl<'a> Iterator for MachOIterator<'a> {
+    type Item = error::Result<MachO<'a>>;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.narches {
+            None
+        } else {
+            let index = self.index;
+            let offset = (index * fat::SIZEOF_FAT_ARCH) + self.start;
+            self.index += 1;
+            match self.data.pread_with::<fat::FatArch>(offset, scroll::BE) {
+                Ok(arch) => {
+                    let bytes = arch.slice(self.data);
+                    let binary = MachO::parse(bytes, 0);
+                    Some(binary)
+                },
+                Err(e) => Some(Err(e.into()))
+            }
+        }
+    }
+}
+
 impl<'a, 'b> IntoIterator for &'b MultiArch<'a> {
-    type Item = scroll::Result<fat::FatArch>;
-    type IntoIter = FatArchIterator<'a>;
+    type Item = error::Result<MachO<'a>>;
+    type IntoIter = MachOIterator<'a>;
     fn into_iter(self) -> Self::IntoIter {
-        FatArchIterator {
+        MachOIterator {
             index: 0,
             data: self.data,
             narches: self.narches,
@@ -193,10 +222,19 @@ impl<'a> MultiArch<'a> {
             narches: header.nfat_arch as usize
         })
     }
+    /// Iterate every fat arch header
+    pub fn iter_arches(&self) -> FatArchIterator {
+        FatArchIterator {
+            index: 0,
+            data: self.data,
+            narches: self.narches,
+            start: self.start,
+        }
+    }
     /// Return all the architectures in this binary
     pub fn arches(&self) -> error::Result<Vec<fat::FatArch>> {
         let mut arches = Vec::with_capacity(self.narches);
-        for arch in self.into_iter() {
+        for arch in self.iter_arches() {
             arches.push(arch?);
         }
         Ok(arches)
@@ -212,9 +250,17 @@ impl<'a> MultiArch<'a> {
         Ok(MachO::parse(bytes, 0)?)
     }
 
+    pub fn find<F: (Fn(error::Result<fat::FatArch>) -> bool)>(&'a self, f: F) -> Option<error::Result<MachO<'a>>> {
+        for (i, arch) in self.iter_arches().enumerate() {
+            if f(arch) {
+                return Some(self.get(i));
+            }
+        }
+        None
+    }
     /// Try and find the `cputype` in `Self`, if there is one
     pub fn find_cputype(&self, cputype: u32) -> error::Result<Option<fat::FatArch>> {
-        for arch in self.into_iter() {
+        for arch in self.iter_arches() {
             let arch = arch?;
             if arch.cputype == cputype { return Ok(Some(arch)) }
         }

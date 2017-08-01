@@ -34,10 +34,11 @@ impl<'a> Strtab<'a> {
     #[cfg(feature = "std")]
     /// Parses a strtab from `bytes` at `offset` with `len` size as the backing string table, using `delim` as the delimiter
     pub fn parse(bytes: &'a [u8], offset: usize, len: usize, delim: u8) -> error::Result<Strtab<'a>> {
-        if offset + len >= bytes.len () {
+        let (end, overflow) = offset.overflowing_add(len);
+        if overflow || end >= bytes.len () {
             return Err(error::Error::Malformed(format!("Strtable size ({}) + offset ({}) is out of bounds", len, offset)));
         }
-        Ok(Strtab { bytes: &bytes[offset..offset+len], delim: ctx::StrCtx::Delimiter(delim) })
+        Ok(Strtab { bytes: &bytes[offset..end], delim: ctx::StrCtx::Delimiter(delim) })
     }
     #[cfg(feature = "std")]
     /// Converts the string table to a vector, with the original `delim` used to separate the strings

@@ -187,13 +187,18 @@ mod impure {
 
             let section_headers = SectionHeader::parse(bytes, header.e_shoff as usize, header.e_shnum as usize, ctx)?;
 
-            let strtab_idx = header.e_shstrndx as usize;
-            let shdr_strtab = if strtab_idx >= section_headers.len() {
-                Strtab::default()
-            } else {
-                let shdr = &section_headers[strtab_idx];
-                try!(Strtab::parse(bytes, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0))
+            let get_strtab = |section_headers: &[SectionHeader], section_idx: usize| {
+                if section_idx >= section_headers.len() {
+                    // FIXME: warn! here
+                    Ok(Strtab::default())
+                } else {
+                    let shdr = &section_headers[section_idx];
+                    Strtab::parse(bytes, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0)
+                }
             };
+
+            let strtab_idx = header.e_shstrndx as usize;
+            let shdr_strtab = get_strtab(&section_headers, strtab_idx)?;
 
             let mut syms = vec![];
             let mut strtab = Strtab::default();
@@ -202,8 +207,7 @@ mod impure {
                     let size = shdr.sh_entsize;
                     let count = if size == 0 { 0 } else { shdr.sh_size / size };
                     syms = Sym::parse(bytes, shdr.sh_offset as usize, count as usize, ctx)?;
-                    let shdr = &section_headers[shdr.sh_link as usize];
-                    strtab = Strtab::parse(bytes, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0)?;
+                    strtab = get_strtab(&section_headers, shdr.sh_link as usize)?;
                 }
             }
 

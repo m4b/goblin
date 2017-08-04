@@ -136,6 +136,9 @@ mod impure {
     }
 
     impl<'a> Elf<'a> {
+        pub fn is_object_file(&self) -> bool {
+            self.header.e_type == header::ET_REL
+        }
         /// Parses the contents of the byte stream in `bytes`, and maybe returns a unified binary
         pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
             let header = bytes.pread::<Header>(0)?;

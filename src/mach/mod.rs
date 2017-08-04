@@ -50,6 +50,9 @@ pub struct MachO<'a> {
 }
 
 impl<'a> MachO<'a> {
+    pub fn is_object_file(&self) -> bool {
+        self.header.filetype == header::MH_OBJECT
+    }
     /// Return the exported symbols in this binary (if any)
     pub fn exports(&self) -> error::Result<Vec<exports::Export>> {
         if let Some(ref trie) = self.export_trie {

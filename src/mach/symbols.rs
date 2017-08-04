@@ -94,7 +94,7 @@ impl Nlist {
     }
     /// Whether this symbol is undefined or not
     pub fn is_undefined(&self) -> bool {
-        self.n_sect == 0 && self.n_value == 0
+        self.n_sect == 0 && self.n_type & NLIST_TYPE_MASK == 0
     }
 }
 

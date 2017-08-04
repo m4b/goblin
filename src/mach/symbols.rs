@@ -17,15 +17,15 @@ pub const NLIST_TYPE_LOCAL: u8 = 0x0;
 #[derive(Clone, Copy, Pread, Pwrite, SizeWith)]
 pub struct Nlist32 {
     /// index into the string table
-    n_strx: u32,
+    pub n_strx: u32,
     /// type flag, see below
-    n_type: u8,
+    pub n_type: u8,
     /// section number or NO_SECT
-    n_sect: u8,
+    pub n_sect: u8,
     /// see <mach-o/stab.h>
-    n_desc: u16,
+    pub n_desc: u16,
     /// value of this symbol (or stab offset)
-    n_value: u32,
+    pub n_value: u32,
 }
 
 pub const SIZEOF_NLIST_32: usize = 12;
@@ -46,15 +46,15 @@ impl Debug for Nlist32 {
 #[derive(Clone, Copy, Pread, Pwrite, SizeWith)]
 pub struct Nlist64 {
     /// index into the string table
-    n_strx: u32,
+    pub n_strx: u32,
     /// type flag, see below
-    n_type: u8,
+    pub n_type: u8,
     /// section number or NO_SECT
-    n_sect: u8,
+    pub n_sect: u8,
     /// see <mach-o/stab.h>
-    n_desc: u16,
+    pub n_desc: u16,
     /// value of this symbol (or stab offset)
-    n_value: u64,
+    pub n_value: u64,
 }
 
 pub const SIZEOF_NLIST_64: usize = 16;
@@ -74,15 +74,21 @@ impl Debug for Nlist64 {
 #[derive(Debug, Clone)]
 pub struct Nlist {
     /// index into the string table
-    n_strx: usize,
+    pub n_strx: usize,
     /// type flag, see below
-    n_type: u8,
+    pub n_type: u8,
     /// section number or NO_SECT
-    n_sect: usize,
+    pub n_sect: usize,
     /// see <mach-o/stab.h>
-    n_desc: u16,
+    pub n_desc: u16,
     /// value of this symbol (or stab offset)
-    n_value: u64,
+    pub n_value: u64,
+}
+
+impl Nlist {
+    pub fn is_global(&self) -> bool {
+        self.n_type & NLIST_TYPE_MASK == NLIST_TYPE_GLOBAL
+    }
 }
 
 impl ctx::SizeWith<container::Ctx> for Nlist {
@@ -164,6 +170,7 @@ impl<'a, T: ?Sized> ctx::TryFromCtx<'a, SymbolsCtx, T> for Symbols<'a> where T: 
     }
 }
 
+#[derive(Default)]
 pub struct SymbolIterator<'a> {
     data: &'a [u8],
     nsyms: usize,
@@ -205,6 +212,14 @@ pub struct Symbols<'a> {
     ctx: container::Ctx,
 }
 
+impl<'a, 'b> IntoIterator for &'b Symbols<'a> {
+    type Item = <SymbolIterator<'a> as Iterator>::Item;
+    type IntoIter = SymbolIterator<'a>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
 impl<'a> Symbols<'a> {
     /// Creates a new symbol table with `count` elements, from the `start` offset, using the string table at `strtab`, with a _default_ ctx.
     ////
@@ -225,7 +240,7 @@ impl<'a> Symbols<'a> {
         Ok(bytes.pread_with(symtab.symoff as usize, SymbolsCtx { nsyms: symtab.nsyms as usize, strtab: strtab as usize, ctx: ctx })?)
     }
 
-    pub fn iter(&self) -> SymbolIterator {
+    pub fn iter(&self) -> SymbolIterator<'a> {
         SymbolIterator {
             offset: self.start as usize,
             nsyms: self.nsyms as usize,

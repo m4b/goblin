@@ -53,6 +53,13 @@ impl<'a> MachO<'a> {
     pub fn is_object_file(&self) -> bool {
         self.header.filetype == header::MH_OBJECT
     }
+    pub fn symbols(&self) -> symbols::SymbolIterator<'a> {
+        if let &Some(ref symbols) = &self.symbols {
+            symbols.into_iter()
+        } else {
+            symbols::SymbolIterator::default()
+        }
+    }
     /// Return the exported symbols in this binary (if any)
     pub fn exports(&self) -> error::Result<Vec<exports::Export>> {
         if let Some(ref trie) = self.export_trie {

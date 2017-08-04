@@ -9,6 +9,8 @@ use container::{self, Container};
 use mach::load_command;
 use core::fmt::{self, Debug};
 
+// TODO: add/find NO_SECT value
+
 pub const NLIST_TYPE_MASK: u8 = 0xe;
 pub const NLIST_TYPE_GLOBAL: u8 = 0x1;
 pub const NLIST_TYPE_LOCAL: u8 = 0x0;
@@ -86,8 +88,13 @@ pub struct Nlist {
 }
 
 impl Nlist {
+    /// Whether this symbol is global or not
     pub fn is_global(&self) -> bool {
-        self.n_type & NLIST_TYPE_MASK == NLIST_TYPE_GLOBAL
+        self.n_type & !NLIST_TYPE_MASK == NLIST_TYPE_GLOBAL
+    }
+    /// Whether this symbol is undefined or not
+    pub fn is_undefined(&self) -> bool {
+        self.n_sect == 0 && self.n_value == 0
     }
 }
 

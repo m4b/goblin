@@ -81,7 +81,7 @@ pub const R_X86_64_RELATIVE64: u32 = 38;
 pub const R_X86_64_GOTPCRELX: u32 = 41;
 /// Load from 32 bit signed pc relative offset to GOT entry with REX prefix, relaxable.
 pub const R_X86_64_REX_GOTPCRELX: u32 = 42;
-pub const R_X86_64_NUM: u32 = 39;
+pub const R_X86_64_NUM: u32 = 43;
 
 // Intel 80386 specific definitions
 
@@ -883,6 +883,8 @@ pub fn r_to_str(typ: u32, machine: u16) -> &'static str {
         R_X86_64_TLSDESC => "X86_64_TLSDESC",
         R_X86_64_IRELATIVE => "X86_64_IRELATIVE",
         R_X86_64_RELATIVE64 => "X86_64_RELATIVE64",
+        R_X86_64_GOTPCRELX => "R_X86_64_GOTPCRELX",
+        R_X86_64_REX_GOTPCRELX => "R_X86_64_REX_GOTPCRELX",
         _ => "R_UNKNOWN_X86_64",
         }},
         // openrisc

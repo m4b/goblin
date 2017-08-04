@@ -44,7 +44,7 @@ Goblin primarily supports the following important use cases:
 
 Here are some things you could do with this crate (or help to implement so they could be done):
 
-1. write a compiler and use it to generate binaries (all ELF32/64 have [`Pwrite`](https://github.com/m4b/scroll) derived)
+1. write a compiler and use it to [generate binaries](https://github.com/m4b/faerie) (all ELF32/64 have [`Pwrite`](https://github.com/m4b/scroll) derived)
 2. write a binary analysis tool which loads, parses, and analyzes various binary formats, e.g., [panopticon](https://github.com/das-labor/panopticon)
 3. write a [semi-functioning dynamic linker](http://github.com/m4b/dryad)
 4. write a [kernel](https://github.com/redox-os/redox) and load binaries using `no_std` cfg. I.e., it is essentially just struct and const defs (like a C header) - no fd, no output, no std.

@@ -24,7 +24,7 @@ goblin = "0.0.10"
 * zero-copy, cross-platform, endian-aware, 32/64 bit Mach-o parser - wow!
 * PE 32/64-bit parser
 * many cfg options - it will make your head spin, and make you angry when reading the source!
-* goblins (TBA)
+* fuzzed - " I am happy to report that goblin withstood 100 million fuzzing runs, 1 million runs each for seed 1~100." - [@sanxiyn](https://github.com/sanxiyn)
 * tests
 
 `libgoblin` aims to be your one-stop shop for binary parsing, loading,
@@ -63,3 +63,17 @@ Here are some things you could do with this crate (or help to implement so they 
 * archive - a Unix Archive parser
 * endian_fd - parses according to the endianness in the binary
 * std - to allow `no_std` environments
+
+# Contributors
+
+Thank you all :heart: !
+
+In alphabetic order:
+
+- [@flanfly](https://github.com/flanfly)
+- [@jdub](https://github.com/jdub)
+- [@le-jzr](https://github.com/le-jzr)
+- [@llogiq](https://github.com/llogiq)
+- [@sanxiyn](https://github.com/sanxiyn)
+- [@ticki](https://github.com/ticki)
+- [@willglynn](https://github.com/willglynn)

@@ -52,6 +52,7 @@ impl<'a> ImportLookupTableEntry<'a> {
                 break;
             } else {
                 let synthetic = {
+                    debug!("bitfield {:#x}", bitfield);
                     use self::SyntheticImportLookupTableEntry::*;
                     if bitfield & IMPORT_BY_ORDINAL_32 == IMPORT_BY_ORDINAL_32 {
                         let ordinal = (0xffff & bitfield) as u16;
@@ -61,9 +62,13 @@ impl<'a> ImportLookupTableEntry<'a> {
                         let rva = bitfield & IMPORT_RVA_MASK_32;
                         let hentry = {
                             debug!("searching for RVA {:#x}", rva);
-                            let offset = utils::find_offset(rva as usize, sections).ok_or(error::Error::Malformed(format!("Cannot map rva {:#x} into offset for import lookup table entry", rva)))?;
-                            debug!("offset {:#x}", offset);
-                            HintNameTableEntry::parse(bytes, offset)?
+                            if let Some(offset) = utils::find_offset(rva as usize, sections) {
+                                debug!("offset {:#x}", offset);
+                                HintNameTableEntry::parse(bytes, offset)?
+                            } else {
+                                warn!("Entry {} has bad RVA: {:#x}", table.len(), rva);
+                                continue
+                            }
                         };
                         HintNameTableRVA ((rva, hentry))
                     }

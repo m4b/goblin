@@ -16,9 +16,12 @@ fn is_in_section (rva: usize, section: &section_table::SectionTable) -> bool {
 }
 
 pub fn find_offset (rva: usize, sections: &[section_table::SectionTable]) -> Option<usize> {
-    for section in sections {
+    for (i, section) in sections.iter().enumerate() {
+        debug!("Checking {} for {:#x} ∈ {:#x}..{:#x}", section.name().unwrap_or(""), rva, section.virtual_address, section.virtual_address + section.virtual_size);
         if is_in_section(rva, &section) {
-            return Some(rva2offset(rva, &section))
+            let offset = rva2offset(rva, &section);
+            debug!("Found in section {}({}), remapped into offset {:#x}", section.name().unwrap_or(""), i, offset);
+            return Some(offset)
         }
     }
     None

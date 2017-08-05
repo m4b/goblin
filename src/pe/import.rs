@@ -109,8 +109,8 @@ pub struct SyntheticImportDirectoryEntry<'a> {
     pub import_directory_entry: ImportDirectoryEntry,
     /// Computed
     pub name: &'a str,
-    /// Computed
-    pub import_lookup_table: ImportLookupTable<'a>,
+    /// The import lookup table is a vector of either ordinals, or RVAs + import names
+    pub import_lookup_table: Option<ImportLookupTable<'a>>,
     /// Computed
     pub import_address_table: ImportAddressTable,
 }
@@ -120,9 +120,18 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
         const LE: scroll::Endian = scroll::LE;
         let name_rva = import_directory_entry.name_rva;
         let name = utils::try_name(bytes, name_rva as usize, sections)?;
-        let import_lookup_table_rva = import_directory_entry.import_lookup_table_rva;
-        let import_lookup_table_offset = utils::find_offset(import_lookup_table_rva as usize, sections).ok_or(error::Error::Malformed(format!("Cannot map import_lookup_table_rva {:#x} into offset for {}", import_directory_entry.import_address_table_rva, name)))?;
-        let import_lookup_table = ImportLookupTableEntry::parse(bytes, import_lookup_table_offset, sections)?;
+        let import_lookup_table = {
+            let import_lookup_table_rva = import_directory_entry.import_lookup_table_rva;
+            debug!("Synthesizing lookup table imports for {} lib, with import lookup table rva: {:#x}", name, import_lookup_table_rva);
+            if let Some(import_lookup_table_offset) = utils::find_offset(import_lookup_table_rva as usize, sections) {
+                //ok_or(error::Error::Malformed(format!("Cannot map import_lookup_table_rva {:#x} into offset for {}", import_directory_entry.import_address_table_rva, name)))?;
+                let import_lookup_table = ImportLookupTableEntry::parse(bytes, import_lookup_table_offset, sections)?;
+                debug!("Successfully synthesized import lookup table entry: {:#?}", import_lookup_table);
+                Some(import_lookup_table)
+            } else {
+                None
+            }
+        };
         let import_address_table_offset = &mut utils::find_offset(import_directory_entry.import_address_table_rva as usize, sections).ok_or(error::Error::Malformed(format!("Cannot map import_address_table_rva {:#x} into offset for {}", import_directory_entry.import_address_table_rva, name)))?;
         let mut import_address_table = Vec::new();
         loop {
@@ -147,14 +156,18 @@ pub struct ImportData<'a> {
 impl<'a> ImportData<'a> {
     pub fn parse(bytes: &'a[u8], dd: &data_directories::DataDirectory, sections: &[section_table::SectionTable]) -> error::Result<ImportData<'a>> {
         let import_directory_table_rva = dd.virtual_address as usize;
+        debug!("import_directory_table_rva {:#x}", import_directory_table_rva);
         let mut offset = &mut utils::find_offset(import_directory_table_rva, sections).unwrap();
+        debug!("import data offset {:#x}", offset);
         let mut import_data = Vec::new();
         loop {
             let import_directory_entry: ImportDirectoryEntry = bytes.gread_with(offset, scroll::LE)?;
+            debug!("{:#?}", import_directory_entry);
             if import_directory_entry.is_null() {
                 break;
             } else {
                 let entry = SyntheticImportDirectoryEntry::parse(bytes, import_directory_entry, sections)?;
+                debug!("entry {:#?}", entry);
                 import_data.push(entry);
             }
         }
@@ -178,35 +191,38 @@ impl<'a> Import<'a> {
     pub fn parse(_bytes: &'a [u8], import_data: &ImportData<'a>, _sections: &[section_table::SectionTable]) -> error::Result<Vec<Import<'a>>> {
         let mut imports = Vec::new();
         for data in &import_data.import_data {
-            let import_lookup_table = &data.import_lookup_table;
-            // fixme don't copy
-            let dll = data.name;
-            let import_base = data.import_directory_entry.import_address_table_rva as usize;
-            //println!("getting imports from {}", &dll);
-            for (i, entry) in import_lookup_table.iter().enumerate() {
-                let offset = import_base + (i * SIZEOF_IMPORT_ADDRESS_TABLE_ENTRY);
-                use self::SyntheticImportLookupTableEntry::*;
-                let (rva, name, ordinal) =
-                    match &entry.synthetic {
-                        &HintNameTableRVA ((rva, ref hint_entry)) => {
-                            let res = (rva, Cow::Borrowed(hint_entry.name), hint_entry.hint.clone());
-                            // if hint_entry.name = "" && hint_entry.hint = 0 {
-                            //     println!("<PE.Import> warning hint/name table rva from {} without hint {:#x}", dll, rva);
-                            // }
-                            res
-                        },
-                        &OrdinalNumber(ordinal) => {
-                            let name = format!("ORDINAL {}", ordinal);
-                            (0x0, Cow::Owned(name), ordinal)
-                        }
-                    };
-                let import =
-                    Import {
-                        name: name,
-                        ordinal: ordinal, dll: dll,
-                        size: 4, offset: offset, rva: rva as usize
-                    };
-                imports.push(import);
+            match data.import_lookup_table {
+                Some(ref import_lookup_table) => {
+                    let dll = data.name;
+                    let import_base = data.import_directory_entry.import_address_table_rva as usize;
+                    debug!("Getting imports from {}", &dll);
+                    for (i, entry) in import_lookup_table.iter().enumerate() {
+                        let offset = import_base + (i * SIZEOF_IMPORT_ADDRESS_TABLE_ENTRY);
+                        use self::SyntheticImportLookupTableEntry::*;
+                        let (rva, name, ordinal) =
+                            match &entry.synthetic {
+                                &HintNameTableRVA ((rva, ref hint_entry)) => {
+                                    let res = (rva, Cow::Borrowed(hint_entry.name), hint_entry.hint.clone());
+                                    // if hint_entry.name = "" && hint_entry.hint = 0 {
+                                    //     println!("<PE.Import> warning hint/name table rva from {} without hint {:#x}", dll, rva);
+                                    // }
+                                    res
+                                },
+                                &OrdinalNumber(ordinal) => {
+                                    let name = format!("ORDINAL {}", ordinal);
+                                    (0x0, Cow::Owned(name), ordinal)
+                                }
+                            };
+                        let import =
+                            Import {
+                                name: name,
+                                ordinal: ordinal, dll: dll,
+                                size: 4, offset: offset, rva: rva as usize
+                            };
+                        imports.push(import);
+                    }
+                },
+                None => ()
             }
         }
         Ok (imports)

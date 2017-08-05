@@ -37,4 +37,7 @@ impl SectionTable {
         table.characteristics = bytes.gread_with(offset, scroll::LE)?;
         Ok(table)
     }
+    pub fn name(&self) -> error::Result<&str> {
+        Ok(self.name.pread(0)?)
+    }
 }

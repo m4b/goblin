@@ -83,17 +83,20 @@ impl<'a> PE<'a> {
                 debug!("export data {:#?}", ed);
                 exports = export::Export::parse(bytes, &ed, &sections)?;
                 name = Some(ed.name);
-                debug!("name: {} exports {:#?}", ed.name, exports);
+                debug!("name: {}", ed.name);
                 export_data = Some(ed);
             }
+            debug!("exports: {:#?}", exports);
             if let &Some(import_table) = optional_header.data_directories.get_import_table() {
                 let id = import::ImportData::parse(bytes, &import_table, &sections)?;
+                debug!("import data {:#?}", id);
                 imports = import::Import::parse(bytes, &id, &sections)?;
                 libraries = id.import_data.iter().map( | data | { data.name }).collect::<Vec<&'a str>>();
                 libraries.sort();
                 libraries.dedup();
                 import_data = Some(id);
             }
+            debug!("imports: {:#?}", imports);
             if let &Some(debug_table) = optional_header.data_directories.get_debug_table() {
                 debug_data = Some(debug::DebugData::parse(bytes, &debug_table, &sections)?);
             }

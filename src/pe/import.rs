@@ -191,38 +191,35 @@ impl<'a> Import<'a> {
     pub fn parse(_bytes: &'a [u8], import_data: &ImportData<'a>, _sections: &[section_table::SectionTable]) -> error::Result<Vec<Import<'a>>> {
         let mut imports = Vec::new();
         for data in &import_data.import_data {
-            match data.import_lookup_table {
-                Some(ref import_lookup_table) => {
-                    let dll = data.name;
-                    let import_base = data.import_directory_entry.import_address_table_rva as usize;
-                    debug!("Getting imports from {}", &dll);
-                    for (i, entry) in import_lookup_table.iter().enumerate() {
-                        let offset = import_base + (i * SIZEOF_IMPORT_ADDRESS_TABLE_ENTRY);
-                        use self::SyntheticImportLookupTableEntry::*;
-                        let (rva, name, ordinal) =
-                            match &entry.synthetic {
-                                &HintNameTableRVA ((rva, ref hint_entry)) => {
-                                    let res = (rva, Cow::Borrowed(hint_entry.name), hint_entry.hint.clone());
-                                    // if hint_entry.name = "" && hint_entry.hint = 0 {
-                                    //     println!("<PE.Import> warning hint/name table rva from {} without hint {:#x}", dll, rva);
-                                    // }
-                                    res
-                                },
-                                &OrdinalNumber(ordinal) => {
-                                    let name = format!("ORDINAL {}", ordinal);
-                                    (0x0, Cow::Owned(name), ordinal)
-                                }
-                            };
-                        let import =
-                            Import {
-                                name: name,
-                                ordinal: ordinal, dll: dll,
-                                size: 4, offset: offset, rva: rva as usize
-                            };
-                        imports.push(import);
-                    }
-                },
-                None => ()
+            if let Some(ref import_lookup_table) = data.import_lookup_table {
+                let dll = data.name;
+                let import_base = data.import_directory_entry.import_address_table_rva as usize;
+                debug!("Getting imports from {}", &dll);
+                for (i, entry) in import_lookup_table.iter().enumerate() {
+                    let offset = import_base + (i * SIZEOF_IMPORT_ADDRESS_TABLE_ENTRY);
+                    use self::SyntheticImportLookupTableEntry::*;
+                    let (rva, name, ordinal) =
+                        match &entry.synthetic {
+                            &HintNameTableRVA ((rva, ref hint_entry)) => {
+                                let res = (rva, Cow::Borrowed(hint_entry.name), hint_entry.hint.clone());
+                                // if hint_entry.name = "" && hint_entry.hint = 0 {
+                                //     println!("<PE.Import> warning hint/name table rva from {} without hint {:#x}", dll, rva);
+                                // }
+                                res
+                            },
+                            &OrdinalNumber(ordinal) => {
+                                let name = format!("ORDINAL {}", ordinal);
+                                (0x0, Cow::Owned(name), ordinal)
+                            }
+                        };
+                    let import =
+                        Import {
+                            name: name,
+                            ordinal: ordinal, dll: dll,
+                            size: 4, offset: offset, rva: rva as usize
+                        };
+                    imports.push(import);
+                }
             }
         }
         Ok (imports)

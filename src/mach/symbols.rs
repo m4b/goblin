@@ -9,11 +9,46 @@ use container::{self, Container};
 use mach::load_command;
 use core::fmt::{self, Debug};
 
-// TODO: add/find NO_SECT value
+// If the type is N_SECT then the n_sect field contains an ordinal of the
+// section the symbol is defined in.  The sections are numbered from 1 and
+// refer to sections in order they appear in the load commands for the file
+// they are in.  This means the same ordinal may very well refer to different
+// sections in different files.
+
+// The n_value field for all symbol table entries (including N_STAB's) gets
+// updated by the link editor based on the value of it's n_sect field and where
+// the section n_sect references gets relocated.  If the value of the n_sect
+// field is NO_SECT then it's n_value field is not changed by the link editor.
+/// symbol is not in any section
+pub const NO_SECT: u8 = 0;
+/// 1 thru 255 inclusive
+pub const MAX_SECT: u8 = 255;
+
+/// undefined, n_sect == NO_SECT
+pub const N_UNDF: u8 = 0x0;
+/// absolute, n_sect == NO_SECT
+pub const N_ABS:  u8 = 0x2;
+/// defined in section number n_sect
+pub const N_SECT: u8 = 0xe;
+/// prebound undefined (defined in a dylib)
+pub const N_PBUD: u8 = 0xc;
+/// indirect
+pub const N_INDR: u8 = 0xa;
 
 pub const NLIST_TYPE_MASK: u8 = 0xe;
 pub const NLIST_TYPE_GLOBAL: u8 = 0x1;
 pub const NLIST_TYPE_LOCAL: u8 = 0x0;
+
+pub fn n_type_to_str(n_type: u8) -> &'static str {
+    match n_type {
+        N_UNDF => "N_UNDF",
+        N_ABS => "N_ABS",
+        N_SECT => "N_SECT",
+        N_PBUD => "N_PBUD",
+        N_INDR => "N_INDR",
+        _ => "UNKNOWN_N_TYPE"
+    }
+}
 
 #[repr(C)]
 #[derive(Clone, Copy, Pread, Pwrite, SizeWith)]
@@ -88,6 +123,14 @@ pub struct Nlist {
 }
 
 impl Nlist {
+    /// Gets this symbol's type in bits 0xe
+    pub fn get_type(&self) -> u8 {
+        self.n_type & NLIST_TYPE_MASK
+    }
+    /// Gets the str representation of the type of this symbol
+    pub fn type_str(&self) -> &'static str {
+        n_type_to_str(self.get_type())
+    }
     /// Whether this symbol is global or not
     pub fn is_global(&self) -> bool {
         self.n_type & !NLIST_TYPE_MASK == NLIST_TYPE_GLOBAL

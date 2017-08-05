@@ -53,11 +53,14 @@ impl<'a> PE<'a> {
     /// Reads a PE binary from the underlying `bytes`
     pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
         let header = header::Header::parse(bytes)?;
+        debug!("{:#?}", header);
         let mut offset = &mut (header.dos_header.pe_pointer as usize + header::SIZEOF_COFF_HEADER + header.coff_header.size_of_optional_header as usize);
         let nsections = header.coff_header.number_of_sections as usize;
         let mut sections = Vec::with_capacity(nsections);
-        for _ in 0..nsections {
-            sections.push(section_table::SectionTable::parse(bytes, offset)?);
+        for i in 0..nsections {
+            let section = section_table::SectionTable::parse(bytes, offset)?;
+            debug!("({}) {:#?}", i, section);
+            sections.push(section);
         }
         let is_lib = characteristic::is_dll(header.coff_header.characteristics);
         let mut entry = 0;
@@ -74,10 +77,13 @@ impl<'a> PE<'a> {
             entry = optional_header.standard_fields.address_of_entry_point as usize;
             image_base = optional_header.windows_fields.image_base as usize;
             is_64 = optional_header.container()? == container::Container::Big;
+            debug!("entry {:#x} image_base {:#x} is_64: {}", entry, image_base, is_64);
             if let &Some(export_table) = optional_header.data_directories.get_export_table() {
                 let ed = export::ExportData::parse(bytes, &export_table, &sections)?;
+                debug!("export data {:#?}", ed);
                 exports = export::Export::parse(bytes, &ed, &sections)?;
                 name = Some(ed.name);
+                debug!("name: {} exports {:#?}", ed.name, exports);
                 export_data = Some(ed);
             }
             if let &Some(import_table) = optional_header.data_directories.get_import_table() {

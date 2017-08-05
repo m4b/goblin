@@ -12,8 +12,12 @@ categories = ["parsing"]
 
 [lib]
 
+[dev-dependencies]
+env_logger = "0.4.3"
+
 [dependencies]
 plain = "0.2.1"
+log = "0.3.8"
 
 [dependencies.scroll]
 git = "https://github.com/m4b/scroll"

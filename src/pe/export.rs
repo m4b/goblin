@@ -66,6 +66,7 @@ impl<'a> ExportData<'a> {
     pub fn parse(bytes: &'a [u8], dd: &data_directories::DataDirectory, sections: &[section_table::SectionTable]) -> error::Result<ExportData<'a>> {
         let export_rva = dd.virtual_address as usize;
         let size = dd.size as usize;
+        debug!("export_rva {:#x} size {:#}", export_rva, size);
         let export_offset = utils::find_offset(export_rva, sections).unwrap();
         let export_directory_table = ExportDirectoryTable::parse(bytes, export_offset)?;
         let number_of_name_pointers = export_directory_table.number_of_name_pointers as usize;

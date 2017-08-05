@@ -48,23 +48,22 @@ impl<'a> ImportLookupTableEntry<'a> {
         loop {
             let bitfield: u32 = bytes.gread_with(offset, le)?;
             if bitfield == 0 {
-                //println!("imports done");
+                debug!("imports done");
                 break;
             } else {
                 let synthetic = {
                     use self::SyntheticImportLookupTableEntry::*;
                     if bitfield & IMPORT_BY_ORDINAL_32 == IMPORT_BY_ORDINAL_32 {
                         let ordinal = (0xffff & bitfield) as u16;
-                        //println!("importing by ordinal {:#x}", ordinal);
+                        debug!("importing by ordinal {:#x}", ordinal);
                         OrdinalNumber(ordinal)
                     } else {
                         let rva = bitfield & IMPORT_RVA_MASK_32;
                         let hentry = {
-                            //println!("searching for RVA {:#x}", rva);
-                            let offset = utils::find_offset(rva as usize, sections).unwrap();
-                            //println!("offset {:#x}", offset);
+                            debug!("searching for RVA {:#x}", rva);
+                            let offset = utils::find_offset(rva as usize, sections).ok_or(error::Error::Malformed(format!("Cannot map rva {:#x} into offset for import lookup table entry", rva)))?;
+                            debug!("offset {:#x}", offset);
                             HintNameTableEntry::parse(bytes, offset)?
-                            //HintNameTableEntry {hint = 0; name = "".to_string()}
                         };
                         HintNameTableRVA ((rva, hentry))
                     }
@@ -122,9 +121,9 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
         let name_rva = import_directory_entry.name_rva;
         let name = utils::try_name(bytes, name_rva as usize, sections)?;
         let import_lookup_table_rva = import_directory_entry.import_lookup_table_rva;
-        let import_lookup_table_offset = utils::find_offset(import_lookup_table_rva as usize, sections).unwrap();
+        let import_lookup_table_offset = utils::find_offset(import_lookup_table_rva as usize, sections).ok_or(error::Error::Malformed(format!("Cannot map import_lookup_table_rva {:#x} into offset for {}", import_directory_entry.import_address_table_rva, name)))?;
         let import_lookup_table = ImportLookupTableEntry::parse(bytes, import_lookup_table_offset, sections)?;
-        let import_address_table_offset = &mut utils::find_offset(import_directory_entry.import_address_table_rva as usize, sections).unwrap();
+        let import_address_table_offset = &mut utils::find_offset(import_directory_entry.import_address_table_rva as usize, sections).ok_or(error::Error::Malformed(format!("Cannot map import_address_table_rva {:#x} into offset for {}", import_directory_entry.import_address_table_rva, name)))?;
         let mut import_address_table = Vec::new();
         loop {
             let import_address = bytes.gread_with(import_address_table_offset, LE)?;
@@ -159,7 +158,7 @@ impl<'a> ImportData<'a> {
                 import_data.push(entry);
             }
         }
-        //println!("finished import directory table");
+        debug!("finished ImportData");
         Ok(ImportData { import_data: import_data})
     }
 }

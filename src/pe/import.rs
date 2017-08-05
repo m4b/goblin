@@ -124,7 +124,6 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
             let import_lookup_table_rva = import_directory_entry.import_lookup_table_rva;
             debug!("Synthesizing lookup table imports for {} lib, with import lookup table rva: {:#x}", name, import_lookup_table_rva);
             if let Some(import_lookup_table_offset) = utils::find_offset(import_lookup_table_rva as usize, sections) {
-                //ok_or(error::Error::Malformed(format!("Cannot map import_lookup_table_rva {:#x} into offset for {}", import_directory_entry.import_address_table_rva, name)))?;
                 let import_lookup_table = ImportLookupTableEntry::parse(bytes, import_lookup_table_offset, sections)?;
                 debug!("Successfully synthesized import lookup table entry: {:#?}", import_lookup_table);
                 Some(import_lookup_table)
@@ -157,7 +156,7 @@ impl<'a> ImportData<'a> {
     pub fn parse(bytes: &'a[u8], dd: &data_directories::DataDirectory, sections: &[section_table::SectionTable]) -> error::Result<ImportData<'a>> {
         let import_directory_table_rva = dd.virtual_address as usize;
         debug!("import_directory_table_rva {:#x}", import_directory_table_rva);
-        let mut offset = &mut utils::find_offset(import_directory_table_rva, sections).unwrap();
+        let mut offset = &mut utils::find_offset(import_directory_table_rva, sections).ok_or(error::Error::Malformed(format!("Cannot create ImportData; cannot map import_directory_table_rva {:#x} into offset", import_directory_table_rva)))?;;
         debug!("import data offset {:#x}", offset);
         let mut import_data = Vec::new();
         loop {

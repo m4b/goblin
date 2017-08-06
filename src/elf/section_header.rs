@@ -368,6 +368,7 @@ pub use self::std::*;
 #[cfg(feature = "std")]
 mod std {
     use super::*;
+    use error;
     use core::fmt;
     use core::result;
     use core::ops::Range;
@@ -424,7 +425,7 @@ mod std {
             (self.sh_offset as usize..self.sh_offset as usize + self.sh_size as usize)
         }
         #[cfg(feature = "endian_fd")]
-        pub fn parse(bytes: &[u8], mut offset: usize, count: usize, ctx: Ctx) -> ::error::Result<Vec<SectionHeader>> {
+        pub fn parse(bytes: &[u8], mut offset: usize, count: usize, ctx: Ctx) -> error::Result<Vec<SectionHeader>> {
             use scroll::Pread;
             let mut section_headers = Vec::with_capacity(count);
             for _ in 0..count {
@@ -432,6 +433,18 @@ mod std {
                 section_headers.push(shdr);
             }
             Ok(section_headers)
+        }
+        pub fn check_size(&self, size: usize) -> error::Result<()> {
+            if self.sh_type == SHT_NOBITS {
+                return Ok(());
+            }
+            let (end, overflow) = self.sh_offset.overflowing_add(self.sh_size);
+            if overflow || end >= size as u64 {
+                let message = format!("Section {} offset ({}) + size ({}) is out of bounds",
+                    self.sh_name, self.sh_offset, self.sh_size);
+                return Err(error::Error::Malformed(message));
+            }
+            Ok(())
         }
         pub fn is_relocation(&self) -> bool {
             self.sh_type == SHT_RELA

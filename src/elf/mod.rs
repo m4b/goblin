@@ -196,6 +196,7 @@ mod impure {
                     Ok(Strtab::default())
                 } else {
                     let shdr = &section_headers[section_idx];
+                    shdr.check_size(bytes.len())?;
                     Strtab::parse(bytes, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0)
                 }
             };
@@ -251,10 +252,12 @@ mod impure {
                 if header.e_type == header::ET_REL {
                     for (idx, section) in section_headers.iter().enumerate() {
                         if section.sh_type == section_header::SHT_REL {
+                            section.check_size(bytes.len())?;
                             let sh_relocs = Reloc::parse(bytes, section.sh_offset as usize, section.sh_size as usize, false, ctx)?;
                             relocs.push((idx, sh_relocs));
                         }
                         if section.sh_type == section_header::SHT_RELA {
+                            section.check_size(bytes.len())?;
                             let sh_relocs = Reloc::parse(bytes, section.sh_offset as usize, section.sh_size as usize, true, ctx)?;
                             relocs.push((idx, sh_relocs));
                         }

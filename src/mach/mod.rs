@@ -250,7 +250,7 @@ impl<'a> MultiArch<'a> {
         Ok(arches)
     }
     /// Try to get the Mach-o binary at `index`
-    pub fn get(&self, index: usize) -> error::Result<MachO> {
+    pub fn get(&self, index: usize) -> error::Result<MachO<'a>> {
         if index >= self.narches {
             return Err(error::Error::Malformed(format!("Requested the {}-th binary, but there are only {} architectures in this container", index, self.narches).into()))
         }

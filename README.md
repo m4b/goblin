@@ -6,6 +6,8 @@
 
 https://docs.rs/goblin/
 
+[changelog](CHANGELOG.md)
+
 ### Usage
 
 Goblin requires `rustc` 1.16.

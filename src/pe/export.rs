@@ -67,25 +67,25 @@ impl<'a> ExportData<'a> {
         let export_rva = dd.virtual_address as usize;
         let size = dd.size as usize;
         debug!("export_rva {:#x} size {:#}", export_rva, size);
-        let export_offset = utils::find_offset(export_rva, sections).unwrap();
+        let export_offset = utils::find_offset_or(export_rva, sections, &format!("Cannot map export_rva ({:#x}) into offset", export_rva))?;
         let export_directory_table = ExportDirectoryTable::parse(bytes, export_offset)?;
         let number_of_name_pointers = export_directory_table.number_of_name_pointers as usize;
         let address_table_entries = export_directory_table.address_table_entries as usize;
         //let ordinal_base = export_directory_table.ordinal_base as usize;
 
-        let mut name_pointer_table_offset = &mut utils::find_offset(export_directory_table.name_pointer_rva as usize, sections).unwrap();
+        let mut name_pointer_table_offset = &mut utils::find_offset_or(export_directory_table.name_pointer_rva as usize, sections, &format!("Cannot map export_directory_table.name_pointer_rva ({:#x}) into offset", export_directory_table.name_pointer_rva))?;
         let mut export_name_pointer_table: ExportNamePointerTable = Vec::with_capacity(number_of_name_pointers);
         for _ in 0..number_of_name_pointers {
             export_name_pointer_table.push(bytes.gread_with(name_pointer_table_offset, scroll::LE)?);
         }
 
-        let mut export_ordinal_table_offset = &mut utils::find_offset(export_directory_table.ordinal_table_rva as usize, sections).unwrap();
+        let mut export_ordinal_table_offset = &mut utils::find_offset_or(export_directory_table.ordinal_table_rva as usize, sections, &format!("Cannot map export_directory_table.ordinal_table_rva ({:#x}) into offset", export_directory_table.ordinal_table_rva))?;
         let mut export_ordinal_table: ExportOrdinalTable = Vec::with_capacity(number_of_name_pointers);
         for _ in 0..number_of_name_pointers {
             export_ordinal_table.push(bytes.gread_with(export_ordinal_table_offset, scroll::LE)?);
         }
 
-        let export_address_table_offset = utils::find_offset(export_directory_table.export_address_table_rva as usize, sections).unwrap();
+        let export_address_table_offset = utils::find_offset_or(export_directory_table.export_address_table_rva as usize, sections, &format!("Cannot map export_directory_table.export_address_table_rva ({:#x}) into offset", export_directory_table.export_address_table_rva))?;
         let export_end = export_rva + size;
         let mut offset = &mut export_address_table_offset.clone();
         let mut export_address_table: ExportAddressTable = Vec::with_capacity(address_table_entries);
@@ -98,8 +98,8 @@ impl<'a> ExportData<'a> {
             }
         }
 
-        let name_offset = utils::find_offset(export_directory_table.name_rva as usize, sections).unwrap();
-        //println!("<PEExport.get> pointers: 0x{:x}  ordinals: 0x{:x} addresses: 0x{:x}", name_pointer_table_offset, export_ordinal_table_offset, export_address_table_offset);
+        let name_offset = utils::find_offset_or(export_directory_table.name_rva as usize, sections, &format!("Cannot map export_directory_table.name_rva ({:#x}) into offset", export_directory_table.name_rva))?;
+        debug!("ExportData.parse pointers: {:#x} ordinals: {:#x} addresses: {:#x}", name_pointer_table_offset, export_ordinal_table_offset, export_address_table_offset);
         let name: &'a str = bytes.pread(name_offset)?;
         Ok(ExportData {
             name: name,
@@ -189,35 +189,34 @@ struct ExportCtx<'a> {
 }
 
 impl<'a, 'b> scroll::ctx::TryFromCtx<'a, ExportCtx<'b>> for Export<'a> {
-    type Error = scroll::Error;
+    type Error = error::Error;
     type Size = usize;
     #[inline]
     fn try_from_ctx(bytes: &'a [u8], ExportCtx { ptr, idx, sections, addresses, ordinals }: ExportCtx<'b>) -> Result<(Self, Self::Size), Self::Error> {
         use self::ExportAddressTableEntry::*;
         let i = idx;
-        let name_offset = utils::find_offset(ptr as usize, sections).unwrap();
+        let name_offset = utils::find_offset_or(ptr as usize, sections, &format!("Cannot map export name pointer rva ({:#x}) into offset", ptr))?;
         let name = bytes.pread::<&str>(name_offset)?;
         let ordinal = ordinals[i];
         let address_index = ordinal as usize;
-        //println!("name: {} name_offset: {:#x} ordinal: {} address_index: {}", name, name_offset, ordinal, address_index);
+        debug!("name: {} name_offset: {:#x} ordinal: {} address_index: {}", name, name_offset, ordinal, address_index);
         if address_index >= addresses.len() {
-            //println!("<PEExport.get_export> bad index for {}: {} {} {} len: {}", name, (i+ordinal_base), ordinal, address_index, addresses.len());
+            debug!("Export.pread bad address index ({}) for {}: idx: {} ordinal: {} addresses.len(): {}", name, address_index, i, ordinal, addresses.len());
             Ok((Export::default(), 0))
         } else {
             match addresses[address_index] {
                 ExportRVA(rva) => {
                     let rva = rva as usize;
-                    let offset = utils::find_offset(rva, sections).unwrap();
-                    //println!("{:#x}", offset);
+                    let offset = utils::find_offset_or(rva, sections, &format!("Cannot map export rva ({:#x}) into offset for {}", rva, name))?;
+                    debug!("{}: {:#x}", name, offset);
                     Ok((Export { name: name, offset: offset, rva: rva, reexport: None, size: 0 }, 0))
                 },
                 ForwarderRVA(rva) => {
                     let rva = rva as usize;
-                    let offset = utils::find_offset(rva, sections).unwrap();
-                    //println!("stroffset {:#x}", offset);
+                    let offset = utils::find_offset_or(rva, sections, &format!("Cannot map forwarder rva ({:#x}) into offset for {}", rva, name))?;
+                    debug!("{}: stroffset {:#x}", name, offset);
                     let reexport = Reexport::parse(bytes, offset)?;
-                    // cannot use this for reasons above cause rust is super fun
-                    //let reexport = bytes.pread(offset)?;
+                    debug!("{}: reexport {:?}", name, reexport);
                     Ok((Export { name: name, offset: rva, rva: rva, reexport: Some(reexport), size: 0 }, 0))
                 },
             }

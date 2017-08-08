@@ -27,6 +27,10 @@ pub fn find_offset (rva: usize, sections: &[section_table::SectionTable]) -> Opt
     None
 }
 
+pub fn find_offset_or (rva: usize, sections: &[section_table::SectionTable], msg: &str) -> error::Result<usize> {
+    find_offset(rva, sections).ok_or(error::Error::Malformed(msg.to_string()))
+}
+
 pub fn try_name<'a>(bytes: &'a [u8], rva: usize, sections: &[section_table::SectionTable]) -> error::Result<&'a str> {
     match find_offset(rva, sections) {
         Some(offset) => {

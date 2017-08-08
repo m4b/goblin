@@ -9,6 +9,7 @@ license = "MIT"
 description = "An impish, cross-platform binary parsing and loading crate"
 documentation = "https://docs.rs/goblin"
 categories = ["parsing"]
+include = ["src/**/*", "Cargo.toml", "CHANGELOG.md", "LICENSE", "README.md", "etc/*", "examples/*", "tests/*", "fuzz/**/*"]
 
 [lib]
 

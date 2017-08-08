@@ -114,7 +114,7 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
             use super::*;
 
             use core::slice;
-            use elf::error::*;
+            use error::Result;
 
             use std::fs::File;
             use std::io::{Read, Seek};
@@ -264,7 +264,7 @@ mod std {
     use super::*;
     use core::fmt;
     use core::result;
-    use scroll::{self, ctx};
+    use scroll::ctx;
     use container::{Ctx, Container};
 
     #[derive(Clone, Copy, PartialEq, Default)]
@@ -318,7 +318,7 @@ mod std {
     }
 
     impl<'a> ctx::TryFromCtx<'a, RelocCtx> for Reloc {
-        type Error = scroll::Error;
+        type Error = ::error::Error;
         type Size = usize;
         fn try_from_ctx(bytes: &'a [u8], (is_rela, Ctx { container, le }): RelocCtx) -> result::Result<(Self, Self::Size), Self::Error> {
             use scroll::Pread;
@@ -343,7 +343,7 @@ mod std {
     }
 
     impl ctx::TryIntoCtx<RelocCtx> for Reloc {
-        type Error = scroll::Error;
+        type Error = ::error::Error;
         type Size = usize;
         // TODO: I think this is a bad idea
         /// Writes the relocation into `bytes`
@@ -353,19 +353,19 @@ mod std {
                 Container::Little => {
                     if is_rela {
                         let rela: reloc32::Rela = self.into();
-                        bytes.pwrite_with(rela, 0, le)
+                        Ok(bytes.pwrite_with(rela, 0, le)?)
                     } else {
                         let rel: reloc32::Rel = self.into();
-                        bytes.pwrite_with(rel, 0, le)
+                        Ok(bytes.pwrite_with(rel, 0, le)?)
                     }
                 },
                 Container::Big => {
                     if is_rela {
                         let rela: reloc64::Rela = self.into();
-                        bytes.pwrite_with(rela, 0, le)
+                        Ok(bytes.pwrite_with(rela, 0, le)?)
                     } else {
                         let rel: reloc64::Rel = self.into();
-                        bytes.pwrite_with(rel, 0, le)
+                        Ok(bytes.pwrite_with(rel, 0, le)?)
                     }
                 },
             }

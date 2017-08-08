@@ -275,7 +275,7 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
 
         use elf::section_header::SectionHeader as ElfSectionHeader;
         use super::*;
-        use elf::error::*;
+        use error::Result;
 
         use std::fs::File;
         use std::io::{Read, Seek};
@@ -372,7 +372,7 @@ mod std {
     use core::fmt;
     use core::result;
     use core::ops::Range;
-    use scroll::{self, ctx};
+    use scroll::ctx;
     use container::{Container, Ctx};
 
     #[derive(Default, PartialEq, Clone)]
@@ -493,7 +493,7 @@ mod std {
     }
 
     impl<'a> ctx::TryFromCtx<'a, Ctx> for SectionHeader {
-        type Error = scroll::Error;
+        type Error = ::error::Error;
         type Size = usize;
         fn try_from_ctx(bytes: &'a [u8], Ctx {container, le}: Ctx) -> result::Result<(Self, Self::Size), Self::Error> {
             use scroll::Pread;
@@ -510,18 +510,18 @@ mod std {
     }
 
     impl ctx::TryIntoCtx<Ctx> for SectionHeader {
-        type Error = scroll::Error;
+        type Error = ::error::Error;
         type Size = usize;
         fn try_into_ctx(self, mut bytes: &mut [u8], Ctx {container, le}: Ctx) -> result::Result<Self::Size, Self::Error> {
             use scroll::Pwrite;
             match container {
                 Container::Little => {
                     let shdr: section_header32::SectionHeader = self.into();
-                    bytes.pwrite_with(shdr, 0, le)
+                    Ok(bytes.pwrite_with(shdr, 0, le)?)
                 },
                 Container::Big => {
                     let shdr: section_header64::SectionHeader = self.into();
-                    bytes.pwrite_with(shdr, 0, le)
+                    Ok(bytes.pwrite_with(shdr, 0, le)?)
                 }
             }
         }

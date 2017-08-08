@@ -82,7 +82,7 @@ pub use self::std::*;
 mod std {
     use super::*;
     use core::fmt;
-    use scroll::{self, ctx};
+    use scroll::ctx;
     use core::result;
     use core::ops::Range;
     use container::{Ctx, Container};
@@ -181,7 +181,7 @@ mod std {
     }
 
     impl<'a> ctx::TryFromCtx<'a, Ctx> for ProgramHeader {
-        type Error = scroll::Error;
+        type Error = ::error::Error;
         type Size = usize;
         fn try_from_ctx(bytes: &'a [u8], Ctx { container, le}: Ctx) -> result::Result<(Self, Self::Size), Self::Error> {
             use scroll::Pread;
@@ -198,18 +198,18 @@ mod std {
     }
 
     impl ctx::TryIntoCtx<Ctx> for ProgramHeader {
-        type Error = scroll::Error;
+        type Error = ::error::Error;
         type Size = usize;
         fn try_into_ctx(self, mut bytes: &mut [u8], Ctx {container, le}: Ctx) -> result::Result<Self::Size, Self::Error> {
             use scroll::Pwrite;
             match container {
                 Container::Little => {
                     let phdr: program_header32::ProgramHeader = self.into();
-                    bytes.pwrite_with(phdr, 0, le)
+                    Ok(bytes.pwrite_with(phdr, 0, le)?)
                 },
                 Container::Big => {
                     let phdr: program_header64::ProgramHeader = self.into();
-                    bytes.pwrite_with(phdr, 0, le)
+                    Ok(bytes.pwrite_with(phdr, 0, le)?)
                 }
             }
         }
@@ -235,7 +235,7 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
 
         use elf::program_header::ProgramHeader as ElfProgramHeader;
         use super::*;
-        use elf::error::*;
+        use error::Result;
 
         use core::slice;
         use core::fmt;

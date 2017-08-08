@@ -36,15 +36,6 @@
 //! To use the automagic ELF datatype union parser, you _must_ enable/opt-in to the  `elf64`, `elf32`, and
 //! `endian_fd` features if you disable `default`.
 
-#[cfg(feature = "std")]
-pub use super::error;
-
-#[cfg(feature = "std")]
-pub use super::container;
-
-#[cfg(feature = "std")]
-pub use super::strtab;
-
 #[macro_use]
 mod gnu_hash;
 
@@ -68,9 +59,9 @@ pub use self::impure::*;
 mod impure {
     use scroll::{self, ctx, Pread, Endian};
     use super::{header, program_header, section_header, sym, dyn, reloc};
-    use super::strtab::Strtab;
-    use super::error;
-    use super::container::{Container, Ctx};
+    use strtab::Strtab;
+    use error;
+    use container::{Container, Ctx};
 
     pub type Header = header::Header;
     pub type ProgramHeader = program_header::ProgramHeader;
@@ -292,7 +283,7 @@ mod impure {
     }
 
     impl<'a> ctx::TryFromCtx<'a, (usize, Endian)> for Elf<'a> {
-        type Error = error::Error;
+        type Error = ::error::Error;
         type Size = usize;
         fn try_from_ctx(src: &'a [u8], (_, _): (usize, Endian)) -> Result<(Elf<'a>, Self::Size), Self::Error> {
             let elf = Elf::parse(src)?;

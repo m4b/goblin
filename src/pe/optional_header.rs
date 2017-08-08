@@ -261,7 +261,7 @@ impl OptionalHeader {
 }
 
 impl<'a> ctx::TryFromCtx<'a, Endian> for OptionalHeader {
-    type Error = error::Error;
+    type Error = ::error::Error;
     type Size = usize;
     fn try_from_ctx(bytes: &'a [u8], _: Endian) -> error::Result<(Self, Self::Size)> {
         let magic = bytes.pread_with::<u16>(0, LE)?;

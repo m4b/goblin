@@ -2,7 +2,7 @@
 //!
 //! Symbols are essentially a type, offset, and the symbol name
 
-use scroll::{self, ctx, Pread};
+use scroll::{ctx, Pread};
 use scroll::ctx::SizeWith;
 use error;
 use container::{self, Container};
@@ -181,9 +181,9 @@ impl From<Nlist64> for Nlist {
 }
 
 impl<'a> ctx::TryFromCtx<'a, container::Ctx> for Nlist {
-    type Error = scroll::Error;
+    type Error = ::error::Error;
     type Size = usize;
-    fn try_from_ctx(bytes: &'a [u8], container::Ctx { container, le }: container::Ctx) -> scroll::Result<(Self, Self::Size)> {
+    fn try_from_ctx(bytes: &'a [u8], container::Ctx { container, le }: container::Ctx) -> ::error::Result<(Self, Self::Size)> {
         let nlist = match container {
             Container::Little => {
                 (bytes.pread_with::<Nlist32>(0, le)?.into(), SIZEOF_NLIST_32)
@@ -204,11 +204,11 @@ pub struct SymbolsCtx {
 }
 
 impl<'a, T: ?Sized> ctx::TryFromCtx<'a, SymbolsCtx, T> for Symbols<'a> where T: AsRef<[u8]> {
-    type Error = scroll::Error;
+    type Error = ::error::Error;
     type Size = usize;
     fn try_from_ctx(bytes: &'a T, SymbolsCtx {
         nsyms, strtab, ctx
-    }: SymbolsCtx) -> scroll::Result<(Self, Self::Size)> {
+    }: SymbolsCtx) -> ::error::Result<(Self, Self::Size)> {
         let data = bytes.as_ref();
         Ok ((Symbols {
             data: data,
@@ -302,7 +302,7 @@ impl<'a> Symbols<'a> {
     }
 
     /// Parses a single Nlist symbol from the binary, with its accompanying name
-    pub fn get(&self, index: usize) -> scroll::Result<(&'a str, Nlist)> {
+    pub fn get(&self, index: usize) -> ::error::Result<(&'a str, Nlist)> {
         let sym: Nlist = self.data.pread_with(self.start + (index * Nlist::size_with(&self.ctx)), self.ctx)?;
         let name = self.data.pread(self.strtab + sym.n_strx)?;
         Ok((name, sym))

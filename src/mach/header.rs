@@ -376,7 +376,7 @@ impl ctx::SizeWith<Container> for Header {
 }
 
 impl<'a> ctx::TryFromCtx<'a, Endian> for Header {
-    type Error = error::Error;
+    type Error = ::error::Error;
     type Size = usize;
     fn try_from_ctx(bytes: &'a [u8], _: Endian) -> error::Result<(Self, Self::Size)> {
         use mach;

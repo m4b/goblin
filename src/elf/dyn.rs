@@ -278,10 +278,10 @@ pub use self::std::*;
 mod std {
     use super::*;
     use core::fmt;
-    use scroll::{self, ctx};
+    use scroll::ctx;
     use core::result;
     use container::{Ctx, Container};
-    use elf::strtab::Strtab;
+    use strtab::Strtab;
     use self::dyn32::{DynamicInfo};
 
     #[derive(Default, PartialEq, Clone)]
@@ -322,7 +322,7 @@ mod std {
     }
 
     impl<'a> ctx::TryFromCtx<'a, Ctx> for Dyn {
-        type Error = scroll::Error;
+        type Error = ::error::Error;
         type Size = usize;
         fn try_from_ctx(bytes: &'a [u8], Ctx { container, le}: Ctx) -> result::Result<(Self, Self::Size), Self::Error> {
             use scroll::Pread;
@@ -339,18 +339,18 @@ mod std {
     }
 
     impl ctx::TryIntoCtx<Ctx> for Dyn {
-        type Error = scroll::Error;
+        type Error = ::error::Error;
         type Size = usize;
         fn try_into_ctx(self, mut bytes: &mut [u8], Ctx { container, le}: Ctx) -> result::Result<Self::Size, Self::Error> {
             use scroll::Pwrite;
             match container {
                 Container::Little => {
                     let dyn: dyn32::Dyn = self.into();
-                    bytes.pwrite_with(dyn, 0, le)
+                    Ok(bytes.pwrite_with(dyn, 0, le)?)
                 },
                 Container::Big => {
                     let dyn: dyn64::Dyn = self.into();
-                    bytes.pwrite_with(dyn, 0, le)
+                    Ok(bytes.pwrite_with(dyn, 0, le)?)
                 }
             }
         }
@@ -437,8 +437,8 @@ macro_rules! elf_dyn_std_impl {
             use std::io::{Read, Seek};
             use std::io::SeekFrom::Start;
             use elf::program_header::{PT_DYNAMIC};
-            use elf::strtab::Strtab;
-            use elf::error::*;
+            use strtab::Strtab;
+            use error::Result;
 
             use elf::dyn::Dyn as ElfDyn;
             use super::*;

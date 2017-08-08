@@ -119,7 +119,7 @@ pub enum Reexport<'a> {
 }
 
 impl<'a> scroll::ctx::TryFromCtx<'a, scroll::Endian> for Reexport<'a> {
-    type Error = scroll::Error;
+    type Error = ::error::Error;
     type Size = usize;
     #[inline]
     fn try_from_ctx(bytes: &'a [u8], _ctx: scroll::Endian) -> Result<(Self, Self::Size), Self::Error> {
@@ -145,7 +145,7 @@ impl<'a> scroll::ctx::TryFromCtx<'a, scroll::Endian> for Reexport<'a> {
                         0x23 => {
                             // UNTESTED
                             let ordinal = rest.pread_with::<&str>(1, ::scroll::ctx::StrCtx::Length(len))?;
-                            let ordinal = ordinal.parse::<u32>().map_err(|_e| scroll::Error::BadInput{size: bytes.len(), msg: "Cannot parse reexport ordinal"})?;
+                            let ordinal = ordinal.parse::<u32>().map_err(|_e| error::Error::Malformed(format!("Cannot parse reexport ordinal from {} bytes", bytes.len())))?;
                             // FIXME: return size
                             return Ok((Reexport::DLLOrdinal { export: dll, ordinal: ordinal as usize }, 0))
                         },
@@ -159,12 +159,12 @@ impl<'a> scroll::ctx::TryFromCtx<'a, scroll::Endian> for Reexport<'a> {
                 _ => {}
             }
         }
-        Err(scroll::Error::Custom(format!("Reexport {:#} is malformed", reexport)))
+        Err(error::Error::Malformed(format!("Reexport {:#} is malformed", reexport)))
     }
 }
 
 impl<'a> Reexport<'a> {
-    pub fn parse(bytes: &'a [u8], offset: usize) -> scroll::Result<Reexport<'a>> {
+    pub fn parse(bytes: &'a [u8], offset: usize) -> ::error::Result<Reexport<'a>> {
         bytes.pread(offset)
     }
 }

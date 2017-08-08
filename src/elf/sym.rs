@@ -123,7 +123,7 @@ macro_rules! elf_sym_std_impl {
         mod std {
             use elf::sym::Sym as ElfSym;
             use super::*;
-            use elf::error::*;
+            use error::Result;
 
             use core::fmt;
             use core::slice;
@@ -274,7 +274,7 @@ mod std {
     use super::*;
 
     use core::fmt;
-    use scroll::{self, ctx};
+    use scroll::ctx;
     use core::result;
     use container::{Ctx, Container};
 
@@ -361,7 +361,7 @@ mod std {
     }
 
     impl<'a> ctx::TryFromCtx<'a, Ctx> for Sym {
-        type Error = scroll::Error;
+        type Error = ::error::Error;
         type Size = usize;
         fn try_from_ctx(bytes: &'a [u8], Ctx { container, le}: Ctx) -> result::Result<(Self, Self::Size), Self::Error> {
             use scroll::Pread;
@@ -378,18 +378,18 @@ mod std {
     }
 
     impl ctx::TryIntoCtx<Ctx> for Sym {
-        type Error = scroll::Error;
+        type Error = ::error::Error;
         type Size = usize;
         fn try_into_ctx(self, mut bytes: &mut [u8], Ctx {container, le}: Ctx) -> result::Result<Self::Size, Self::Error> {
             use scroll::Pwrite;
             match container {
                 Container::Little => {
                     let sym: sym32::Sym = self.into();
-                    bytes.pwrite_with(sym, 0, le)
+                    Ok(bytes.pwrite_with(sym, 0, le)?)
                 },
                 Container::Big => {
                     let sym: sym64::Sym = self.into();
-                    bytes.pwrite_with(sym, 0, le)
+                    Ok(bytes.pwrite_with(sym, 0, le)?)
                 }
             }
         }

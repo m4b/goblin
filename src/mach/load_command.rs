@@ -1122,7 +1122,7 @@ pub enum CommandVariant {
 }
 
 impl<'a> ctx::TryFromCtx<'a, Endian> for CommandVariant {
-    type Error = error::Error;
+    type Error = ::error::Error;
     type Size = usize;
     fn try_from_ctx(bytes: &'a [u8], le: Endian) -> error::Result<(Self, Self::Size)> {
         use scroll::{Pread};
@@ -1403,7 +1403,7 @@ impl<'a> fmt::Debug for Section<'a> {
 }
 
 impl<'a> ctx::TryFromCtx<'a, (container::Ctx, &'a [u8], Section32)> for Section<'a> {
-    type Error = scroll::Error;
+    type Error = ::error::Error;
     type Size = usize;
     fn try_from_ctx(bytes: &'a [u8], (ctx, raw_data, section): (container::Ctx, &'a [u8], Section32)) -> Result<(Self, Self::Size), Self::Error> {
         Ok((Section {
@@ -1424,7 +1424,7 @@ impl<'a> ctx::TryFromCtx<'a, (container::Ctx, &'a [u8], Section32)> for Section<
 }
 
 impl<'a> TryFromCtx<'a, (container::Ctx, &'a [u8], Section64)> for Section<'a> {
-    type Error = scroll::Error;
+    type Error = ::error::Error;
     type Size = usize;
     fn try_from_ctx(bytes: &'a [u8], (ctx, raw_data, section): (container::Ctx, &'a [u8], Section64)) -> Result<(Self, Self::Size), Self::Error> {
         Ok((Section {
@@ -1445,7 +1445,7 @@ impl<'a> TryFromCtx<'a, (container::Ctx, &'a [u8], Section64)> for Section<'a> {
 }
 
 impl<'a> TryFromCtx<'a, (&'a [u8], container::Ctx)> for Section<'a> {
-    type Error = scroll::Error;
+    type Error = ::error::Error;
     type Size = usize;
     fn try_from_ctx(bytes: &'a [u8], (raw_data, ctx): (&'a [u8], container::Ctx)) -> Result<(Self, Self::Size), Self::Error> {
         match ctx.container {

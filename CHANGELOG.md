@@ -7,6 +7,7 @@ I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, do
 
 ## [Unreleased]
 ### Changed
+- all scroll::Error have been removed from public API ref #33
 - more elf relocations
 - mach relocations
 - better mach symbol iteration

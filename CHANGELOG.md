@@ -6,14 +6,18 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, don't worry!
 
 ## [Unreleased]
-### Changed
-- all scroll::Error have been removed from public API ref #33
+### Added
 - more elf relocations
 - mach relocations
+- convenience functions for many elf structures that elf writer will appreciate
+- mach relocation iteration
+- update to scroll 0.7
+- add cread/ioread impls for various structs
+
+### Changed
+- all scroll::Error have been removed from public API ref #33
 - better mach symbol iteration
 - better mach section iteration
-- relocation iteration
-- convenience functions for many elf structures that elf writer will appreciate
 - remove wow_so_meta_doge due to linker issues
 - Strtab.get now returns a Option<Result>, when index is bad
 - elf.soname is &str

@@ -439,9 +439,9 @@ mod std {
                 return Ok(());
             }
             let (end, overflow) = self.sh_offset.overflowing_add(self.sh_size);
-            if overflow || end >= size as u64 {
-                let message = format!("Section {} offset ({}) + size ({}) is out of bounds",
-                    self.sh_name, self.sh_offset, self.sh_size);
+            if overflow || end > size as u64 {
+                let message = format!("Section {} size ({}) + offset ({}) is out of bounds. Overflowed: {}",
+                    self.sh_name, self.sh_offset, self.sh_size, overflow);
                 return Err(error::Error::Malformed(message));
             }
             Ok(())

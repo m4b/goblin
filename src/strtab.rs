@@ -35,8 +35,8 @@ impl<'a> Strtab<'a> {
     /// Parses a strtab from `bytes` at `offset` with `len` size as the backing string table, using `delim` as the delimiter
     pub fn parse(bytes: &'a [u8], offset: usize, len: usize, delim: u8) -> error::Result<Strtab<'a>> {
         let (end, overflow) = offset.overflowing_add(len);
-        if overflow || end >= bytes.len () {
-            return Err(error::Error::Malformed(format!("Strtable size ({}) + offset ({}) is out of bounds", len, offset)));
+        if overflow || end > bytes.len () {
+            return Err(error::Error::Malformed(format!("Strtable size ({}) + offset ({}) is out of bounds for {} #bytes. Overflowed: {}", len, offset, bytes.len(), overflow)));
         }
         Ok(Strtab { bytes: &bytes[offset..end], delim: ctx::StrCtx::Delimiter(delim) })
     }

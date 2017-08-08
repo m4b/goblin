@@ -126,19 +126,19 @@ impl<'a> scroll::ctx::TryFromCtx<'a, scroll::Endian> for Reexport<'a> {
         use scroll::{Pread};
         let reexport = bytes.pread::<&str>(0)?;
         let reexport_len = reexport.len();
-        //println!("reexport: {}", &reexport);
+        debug!("reexport: {}", &reexport);
         for o in 0..reexport_len {
             let c: u8 = bytes.pread(o)?;
-            //println!("reexport offset: {:#x} char: {:#x}", *o, c);
+            debug!("reexport offset: {:#x} char: {:#x}", o, c);
             match c {
                 // '.'
                 0x2e => {
                     let i = o - 1;
                     let dll: &'a str = bytes.pread_with(0, ::scroll::ctx::StrCtx::Length(i))?;
-                    //println!("dll: {:?}", &dll);
+                    debug!("dll: {:?}", &dll);
                     let len = reexport_len - i - 1;
                     let rest: &'a [u8] = bytes.pread_with(o, len)?;
-                    //println!("rest: {:?}", &rest);
+                    debug!("rest: {:?}", &rest);
                     let len = rest.len() - 1;
                     match rest[0] {
                         // '#'

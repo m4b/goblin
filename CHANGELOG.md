@@ -7,6 +7,7 @@ I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, do
 
 ## [Unreleased]
 ### Added
+- add get_unsafe to strtab for Option<&str> returns
 - more elf relocations
 - mach relocations
 - convenience functions for many elf structures that elf writer will appreciate

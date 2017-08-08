@@ -54,12 +54,23 @@ impl<'a> Strtab<'a> {
         Ok(strings)
     }
     /// Safely parses and gets a str reference from the backing bytes starting at byte `offset`.
-    /// If the index is out of bounds, `None` is returned
+    /// If the index is out of bounds, `None` is returned.
+    /// Requires `feature = "std"`
+    #[cfg(feature = "std")]
     pub fn get(&self, offset: usize) -> Option<error::Result<&'a str>> {
         if offset >= self.bytes.len() {
             None
         } else {
             Some(get_str(offset, self.bytes, self.delim).map_err(|e| e.into()))
+        }
+    }
+    /// Gets a str reference from the backing bytes starting at byte `offset`.
+    /// If the index is out of bounds, `None` is returned. Panics if bytes are invalid UTF-8.
+    pub fn get_unsafe(&self, offset: usize) -> Option<&'a str> {
+        if offset >= self.bytes.len() {
+            None
+        } else {
+            Some(get_str(offset, self.bytes, self.delim).unwrap())
         }
     }
 }

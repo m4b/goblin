@@ -141,6 +141,14 @@ pub mod container {
     }
 
     impl Ctx {
+        /// Whether this binary container context is "big" or not
+        pub fn is_big(&self) -> bool {
+            self.container.is_big()
+        }
+        /// Whether this binary container context is little endian or not
+        pub fn is_little_endian(&self) -> bool {
+            self.le.is_little()
+        }
         /// Create a new binary container context
         pub fn new (container: Container, le: scroll::Endian) -> Self {
             Ctx { container: container, le: le }

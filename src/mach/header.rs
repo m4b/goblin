@@ -1,7 +1,8 @@
 //! A header contains minimal architecture information, the binary kind, the number of load commands, as well as an endianness hint
 
 use std::fmt;
-use scroll::{self, ctx, Endian};
+use scroll::{self, ctx, Pwrite, Endian};
+use scroll::ctx::SizeWith;
 use plain::{self, Plain};
 
 use mach::constants::cputype::cpu_type_to_str;
@@ -316,6 +317,23 @@ impl From<Header32> for Header {
     }
 }
 
+impl From<Header> for Header32 {
+    fn from (header: Header) -> Self {
+        Header32 {
+            magic:      header.magic,
+            cputype:    header.cputype,
+            cpusubtype: header.cpusubtype,
+            padding1:   header.padding1,
+            padding2:   header.padding2,
+            caps:       header.caps,
+            filetype:   header.filetype,
+            ncmds:      header.ncmds as u32,
+            sizeofcmds: header.sizeofcmds,
+            flags:      header.flags,
+        }
+    }
+}
+
 impl From<Header64> for Header {
     fn from (header: Header64) -> Self {
         Header {
@@ -334,7 +352,30 @@ impl From<Header64> for Header {
     }
 }
 
+impl From<Header> for Header64 {
+    fn from (header: Header) -> Self {
+        Header64 {
+            magic:      header.magic,
+            cputype:    header.cputype,
+            cpusubtype: header.cpusubtype,
+            padding1:   header.padding1,
+            padding2:   header.padding2,
+            caps:       header.caps,
+            filetype:   header.filetype,
+            ncmds:      header.ncmds as u32,
+            sizeofcmds: header.sizeofcmds,
+            flags:      header.flags,
+            reserved:   header.reserved,
+        }
+    }
+}
+
 impl Header {
+    pub fn new(ctx: container::Ctx) -> Self {
+        let mut header = Header::default();
+        header.magic = if ctx.is_big () { MH_MAGIC_64 } else { MH_MAGIC };
+        header
+    }
     #[inline]
     pub fn is_little_endian(&self) -> bool {
         #[cfg(target_endian="big")]
@@ -358,6 +399,20 @@ impl Header {
         // todo check magic is 32 and not junk, and error otherwise
         let container = self.container();
         Ok(container::Ctx::new(container, endianness))
+    }
+}
+
+impl ctx::SizeWith<container::Ctx> for Header {
+    type Units = usize;
+    fn size_with(container: &container::Ctx) -> usize {
+        match container.container {
+            Container::Little => {
+                SIZEOF_HEADER_32
+            },
+            Container::Big => {
+                SIZEOF_HEADER_64
+            },
+        }
     }
 }
 
@@ -408,5 +463,27 @@ impl<'a> ctx::TryFromCtx<'a, Endian> for Header {
                 }
             }
         }
+    }
+}
+
+impl ctx::TryIntoCtx<container::Ctx> for Header {
+    type Error = ::error::Error;
+    type Size = usize;
+    fn try_into_ctx(self, bytes: &mut [u8], ctx: container::Ctx) -> error::Result<Self::Size> {
+        match ctx.container {
+            Container::Little => {
+                bytes.pwrite_with(Header32::from(self), 0, ctx.le)?;
+            },
+            Container::Big => {
+                bytes.pwrite_with(Header64::from(self), 0, ctx.le)?;
+            }
+        };
+        Ok(Header::size_with(&ctx))
+    }
+}
+
+impl ctx::IntoCtx<container::Ctx> for Header {
+    fn into_ctx(self, bytes: &mut [u8], ctx: container::Ctx) {
+        bytes.pwrite_with(self, 0, ctx).unwrap();
     }
 }

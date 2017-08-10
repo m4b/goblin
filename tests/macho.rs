@@ -36,11 +36,11 @@ fn macho_get_section<'a>(macho: &MachO<'a>, section_name: &str) -> Option<&'a [u
                 println!("MATCH: {:?}", segment);
                 for section in segment {
                     println!("section {:?}", section);
-                    let section = section.unwrap();
+                    let (section, data) = section.unwrap();
                     let sname = section.name().unwrap();
                     println!("section.name: {}", sname);
                     if section_name == sname {
-                        return Some(section.data);
+                        return Some(data);
                     }
                 }
                 println!("Section not found :/")

@@ -218,15 +218,20 @@ pub struct SectionIterator<'a> {
     ctx: container::Ctx,
 }
 
+pub type SectionData<'a> = &'a [u8];
+
 impl<'a> Iterator for SectionIterator<'a> {
-    type Item = error::Result<Section>;
+    type Item = error::Result<(Section, SectionData<'a>)>;
     fn next(&mut self) -> Option<Self::Item> {
         if self.idx >= self.count {
             None
         } else {
             self.idx += 1;
-            match self.data.gread_with(&mut self.offset, self.ctx) {
-                Ok(res) => Some(Ok(res)),
+            match self.data.gread_with::<Section>(&mut self.offset, self.ctx) {
+                Ok(section) => {
+                    let data = &self.data[section.offset as usize..][..section.size as usize];
+                    Some(Ok((section, data)))
+                },
                 Err(e) => Some(Err(e.into()))
             }
         }
@@ -234,7 +239,7 @@ impl<'a> Iterator for SectionIterator<'a> {
 }
 
 impl<'a, 'b> IntoIterator for &'b Segment<'a> {
-    type Item = error::Result<Section>;
+    type Item = error::Result<(Section, SectionData<'a>)>;
     type IntoIter = SectionIterator<'a>;
     fn into_iter(self) -> Self::IntoIter {
         SectionIterator {
@@ -378,7 +383,7 @@ impl<'a> Segment<'a> {
         Ok(self.segname.pread::<&str>(0)?)
     }
     /// Get the sections from this segment, erroring if any section couldn't be retrieved
-    pub fn sections(&self) -> error::Result<Vec<Section>> {
+    pub fn sections(&self) -> error::Result<Vec<(Section, SectionData<'a>)>> {
         let mut sections = Vec::new();
         for section in self.into_iter() {
             sections.push(section?);
@@ -466,11 +471,8 @@ impl<'a> Segments<'a> {
         }
     }
     /// Get every section from every segment
-    pub fn sections(&self) -> error::Result<Vec<Vec<Section>>> {
-        let mut sections = Vec::new();
-        for segment in &self.segments {
-            sections.push(segment.sections()?);
-        }
-        Ok(sections)
+    // thanks to SpaceManic for figuring out the 'b lifetimes here :)
+    pub fn sections<'b>(&'b self) -> Box<Iterator<Item=SectionIterator<'a>> + 'b> {
+        Box::new(self.segments.iter().map(|segment| segment.into_iter()))
     }
 }

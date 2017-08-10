@@ -18,6 +18,7 @@ I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, do
 - add cread/ioread impls for various structs
 
 ### Changed
+- BREAKING: sections() and section iterator now return (Section, &[u8])
 - Segment, Section, RelocationIterator are now in segment module
 - removed lifetime from section, removed data and raw data, and embedded ctx
 - all scroll::Error have been removed from public API ref #33

@@ -67,7 +67,7 @@ impl<'a> MachO<'a> {
         let mut relocs = Vec::new();
         for (_i, segment) in (&self.segments).into_iter().enumerate() {
             for (j, section) in segment.into_iter().enumerate() {
-                let section = section?;
+                let (section, _data) = section?;
                 if section.nreloc > 0 {
                     relocs.push((j, section.iter_relocations(self.data, self.ctx), section));
                 }

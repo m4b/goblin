@@ -220,6 +220,12 @@ pub struct SectionIterator<'a> {
 
 pub type SectionData<'a> = &'a [u8];
 
+impl<'a> ::std::iter::ExactSizeIterator for SectionIterator<'a> {
+    fn len(&self) -> usize {
+        self.count
+    }
+}
+
 impl<'a> Iterator for SectionIterator<'a> {
     type Item = error::Result<(Section, SectionData<'a>)>;
     fn next(&mut self) -> Option<Self::Item> {

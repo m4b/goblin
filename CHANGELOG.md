@@ -7,7 +7,9 @@ I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, do
 
 ## [Unreleased]
 ### Added
+- added writer impls for Section and Segment
 - add get_unsafe to strtab for Option<&str> returns
+- relocations method on mach
 - more elf relocations
 - mach relocations
 - convenience functions for many elf structures that elf writer will appreciate
@@ -16,6 +18,7 @@ I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, do
 - add cread/ioread impls for various structs
 
 ### Changed
+- removed lifetime from section, removed data and raw data, and embedded ctx
 - all scroll::Error have been removed from public API ref #33
 - better mach symbol iteration
 - better mach section iteration

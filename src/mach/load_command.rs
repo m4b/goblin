@@ -4,7 +4,7 @@ use error;
 use container;
 use std::fmt::{self, Display};
 use core::ops::{Deref, DerefMut};
-use scroll::{self, ctx, Endian, Pread};
+use scroll::{self, ctx, Endian, Pread, Pwrite};
 use scroll::ctx::{TryFromCtx, SizeWith};
 
 use mach::relocation::RelocationInfo;
@@ -470,6 +470,19 @@ pub struct SymtabCommand {
   pub strsize: u32,
 }
 
+impl SymtabCommand {
+    pub fn new() -> Self {
+        SymtabCommand {
+            cmd: LC_SYMTAB,
+            cmdsize: SIZEOF_SYMTAB_COMMAND as u32,
+            symoff: 0,
+            nsyms: 0,
+            stroff: 0,
+            strsize: 0,
+        }
+    }
+}
+
 pub const SIZEOF_SYMTAB_COMMAND: usize = 24;
 
 /// This is the second set of the symbolic information which is used to support
@@ -551,6 +564,33 @@ pub struct DysymtabCommand {
     pub locreloff:      u32,
     /// number of local relocation entries
     pub nlocrel:        u32,
+}
+
+impl DysymtabCommand {
+    pub fn new() -> Self {
+        DysymtabCommand {
+            cmd: LC_DYSYMTAB,
+            cmdsize: SIZEOF_DYSYMTAB_COMMAND as u32,
+            ilocalsym:      0,
+            nlocalsym:      0,
+            iextdefsym:     0,
+            nextdefsym:     0,
+            iundefsym:      0,
+            nundefsym:      0,
+            tocoff:         0,
+            ntoc:           0,
+            modtaboff:      0,
+            nmodtab:        0,
+            extrefsymoff:   0,
+            nextrefsyms:    0,
+            indirectsymoff: 0,
+            nindirectsyms:  0,
+            extreloff:      0,
+            nextrel:        0,
+            locreloff:      0,
+            nlocrel:        0,
+        }
+    }
 }
 
 pub const SIZEOF_DYSYMTAB_COMMAND: usize = 80;
@@ -811,6 +851,17 @@ pub struct VersionMinCommand {
     pub version: u32,
     /// X.Y.Z is encoded in nibbles xxxx.yy.zz
     pub sdk: u32,
+}
+
+impl VersionMinCommand {
+    pub fn new(is_ios: bool) -> Self {
+        VersionMinCommand {
+            cmd: if is_ios { LC_VERSION_MIN_IPHONEOS } else { LC_VERSION_MIN_MACOSX },
+            cmdsize: SIZEOF_VERSION_MIN_COMMAND as u32,
+            version: 0,
+            sdk: 0,
+        }
+    }
 }
 
 pub const SIZEOF_VERSION_MIN_COMMAND: usize = 16;
@@ -1338,8 +1389,9 @@ impl<'a> Iterator for RelocationIterator<'a> {
     }
 }
 
-/// Generalized 32/64 bit Section, with attached section data
-pub struct Section<'a> {
+/// Generalized 32/64 bit Section
+#[derive(Default)]
+pub struct Section {
     /// name of this section
     pub sectname:  [u8; 16],
     /// segment this section goes in
@@ -1358,13 +1410,9 @@ pub struct Section<'a> {
     pub nreloc:    u32,
     /// flags (section type and attributes
     pub flags:     u32,
-    /// The data inside this section
-    pub data:      &'a [u8],
-    raw_data:      &'a [u8],
-    ctx: container::Ctx,
 }
 
-impl<'a> Section<'a> {
+impl Section {
     /// The name of this section
     pub fn name(&self) -> error::Result<&str> {
         Ok(self.sectname.pread::<&str>(0)?)
@@ -1373,18 +1421,58 @@ impl<'a> Section<'a> {
     pub fn segname(&self) -> error::Result<&str> {
         Ok(self.segname.pread::<&str>(0)?)
     }
-    pub fn iter_relocations(&self) -> RelocationIterator {
+    /// Iterate this sections relocations given `data`; `data` must be the original binary
+    pub fn iter_relocations<'b>(&self, data: &'b [u8], ctx: container::Ctx) -> RelocationIterator<'b> {
+        let offset = self.reloff as usize;
+        debug!("Relocations for {} starting at offset: {:#x}", self.name().unwrap_or("BAD_SECTION_NAME"), offset);
         RelocationIterator {
-            offset: self.reloff as usize,
+            offset: offset,
             nrelocs: self.nreloc as usize,
             count: 0,
-            data: self.raw_data,
-            ctx: self.ctx.le,
+            data: data,
+            ctx: ctx.le,
         }
     }
 }
 
-impl<'a> fmt::Debug for Section<'a> {
+impl From<Section> for Section64 {
+    fn from(section: Section) -> Self {
+        Section64 {
+            sectname: section.sectname,
+            segname:  section.segname,
+            addr:     section.addr as u64,
+            size:     section.size as u64,
+            offset:   section.offset,
+            align:    section.align,
+            reloff:   section.reloff,
+            nreloc:   section.nreloc,
+            flags:    section.flags,
+            reserved1: 0,
+            reserved2: 0,
+            reserved3: 0,
+        }
+    }
+}
+
+impl From<Section> for Section32 {
+    fn from(section: Section) -> Self {
+        Section32 {
+            sectname: section.sectname,
+            segname:  section.segname,
+            addr:     section.addr as u32,
+            size:     section.size as u32,
+            offset:   section.offset,
+            align:    section.align,
+            reloff:   section.reloff,
+            nreloc:   section.nreloc,
+            flags:    section.flags,
+            reserved1: 0,
+            reserved2: 0,
+        }
+    }
+}
+
+impl fmt::Debug for Section {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("Section")
             .field("sectname", &self.name().unwrap())
@@ -1396,17 +1484,13 @@ impl<'a> fmt::Debug for Section<'a> {
             .field("reloff",   &self.reloff)
             .field("nreloc",   &self.nreloc)
             .field("flags",    &self.flags)
-            .field("data",     &self.data.len())
-            .field("relocations", &self.iter_relocations().collect::<Vec<_>>())
             .finish()
     }
 }
 
-impl<'a> ctx::TryFromCtx<'a, (container::Ctx, &'a [u8], Section32)> for Section<'a> {
-    type Error = ::error::Error;
-    type Size = usize;
-    fn try_from_ctx(bytes: &'a [u8], (ctx, raw_data, section): (container::Ctx, &'a [u8], Section32)) -> Result<(Self, Self::Size), Self::Error> {
-        Ok((Section {
+impl From<Section32> for Section {
+    fn from(section: Section32) -> Self {
+        Section {
             sectname: section.sectname,
             segname:  section.segname,
             addr:     section.addr as u64,
@@ -1416,18 +1500,13 @@ impl<'a> ctx::TryFromCtx<'a, (container::Ctx, &'a [u8], Section32)> for Section<
             reloff:   section.reloff,
             nreloc:   section.nreloc,
             flags:    section.flags,
-            data:     bytes,
-            raw_data: raw_data,
-            ctx:      ctx,
-        }, SIZEOF_SECTION_32))
+        }
     }
 }
 
-impl<'a> TryFromCtx<'a, (container::Ctx, &'a [u8], Section64)> for Section<'a> {
-    type Error = ::error::Error;
-    type Size = usize;
-    fn try_from_ctx(bytes: &'a [u8], (ctx, raw_data, section): (container::Ctx, &'a [u8], Section64)) -> Result<(Self, Self::Size), Self::Error> {
-        Ok((Section {
+impl From<Section64> for Section {
+    fn from(section: Section64) -> Self {
+        Section {
             sectname: section.sectname,
             segname:  section.segname,
             addr:     section.addr,
@@ -1437,37 +1516,53 @@ impl<'a> TryFromCtx<'a, (container::Ctx, &'a [u8], Section64)> for Section<'a> {
             reloff:   section.reloff,
             nreloc:   section.nreloc,
             flags:    section.flags,
-            data:     bytes,
-            raw_data: raw_data,
-            ctx:      ctx,
-        }, SIZEOF_SECTION_64))
+        }
     }
 }
 
-impl<'a> TryFromCtx<'a, (&'a [u8], container::Ctx)> for Section<'a> {
+impl<'a> TryFromCtx<'a, container::Ctx> for Section {
     type Error = ::error::Error;
     type Size = usize;
-    fn try_from_ctx(bytes: &'a [u8], (raw_data, ctx): (&'a [u8], container::Ctx)) -> Result<(Self, Self::Size), Self::Error> {
+    fn try_from_ctx(bytes: &'a [u8], ctx: container::Ctx) -> Result<(Self, Self::Size), Self::Error> {
         match ctx.container {
             container::Container::Little => {
-                let section = Section::try_from_ctx(bytes, (ctx, raw_data, bytes.pread_with::<Section32>(0, ctx.le)?))?;
-                Ok(section)
+                let section = Section::from(bytes.pread_with::<Section32>(0, ctx.le)?);
+                Ok((section, SIZEOF_SECTION_32))
             },
             container::Container::Big    => {
-                let section = Section::try_from_ctx(bytes, (ctx, raw_data, bytes.pread_with::<Section64>(0, ctx.le)?))?;
-                Ok(section)
+                let section = Section::from(bytes.pread_with::<Section64>(0, ctx.le)?);
+                Ok((section, SIZEOF_SECTION_64))
             },
         }
     }
 }
 
-impl<'a> ctx::SizeWith<container::Ctx> for Section<'a> {
+impl ctx::SizeWith<container::Ctx> for Section {
     type Units = usize;
     fn size_with(ctx: &container::Ctx) -> usize {
         match ctx.container {
             container::Container::Little => SIZEOF_SECTION_32,
             container::Container::Big    => SIZEOF_SECTION_64,
         }
+    }
+}
+
+impl ctx::TryIntoCtx<container::Ctx> for Section {
+    type Error = ::error::Error;
+    type Size = usize;
+    fn try_into_ctx(self, bytes: &mut [u8], ctx: container::Ctx) -> Result<Self::Size, Self::Error> {
+        if ctx.is_big () {
+            bytes.pwrite_with::<Section64>(self.into(), 0, ctx.le)?;
+        } else {
+            bytes.pwrite_with::<Section32>(self.into(), 0, ctx.le)?;
+        }
+        Ok(Self::size_with(&ctx))
+    }
+}
+
+impl ctx::IntoCtx<container::Ctx> for Section {
+    fn into_ctx(self, bytes: &mut [u8], ctx: container::Ctx) {
+        bytes.pwrite_with(self, 0, ctx).unwrap();
     }
 }
 
@@ -1480,13 +1575,13 @@ pub struct SectionIterator<'a> {
 }
 
 impl<'a> Iterator for SectionIterator<'a> {
-    type Item = error::Result<Section<'a>>;
+    type Item = error::Result<Section>;
     fn next(&mut self) -> Option<Self::Item> {
         if self.idx >= self.count {
             None
         } else {
             self.idx += 1;
-            match self.data.gread_with(&mut self.offset, (self.data, self.ctx)) {
+            match self.data.gread_with(&mut self.offset, self.ctx) {
                 Ok(res) => Some(Ok(res)),
                 Err(e) => Some(Err(e.into()))
             }
@@ -1495,7 +1590,7 @@ impl<'a> Iterator for SectionIterator<'a> {
 }
 
 impl<'a, 'b> IntoIterator for &'b Segment<'a> {
-    type Item = error::Result<Section<'a>>;
+    type Item = error::Result<Section>;
     type IntoIter = SectionIterator<'a>;
     fn into_iter(self) -> Self::IntoIter {
         SectionIterator {
@@ -1525,6 +1620,42 @@ pub struct Segment<'a> {
     offset:       usize,
     raw_data:     &'a [u8],
     ctx:          container::Ctx,
+}
+
+impl<'a> From<Segment<'a>> for SegmentCommand64 {
+    fn from(segment: Segment<'a>) -> Self {
+        SegmentCommand64 {
+            cmd:      segment.cmd,
+            cmdsize:  segment.cmdsize,
+            segname:  segment.segname,
+            vmaddr:   segment.vmaddr   as u64,
+            vmsize:   segment.vmsize   as u64,
+            fileoff:  segment.fileoff  as u64,
+            filesize: segment.filesize as u64,
+            maxprot:  segment.maxprot,
+            initprot: segment.initprot,
+            nsects:   segment.nsects,
+            flags:    segment.flags,
+        }
+    }
+}
+
+impl<'a> From<Segment<'a>> for SegmentCommand32 {
+    fn from(segment: Segment<'a>) -> Self {
+        SegmentCommand32 {
+            cmd:      segment.cmd,
+            cmdsize:  segment.cmdsize,
+            segname:  segment.segname,
+            vmaddr:   segment.vmaddr   as u32,
+            vmsize:   segment.vmsize   as u32,
+            fileoff:  segment.fileoff  as u32,
+            filesize: segment.filesize as u32,
+            maxprot:  segment.maxprot,
+            initprot: segment.initprot,
+            nsects:   segment.nsects,
+            flags:    segment.flags,
+        }
+    }
 }
 
 impl<'a> fmt::Debug for Segment<'a> {
@@ -1557,13 +1688,55 @@ impl<'a> ctx::SizeWith<container::Ctx> for Segment<'a> {
     }
 }
 
+impl<'a> ctx::TryIntoCtx<container::Ctx> for Segment<'a> {
+    type Error = ::error::Error;
+    type Size = usize;
+    fn try_into_ctx(self, bytes: &mut [u8], ctx: container::Ctx) -> Result<Self::Size, Self::Error> {
+        let segment_size = Self::size_with(&ctx);
+        // write the section data after the segment
+        let nsection_bytes = bytes.pwrite(self.data, segment_size)?;
+        if ctx.is_big () {
+            bytes.pwrite_with::<SegmentCommand64>(self.into(), 0, ctx.le)?;
+        } else {
+            bytes.pwrite_with::<SegmentCommand32>(self.into(), 0, ctx.le)?;
+        }
+        Ok(segment_size + nsection_bytes)
+    }
+}
+
+impl<'a> ctx::IntoCtx<container::Ctx> for Segment<'a> {
+    fn into_ctx(self, bytes: &mut [u8], ctx: container::Ctx) {
+        bytes.pwrite_with(self, 0, ctx).unwrap();
+    }
+}
+
 impl<'a> Segment<'a> {
+    /// Create a new, blank segment, with cmd either `LC_SEGMENT_64`, or `LC_SEGMENT`, depending on `ctx`. **NB** You are responsible for providing a correctly marshalled byte array as the sections. You should not use this for anything other than writing.
+    pub fn new(ctx: container::Ctx, sections: &'a [u8]) -> Self {
+        Segment {
+            cmd:      if ctx.is_big() { LC_SEGMENT_64 } else { LC_SEGMENT },
+            cmdsize:  (Self::size_with(&ctx) + sections.len()) as u32,
+            segname:  [0; 16],
+            vmaddr:   0,
+            vmsize:   0,
+            fileoff:  0,
+            filesize: 0,
+            maxprot:  0,
+            initprot: 0,
+            nsects:   0,
+            flags:    0,
+            data:     sections,
+            offset:   0,
+            raw_data: &[],
+            ctx:      ctx,
+        }
+    }
     /// Get the name of this segment
     pub fn name(&self) -> error::Result<&str> {
         Ok(self.segname.pread::<&str>(0)?)
     }
     /// Get the sections from this segment, erroring if any section couldn't be retrieved
-    pub fn sections(&self) -> error::Result<Vec<Section<'a>>> {
+    pub fn sections(&self) -> error::Result<Vec<Section>> {
         let mut sections = Vec::new();
         for section in self.into_iter() {
             sections.push(section?);
@@ -1651,7 +1824,7 @@ impl<'a> Segments<'a> {
         }
     }
     /// Get every section from every segment
-    pub fn sections(&self) -> error::Result<Vec<Vec<Section<'a>>>> {
+    pub fn sections(&self) -> error::Result<Vec<Vec<Section>>> {
         let mut sections = Vec::new();
         for segment in &self.segments {
             sections.push(segment.sections()?);

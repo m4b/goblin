@@ -44,6 +44,7 @@ pub struct MachO<'a> {
     pub little_endian: bool,
     /// Are we a 64-bit binary
     pub is_64: bool,
+    data: &'a [u8],
     ctx: container::Ctx,
     export_trie: Option<exports::ExportTrie<'a>>,
     bind_interpreter: Option<imports::BindInterpreter<'a>>,
@@ -59,6 +60,19 @@ impl<'a> MachO<'a> {
         } else {
             symbols::SymbolIterator::default()
         }
+    }
+    pub fn relocations(&self) -> error::Result<Vec<(usize, load_command::RelocationIterator, load_command::Section)>> {
+        debug!("Iterating relocations");
+        let mut relocs = Vec::new();
+        for (_i, segment) in (&self.segments).into_iter().enumerate() {
+            for (j, section) in segment.into_iter().enumerate() {
+                let section = section?;
+                if section.nreloc > 0 {
+                    relocs.push((j, section.iter_relocations(self.data, self.ctx), section));
+                }
+            }
+        }
+        Ok(relocs)
     }
     /// Return the exported symbols in this binary (if any)
     pub fn exports(&self) -> error::Result<Vec<exports::Export>> {
@@ -145,6 +159,7 @@ impl<'a> MachO<'a> {
             ctx: ctx,
             is_64: is_64,
             little_endian: little_endian,
+            data: bytes,
         })
     }
 }

@@ -15,6 +15,7 @@ pub mod exports;
 pub mod imports;
 pub mod bind_opcodes;
 pub mod relocation;
+pub mod segment;
 
 pub use self::constants::cputype as cputype;
 
@@ -31,7 +32,7 @@ pub struct MachO<'a> {
     /// The load commands tell the kernel and dynamic linker how to use/interpret this binary
     pub load_commands: Vec<load_command::LoadCommand>,
     /// The load command "segments" - typically the pieces of the binary that are loaded into memory
-    pub segments: load_command::Segments<'a>,
+    pub segments: segment::Segments<'a>,
     /// The "Nlist" style symbols in this binary - strippable
     pub symbols: Option<symbols::Symbols<'a>>,
     /// The dylibs this library depends on
@@ -61,7 +62,7 @@ impl<'a> MachO<'a> {
             symbols::SymbolIterator::default()
         }
     }
-    pub fn relocations(&self) -> error::Result<Vec<(usize, load_command::RelocationIterator, load_command::Section)>> {
+    pub fn relocations(&self) -> error::Result<Vec<(usize, segment::RelocationIterator, segment::Section)>> {
         debug!("Iterating relocations");
         let mut relocs = Vec::new();
         for (_i, segment) in (&self.segments).into_iter().enumerate() {
@@ -106,15 +107,15 @@ impl<'a> MachO<'a> {
         let mut bind_interpreter = None;
         let mut entry = 0x0;
         let mut name = None;
-        let mut segments = load_command::Segments::new(ctx);
+        let mut segments = segment::Segments::new(ctx);
         for _ in 0..ncmds {
             let cmd = load_command::LoadCommand::parse(bytes, offset, ctx.le)?;
             match cmd.command {
                 load_command::CommandVariant::Segment32(command) => {
-                    segments.push(load_command::Segment::from_32(bytes.as_ref(), &command, cmd.offset, ctx))
+                    segments.push(segment::Segment::from_32(bytes.as_ref(), &command, cmd.offset, ctx))
                 },
                 load_command::CommandVariant::Segment64(command) => {
-                    segments.push(load_command::Segment::from_64(bytes.as_ref(), &command, cmd.offset, ctx))
+                    segments.push(segment::Segment::from_64(bytes.as_ref(), &command, cmd.offset, ctx))
                 },
                 load_command::CommandVariant::Symtab(command) => {
                     symbols = Some(symbols::Symbols::parse(bytes, &command, ctx)?);

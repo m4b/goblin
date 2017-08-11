@@ -301,6 +301,7 @@ impl<'a> Archive<'a> {
         Ok(archive)
     }
 
+    /// Get the member named `member` in this archive, if any
     pub fn get (&self, member: &str) -> Option<&Member> {
         if let Some(idx) = self.members.get(member) {
             Some(&self.member_array[*idx])
@@ -319,6 +320,19 @@ impl<'a> Archive<'a> {
         }
     }
 
+    /// Gets a summary of this archive, returning a list of membername, the member, and the list of symbols the member contains
+    pub fn summarize(&self) -> Vec<(&String, &Member, Vec<&String>)> {
+        let symbols = self.symbol_index.iter().collect::<Vec<_>>();
+        let mut res = Vec::new();
+        for (member_name, idx) in self.members.iter() {
+            let member = &self.member_array[*idx];
+            let symbols = symbols.iter().filter_map(|&(ref symbol, ref mem_idx)| if *mem_idx == idx { Some(*symbol) } else { None }).collect::<Vec<_>>();
+            res.push((member_name, member, symbols));
+        }
+        res
+    }
+
+    /// Get the list of member names in this archive
     pub fn members(&self) -> Vec<&String> {
         self.members.keys().collect()
     }

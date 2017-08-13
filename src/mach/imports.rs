@@ -25,13 +25,16 @@ struct BindInformation<'a> {
   symbol_flags:           u8,
   addend:                 i64,
   special_dylib:          u8, // seeing self = 0 assuming this means the symbol is imported from itself, because its... libSystem.B.dylib?
+  is_lazy:                bool,
 }
 
 impl<'a> BindInformation<'a> {
     pub fn new (is_lazy: bool) -> Self {
         let mut bind_info = BindInformation::default();
-        let bind_type = if is_lazy { bind_opcodes::BIND_TYPE_POINTER } else { 0x0 };
-        bind_info.bind_type = bind_type;
+        if is_lazy {
+            bind_info.is_lazy = true;
+            bind_info.bind_type = bind_opcodes::BIND_TYPE_POINTER;
+        }
         bind_info
     }
     pub fn is_weak(&self) -> bool {
@@ -49,7 +52,8 @@ impl<'a> Default for BindInformation<'a> {
             symbol_library_ordinal: 0,
             symbol_name: "",
             symbol_flags: 0,
-            addend: 0
+            addend: 0,
+            is_lazy: false
         }
     }
 }
@@ -85,11 +89,11 @@ impl<'a> Import<'a> {
                 segment.vmaddr + bi.seg_offset
             )
         };
-        let size = if bi.is_lazy() { 8 } else { 0 };
+        let size = if bi.is_lazy { 8 } else { 0 };
         Import {
             name: bi.symbol_name,
             dylib: libs[bi.symbol_library_ordinal as usize],
-            is_lazy: bi.is_lazy(),
+            is_lazy: bi.is_lazy,
             offset: offset,
             size: size,
             address: address,
@@ -142,9 +146,9 @@ impl<'a> BindInterpreter<'a> {
     fn run(&self, is_lazy: bool, libs: &[&'a str], segments: &[segment::Segment], ctx: &container::Ctx, imports: &mut Vec<Import<'a>>) -> error::Result<()>{
         use mach::bind_opcodes::*;
         let location = if is_lazy {
-            &self.location
-        } else {
             &self.lazy_location
+        } else {
+            &self.location
         };
         let mut bind_info = BindInformation::new(is_lazy);
         let mut offset = &mut location.start.clone();

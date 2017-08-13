@@ -34,8 +34,8 @@ impl<'a> BindInformation<'a> {
         bind_info.bind_type = bind_type;
         bind_info
     }
-    pub fn is_lazy(&self) -> bool {
-        self.bind_type == bind_opcodes::BIND_TYPE_POINTER
+    pub fn is_weak(&self) -> bool {
+        self.symbol_flags & bind_opcodes::BIND_SYMBOL_FLAGS_WEAK_IMPORT != 0
     }
 }
 
@@ -71,6 +71,8 @@ pub struct Import<'a> {
     pub address: u64,
     /// The addend of this import
     pub addend:  i64,
+    /// Whether this import is weak
+    pub is_weak: bool,
 }
 
 impl<'a> Import<'a> {
@@ -91,7 +93,8 @@ impl<'a> Import<'a> {
             offset: offset,
             size: size,
             address: address,
-            addend: bi.addend
+            addend: bi.addend,
+            is_weak: bi.is_weak()
         }
     }
 }

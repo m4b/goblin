@@ -67,14 +67,21 @@ pub struct Import<'a> {
     pub offset:  u64,
     /// The size of this import
     pub size:    usize,
+    /// The virtual memory address at which this import is found
+    pub address: u64,
+    /// The addend of this import
+    pub addend:  i64,
 }
 
 impl<'a> Import<'a> {
     /// Create a new import from the import binding information in `bi`
     fn new(bi: &BindInformation<'a>, libs: &[&'a str], segments: &[segment::Segment]) -> Import<'a> {
-        let offset = {
+        let (offset, address) = {
             let segment = &segments[bi.seg_index as usize];
-            segment.fileoff + bi.seg_offset
+            (
+                segment.fileoff + bi.seg_offset,
+                segment.vmaddr + bi.seg_offset
+            )
         };
         let size = if bi.is_lazy() { 8 } else { 0 };
         Import {
@@ -83,6 +90,8 @@ impl<'a> Import<'a> {
             is_lazy: bi.is_lazy(),
             offset: offset,
             size: size,
+            address: address,
+            addend: bi.addend
         }
     }
 }

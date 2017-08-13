@@ -12,6 +12,7 @@ use std::borrow::Cow;
 fn usage() -> ! {
     println!("usage: dyldinfo <options> <mach-o file>");
     println!("    -bind             print binds as seen by macho::imports()");
+    println!("    -lazy_bind        print lazy binds as seen by macho::imports()");
     process::exit(1);
 }
 
@@ -34,17 +35,7 @@ fn dylib_name(name: &str) -> &str {
         .split('.').next().unwrap()
 }
 
-fn print_binds(macho: &mach::MachO) {
-    // collect sections and sort by address
-    let mut sections: Vec<mach::segment::Section> = Vec::new();
-    for sects in macho.segments.sections() {
-        sections.extend(sects.map(|r| r.expect("section").0));
-    }
-    sections.sort_by_key(|s| s.addr);
-
-    // get the imports
-    let imports = macho.imports().expect("imports");
-
+fn print_binds(sections: &[mach::segment::Section], imports: &[mach::imports::Import]) {
     println!("bind information:");
 
     println!(
@@ -83,10 +74,47 @@ fn print_binds(macho: &mach::MachO) {
     }
 }
 
+fn print_lazy_binds(sections: &[mach::segment::Section], imports: &[mach::imports::Import]) {
+    println!("lazy binding information (from lazy_bind part of dyld info):");
+
+    println!(
+        "{:7} {:16} {:10} {:6} {:16} {}",
+        "segment",
+        "section",
+        "address",
+        "index",
+        "dylib",
+        "symbol"
+    );
+
+    for import in imports.iter().filter(|i| i.is_lazy) {
+        // find the section that imported this symbol
+        let section = sections.iter()
+            .filter(|s| import.address >= s.addr && import.address < (s.addr + s.size))
+            .next();
+
+        // get &strs for its name
+        let (segname, sectname) = section
+            .map(|sect|  (name_to_str(&sect.segname), name_to_str(&sect.sectname)))
+            .unwrap_or((Cow::Borrowed("?"), Cow::Borrowed("?")));
+
+        println!(
+        "{:7} {:16} 0x{:<8X} 0x{:<04X} {:16} {}",
+            segname,
+            sectname,
+            import.address,
+            import.start_of_sequence_offset,
+            dylib_name(import.dylib),
+            import.name
+        );
+    }
+}
+
 fn main () {
     let len = env::args().len();
 
     let mut bind = false;
+    let mut lazy_bind = false;
 
     if len <= 2 {
         usage();
@@ -99,6 +127,7 @@ fn main () {
             for option in flags {
                 match option.as_str() {
                     "-bind" => { bind = true }
+                    "-lazy_bind" => { lazy_bind = true }
                     other => {
                         println!("unknown flag: {}", other);
                         println!("");
@@ -114,8 +143,21 @@ fn main () {
         let buffer = { let mut v = Vec::new(); let mut f = File::open(&path).unwrap(); f.read_to_end(&mut v).unwrap(); v};
         match mach::MachO::parse(&buffer, 0) {
             Ok(macho) => {
+                // collect sections and sort by address
+                let mut sections: Vec<mach::segment::Section> = Vec::new();
+                for sects in macho.segments.sections() {
+                    sections.extend(sects.map(|r| r.expect("section").0));
+                }
+                sections.sort_by_key(|s| s.addr);
+
+                // get the imports
+                let imports = macho.imports().expect("imports");
+
                 if bind {
-                    print_binds(&macho);
+                    print_binds(&sections, &imports);
+                }
+                if lazy_bind {
+                    print_lazy_binds(&sections, &imports);
                 }
             },
             Err(err) => {

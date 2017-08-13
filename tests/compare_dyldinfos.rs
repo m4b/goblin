@@ -34,6 +34,20 @@ fn compare_binds() {
     compare(vec!["-bind", "/usr/bin/tmutil"]);
 }
 
+#[cfg(target_os="macos")]
+#[test]
+fn compare_lazy_binds() {
+    compare(vec!["-lazy_bind", "/Library/Developer/CommandLineTools/usr/bin/dyldinfo"]);
+    compare(vec!["-lazy_bind", "/Library/Developer/CommandLineTools/usr/bin/clang"]);
+    compare(vec!["-lazy_bind", "/usr/bin/tmutil"]);
+}
+
+#[cfg(target_os="macos")]
+#[test]
+fn compare_combined_options() {
+    compare(vec!["-lazy_bind", "-bind", "/Library/Developer/CommandLineTools/usr/bin/dyldinfo"]);
+}
+
 #[cfg(not(target_os="macos"))]
 #[test]
 fn skipped_on_this_platform() {

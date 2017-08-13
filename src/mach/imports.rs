@@ -77,11 +77,13 @@ pub struct Import<'a> {
     pub addend:  i64,
     /// Whether this import is weak
     pub is_weak: bool,
+    /// The offset in the stream of bind opcodes that caused this import
+    pub start_of_sequence_offset: u64
 }
 
 impl<'a> Import<'a> {
     /// Create a new import from the import binding information in `bi`
-    fn new(bi: &BindInformation<'a>, libs: &[&'a str], segments: &[segment::Segment]) -> Import<'a> {
+    fn new(bi: &BindInformation<'a>, libs: &[&'a str], segments: &[segment::Segment], start_of_sequence_offset: usize) -> Import<'a> {
         let (offset, address) = {
             let segment = &segments[bi.seg_index as usize];
             (
@@ -98,7 +100,8 @@ impl<'a> Import<'a> {
             size: size,
             address: address,
             addend: bi.addend,
-            is_weak: bi.is_weak()
+            is_weak: bi.is_weak(),
+            start_of_sequence_offset: start_of_sequence_offset as u64
         }
     }
 }
@@ -152,6 +155,7 @@ impl<'a> BindInterpreter<'a> {
         };
         let mut bind_info = BindInformation::new(is_lazy);
         let mut offset = &mut location.start.clone();
+        let mut start_of_sequence: usize = 0;
         while *offset < location.end {
             let opcode = self.data.gread::<i8>(offset)? as bind_opcodes::Opcode;
             // let mut input = String::new();
@@ -161,6 +165,7 @@ impl<'a> BindInterpreter<'a> {
                 // we do nothing, don't update our records, and add a new, fresh record
                 BIND_OPCODE_DONE => {
                     bind_info = BindInformation::new(is_lazy);
+                    start_of_sequence = *offset - location.start;
                 },
                 BIND_OPCODE_SET_DYLIB_ORDINAL_IMM => {
 	            let symbol_library_ordinal = opcode & BIND_IMMEDIATE_MASK;
@@ -211,7 +216,7 @@ impl<'a> BindInterpreter<'a> {
 	            // throwBadBindingAddress(address, segmentEndAddress, segmentIndex, start, end, p);
 	            // (this->*handler)(context, address, type, symbolName, symboFlags, addend, libraryOrdinal, "", &last);
 	            // address += sizeof(intptr_t);
-                    imports.push(Import::new(&bind_info, libs, segments));
+                    imports.push(Import::new(&bind_info, libs, segments, start_of_sequence));
                     let seg_offset = bind_info.seg_offset.wrapping_add(ctx.size() as u64);
                     bind_info.seg_offset = seg_offset;
                 },
@@ -222,7 +227,7 @@ impl<'a> BindInterpreter<'a> {
 	            // (this->*handler)(context, address, type, symbolName, symboFlags, addend, libraryOrdinal, "", &last);
 	            // address += read_uleb128(p, end) + sizeof(intptr_t);
                     // we bind the old record, then increment bind info address for the next guy, plus the ptr offset *)
-                    imports.push(Import::new(&bind_info, libs, segments));
+                    imports.push(Import::new(&bind_info, libs, segments, start_of_sequence));
                     let addr = Uleb128::read(&self.data, offset)?;
                     let seg_offset = bind_info.seg_offset.wrapping_add(addr).wrapping_add(ctx.size() as u64);
                     bind_info.seg_offset = seg_offset;
@@ -235,7 +240,7 @@ impl<'a> BindInterpreter<'a> {
 	            // address += immediate*sizeof(intptr_t) + sizeof(intptr_t);
 	            // break;
                     // similarly, we bind the old record, then perform address manipulation for the next record
-                    imports.push(Import::new(&bind_info, libs, segments));
+                    imports.push(Import::new(&bind_info, libs, segments, start_of_sequence));
 	            let scale = opcode & BIND_IMMEDIATE_MASK;
                     let size = ctx.size() as u64;
                     let seg_offset = bind_info.seg_offset.wrapping_add(scale as u64 * size).wrapping_add(size);
@@ -256,7 +261,7 @@ impl<'a> BindInterpreter<'a> {
                     let skip =  Uleb128::read(&self.data, offset)?;
                     let skip_plus_size = skip + ctx.size() as u64;
                     for _i  in 0..count {
-                        imports.push(Import::new(&bind_info, libs, segments));
+                        imports.push(Import::new(&bind_info, libs, segments, start_of_sequence));
                         let seg_offset = bind_info.seg_offset.wrapping_add(skip_plus_size);
                         bind_info.seg_offset = seg_offset;
                     }

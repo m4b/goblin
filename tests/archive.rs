@@ -54,6 +54,7 @@ fn parse_archive() {
 }
 
 #[test]
+#[cfg(not(target_os="macos"))]  // pending https://github.com/m4b/goblin/issues/26
 fn parse_self() {
     use std::io::Read;
     let path = Path::new("target").join("debug").join("libgoblin.rlib");

@@ -18,10 +18,10 @@ fn compare(args: Vec<&str>) {
         .expect("run cargo dyldinfo");
 
     if apple.stdout.as_slice() != goblin.stdout.as_slice() {
-        eprintln!("dyldinfo calls disagree!");
-        eprintln!("Apple dyldinfo {:?} output:\n{}", &args, String::from_utf8_lossy(&apple.stdout));
-        eprintln!("---");
-        eprintln!("cargo dyldinfo {:?} output:\n{}", &args, String::from_utf8_lossy(&goblin.stdout));
+        println!("dyldinfo calls disagree!");
+        println!("Apple dyldinfo {:?} output:\n{}", &args, String::from_utf8_lossy(&apple.stdout));
+        println!("---");
+        println!("cargo dyldinfo {:?} output:\n{}", &args, String::from_utf8_lossy(&goblin.stdout));
         panic!("Apple dyldinfo and cargo dyldinfo differed (args: {:?})", args);
     }
 }

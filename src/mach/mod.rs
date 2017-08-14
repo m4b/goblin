@@ -276,7 +276,7 @@ impl<'a> MultiArch<'a> {
         Ok(MachO::parse(bytes, 0)?)
     }
 
-    pub fn find<F: (Fn(error::Result<fat::FatArch>) -> bool)>(&'a self, f: F) -> Option<error::Result<MachO<'a>>> {
+    pub fn find<F: Fn(error::Result<fat::FatArch>) -> bool>(&'a self, f: F) -> Option<error::Result<MachO<'a>>> {
         for (i, arch) in self.iter_arches().enumerate() {
             if f(arch) {
                 return Some(self.get(i));

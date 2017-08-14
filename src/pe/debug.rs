@@ -111,10 +111,10 @@ impl<'a> CodeviewPDB70DebugInfo<'a> {
         let filename = &bytes[offset..offset + filename_length];
 
         Ok(Some(CodeviewPDB70DebugInfo{
-            codeview_signature,
-            signature,
-            age,
-            filename,
+            codeview_signature: codeview_signature,
+            signature: signature,
+            age: age,
+            filename: filename,
         }))
     }
 }

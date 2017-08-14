@@ -24,7 +24,6 @@ pub fn peek(bytes: &[u8], offset: usize) -> error::Result<u32> {
     Ok(bytes.pread_with::<u32>(offset, scroll::BE)?)
 }
 
-#[derive(Debug)]
 /// A cross-platform, zero-copy, endian-aware, 32/64 bit Mach-o binary parser
 pub struct MachO<'a> {
     /// The mach-o header
@@ -49,6 +48,25 @@ pub struct MachO<'a> {
     ctx: container::Ctx,
     export_trie: Option<exports::ExportTrie<'a>>,
     bind_interpreter: Option<imports::BindInterpreter<'a>>,
+}
+
+#[cfg(feature = "std")]
+impl<'a> fmt::Debug for MachO<'a> {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("MachO")
+            .field("header",        &self.header)
+            .field("load_commands", &self.load_commands)
+            .field("segments",      &self.segments)
+            .field("entry",         &self.entry)
+            .field("libs",          &self.libs)
+            .field("name",          &self.name)
+            .field("little_endian", &self.little_endian)
+            .field("is_64",         &self.is_64)
+            .field("symbols",       &self.symbols().collect::<Vec<_>>())
+            .field("exports",       &self.exports().unwrap())
+            .field("imports",       &self.imports().unwrap())
+            .finish()
+    }
 }
 
 impl<'a> MachO<'a> {

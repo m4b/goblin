@@ -24,20 +24,43 @@ pub fn peek(bytes: &[u8], offset: usize) -> error::Result<u32> {
     Ok(bytes.pread_with::<u32>(offset, scroll::BE)?)
 }
 
+#[derive(Copy,Clone,Eq,PartialEq,Hash)]
+pub enum Entrypoint {
+    None,
+    /// The entrypoint was from an `LC_MAIN` load command (added in 10.8) and specifies an offset in
+    /// the `__TEXT` segment.
+    Offset(u64),
+    /// The entrypoint was from an `LC_UNIXTHREAD`/`LC_THREAD` load command and specifies a virtual
+    /// memory address.
+    VirtualAddress(u64)
+}
+
+#[cfg(feature = "std")]
+impl fmt::Debug for Entrypoint {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Entrypoint::None => write!(f, "Entrypoint::None"),
+            Entrypoint::Offset(pos) => write!(f, "Entrypoint::Offset(0x{:x})", pos),
+            Entrypoint::VirtualAddress(pos) => write!(f, "Entrypoint::VirtualAddress(0x{:x})", pos),
+        }
+    }
+}
+
+
 /// A cross-platform, zero-copy, endian-aware, 32/64 bit Mach-o binary parser
 pub struct MachO<'a> {
     /// The mach-o header
     pub header: header::Header,
     /// The load commands tell the kernel and dynamic linker how to use/interpret this binary
-    pub load_commands: Vec<load_command::LoadCommand>,
+    pub load_commands: Vec<load_command::LoadCommand<'a>>,
     /// The load command "segments" - typically the pieces of the binary that are loaded into memory
     pub segments: segment::Segments<'a>,
     /// The "Nlist" style symbols in this binary - strippable
     pub symbols: Option<symbols::Symbols<'a>>,
     /// The dylibs this library depends on
     pub libs: Vec<&'a str>,
-    /// The entry point, 0 if none
-    pub entry: u64,
+    /// The entry point
+    pub entry: Entrypoint,
     /// The name of the dylib, if any
     pub name: Option<&'a str>,
     /// Are we a little-endian binary?
@@ -123,7 +146,7 @@ impl<'a> MachO<'a> {
         let mut libs = vec!["self"];
         let mut export_trie = None;
         let mut bind_interpreter = None;
-        let mut entry = 0x0;
+        let mut entry = Entrypoint::None;
         let mut name = None;
         let mut segments = segment::Segments::new(ctx);
         for _ in 0..ncmds {
@@ -151,10 +174,32 @@ impl<'a> MachO<'a> {
                     bind_interpreter = Some(imports::BindInterpreter::new(bytes, &command));
                 },
                 load_command::CommandVariant::Unixthread(command) => {
-                    entry = command.thread_state.eip as u64;
+                    // dyld uses the first LC_MAIN entrypoint, and if none is present, it uses the
+                    // first LC_UNIXTHREAD entrypoint
+                    // model that behavior
+                    match entry {
+                        Entrypoint::None => {
+                            // remember this LC_UNIXTHREAD
+                            entry = Entrypoint::VirtualAddress(command.instruction_pointer(header.cputype)?);
+                        }
+                        _ => {
+                            // we either have an LC_MAIN or a previous LC_UNIXTHREAD
+                            // in either case, do nothing
+                        }
+                    }
                 },
                 load_command::CommandVariant::Main(command) => {
-                    entry = command.entryoff;
+                    match entry {
+                        Entrypoint::None | Entrypoint::VirtualAddress(_) => {
+                            // we either have no entrypoint or an LC_UNIXTHREAD
+                            // in either case, use this LC_MAIN
+                            entry = Entrypoint::Offset(command.entryoff);
+                        }
+                        _ => {
+                            // we are not the first LC_MAIN
+                            // ignore this load command
+                        }
+                    }
                 },
                 load_command::CommandVariant::IdDylib(command) => {
                     let id = bytes.pread::<&str>(cmd.offset + command.dylib.name as usize)?;

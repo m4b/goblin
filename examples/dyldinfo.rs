@@ -99,11 +99,11 @@ fn print_lazy_binds(sections: &[mach::segment::Section], imports: &[mach::import
             .unwrap_or((Cow::Borrowed("?"), Cow::Borrowed("?")));
 
         println!(
-        "{:7} {:16} 0x{:<8X} 0x{:<04X} {:16} {}",
+        "{:7} {:16} 0x{:<8X} {:<06} {:16} {}",
             segname,
             sectname,
             import.address,
-            import.start_of_sequence_offset,
+            format!("0x{:04X}", import.start_of_sequence_offset),
             dylib_name(import.dylib),
             import.name
         );

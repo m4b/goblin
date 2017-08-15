@@ -24,7 +24,6 @@ pub fn peek(bytes: &[u8], offset: usize) -> error::Result<u32> {
     Ok(bytes.pread_with::<u32>(offset, scroll::BE)?)
 }
 
-#[derive(Debug)]
 /// A cross-platform, zero-copy, endian-aware, 32/64 bit Mach-o binary parser
 pub struct MachO<'a> {
     /// The mach-o header
@@ -37,8 +36,10 @@ pub struct MachO<'a> {
     pub symbols: Option<symbols::Symbols<'a>>,
     /// The dylibs this library depends on
     pub libs: Vec<&'a str>,
-    /// The entry point, 0 if none
+    /// The entry point (as a virtual memory address), 0 if none
     pub entry: u64,
+    /// Whether `entry` refers to an older `LC_UNIXTHREAD` instead of the newer `LC_MAIN` entrypoint
+    pub old_style_entry: bool,
     /// The name of the dylib, if any
     pub name: Option<&'a str>,
     /// Are we a little-endian binary?
@@ -49,6 +50,26 @@ pub struct MachO<'a> {
     ctx: container::Ctx,
     export_trie: Option<exports::ExportTrie<'a>>,
     bind_interpreter: Option<imports::BindInterpreter<'a>>,
+}
+
+#[cfg(feature = "std")]
+impl<'a> fmt::Debug for MachO<'a> {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("MachO")
+            .field("header",          &self.header)
+            .field("load_commands",   &self.load_commands)
+            .field("segments",        &self.segments)
+            .field("entry",           &self.entry)
+            .field("old_style_entry", &self.old_style_entry)
+            .field("libs",            &self.libs)
+            .field("name",            &self.name)
+            .field("little_endian",   &self.little_endian)
+            .field("is_64",           &self.is_64)
+            .field("symbols()",       &self.symbols().collect::<Vec<_>>())
+            .field("exports()",       &self.exports())
+            .field("imports()",       &self.imports())
+            .finish()
+    }
 }
 
 impl<'a> MachO<'a> {
@@ -105,7 +126,8 @@ impl<'a> MachO<'a> {
         let mut libs = vec!["self"];
         let mut export_trie = None;
         let mut bind_interpreter = None;
-        let mut entry = 0x0;
+        let mut unixthread_entry_address = None;
+        let mut main_entry_offset = None;
         let mut name = None;
         let mut segments = segment::Segments::new(ctx);
         for _ in 0..ncmds {
@@ -133,10 +155,16 @@ impl<'a> MachO<'a> {
                     bind_interpreter = Some(imports::BindInterpreter::new(bytes, &command));
                 },
                 load_command::CommandVariant::Unixthread(command) => {
-                    entry = command.thread_state.eip as u64;
+                    // dyld cares only about the first LC_UNIXTHREAD
+                    if unixthread_entry_address.is_none() {
+                        unixthread_entry_address = Some(command.instruction_pointer(header.cputype)?);
+                    }
                 },
                 load_command::CommandVariant::Main(command) => {
-                    entry = command.entryoff;
+                    // dyld cares only about the first LC_MAIN
+                    if main_entry_offset.is_none() {
+                        main_entry_offset = Some(command.entryoff);
+                    }
                 },
                 load_command::CommandVariant::IdDylib(command) => {
                     let id = bytes.pread::<&str>(cmd.offset + command.dylib.name as usize)?;
@@ -147,6 +175,26 @@ impl<'a> MachO<'a> {
             }
             cmds.push(cmd)
         }
+
+        // dyld prefers LC_MAIN over LC_UNIXTHREAD
+        // choose the same way here
+        let (entry, old_style_entry) = if let Some(offset) = main_entry_offset {
+            // map the entrypoint offset to a virtual memory address
+            let base_address = segments.iter()
+                .filter(|s| &s.segname[0..7] == b"__TEXT\0")
+                .map(|s| s.vmaddr - s.fileoff)
+                .next()
+                .ok_or_else(||
+                    error::Error::Malformed(format!("image specifies LC_MAIN offset {} but has no __TEXT segment", offset))
+                )?;
+
+            (base_address + offset, false)
+        } else if let Some(address) = unixthread_entry_address {
+            (address, true)
+        } else {
+            (0, false)
+        };
+
         Ok(MachO {
             header: header,
             load_commands: cmds,
@@ -156,6 +204,7 @@ impl<'a> MachO<'a> {
             export_trie: export_trie,
             bind_interpreter: bind_interpreter,
             entry: entry,
+            old_style_entry: old_style_entry,
             name: name,
             ctx: ctx,
             is_64: is_64,

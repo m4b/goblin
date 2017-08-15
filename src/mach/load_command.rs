@@ -371,42 +371,173 @@ pub const SIZEOF_DYLINKER_COMMAND: usize = 12;
 // struct XXX_thread_state state   thread state for this flavor
 // ...
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Copy)]
 pub struct ThreadCommand {
     /// LC_THREAD or  LC_UNIXTHREAD
     pub cmd:     u32,
     /// total size of this command
     pub cmdsize: u32,
+
+    /// flavor of thread state (but you also need to know the `cputype`)
     pub flavor: u32,
+
+    /// number of elements in `thread_state` that are valid
     pub count: u32,
-    /// NOTE: this is actually, in classic mach-o style, a semi-tagged union-esque struct, and is _not_ properly handled here for arches other than i386... e.g., this is incorrect for powerpc, armv7, etc.
-    /// TODO: We need to implement a simple getter for the thread state; or even better, a method that simply returns the entry point (which is what we usually want)
-    pub thread_state: I386ThreadState,
+
+    /// The raw thread state, details of which varies by CPU
+    pub thread_state: [u32; 70],
 }
 
-/// Main thread state consists of
-/// general registers, segment registers,
-/// eip and eflags.
-///
-#[repr(packed)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
-pub struct I386ThreadState {
-    pub eax: u32,
-    pub ebx: u32,
-    pub ecx: u32,
-    pub edx: u32,
-    pub edi: u32,
-    pub esi: u32,
-    pub ebp: u32,
-    pub esp: u32,
-    pub ss: u32,
-    pub eflags: u32,
-    pub eip: u32,
-    pub cs: u32,
-    pub ds: u32,
-    pub es: u32,
-    pub fs: u32,
-    pub gs: u32,
+impl ThreadCommand {
+    pub fn instruction_pointer(&self, cputype: super::cputype::CpuType) -> error::Result<u64> {
+        // The thread command includes a `flavor` value which distinguishes between related thread
+        // states. However, `dyld` ignores this entirely, blindly interpreting the thread state
+        // values as a machine-specific set of registers matching the build configuration of the
+        // active `dyld` binary.
+        //
+        // Really the only thing that `dyld` cares is that the Mach header's `cputype`, so that's
+        // what we use here.
+        match cputype {
+            super::cputype::CPU_TYPE_X86 => {
+                // struct i386_thread_state_t {
+                //   uint32_t eax;
+                //   uint32_t ebx;
+                //   uint32_t ecx;
+                //   uint32_t edx;
+                //   uint32_t edi;
+                //   uint32_t esi;
+                //   uint32_t ebp;
+                //   uint32_t esp;
+                //   uint32_t ss;
+                //   uint32_t eflags;
+                //   uint32_t eip;
+                //   uint32_t cs;
+                //   uint32_t ds;
+                //   uint32_t es;
+                //   uint32_t fs;
+                //   uint32_t gs;
+                // }
+                let eip: u32 = self.thread_state[10];
+                Ok(eip as u64)
+            },
+            super::cputype::CPU_TYPE_X86_64 => {
+                // struct x86_thread_state64_t {
+                //   uint64_t rax;
+                //   uint64_t rbx;
+                //   uint64_t rcx;
+                //   uint64_t rdx;
+                //   uint64_t rdi;
+                //   uint64_t rsi;
+                //   uint64_t rbp;
+                //   uint64_t rsp;
+                //   uint64_t r8;
+                //   uint64_t r9;
+                //   uint64_t r10;
+                //   uint64_t r11;
+                //   uint64_t r12;
+                //   uint64_t r13;
+                //   uint64_t r14;
+                //   uint64_t r15;
+                //   uint64_t rip;
+                //   uint64_t rflags;
+                //   uint64_t cs;
+                //   uint64_t fs;
+                //   uint64_t gs;
+                // }
+                let rip: u64 =
+                       (self.thread_state[32] as u64)
+                    | ((self.thread_state[33] as u64) << 32);
+                Ok(rip)
+            }
+            super::cputype::CPU_TYPE_ARM => {
+                // struct arm_thread_state32_t {
+                //   uint32_t r[13];
+                //   uint32_t sp;
+                //   uint32_t lr;
+                //   uint32_t pc;
+                //   uint32_t cpsr;
+                // }
+                let pc: u32 = self.thread_state[15];
+                Ok(pc as u64)
+            }
+            super::cputype::CPU_TYPE_ARM64 => {
+                // struct arm_thread_state64_t {
+                //   uint64_t x[29];
+                //   uint64_t fp;
+                //   uint64_t lr;
+                //   uint64_t sp;
+                //   uint64_t pc;
+                //   uint32_t cpsr;
+                //   uint32_t pad;
+                // }
+                let pc: u64 =
+                       (self.thread_state[64] as u64)
+                    | ((self.thread_state[65] as u64) << 32);
+                Ok(pc)
+            }
+            _ => {
+                Err(error::Error::Malformed(format!("unable to find instruction pointer for cputype {:?}", cputype)))
+            }
+        }
+    }
+}
+
+impl<'a> ctx::TryFromCtx<'a, Endian> for ThreadCommand {
+    type Error = ::error::Error;
+    type Size = usize;
+    fn try_from_ctx(bytes: &'a [u8], le: Endian) -> error::Result<(Self, Self::Size)> {
+        use scroll::{Pread};
+        let lc = bytes.pread_with::<LoadCommandHeader>(0, le)?;
+
+        // read the thread state flavor and length of the thread state
+        let flavor: u32 = bytes.pread_with(8, le)?;
+        let count: u32 = bytes.pread_with(12, le)?;
+
+        // get a byte slice of the thread state
+        let thread_state_byte_length = count as usize * 4;
+        let thread_state_bytes = &bytes[16..16+thread_state_byte_length];
+
+        // check the length
+        if thread_state_bytes.len() < thread_state_byte_length {
+            return Err(error::Error::Malformed(format!("thread command specifies {} bytes for thread state but has only {}", thread_state_byte_length, thread_state_bytes.len())));
+        }
+        if count > 70 {
+            return Err(error::Error::Malformed(format!("thread command specifies {} longs for thread state but we handle only 70", count)));
+        }
+
+        // read the thread state
+        let mut thread_state: [u32; 70] = [ 0; 70 ];
+        for i in 0..count as usize {
+            thread_state[i] = thread_state_bytes.pread_with(i*4, le)?;
+        }
+
+        Ok((ThreadCommand{
+            cmd: lc.cmd,
+            cmdsize: lc.cmdsize,
+            flavor: flavor,
+            count: count,
+            thread_state: thread_state,
+        }, lc.cmdsize as _))
+    }
+}
+
+impl Clone for ThreadCommand {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+#[cfg(feature = "std")]
+impl fmt::Debug for ThreadCommand {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("ThreadCommand")
+            .field("cmd",          &self.cmd)
+            .field("cmdsize",      &self.cmdsize)
+            .field("flavor",       &self.flavor)
+            .field("count",        &self.count)
+            .field("thread_state", &&self.thread_state[..])
+            .finish()
+    }
 }
 
 /// The routines command contains the address of the dynamic shared library

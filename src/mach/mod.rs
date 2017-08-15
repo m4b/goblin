@@ -52,7 +52,7 @@ pub struct MachO<'a> {
     /// The mach-o header
     pub header: header::Header,
     /// The load commands tell the kernel and dynamic linker how to use/interpret this binary
-    pub load_commands: Vec<load_command::LoadCommand<'a>>,
+    pub load_commands: Vec<load_command::LoadCommand>,
     /// The load command "segments" - typically the pieces of the binary that are loaded into memory
     pub segments: segment::Segments<'a>,
     /// The "Nlist" style symbols in this binary - strippable

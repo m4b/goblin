@@ -371,19 +371,24 @@ pub const SIZEOF_DYLINKER_COMMAND: usize = 12;
 // struct XXX_thread_state state   thread state for this flavor
 // ...
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct ThreadCommand<'a> {
+#[derive(Copy)]
+pub struct ThreadCommand {
     /// LC_THREAD or  LC_UNIXTHREAD
     pub cmd:     u32,
     /// total size of this command
     pub cmdsize: u32,
+
+    /// flavor of thread state (but you also need to know the `cputype`)
     pub flavor: u32,
 
+    /// number of elements in `thread_state` that are valid
+    pub count: u32,
+
     /// The raw thread state, details of which varies by CPU
-    pub thread_state: &'a [u8],
+    pub thread_state: [u32; 70],
 }
 
-impl<'a> ThreadCommand<'a> {
+impl ThreadCommand {
     pub fn instruction_pointer(&self, cputype: super::cputype::CpuType) -> error::Result<u64> {
         // The thread command includes a `flavor` value which distinguishes between related thread
         // states. However, `dyld` ignores this entirely, blindly interpreting the thread state
@@ -392,7 +397,6 @@ impl<'a> ThreadCommand<'a> {
         //
         // Really the only thing that `dyld` cares is that the Mach header's `cputype`, so that's
         // what we use here.
-        use scroll::{Pread,LE};
         match cputype {
             super::cputype::CPU_TYPE_X86 => {
                 // struct i386_thread_state_t {
@@ -413,7 +417,7 @@ impl<'a> ThreadCommand<'a> {
                 //   uint32_t fs;
                 //   uint32_t gs;
                 // }
-                let eip: u32 = self.thread_state.pread_with(10 * 4, LE)?;
+                let eip: u32 = self.thread_state[10];
                 Ok(eip as u64)
             },
             super::cputype::CPU_TYPE_X86_64 => {
@@ -440,7 +444,9 @@ impl<'a> ThreadCommand<'a> {
                 //   uint64_t fs;
                 //   uint64_t gs;
                 // }
-                let rip: u64 = self.thread_state.pread_with(16 * 8, LE)?;
+                let rip: u64 =
+                       (self.thread_state[32] as u64)
+                    | ((self.thread_state[33] as u64) << 32);
                 Ok(rip)
             }
             super::cputype::CPU_TYPE_ARM => {
@@ -451,7 +457,7 @@ impl<'a> ThreadCommand<'a> {
                 //   uint32_t pc;
                 //   uint32_t cpsr;
                 // }
-                let pc: u32 = self.thread_state.pread_with(15 * 4, LE)?;
+                let pc: u32 = self.thread_state[15];
                 Ok(pc as u64)
             }
             super::cputype::CPU_TYPE_ARM64 => {
@@ -464,7 +470,9 @@ impl<'a> ThreadCommand<'a> {
                 //   uint32_t cpsr;
                 //   uint32_t pad;
                 // }
-                let pc: u64 = self.thread_state.pread_with(32 * 8, LE)?;
+                let pc: u64 =
+                       (self.thread_state[64] as u64)
+                    | ((self.thread_state[65] as u64) << 32);
                 Ok(pc)
             }
             _ => {
@@ -474,7 +482,7 @@ impl<'a> ThreadCommand<'a> {
     }
 }
 
-impl<'a> ctx::TryFromCtx<'a, Endian> for ThreadCommand<'a> {
+impl<'a> ctx::TryFromCtx<'a, Endian> for ThreadCommand {
     type Error = ::error::Error;
     type Size = usize;
     fn try_from_ctx(bytes: &'a [u8], le: Endian) -> error::Result<(Self, Self::Size)> {
@@ -483,24 +491,54 @@ impl<'a> ctx::TryFromCtx<'a, Endian> for ThreadCommand<'a> {
 
         // read the thread state flavor and length of the thread state
         let flavor: u32 = bytes.pread_with(8, le)?;
-        let thread_state_longs: u32 = bytes.pread_with(12, le)?;
+        let count: u32 = bytes.pread_with(12, le)?;
 
-        // get a slice for the thread state
-        let thread_state_bytes = thread_state_longs as usize * 4;
-        let thread_state = &bytes[16..16+thread_state_bytes];
-        if thread_state.len() < thread_state_bytes {
-            return Err(error::Error::Malformed(format!("thread command specifies {} bytes for thread state but has only {}", thread_state_bytes, thread_state.len())));
+        // get a byte slice of the thread state
+        let thread_state_byte_length = count as usize * 4;
+        let thread_state_bytes = &bytes[16..16+thread_state_byte_length];
+
+        // check the length
+        if thread_state_bytes.len() < thread_state_byte_length {
+            return Err(error::Error::Malformed(format!("thread command specifies {} bytes for thread state but has only {}", thread_state_byte_length, thread_state_bytes.len())));
+        }
+        if count > 70 {
+            return Err(error::Error::Malformed(format!("thread command specifies {} longs for thread state but we handle only 70", count)));
+        }
+
+        // read the thread state
+        let mut thread_state: [u32; 70] = [ 0; 70 ];
+        for i in 0..count as usize {
+            thread_state[i] = thread_state_bytes.pread_with(i*4, le)?;
         }
 
         Ok((ThreadCommand{
             cmd: lc.cmd,
             cmdsize: lc.cmdsize,
             flavor: flavor,
+            count: count,
             thread_state: thread_state,
         }, lc.cmdsize as _))
     }
 }
 
+impl Clone for ThreadCommand {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+#[cfg(feature = "std")]
+impl fmt::Debug for ThreadCommand {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("ThreadCommand")
+            .field("cmd",          &self.cmd)
+            .field("cmdsize",      &self.cmdsize)
+            .field("flavor",       &self.flavor)
+            .field("count",        &self.count)
+            .field("thread_state", &&self.thread_state[..])
+            .finish()
+    }
+}
 
 /// The routines command contains the address of the dynamic shared library
 /// initialization routine and an index into the module table for the module
@@ -1209,14 +1247,14 @@ pub fn cmd_to_str(cmd: u32) -> &'static str {
 
 #[derive(Debug)]
 /// The various load commands as a cast-free variant/enum
-pub enum CommandVariant<'a> {
+pub enum CommandVariant {
     Segment32              (SegmentCommand32),
     Segment64              (SegmentCommand64),
     Uuid                   (UuidCommand),
     Symtab                 (SymtabCommand),
     Symseg                 (SymsegCommand),
-    Thread                 (ThreadCommand<'a>),
-    Unixthread             (ThreadCommand<'a>),
+    Thread                 (ThreadCommand),
+    Unixthread             (ThreadCommand),
     LoadFvmlib             (FvmlibCommand),
     IdFvmlib               (FvmlibCommand),
     Ident                  (IdentCommand),
@@ -1260,7 +1298,7 @@ pub enum CommandVariant<'a> {
     Unimplemented          (LoadCommandHeader),
 }
 
-impl<'a> ctx::TryFromCtx<'a, Endian> for CommandVariant<'a> {
+impl<'a> ctx::TryFromCtx<'a, Endian> for CommandVariant {
     type Error = ::error::Error;
     type Size = usize;
     fn try_from_ctx(bytes: &'a [u8], le: Endian) -> error::Result<(Self, Self::Size)> {
@@ -1323,7 +1361,7 @@ impl<'a> ctx::TryFromCtx<'a, Endian> for CommandVariant<'a> {
     }
 }
 
-impl<'a> CommandVariant<'a> {
+impl CommandVariant {
     pub fn cmdsize(&self) -> usize {
         use self::CommandVariant::*;
         let cmdsize = match *self {
@@ -1436,16 +1474,16 @@ impl<'a> CommandVariant<'a> {
 
 #[derive(Debug)]
 /// A tagged LoadCommand union
-pub struct LoadCommand<'a> {
+pub struct LoadCommand {
     /// The offset this load command occurs at
     pub offset: usize,
     /// Which load command this is inside a variant
-    pub command: CommandVariant<'a>,
+    pub command: CommandVariant,
 }
 
-impl<'a> LoadCommand<'a> {
+impl LoadCommand {
     /// Parse a load command from `bytes` at `offset` with the `le` endianness
-    pub fn parse(bytes: &'a [u8], mut offset: &mut usize, le: scroll::Endian) -> error::Result<Self> {
+    pub fn parse(bytes: &[u8], mut offset: &mut usize, le: scroll::Endian) -> error::Result<Self> {
         let start = *offset;
         let command = bytes.pread_with::<CommandVariant>(start, le)?;
         let size = command.cmdsize();

@@ -65,9 +65,9 @@ impl<'a> fmt::Debug for MachO<'a> {
             .field("name",            &self.name)
             .field("little_endian",   &self.little_endian)
             .field("is_64",           &self.is_64)
-            .field("symbols",         &self.symbols().collect::<Vec<_>>())
-            .field("exports",         &self.exports().unwrap())
-            .field("imports",         &self.imports().unwrap())
+            .field("symbols()",       &self.symbols().collect::<Vec<_>>())
+            .field("exports()",       &self.exports())
+            .field("imports()",       &self.imports())
             .finish()
     }
 }

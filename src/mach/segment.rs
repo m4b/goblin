@@ -328,8 +328,9 @@ impl<'a> fmt::Debug for Segment<'a> {
             .field("nsects", &self.nsects)
             .field("flags", &self.flags)
             .field("data", &self.data.len())
-            .field("sections", &self.sections().unwrap()
-                .into_iter().map(|(section,_)| section).collect::<Vec<_>>())
+            .field("sections()", &self.sections().map(|sections|
+                sections.into_iter().map(|(section,_)| section).collect::<Vec<_>>())
+            )
             .finish()
     }
 }

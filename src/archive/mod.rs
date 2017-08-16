@@ -241,11 +241,12 @@ impl<'a> Index<'a> {
         // All numeric values are u32s. Name offsets are relative to the start of the string table,
         // and .o offsets are relative to the the start of the archive.
 
-        // read the number of entries
+        // Read the number of entries, which is at the start of the symdef (offset 0)
         let entries_bytes = buffer.pread_with::<u32>(0, scroll::LE)? as usize;
         let entries = entries_bytes / 8;
 
-        // set up the string table
+        // Set up the string table, the length of which is recorded after the entire entries table,
+        // (`entries_bytes + 4`), and which starts immediately after that (`entries_bytes + 8`).
         let strtab_bytes = buffer.pread_with::<u32>(entries_bytes + 4, scroll::LE)? as usize;
         let strtab = strtab::Strtab::parse(buffer, entries_bytes + 8, strtab_bytes, 0x0)?;
 
@@ -253,6 +254,11 @@ impl<'a> Index<'a> {
         let mut indexes = Vec::with_capacity(entries);
         let mut strings = Vec::with_capacity(entries);
         for i in 0..entries {
+            // The entries table starts after the original length value (offset 4), and each entry
+            // has two u32 values, making them 8 bytes long.
+            //
+            // Therefore, the `i`th entry starts at offset `(i*8)+4`. The first u32 is at that
+            // address, and the second u32 follows 4 bytes later.
             let string_offset: u32 = buffer.pread_with(i * 8 + 4, scroll::LE)?;
             let archive_member: u32 =  buffer.pread_with(i * 8 + 8, scroll::LE)?;
 

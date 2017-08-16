@@ -93,6 +93,9 @@ impl<'a> Index<usize> for Strtab<'a> {
     /// **NB**: this will panic if the underlying bytes are not valid utf8, or the offset is invalid
     #[inline(always)]
     fn index(&self, offset: usize) -> &Self::Output {
+        // This can't delegate to get() because get() requires #[cfg(features = "std")]
+        // It's also slightly less useful than get() because the lifetime -- specified by the Index
+        // trait -- matches &self, even though we could return &'a instead
         get_str(offset, &self.bytes, self.delim).unwrap()
     }
 }

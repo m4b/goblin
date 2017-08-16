@@ -89,7 +89,7 @@ pub struct Member<'a> {
     /// BSD `ar` members store the filename separately
     bsd_name: Option<&'a str>,
     /// SysV `ar` members store the filename in a string table, a copy of which we hold here
-    sysv_name: Option<String>,
+    sysv_name: Option<&'a str>,
 }
 
 impl<'a> Member<'a> {
@@ -153,7 +153,7 @@ impl<'a> Member<'a> {
     }
 
     /// The member name, accounting for SysV and BSD `ar` filename extensions
-    pub fn extended_name(&self) -> &str {
+    pub fn extended_name(&self) -> &'a str {
         if let Some(bsd_name) = self.bsd_name {
             bsd_name
         } else if let Some(ref sysv_name) = self.sysv_name {
@@ -300,11 +300,15 @@ impl<'a> NameIndex<'a> {
         })
     }
 
-    pub fn get(&self, name: &str) -> Result<&str> {
+    pub fn get(&self, name: &str) -> Result<&'a str> {
         let idx = name.trim_left_matches('/').trim_right();
         match usize::from_str_radix(idx, 10) {
             Ok(idx) => {
-                let name = &self.strtab[idx+1];
+                let name = match self.strtab.get(idx+1) {
+                    Some(result) => result,
+                    None => Err(Error::Malformed(format!("Name {} is out of range in archive NameIndex", name)))
+                }?;
+
                 if name != "" {
                     Ok(name.trim_right_matches('/'))
                 }  else {
@@ -329,7 +333,7 @@ pub struct Archive<'a> {
     sysv_name_index: NameIndex<'a>,
     // the array of members, which are indexed by the members hash and symbol index
     member_array: Vec<Member<'a>>,
-    members: HashMap<String, usize>,
+    members: HashMap<&'a str, usize>,
     // symbol -> member
     symbol_index: HashMap<&'a str, usize>
 }
@@ -383,11 +387,11 @@ impl<'a> Archive<'a> {
         for (i, mut member) in member_array.iter_mut().enumerate() {
             // copy in any SysV extended names
             if let Ok(sysv_name) = sysv_name_index.get(member.raw_name()) {
-                member.sysv_name = Some(sysv_name.to_owned());
+                member.sysv_name = Some(sysv_name);
             }
 
             // build a hashmap by extended name
-            let key = member.extended_name().to_owned();
+            let key = member.extended_name();
             members.insert(key, i);
 
             // build a hashmap translating archive offset into member index
@@ -450,12 +454,12 @@ impl<'a> Archive<'a> {
     }
 
     /// Get the list of member names in this archive
-    pub fn members(&self) -> Vec<&String> {
-        self.members.keys().collect()
+    pub fn members(&self) -> Vec<&'a str> {
+        self.members.keys().map(|s| *s).collect()
     }
 
     /// Returns the member's name which contains the given `symbol`, if it is in the archive
-    pub fn member_of_symbol (&self, symbol: &str) -> Option<&str> {
+    pub fn member_of_symbol (&self, symbol: &str) -> Option<&'a str> {
         if let Some(idx) = self.symbol_index.get(symbol) {
             Some(self.member_array[*idx].extended_name())
         } else {

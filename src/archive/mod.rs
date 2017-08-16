@@ -175,13 +175,13 @@ impl<'a> Member<'a> {
 /// The special index member signified by the name `'/'`.
 /// The data element contains a list of symbol indexes and symbol names, giving their offsets
 /// into the archive for a given name.
-pub struct Index {
+pub struct Index<'a> {
     /// Big Endian number of symbol_indexes and strings
     pub size: usize,
     /// Big Endian u32 index into the archive for this symbol (index in array is the index into the string table)
     pub symbol_indexes: Vec<u32>,
     /// Set of zero-terminated strings indexed by above. Number of strings = `self.size`
-    pub strtab: Vec<String>,
+    pub strtab: Vec<&'a str>,
 }
 
 /// SysV Archive Variant Symbol Lookup Table "Magic" Name
@@ -191,9 +191,9 @@ const NAME_INDEX_NAME: &'static str = "//              ";
 /// BSD symbol definitions
 const BSD_SYMDEF_NAME: &'static str = "__.SYMDEF";
 
-impl Index {
+impl<'a> Index<'a> {
     /// Parses the given byte buffer into an Index. NB: the buffer must be the start of the index
-    pub fn parse_sysv_index(buffer: &[u8]) -> Result<Index> {
+    pub fn parse_sysv_index(buffer: &'a [u8]) -> Result<Self> {
         let mut offset = &mut 0;
         let sizeof_table = buffer.gread_with::<u32>(offset, scroll::BE)? as usize;
         let mut indexes = Vec::with_capacity(sizeof_table);
@@ -210,7 +210,7 @@ impl Index {
     }
 
     /// Parses the given byte buffer into an Index, in BSD style archives
-    pub fn parse_bsd_symdef(buffer: &[u8]) -> Result<Index> {
+    pub fn parse_bsd_symdef(buffer: &'a [u8]) -> Result<Self> {
         // `llvm-ar` is a suitable reference:
         //   https://github.com/llvm-mirror/llvm/blob/6ea9891f9310510c621be562d1c5cdfcf5575678/lib/Object/Archive.cpp#L842-L870
 
@@ -251,7 +251,7 @@ impl Index {
 
         // build the index
         let mut indexes = Vec::with_capacity(entries);
-        let mut strings: Vec<String> = Vec::with_capacity(entries);
+        let mut strings = Vec::with_capacity(entries);
         for i in 0..entries {
             let string_offset: u32 = buffer.pread_with(i * 8 + 4, scroll::LE)?;
             let archive_member: u32 =  buffer.pread_with(i * 8 + 8, scroll::LE)?;
@@ -262,7 +262,7 @@ impl Index {
             }?;
 
             indexes.push(archive_member);
-            strings.push(string.to_owned());
+            strings.push(string);
         }
 
         Ok (Index {
@@ -319,13 +319,13 @@ impl<'a> NameIndex<'a> {
 pub struct Archive<'a> {
     // we can chuck this because the symbol index is a better representation, but we keep for
     // debugging
-    index: Index,
+    index: Index<'a>,
     sysv_name_index: NameIndex<'a>,
     // the array of members, which are indexed by the members hash and symbol index
     member_array: Vec<Member<'a>>,
     members: HashMap<String, usize>,
     // symbol -> member
-    symbol_index: HashMap<String, usize>
+    symbol_index: HashMap<&'a str, usize>
 }
 
 
@@ -389,7 +389,7 @@ impl<'a> Archive<'a> {
         }
 
         // build the symbol index, translating symbol names into member indexes
-        let mut symbol_index: HashMap<String, usize> = HashMap::new();
+        let mut symbol_index: HashMap<&str, usize> = HashMap::new();
         for (member_offset, name) in index.symbol_indexes.iter().zip(index.strtab.iter()) {
             let name = name.clone();
             let member_index = member_index_by_offset[member_offset];
@@ -427,15 +427,20 @@ impl<'a> Archive<'a> {
     }
 
     /// Gets a summary of this archive, returning a list of membername, the member, and the list of symbols the member contains
-    pub fn summarize(&self) -> Vec<(&String, &Member, Vec<&String>)> {
-        let symbols = self.symbol_index.iter().collect::<Vec<_>>();
-        let mut res = Vec::new();
-        for (member_name, idx) in self.members.iter() {
-            let member = &self.member_array[*idx];
-            let symbols = symbols.iter().filter_map(|&(ref symbol, ref mem_idx)| if *mem_idx == idx { Some(*symbol) } else { None }).collect::<Vec<_>>();
-            res.push((member_name, member, symbols));
+    pub fn summarize(&self) -> Vec<(&str, &Member, Vec<&'a str>)> {
+        // build a result array, with indexes matching the member indexes
+        let mut result = self.member_array.iter()
+            .map(|ref member| {
+                 (member.extended_name(), *member, Vec::new())
+            })
+            .collect::<Vec<_>>();
+
+        // walk the symbol index once, adding each symbol to the appropriate result Vec
+        for (symbol_name, member_index) in self.symbol_index.iter() {
+            result[*member_index].2.push(*symbol_name);
         }
-        res
+
+        result
     }
 
     /// Get the list of member names in this archive

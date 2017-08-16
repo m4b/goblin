@@ -214,11 +214,32 @@ impl Index {
         // `llvm-ar` is a suitable reference:
         //   https://github.com/llvm-mirror/llvm/blob/6ea9891f9310510c621be562d1c5cdfcf5575678/lib/Object/Archive.cpp#L842-L870
 
-        // structure:
-        //   entries size in bytes: u32
-        //   { strtab index, archive member }+
-        //   strtab size in bytes: u32
-        //   { string, NUL }+
+        // BSD __.SYMDEF files look like:
+        //
+        //            ┌─────────────┐
+        //  entries:  │   # bytes   │
+        //            ├─────────────┼─────────────┐
+        //            │ name offset │  .o offset  │
+        //            ├─────────────┼─────────────┤
+        //            │ name offset │  .o offset  │
+        //            ├─────────────┼─────────────┤
+        //            │ name offset │  .o offset  │
+        //            ├─────────────┼─────────────┤
+        //            │ name offset │  .o offset  │
+        //            ├─────────────┼─────────────┘
+        //   strings: │   # bytes   │
+        //            ├─────────────┴───────────────────┐
+        //            │  _symbol\0                      │
+        //            ├─────────────────────────────────┴─────────────────────┐
+        //            │  _longer_symbol\0                                     │
+        //            ├────────────────┬──────────────────────────────────────┘
+        //            │  _baz\0        │
+        //            ├────────────────┴───┐
+        //            │  _quxx\0           │
+        //            └────────────────────┘
+        //
+        // All numeric values are u32s. Name offsets are relative to the start of the string table,
+        // and .o offsets are relative to the the start of the archive.
 
         // read the number of entries
         let entries_bytes = buffer.pread_with::<u32>(0, scroll::LE)? as usize;

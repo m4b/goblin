@@ -82,6 +82,8 @@ impl MemberHeader {
 pub struct Member<'a> {
     /// The entry header
     pub header: Header<'a>,
+    /// File offset from the start of the archive to where the header begins
+    pub header_offset: u64,
     /// File offset from the start of the archive to where the file begins
     pub offset: u64,
     /// BSD `ar` members store the filename separately
@@ -95,7 +97,7 @@ impl<'a> Member<'a> {
     /// **NOTE** the Seek will be pointing at the first byte of whatever the file is, skipping padding.
     /// This is because just like members in the archive, the data section is 2-byte aligned.
     pub fn parse(buffer: &'a [u8], offset: &mut usize) -> Result<Member<'a>> {
-        let start_of_header = *offset;
+        let header_offset = *offset;
         let name = buffer.pread_with::<&str>(*offset, ::scroll::ctx::StrCtx::Length(SIZEOF_FILE_IDENTIFER))?;
         let archive_header = buffer.gread::<MemberHeader>(offset)?;
         let mut header = Header { name: name, size: archive_header.size()? };
@@ -107,10 +109,10 @@ impl<'a> Member<'a> {
 
         let bsd_name = if let Some(len) = Self::bsd_filename_length(name) {
             // there's a filename of length `len` right after the header
-            let name = buffer.pread_with::<&str>(start_of_header + SIZEOF_HEADER, ::scroll::ctx::StrCtx::Length(len))?;
+            let name = buffer.pread_with::<&str>(header_offset + SIZEOF_HEADER, ::scroll::ctx::StrCtx::Length(len))?;
 
             // adjust the offset and size accordingly
-            *offset = start_of_header + SIZEOF_HEADER + len;
+            *offset = header_offset + SIZEOF_HEADER + len;
             header.size -= len;
 
             // the name may have trailing NULs which we don't really want to keep
@@ -121,6 +123,7 @@ impl<'a> Member<'a> {
 
         Ok(Member {
             header: header,
+            header_offset: header_offset as u64,
             offset: *offset as u64,
             bsd_name: bsd_name,
             sysv_name: None,
@@ -185,22 +188,66 @@ pub struct Index {
 const INDEX_NAME: &'static str = "/               ";
 /// SysV Archive Variant Extended Filename String Table Name
 const NAME_INDEX_NAME: &'static str = "//              ";
+/// BSD symbol definitions
+const BSD_SYMDEF_NAME: &'static str = "__.SYMDEF";
 
 impl Index {
     /// Parses the given byte buffer into an Index. NB: the buffer must be the start of the index
-    pub fn parse(buffer: &[u8], size: usize) -> Result<Index> {
+    pub fn parse_sysv_index(buffer: &[u8]) -> Result<Index> {
         let mut offset = &mut 0;
         let sizeof_table = buffer.gread_with::<u32>(offset, scroll::BE)? as usize;
         let mut indexes = Vec::with_capacity(sizeof_table);
         for _ in 0..sizeof_table {
             indexes.push(buffer.gread_with::<u32>(offset, scroll::BE)?);
         }
-        let sizeof_strtab = size - ((sizeof_table * 4) + 4);
+        let sizeof_strtab = buffer.len() - ((sizeof_table * 4) + 4);
         let strtab = strtab::Strtab::parse(buffer, *offset, sizeof_strtab, 0x0)?;
         Ok (Index {
             size: sizeof_table,
             symbol_indexes: indexes,
             strtab: strtab.to_vec()?, // because i'm lazy
+        })
+    }
+
+    /// Parses the given byte buffer into an Index, in BSD style archives
+    pub fn parse_bsd_symdef(buffer: &[u8]) -> Result<Index> {
+        // `llvm-ar` is a suitable reference:
+        //   https://github.com/llvm-mirror/llvm/blob/6ea9891f9310510c621be562d1c5cdfcf5575678/lib/Object/Archive.cpp#L842-L870
+
+        // structure:
+        //   entries size in bytes: u32
+        //   { strtab index, archive member }+
+        //   strtab size in bytes: u32
+        //   { string, NUL }+
+
+        // read the number of entries
+        let entries_bytes = buffer.pread_with::<u32>(0, scroll::LE)? as usize;
+        let entries = entries_bytes / 8;
+
+        // set up the string table
+        let strtab_bytes = buffer.pread_with::<u32>(entries_bytes + 4, scroll::LE)? as usize;
+        let strtab = strtab::Strtab::parse(buffer, entries_bytes + 8, strtab_bytes, 0x0)?;
+
+        // build the index
+        let mut indexes = Vec::with_capacity(entries);
+        let mut strings: Vec<String> = Vec::with_capacity(entries);
+        for i in 0..entries {
+            let string_offset: u32 = buffer.pread_with(i * 8 + 4, scroll::LE)?;
+            let archive_member: u32 =  buffer.pread_with(i * 8 + 8, scroll::LE)?;
+
+            let string = match strtab.get(string_offset as usize) {
+                Some(result) => result,
+                None => Err(Error::Malformed(format!("{} entry {} has string offset {}, which is out of bounds", BSD_SYMDEF_NAME, i, string_offset)))
+            }?;
+
+            indexes.push(archive_member);
+            strings.push(string.to_owned());
+        }
+
+        Ok (Index {
+            size: entries,
+            symbol_indexes: indexes,
+            strtab: strings,
         })
     }
 }
@@ -271,43 +318,41 @@ impl<'a> Archive<'a> {
             return Err(Error::BadMagic(magic.pread(0)?).into());
         }
         let mut member_array = Vec::new();
-        let size = buffer.as_ref().len() as u64;
-        let mut pos = 0u64;
         let mut index = Index::default();
         let mut sysv_name_index = NameIndex::default();
-        loop {
-            if pos >= size { break }
-            // if the member is on an uneven byte boundary, we bump the buffer
-            if pos & 1 == 1 {
+        while *offset < buffer.len() {
+            // realign the cursor to a word boundary, if it's not on one already
+            if *offset & 1 == 1 {
                 *offset += 1;
             }
+
             let member = Member::parse(buffer, offset)?;
+
+            // advance to the next record
+            *offset = member.offset as usize + member.size() as usize;
+
             let name = member.raw_name();
-            let size = member.size();
             if name == INDEX_NAME {
-                *offset = member.offset as usize;
-                // get the member data (the index in this case)
-                // FIXME, TODO: gread_slice needs to return
-                //let data: &[u8] = buffer.gread_slice(offset, size)?;
-                let data: &[u8] = &buffer[*offset..];
-                *offset += size;
-                // parse it
-                index = Index::parse(&data, size)?;
-                pos = *offset as u64;
+                let data: &[u8] = buffer.pread_with(member.offset as usize, member.size())?;
+                index = Index::parse_sysv_index(data)?;
+
+            } else if member.bsd_name == Some(BSD_SYMDEF_NAME) {
+                let data: &[u8] = buffer.pread_with(member.offset as usize, member.size())?;
+                index = Index::parse_bsd_symdef(data)?;
+
             } else if name == NAME_INDEX_NAME {
-                *offset = member.offset as usize;
-                sysv_name_index = NameIndex::parse(buffer, offset, size)?;
-                pos = *offset as u64;
+                let mut name_index_offset: usize = member.offset as usize;
+                sysv_name_index = NameIndex::parse(buffer, &mut name_index_offset, member.size())?;
+
             } else {
-                // we move the buffer past the file blob
-                *offset += size;
-                pos = *offset as u64;
+                // record this as an archive member
                 member_array.push(member);
             }
         }
 
         // preprocess member names
         let mut members = HashMap::new();
+        let mut member_index_by_offset: HashMap<u32, usize> = HashMap::with_capacity(member_array.len());
         for (i, mut member) in member_array.iter_mut().enumerate() {
             // copy in any SysV extended names
             if let Ok(sysv_name) = sysv_name_index.get(member.raw_name()) {
@@ -317,25 +362,17 @@ impl<'a> Archive<'a> {
             // build a hashmap by extended name
             let key = member.extended_name().to_owned();
             members.insert(key, i);
+
+            // build a hashmap translating archive offset into member index
+            member_index_by_offset.insert(member.header_offset as u32, i);
         }
 
-        let mut symbol_index = HashMap::new();
-        let mut last_symidx = 0u32;
-        let mut last_member = 0usize;
-        for (i, symidx) in index.symbol_indexes.iter().enumerate() {
-            let name = index.strtab[i].to_owned();
-            if *symidx == last_symidx {
-                symbol_index.insert(name, last_member);
-            } else {
-                for (memidx, member) in member_array.iter().enumerate() {
-                    if *symidx == (member.offset - SIZEOF_HEADER as u64) as u32 {
-                        symbol_index.insert(name, memidx);
-                        last_symidx = *symidx;
-                        last_member = memidx;
-                        break
-                    }
-                }
-            }
+        // build the symbol index, translating symbol names into member indexes
+        let mut symbol_index: HashMap<String, usize> = HashMap::new();
+        for (member_offset, name) in index.symbol_indexes.iter().zip(index.strtab.iter()) {
+            let name = name.clone();
+            let member_index = member_index_by_offset[member_offset];
+            symbol_index.insert(name, member_index);
         }
 
         let archive = Archive {
@@ -345,6 +382,7 @@ impl<'a> Archive<'a> {
             members: members,
             symbol_index: symbol_index,
         };
+
         Ok(archive)
     }
 

@@ -84,6 +84,10 @@ pub struct Member<'a> {
     pub header: Header<'a>,
     /// File offset from the start of the archive to where the file begins
     pub offset: u64,
+    /// BSD `ar` members store the filename separately
+    bsd_name: Option<&'a str>,
+    /// SysV `ar` members store the filename in a string table, a copy of which we hold here
+    sysv_name: Option<String>,
 }
 
 impl<'a> Member<'a> {
@@ -91,16 +95,35 @@ impl<'a> Member<'a> {
     /// **NOTE** the Seek will be pointing at the first byte of whatever the file is, skipping padding.
     /// This is because just like members in the archive, the data section is 2-byte aligned.
     pub fn parse(buffer: &'a [u8], offset: &mut usize) -> Result<Member<'a>> {
+        let start_of_header = *offset;
         let name = buffer.pread_with::<&str>(*offset, ::scroll::ctx::StrCtx::Length(SIZEOF_FILE_IDENTIFER))?;
         let archive_header = buffer.gread::<MemberHeader>(offset)?;
-        let header = Header { name: name, size: archive_header.size()? };
+        let mut header = Header { name: name, size: archive_header.size()? };
+
         // skip newline padding if we're on an uneven byte boundary
         if *offset & 1 == 1 {
             *offset += 1;
         }
+
+        let bsd_name = if let Some(len) = Self::bsd_filename_length(name) {
+            // there's a filename of length `len` right after the header
+            let name = buffer.pread_with::<&str>(start_of_header + SIZEOF_HEADER, ::scroll::ctx::StrCtx::Length(len))?;
+
+            // adjust the offset and size accordingly
+            *offset = start_of_header + SIZEOF_HEADER + len;
+            header.size -= len;
+
+            // the name may have trailing NULs which we don't really want to keep
+            Some(name.trim_right_matches('\0'))
+        } else {
+            None
+        };
+
         Ok(Member {
             header: header,
             offset: *offset as u64,
+            bsd_name: bsd_name,
+            sysv_name: None,
         })
     }
 
@@ -110,13 +133,36 @@ impl<'a> Member<'a> {
         self.header.size
     }
 
-    fn trim(name: &str) -> &str {
-        name.trim_right_matches(' ').trim_right_matches('/')
+    /// Parse `#1/123` as `Some(123)`
+    fn bsd_filename_length(name: &str) -> Option<usize> {
+        use core::str::FromStr;
+
+        if name.len() > 3 && &name[0..3] == "#1/" {
+            let trimmed_name = &name[3..].trim_right_matches(' ');
+            if let Ok(len) = usize::from_str(trimmed_name) {
+                Some(len)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    /// The member name, accounting for SysV and BSD `ar` filename extensions
+    pub fn extended_name(&self) -> &str {
+        if let Some(bsd_name) = self.bsd_name {
+            bsd_name
+        } else if let Some(ref sysv_name) = self.sysv_name {
+            sysv_name
+        } else {
+            self.header.name.trim_right_matches(' ').trim_right_matches('/')
+        }
     }
 
     /// The untrimmed raw member name, i.e., includes right-aligned space padding and `'/'` end-of-string
     /// identifier
-    pub fn name(&self) -> &'a str {
+    pub fn raw_name(&self) -> &'a str {
         self.header.name
     }
 
@@ -206,13 +252,14 @@ pub struct Archive<'a> {
     // we can chuck this because the symbol index is a better representation, but we keep for
     // debugging
     index: Index,
-    extended_names: NameIndex<'a>,
+    sysv_name_index: NameIndex<'a>,
     // the array of members, which are indexed by the members hash and symbol index
     member_array: Vec<Member<'a>>,
     members: HashMap<String, usize>,
     // symbol -> member
     symbol_index: HashMap<String, usize>
 }
+
 
 impl<'a> Archive<'a> {
     pub fn parse(buffer: &'a [u8]) -> Result<Archive<'a>> {
@@ -227,7 +274,7 @@ impl<'a> Archive<'a> {
         let size = buffer.as_ref().len() as u64;
         let mut pos = 0u64;
         let mut index = Index::default();
-        let mut extended_names = NameIndex::default();
+        let mut sysv_name_index = NameIndex::default();
         loop {
             if pos >= size { break }
             // if the member is on an uneven byte boundary, we bump the buffer
@@ -235,7 +282,7 @@ impl<'a> Archive<'a> {
                 *offset += 1;
             }
             let member = Member::parse(buffer, offset)?;
-            let name = member.name();
+            let name = member.raw_name();
             let size = member.size();
             if name == INDEX_NAME {
                 *offset = member.offset as usize;
@@ -249,7 +296,7 @@ impl<'a> Archive<'a> {
                 pos = *offset as u64;
             } else if name == NAME_INDEX_NAME {
                 *offset = member.offset as usize;
-                extended_names = NameIndex::parse(buffer, offset, size)?;
+                sysv_name_index = NameIndex::parse(buffer, offset, size)?;
                 pos = *offset as u64;
             } else {
                 // we move the buffer past the file blob
@@ -259,16 +306,16 @@ impl<'a> Archive<'a> {
             }
         }
 
-        // this preprocesses the member names so they are searchable by their canonical versions
+        // preprocess member names
         let mut members = HashMap::new();
-        for (i, member) in member_array.iter().enumerate() {
-            let key = {
-                let name = member.name();
-                if name.starts_with("/") {
-                    try!(extended_names.get(name))
-                } else {
-                    Member::trim(name)
-            }}.to_owned();
+        for (i, mut member) in member_array.iter_mut().enumerate() {
+            // copy in any SysV extended names
+            if let Ok(sysv_name) = sysv_name_index.get(member.raw_name()) {
+                member.sysv_name = Some(sysv_name.to_owned());
+            }
+
+            // build a hashmap by extended name
+            let key = member.extended_name().to_owned();
             members.insert(key, i);
         }
 
@@ -294,7 +341,7 @@ impl<'a> Archive<'a> {
         let archive = Archive {
             index: index,
             member_array: member_array,
-            extended_names: extended_names,
+            sysv_name_index: sysv_name_index,
             members: members,
             symbol_index: symbol_index,
         };
@@ -340,14 +387,38 @@ impl<'a> Archive<'a> {
     /// Returns the member's name which contains the given `symbol`, if it is in the archive
     pub fn member_of_symbol (&self, symbol: &str) -> Option<&str> {
         if let Some(idx) = self.symbol_index.get(symbol) {
-            let name = (self.member_array[*idx]).name();
-            if name.starts_with("/") {
-                Some(self.extended_names.get(name).unwrap())
-            } else {
-                Some(Member::trim(name))
-            }
+            Some(self.member_array[*idx].extended_name())
         } else {
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_member_bsd_filename_length() {
+        // non-BSD names should fall through
+        assert_eq!(Member::bsd_filename_length(""), None);
+        assert_eq!(Member::bsd_filename_length("123"), None);
+        assert_eq!(Member::bsd_filename_length("#1"), None);
+        assert_eq!(Member::bsd_filename_length("#1/"), None);
+        assert_eq!(Member::bsd_filename_length("#2/1"), None);
+        assert_eq!(Member::bsd_filename_length(INDEX_NAME), None);
+        assert_eq!(Member::bsd_filename_length(NAME_INDEX_NAME), None);
+
+        // #1/<len> should be parsed as Some(len), with or without whitespace
+        assert_eq!(Member::bsd_filename_length("#1/1"), Some(1));
+        assert_eq!(Member::bsd_filename_length("#1/22"), Some(22));
+        assert_eq!(Member::bsd_filename_length("#1/333"), Some(333));
+        assert_eq!(Member::bsd_filename_length("#1/1          "), Some(1));
+        assert_eq!(Member::bsd_filename_length("#1/22         "), Some(22));
+        assert_eq!(Member::bsd_filename_length("#1/333      "), Some(333));
+
+        // #!/<len><trailing garbage> should be None
+        assert_eq!(Member::bsd_filename_length("#1/1A"), None);
+        assert_eq!(Member::bsd_filename_length("#1/1 A"), None);
     }
 }

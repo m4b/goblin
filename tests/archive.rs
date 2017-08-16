@@ -65,11 +65,11 @@ fn parse_self() {
 
     let archive = Archive::parse(&buffer).expect("parse rlib");
 
-    // check that the archive has a useful symbol table
-    archive.summarize().into_iter()
-        .filter(|&(_member_name, _member_index, ref symbols)| symbols.len() > 500)
-        .next()
-        .expect("archive should contain a member with at least 500 symbols");
+    // check that the archive has a useful symbol table by counting the total number of symbols
+    let symbol_count = archive.summarize().into_iter()
+        .map(|(_member_name, _member_index, ref symbols)| symbols.len())
+        .fold(0, |sum,symbol_count| sum + symbol_count);
+    assert!(symbol_count > 500);
 
     let goblin_object_name = archive.members()
         .into_iter()

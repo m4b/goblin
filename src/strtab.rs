@@ -42,14 +42,14 @@ impl<'a> Strtab<'a> {
     }
     #[cfg(feature = "std")]
     /// Converts the string table to a vector, with the original `delim` used to separate the strings
-    pub fn to_vec(self) -> error::Result<Vec<String>> {
+    pub fn to_vec(self) -> error::Result<Vec<&'a str>> {
         let len = self.bytes.len();
         let mut strings = Vec::with_capacity(len);
         let mut i = 0;
         while i < len {
             let string = self.get(i).unwrap()?;
             i = i + string.len() + 1;
-            strings.push(string.to_string());
+            strings.push(string);
         }
         Ok(strings)
     }

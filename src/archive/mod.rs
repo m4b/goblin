@@ -190,6 +190,7 @@ const INDEX_NAME: &'static str = "/               ";
 const NAME_INDEX_NAME: &'static str = "//              ";
 /// BSD symbol definitions
 const BSD_SYMDEF_NAME: &'static str = "__.SYMDEF";
+const BSD_SYMDEF_SORTED_NAME: &'static str = "__.SYMDEF SORTED";
 
 impl<'a> Index<'a> {
     /// Parses the given byte buffer into an Index. NB: the buffer must be the start of the index
@@ -367,7 +368,7 @@ impl<'a> Archive<'a> {
                 let data: &[u8] = buffer.pread_with(member.offset as usize, member.size())?;
                 index = Index::parse_sysv_index(data)?;
 
-            } else if member.bsd_name == Some(BSD_SYMDEF_NAME) {
+            } else if member.bsd_name == Some(BSD_SYMDEF_NAME) || member.bsd_name == Some(BSD_SYMDEF_SORTED_NAME) {
                 let data: &[u8] = buffer.pread_with(member.offset as usize, member.size())?;
                 index = Index::parse_bsd_symdef(data)?;
 

@@ -7,6 +7,7 @@ I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, do
 
 ## [Unreleased]
 ### Added
+- MAJOR archive now parses bsd style archives AND is zero-copy by @willglynn
 - MAJOR macho import parser bug fixed by @willglynn
 - added writer impls for Section and Segment
 - add get_unsafe to strtab for Option<&str> returns

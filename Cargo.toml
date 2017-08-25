@@ -21,12 +21,10 @@ plain = "0.2.1"
 log = "0.3.8"
 
 [dependencies.scroll]
-#git = "https://github.com/m4b/scroll"
 version = "0.7.0"
 default_features = false
 
 [dependencies.scroll_derive]
-#git = "https://github.com/m4b/scroll_derive"
 version = "0.7.0"
 optional = true
 

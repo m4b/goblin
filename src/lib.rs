@@ -277,16 +277,25 @@ pub enum Object<'a> {
 }
 
 #[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
-/// Parses an `Object` from `bytes`.
-pub fn parse(bytes: &[u8]) -> error::Result<Object> {
-    use std::io::Cursor;
-    match peek(&mut Cursor::new(&bytes))? {
-        Hint::Elf(_) => Ok(Object::Elf(elf::Elf::parse(bytes)?)),
-        Hint::Mach(_) | Hint::MachFat(_) => Ok(Object::Mach(mach::Mach::parse(bytes)?)),
-        Hint::Archive => Ok(Object::Archive(archive::Archive::parse(bytes)?)),
-        Hint::PE => Ok(Object::PE(pe::PE::parse(bytes)?)),
-        Hint::Unknown(magic) => Ok(Object::Unknown(magic))
+impl<'a> Object<'a> {
+    /// Tries to parse an `Object` from `bytes`
+    pub fn parse(bytes: &[u8]) -> error::Result<Object> {
+        use std::io::Cursor;
+        match peek(&mut Cursor::new(&bytes))? {
+            Hint::Elf(_) => Ok(Object::Elf(elf::Elf::parse(bytes)?)),
+            Hint::Mach(_) | Hint::MachFat(_) => Ok(Object::Mach(mach::Mach::parse(bytes)?)),
+            Hint::Archive => Ok(Object::Archive(archive::Archive::parse(bytes)?)),
+            Hint::PE => Ok(Object::PE(pe::PE::parse(bytes)?)),
+            Hint::Unknown(magic) => Ok(Object::Unknown(magic))
+        }
     }
+}
+
+#[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
+/// Parses an `Object` from `bytes`.
+#[deprecated(since = "0.0.11", note = "use `goblin::Object::parse` instead; this will be removed in 0.0.12")]
+pub fn parse(bytes: &[u8]) -> error::Result<Object> {
+    Object::parse(bytes)
 }
 
 /////////////////////////

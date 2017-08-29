@@ -75,19 +75,13 @@ pub fn pt_to_str(pt: u32) -> &'static str {
     }
 }
 
-#[cfg(feature = "std")]
-pub use self::std::*;
-
-#[cfg(feature = "std")]
-mod std {
-    use super::*;
+if_std! {
     use core::fmt;
     use scroll::ctx;
     use core::result;
     use core::ops::Range;
     use container::{Ctx, Container};
 
-    #[cfg(feature = "std")]
     #[derive(Default, PartialEq, Clone)]
     /// A unified ProgramHeader - convertable to and from 32-bit and 64-bit variants
     pub struct ProgramHeader {
@@ -227,14 +221,9 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
         }
     }
 
-    #[cfg(feature = "std")]
-    pub use self::std::*;
-
-    #[cfg(feature = "std")]
-    mod std {
+    if_std! {
 
         use elf::program_header::ProgramHeader as ElfProgramHeader;
-        use super::*;
         use error::Result;
 
         use core::slice;

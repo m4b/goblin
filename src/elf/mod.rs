@@ -138,8 +138,8 @@ if_sylvan! {
                     let offset = phdr.p_offset as usize;
                     return Some(
                         note::NoteIterator {
-                            data: data,
-                            offset: offset,
+                            data,
+                            offset,
                             size: offset + phdr.p_filesz as usize,
                             ctx: self.ctx
                         }

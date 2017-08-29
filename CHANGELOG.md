@@ -7,6 +7,10 @@ I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, do
 
 ## [Unreleased]
 ### Added
+- add new elf::note module and associated structs + constants, and `iter_notes` method to Elf object
+
+## [0.0.11] - 2017-08-24
+### Added
 - goblin::Object::parse; add deprecation to goblin::parse
 - MAJOR archive now parses bsd style archives AND is zero-copy by @willglynn
 - MAJOR macho import parser bug fixed by @willglynn

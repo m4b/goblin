@@ -117,6 +117,18 @@ if_std! {
         pub desc: &'a [u8], // padding such that descsz + padding % 4 == 0
     }
 
+    impl<'a> Note<'a> {
+        pub fn type_to_str(&self) -> &'static str {
+            match self.n_type {
+                NT_GNU_ABI_TAG => "NT_GNU_ABI_TAG",
+                NT_GNU_HWCAP => "NT_GNU_HWCAP",
+                NT_GNU_BUILD_ID => "NT_GNU_BUILD_ID",
+                NT_GNU_GOLD_VERSION => "NT_GNU_GOLD_VERSION",
+                _ => "NT_UNKNOWN"
+            }
+        }
+    }
+
     impl<'a> ctx::TryFromCtx<'a, container::Ctx> for Note<'a> {
         type Error = error::Error;
         type Size = usize;

@@ -135,11 +135,12 @@ if_sylvan! {
         pub fn iter_notes(&self, data: &'a [u8]) -> Option<note::NoteIterator<'a>> {
             for phdr in &self.program_headers {
                 if phdr.p_type == program_header::PT_NOTE {
+                    let offset = phdr.p_offset as usize;
                     return Some(
                         note::NoteIterator {
                             data: data,
-                            size: phdr.p_filesz as usize,
-                            offset: phdr.p_offset as usize,
+                            offset: offset,
+                            size: offset + phdr.p_filesz as usize,
                             ctx: self.ctx
                         }
                     )

@@ -99,6 +99,13 @@ pub mod strtab;
 // Misc/Helper Modules
 /////////////////////////
 
+macro_rules! if_std {
+    ($($i:item)*) => ($(
+        #[cfg(feature = "std")]
+        $i
+    )*)
+}
+
 /// Binary container size information and byte-order context
 pub mod container {
     use scroll;
@@ -315,6 +322,7 @@ pub mod elf32 {
     pub use elf::dyn::dyn32 as dyn;
     pub use elf::sym::sym32 as sym;
     pub use elf::reloc::reloc32 as reloc;
+    pub use elf::note::Nhdr32 as Note;
 
     pub mod gnu_hash {
         elf_gnu_hash_impl!(u32);
@@ -330,6 +338,7 @@ pub mod elf64 {
     pub use elf::dyn::dyn64 as dyn;
     pub use elf::sym::sym64 as sym;
     pub use elf::reloc::reloc64 as reloc;
+    pub use elf::note::Nhdr64 as Note;
 
     pub mod gnu_hash {
         elf_gnu_hash_impl!(u64);

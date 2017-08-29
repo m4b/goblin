@@ -63,19 +63,17 @@ if_std! {
     /// An iterator over ELF binary notes
     pub struct NoteIterator<'a> {
         pub data: &'a [u8],
-        pub notes: usize,
+        pub size: usize,
         pub offset: usize,
-        pub count: usize,
         pub ctx: container::Ctx,
     }
 
     impl<'a> Iterator for NoteIterator<'a> {
         type Item = error::Result<Note<'a>>;
         fn next(&mut self) -> Option<Self::Item> {
-            if self.count >= self.notes {
+            if self.offset >= self.size {
                 None
             } else {
-                self.count += 1;
                 match self.data.gread_with(&mut self.offset, self.ctx) {
                     Ok(res) => Some(Ok(res)),
                     Err(e) => Some(Err(e.into()))

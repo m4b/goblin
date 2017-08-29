@@ -50,15 +50,18 @@ pub mod sym;
 pub mod dyn;
 #[macro_use]
 pub mod reloc;
+pub mod note;
 
-#[cfg(all(feature = "std", feature = "elf32", feature = "elf64", feature = "endian_fd"))]
-pub use self::impure::*;
 
-#[cfg(all(feature = "std", feature = "elf32", feature = "elf64", feature = "endian_fd"))]
-#[macro_use]
-mod impure {
+macro_rules! if_sylvan {
+    ($($i:item)*) => ($(
+        #[cfg(all(feature = "std", feature = "elf32", feature = "elf64", feature = "endian_fd"))]
+        $i
+    )*)
+}
+
+if_sylvan! {
     use scroll::{self, ctx, Pread, Endian};
-    use super::{header, program_header, section_header, sym, dyn, reloc};
     use strtab::Strtab;
     use error;
     use container::{Container, Ctx};
@@ -124,9 +127,26 @@ mod impure {
         pub bias: u64,
         /// Whether the binary is little endian or not
         pub little_endian: bool,
+        ctx: Ctx,
     }
 
     impl<'a> Elf<'a> {
+        /// Try to iterate the notes; returns `None` if there aren't any notes in this binary
+        pub fn iter_notes(&self, data: &'a [u8]) -> Option<note::NoteIterator<'a>> {
+            for phdr in &self.program_headers {
+                if phdr.p_type == program_header::PT_NOTE {
+                    return Some(
+                        note::NoteIterator {
+                            data: data,
+                            size: phdr.p_filesz as usize,
+                            offset: phdr.p_offset as usize,
+                            ctx: self.ctx
+                        }
+                    )
+                }
+            }
+            None
+        }
         pub fn is_object_file(&self) -> bool {
             self.header.e_type == header::ET_REL
         }
@@ -278,6 +298,7 @@ mod impure {
                 entry: entry as u64,
                 bias: bias as u64,
                 little_endian: is_lsb,
+                ctx,
             })
         }
     }

@@ -33,6 +33,7 @@ pub const NT_GNU_GOLD_VERSION: u32 = 4;
 
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "std", derive(Pread, Pwrite, IOread, IOwrite, SizeWith))]
+#[repr(C)]
 /// Note section contents. Each entry in the note section begins with a header of a fixed form.
 pub struct Nhdr32 {
     /// Length of the note's name (includes the terminator)
@@ -43,9 +44,10 @@ pub struct Nhdr32 {
     pub n_type: u32,
 }
 
-/// Note section contents. Each entry in the note section begins with a header of a fixed form.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "std", derive(Pread, Pwrite, IOread, IOwrite, SizeWith))]
+#[repr(C)]
+/// Note section contents. Each entry in the note section begins with a header of a fixed form.
 pub struct Nhdr64 {
     /// Length of the note's name (includes the terminator)
     pub n_namesz: u64,
@@ -65,7 +67,7 @@ if_std! {
         pub data: &'a [u8],
         pub size: usize,
         pub offset: usize,
-        pub ctx: container::Ctx,
+        pub ctx: (usize, container::Ctx), // (alignment, ctx)
     }
 
     impl<'a> Iterator for NoteIterator<'a> {
@@ -74,6 +76,7 @@ if_std! {
             if self.offset >= self.size {
                 None
             } else {
+                debug!("NoteIterator - {:#x}", self.offset);
                 match self.data.gread_with(&mut self.offset, self.ctx) {
                     Ok(res) => Some(Ok(res)),
                     Err(e) => Some(Err(e.into()))
@@ -82,6 +85,7 @@ if_std! {
         }
     }
 
+    #[derive(Debug)]
     struct NoteHeader {
         n_namesz: usize,
         n_descsz: usize,
@@ -108,13 +112,22 @@ if_std! {
         }
     }
 
+    fn align(alignment: usize, offset: &mut usize) {
+        let diff = *offset % alignment;
+        if diff != 0 {
+            *offset += alignment - diff;
+        }
+    }
+
     /// A 32/64 bit Note struct, with the name and desc pre-parsed
+    #[derive(Debug)]
     pub struct Note<'a> {
+        /// The type of this note
         pub n_type: u32,
         /// NUL terminated string, where `namesz` includes the terminator
-        pub name: &'a str, // padding such that namesz + padding % 4 == 0
+        pub name: &'a str, // needs padding such that namesz + padding % {wordsize} == 0
         /// arbitrary data of length `descsz`
-        pub desc: &'a [u8], // padding such that descsz + padding % 4 == 0
+        pub desc: &'a [u8], // needs padding such that descsz + padding % {wordsize} == 0
     }
 
     impl<'a> Note<'a> {
@@ -129,20 +142,26 @@ if_std! {
         }
     }
 
-    impl<'a> ctx::TryFromCtx<'a, container::Ctx> for Note<'a> {
+    impl<'a> ctx::TryFromCtx<'a, (usize, container::Ctx)> for Note<'a> {
         type Error = error::Error;
         type Size = usize;
-        fn try_from_ctx(bytes: &'a [u8], ctx: container::Ctx) -> Result<(Self, Self::Size), Self::Error> {
+        fn try_from_ctx(bytes: &'a [u8], (alignment, ctx): (usize, container::Ctx)) -> Result<(Self, Self::Size), Self::Error> {
             let offset = &mut 0;
             let header: NoteHeader = {
-                if ctx.is_big() {
-                    bytes.gread_with::<Nhdr32>(offset, ctx.le)?.into()
-                } else {
-                    bytes.gread_with::<Nhdr64>(offset, ctx.le)?.into()
+                match alignment {
+                    4 => bytes.gread_with::<Nhdr32>(offset, ctx.le)?.into(),
+                    // this is a guess; i haven't seen gcc/clang compilers emit 64-bit notes, and i don't have any non gcc/clang compilers
+                    8 => bytes.gread_with::<Nhdr64>(offset, ctx.le)?.into(),
+                    _ => return Err(error::Error::Malformed(format!("Notes has unimplemented alignment requirement: {:#x}", alignment)))
                 }
             };
+            debug!("{:?} - {:#x}", header, *offset);
             let name = bytes.gread_with::<&'a str>(offset, ctx::StrCtx::Length(header.n_namesz))?;
+            align(alignment, offset);
+            debug!("note name {} - {:#x}", name, *offset);
             let desc = bytes.gread_with::<&'a [u8]>(offset, header.n_descsz)?;
+            align(alignment, offset);
+            debug!("desc {:?} - {:#x}", desc, *offset);
             Ok((Note {
                 name,
                 desc,

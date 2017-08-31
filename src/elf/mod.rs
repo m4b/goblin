@@ -136,12 +136,13 @@ if_sylvan! {
             for phdr in &self.program_headers {
                 if phdr.p_type == program_header::PT_NOTE {
                     let offset = phdr.p_offset as usize;
+                    let alignment = phdr.p_align as usize;
                     return Some(
                         note::NoteIterator {
                             data,
                             offset,
                             size: offset + phdr.p_filesz as usize,
-                            ctx: self.ctx
+                            ctx: (alignment, self.ctx)
                         }
                     )
                 }

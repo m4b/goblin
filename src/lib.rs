@@ -82,6 +82,7 @@
 
 extern crate plain;
 extern crate scroll;
+#[cfg(feature = "std")]
 #[macro_use] extern crate log;
 
 #[cfg(feature = "std")]

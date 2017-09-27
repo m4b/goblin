@@ -54,7 +54,7 @@ impl<'a> PE<'a> {
     pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
         let header = header::Header::parse(bytes)?;
         debug!("{:#?}", header);
-        let mut offset = &mut (header.dos_header.pe_pointer as usize + header::SIZEOF_COFF_HEADER + header.coff_header.size_of_optional_header as usize);
+        let offset = &mut (header.dos_header.pe_pointer as usize + header::SIZEOF_COFF_HEADER + header.coff_header.size_of_optional_header as usize);
         let nsections = header.coff_header.number_of_sections as usize;
         let mut sections = Vec::with_capacity(nsections);
         for i in 0..nsections {

@@ -194,7 +194,7 @@ if_std! {
     impl ctx::TryIntoCtx<Ctx> for ProgramHeader {
         type Error = ::error::Error;
         type Size = usize;
-        fn try_into_ctx(self, mut bytes: &mut [u8], Ctx {container, le}: Ctx) -> result::Result<Self::Size, Self::Error> {
+        fn try_into_ctx(self, bytes: &mut [u8], Ctx {container, le}: Ctx) -> result::Result<Self::Size, Self::Error> {
             use scroll::Pwrite;
             match container {
                 Container::Little => {
@@ -286,7 +286,7 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
             pub fn parse(bytes: &[u8], mut offset: usize, count: usize, ctx: ::scroll::Endian) -> Result<Vec<ProgramHeader>> {
                 use scroll::Pread;
                 let mut program_headers = vec![ProgramHeader::default(); count];
-                let mut offset = &mut offset;
+                let offset = &mut offset;
                 bytes.gread_inout_with(offset, &mut program_headers, ctx)?;
                 Ok(program_headers)
             }

@@ -292,7 +292,7 @@ mod std {
             use scroll::Pread;
             let count = filesz / Reloc::size(is_rela, ctx);
             let mut relocs = Vec::with_capacity(count);
-            let mut offset = &mut offset;
+            let offset = &mut offset;
             for _ in 0..count {
                 let reloc = bytes.gread_with::<Reloc>(offset, (is_rela, ctx))?;
                 relocs.push(reloc);
@@ -347,7 +347,7 @@ mod std {
         type Size = usize;
         // TODO: I think this is a bad idea
         /// Writes the relocation into `bytes`
-        fn try_into_ctx(self, mut bytes: &mut [u8], (is_rela, Ctx {container, le}): RelocCtx) -> result::Result<Self::Size, Self::Error> {
+        fn try_into_ctx(self, bytes: &mut [u8], (is_rela, Ctx {container, le}): RelocCtx) -> result::Result<Self::Size, Self::Error> {
             use scroll::Pwrite;
             match container {
                 Container::Little => {

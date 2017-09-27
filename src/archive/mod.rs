@@ -195,7 +195,7 @@ const BSD_SYMDEF_SORTED_NAME: &'static str = "__.SYMDEF SORTED";
 impl<'a> Index<'a> {
     /// Parses the given byte buffer into an Index. NB: the buffer must be the start of the index
     pub fn parse_sysv_index(buffer: &'a [u8]) -> Result<Self> {
-        let mut offset = &mut 0;
+        let offset = &mut 0;
         let sizeof_table = buffer.gread_with::<u32>(offset, scroll::BE)? as usize;
         let mut indexes = Vec::with_capacity(sizeof_table);
         for _ in 0..sizeof_table {
@@ -343,7 +343,7 @@ pub struct Archive<'a> {
 impl<'a> Archive<'a> {
     pub fn parse(buffer: &'a [u8]) -> Result<Archive<'a>> {
         let mut magic = [0u8; SIZEOF_MAGIC];
-        let mut offset = &mut 0usize;
+        let offset = &mut 0usize;
         buffer.gread_inout(offset, &mut magic)?;
         if &magic != MAGIC {
             use scroll::Pread;
@@ -385,7 +385,7 @@ impl<'a> Archive<'a> {
         // preprocess member names
         let mut members = HashMap::new();
         let mut member_index_by_offset: HashMap<u32, usize> = HashMap::with_capacity(member_array.len());
-        for (i, mut member) in member_array.iter_mut().enumerate() {
+        for (i, member) in member_array.iter_mut().enumerate() {
             // copy in any SysV extended names
             if let Ok(sysv_name) = sysv_name_index.get(member.raw_name()) {
                 member.sysv_name = Some(sysv_name);

@@ -408,7 +408,7 @@ macro_rules! elf_header_std_impl {
                 type Size = usize;
                 fn try_from_ctx(bytes: &'a [u8], _: scroll::Endian) -> result::Result<(Self, Self::Size), Self::Error> {
                     let mut elf_header = Header::default();
-                    let mut offset = &mut 0;
+                    let offset = &mut 0;
                     bytes.gread_inout(offset, &mut elf_header.e_ident)?;
                     let endianness =
                         match elf_header.e_ident[EI_DATA] {
@@ -437,9 +437,9 @@ macro_rules! elf_header_std_impl {
                 type Error = ::error::Error;
                 type Size = usize;
                 /// a Pwrite impl for Header: **note** we use the endianness value in the header, and not a parameter
-                fn try_into_ctx(self, mut bytes: &mut [u8], _endianness: scroll::Endian) -> result::Result<Self::Size, Self::Error> {
+                fn try_into_ctx(self, bytes: &mut [u8], _endianness: scroll::Endian) -> result::Result<Self::Size, Self::Error> {
                     use scroll::{Pwrite};
-                    let mut offset = &mut 0;
+                    let offset = &mut 0;
                     let endianness =
                         match self.e_ident[EI_DATA] {
                             ELFDATA2LSB => scroll::LE,

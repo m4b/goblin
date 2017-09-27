@@ -1483,7 +1483,7 @@ pub struct LoadCommand {
 
 impl LoadCommand {
     /// Parse a load command from `bytes` at `offset` with the `le` endianness
-    pub fn parse(bytes: &[u8], mut offset: &mut usize, le: scroll::Endian) -> error::Result<Self> {
+    pub fn parse(bytes: &[u8], offset: &mut usize, le: scroll::Endian) -> error::Result<Self> {
         let start = *offset;
         let command = bytes.pread_with::<CommandVariant>(start, le)?;
         let size = command.cmdsize();

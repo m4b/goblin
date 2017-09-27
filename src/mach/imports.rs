@@ -154,7 +154,7 @@ impl<'a> BindInterpreter<'a> {
             &self.location
         };
         let mut bind_info = BindInformation::new(is_lazy);
-        let mut offset = &mut location.start.clone();
+        let offset = &mut location.start.clone();
         let mut start_of_sequence: usize = 0;
         while *offset < location.end {
             let opcode = self.data.gread::<i8>(offset)? as bind_opcodes::Opcode;

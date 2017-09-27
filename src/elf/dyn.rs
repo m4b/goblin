@@ -341,7 +341,7 @@ mod std {
     impl ctx::TryIntoCtx<Ctx> for Dyn {
         type Error = ::error::Error;
         type Size = usize;
-        fn try_into_ctx(self, mut bytes: &mut [u8], Ctx { container, le}: Ctx) -> result::Result<Self::Size, Self::Error> {
+        fn try_into_ctx(self, bytes: &mut [u8], Ctx { container, le}: Ctx) -> result::Result<Self::Size, Self::Error> {
             use scroll::Pwrite;
             match container {
                 Container::Little => {

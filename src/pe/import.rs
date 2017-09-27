@@ -15,7 +15,7 @@ pub struct HintNameTableEntry<'a> {
 
 impl<'a> HintNameTableEntry<'a> {
     fn parse(bytes: &'a [u8], mut offset: usize) -> error::Result<Self> {
-        let mut offset = &mut offset;
+        let offset = &mut offset;
         let hint = bytes.gread_with(offset, scroll::LE)?;
         let name = bytes.pread::<&'a str>(*offset)?;
         Ok(HintNameTableEntry { hint: hint, name: name })
@@ -43,7 +43,7 @@ impl<'a> ImportLookupTableEntry<'a> {
     pub fn parse(bytes: &'a [u8], mut offset: usize, sections: &[section_table::SectionTable])
                                                                       -> error::Result<ImportLookupTable<'a>> {
         let le = scroll::LE;
-        let mut offset = &mut offset;
+        let offset = &mut offset;
         let mut table = Vec::new();
         loop {
             let bitfield: u32 = bytes.gread_with(offset, le)?;
@@ -161,7 +161,7 @@ impl<'a> ImportData<'a> {
     pub fn parse(bytes: &'a[u8], dd: &data_directories::DataDirectory, sections: &[section_table::SectionTable]) -> error::Result<ImportData<'a>> {
         let import_directory_table_rva = dd.virtual_address as usize;
         debug!("import_directory_table_rva {:#x}", import_directory_table_rva);
-        let mut offset = &mut utils::find_offset(import_directory_table_rva, sections).ok_or(error::Error::Malformed(format!("Cannot create ImportData; cannot map import_directory_table_rva {:#x} into offset", import_directory_table_rva)))?;;
+        let offset = &mut utils::find_offset(import_directory_table_rva, sections).ok_or(error::Error::Malformed(format!("Cannot create ImportData; cannot map import_directory_table_rva {:#x} into offset", import_directory_table_rva)))?;;
         debug!("import data offset {:#x}", offset);
         let mut import_data = Vec::new();
         loop {

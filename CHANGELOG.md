@@ -8,6 +8,10 @@ I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, do
 ## [Unreleased]
 ### Added
 - add new elf::note module and associated structs + constants, and `iter_notes` method to Elf object
+- remove all unused muts; this will make nightly and future stables no longer warn
+
+### Changed
+- add proper std feature flag to log; this was an oversight in last version
 
 ## [0.0.11] - 2017-08-24
 ### Added

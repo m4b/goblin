@@ -25,7 +25,7 @@ version = "0.7.0"
 default_features = false
 
 [dependencies.scroll_derive]
-version = "0.7.0"
+version = "0.8.0"
 optional = true
 
 [features]

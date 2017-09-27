@@ -82,6 +82,7 @@
 
 extern crate plain;
 extern crate scroll;
+
 #[cfg(feature = "std")]
 #[macro_use] extern crate log;
 
@@ -191,12 +192,7 @@ pub mod container {
     }
 }
 
-// peek at the underlying bytes
-#[cfg(feature = "std")]
-pub use peek::*;
-
-#[cfg(all(feature = "std"))]
-mod peek {
+if_std! {
 
     #[derive(Debug, Default)]
     /// Information obtained from a peek `Hint`
@@ -218,9 +214,8 @@ mod peek {
 
     /// Peeks at `bytes`, and returns a `Hint`
     #[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
-    pub fn peek_bytes(bytes: &[u8; 16]) -> super::error::Result<Hint> {
+    pub fn peek_bytes(bytes: &[u8; 16]) -> error::Result<Hint> {
         use scroll::{Pread, BE};
-        use super::*;
         if &bytes[0..elf::header::SELFMAG] == elf::header::ELFMAG {
             let class = bytes[elf::header::EI_CLASS];
             let is_lsb = bytes[elf::header::EI_DATA] == elf::header::ELFDATA2LSB;
@@ -258,7 +253,7 @@ mod peek {
 
     /// Peeks at the underlying Read object. Requires the underlying bytes to have at least 16 byte length. Resets the seek to `Start` after reading.
     #[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
-    pub fn peek<R: ::std::io::Read + ::std::io::Seek>(fd: &mut R) -> super::error::Result<Hint> {
+    pub fn peek<R: ::std::io::Read + ::std::io::Seek>(fd: &mut R) -> error::Result<Hint> {
         use std::io::SeekFrom;
         let mut bytes = [0u8; 16];
         fd.seek(SeekFrom::Start(0))?;

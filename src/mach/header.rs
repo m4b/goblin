@@ -487,3 +487,16 @@ impl ctx::IntoCtx<container::Ctx> for Header {
         bytes.pwrite_with(self, 0, ctx).unwrap();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_basic_header32() {
+        use super::Header;
+        use scroll::Pread;
+        let bytes = b"\xce\xfa\xed\xfe\x0c\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\x06\x00\x00\x00\x8c\r\x00\x00\x00\x00\x00\x00\x1b\x00\x00\x00\x18\x00\x00\x00\xe0\xf7B\xbb\x1c\xf50w\xa6\xf7u\xa3\xba(";
+        let header: Header = bytes.pread(0).unwrap();
+        assert_eq!(header.cputype, 12);
+        assert_eq!(header.cpusubtype, 9);
+    }
+}

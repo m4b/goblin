@@ -165,11 +165,11 @@ pub struct Header32 {
     pub magic: u32,
     /// cpu specifier
     pub cputype: u32,
+    /// machine specifier
+    pub cpusubtype: u8,
     pub padding1: u8,
     pub padding2: u8,
     pub caps: u8,
-    /// machine specifier
-    pub cpusubtype: u8,
     /// type of file
     pub filetype: u32,
     /// number of load commands

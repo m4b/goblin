@@ -166,10 +166,7 @@ pub struct Header32 {
     /// cpu specifier
     pub cputype: u32,
     /// machine specifier
-    pub cpusubtype: u8,
-    pub padding1: u8,
-    pub padding2: u8,
-    pub caps: u8,
+    pub cpusubtype: u32,
     /// type of file
     pub filetype: u32,
     /// number of load commands
@@ -187,11 +184,10 @@ unsafe impl Plain for Header32 {}
 impl fmt::Debug for Header32 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f,
-               "0x{:x} {} {} 0x{:x} {} {} {} 0x{:x}",
+               "0x{:x} {} 0x{:x} {} {} {} 0x{:x}",
                self.magic,
                cpu_type_to_str(self.cputype),
                self.cpusubtype,
-               self.caps,
                filetype_to_str(self.filetype),
                self.ncmds,
                self.sizeofcmds,
@@ -215,12 +211,12 @@ impl Header32 {
 #[derive(Pread, Pwrite, SizeWith)]
 /// A 64-bit Mach-o header
 pub struct Header64 {
+    /// mach magic number identifier
     pub magic: u32,
+    /// cpu specifier
     pub cputype: u32,
-    pub cpusubtype: u8,
-    pub padding1: u8,
-    pub padding2: u8,
-    pub caps: u8,
+    /// machine specifier
+    pub cpusubtype: u32,
     /// type of file
     pub filetype: u32,
     /// number of load commands
@@ -239,11 +235,10 @@ pub const SIZEOF_HEADER_64: usize = 32;
 impl fmt::Debug for Header64 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f,
-               "0x{:x} {} {} 0x{:x} {} {} {} 0x{:x} 0x{:x}",
+               "0x{:x} {} 0x{:x} {} {} {} 0x{:x} 0x{:x}",
                self.magic,
                cpu_type_to_str(self.cputype),
                self.cpusubtype,
-               self.caps,
                filetype_to_str(self.filetype),
                self.ncmds,
                self.sizeofcmds,
@@ -268,10 +263,7 @@ impl Header64 {
 pub struct Header {
     pub magic: u32,
     pub cputype: u32,
-    pub cpusubtype: u8,
-    pub padding1: u8,
-    pub padding2: u8,
-    pub caps: u8,
+    pub cpusubtype: u32,
     /// type of file
     pub filetype: u32,
     /// number of load commands
@@ -286,11 +278,10 @@ pub struct Header {
 impl fmt::Debug for Header {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f,
-               "0x{:x} {} {} 0x{:x} {} {} {} 0x{:x} 0x{:x}",
+               "0x{:x} {} 0x{:x} {} {} {} 0x{:x} 0x{:x}",
                self.magic,
                cpu_type_to_str(self.cputype),
                self.cpusubtype,
-               self.caps,
                filetype_to_str(self.filetype),
                self.ncmds,
                self.sizeofcmds,
@@ -305,9 +296,6 @@ impl From<Header32> for Header {
             magic:      header.magic,
             cputype:    header.cputype,
             cpusubtype: header.cpusubtype,
-            padding1:   header.padding1,
-            padding2:   header.padding2,
-            caps:       header.caps,
             filetype:   header.filetype,
             ncmds:      header.ncmds as usize,
             sizeofcmds: header.sizeofcmds,
@@ -323,9 +311,6 @@ impl From<Header> for Header32 {
             magic:      header.magic,
             cputype:    header.cputype,
             cpusubtype: header.cpusubtype,
-            padding1:   header.padding1,
-            padding2:   header.padding2,
-            caps:       header.caps,
             filetype:   header.filetype,
             ncmds:      header.ncmds as u32,
             sizeofcmds: header.sizeofcmds,
@@ -340,9 +325,6 @@ impl From<Header64> for Header {
             magic:      header.magic,
             cputype:    header.cputype,
             cpusubtype: header.cpusubtype,
-            padding1:   header.padding1,
-            padding2:   header.padding2,
-            caps:       header.caps,
             filetype:   header.filetype,
             ncmds:      header.ncmds as usize,
             sizeofcmds: header.sizeofcmds,
@@ -358,9 +340,6 @@ impl From<Header> for Header64 {
             magic:      header.magic,
             cputype:    header.cputype,
             cpusubtype: header.cpusubtype,
-            padding1:   header.padding1,
-            padding2:   header.padding2,
-            caps:       header.caps,
             filetype:   header.filetype,
             ncmds:      header.ncmds as u32,
             sizeofcmds: header.sizeofcmds,
@@ -493,7 +472,7 @@ mod tests {
     #[test]
     fn test_basic_header32() {
         use mach::constants::cputype::CPU_TYPE_ARM;
-        const CPU_SUBTYPE_ARM_V7: u8 = 9;
+        const CPU_SUBTYPE_ARM_V7: u32 = 9;
         use super::Header;
         use scroll::Pread;
         let bytes = b"\xce\xfa\xed\xfe\x0c\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\x06\x00\x00\x00\x8c\r\x00\x00\x00\x00\x00\x00\x1b\x00\x00\x00\x18\x00\x00\x00\xe0\xf7B\xbb\x1c\xf50w\xa6\xf7u\xa3\xba(";

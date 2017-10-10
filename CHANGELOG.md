@@ -7,6 +7,8 @@ I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, do
 
 ## [Unreleased]
 ### Added
+- new osx and ios version constants
+- all mach load commands now implement IOread and IOwrite from scroll
 - add new elf::note module and associated structs + constants, and `iter_notes` method to Elf object
 - remove all unused muts; this will make nightly and future stables no longer warn
 

@@ -82,7 +82,7 @@ fn parse_self() {
         .expect("goblin-<hash>.0.o not found");
 
     let bytes = archive.extract(goblin_object_name, &buffer).expect("extract goblin object");
-    match goblin::parse(&bytes).expect("parse object") {
+    match goblin::Object::parse(&bytes).expect("parse object") {
         goblin::Object::Elf(elf) => {
             assert!(elf.entry == 0);
             assert!(elf.bias == 0);

@@ -1,7 +1,6 @@
-extern crate goblin;
 use std::process;
 
-fn compare(args: Vec<&str>) {
+pub fn compare(args: Vec<&str>) {
     let apple = process::Command::new("/Library/Developer/CommandLineTools/usr/bin/dyldinfo")
         .args(&args)
         .output()

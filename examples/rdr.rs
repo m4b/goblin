@@ -1,5 +1,4 @@
 extern crate goblin;
-extern crate scroll;
 extern crate env_logger;
 
 use goblin::error;
@@ -14,7 +13,7 @@ fn run () -> error::Result<()> {
             let path = Path::new(arg.as_str());
             let mut fd = File::open(path)?;
             let buffer = { let mut v = Vec::new(); fd.read_to_end(&mut v).unwrap(); v};
-            let res = goblin::parse(&buffer)?;
+            let res = goblin::Object::parse(&buffer)?;
             println!("{:#?}", res);
         }
     }

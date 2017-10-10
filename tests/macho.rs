@@ -1,5 +1,4 @@
 extern crate goblin;
-extern crate scroll;
 
 use goblin::mach::*;
 

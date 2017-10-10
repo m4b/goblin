@@ -1,7 +1,6 @@
 //cargo run --example=ar -- crt1.a
 
 extern crate goblin;
-extern crate scroll;
 
 use goblin::elf;
 use goblin::archive;

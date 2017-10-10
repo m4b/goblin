@@ -517,7 +517,6 @@ macro_rules! elf_header_test {
     ($class:expr) => {
         #[cfg(test)]
         mod test {
-            extern crate scroll;
             use scroll::{Pwrite, Pread};
             use elf::header::Header as ElfHeader;
             use super::*;

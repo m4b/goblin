@@ -1,5 +1,4 @@
 extern crate goblin;
-extern crate scroll;
 
 use goblin::mach::{self, Mach};
 use std::env;
@@ -41,7 +40,7 @@ fn main () {
         let path = Path::new(&path_name);
         let buffer = { let mut v = Vec::new(); let mut f = File::open(&path).unwrap(); f.read_to_end(&mut v).unwrap(); v};
         match mach::Mach::parse(&buffer) {
-            Ok(Mach::Binary(macho)) => {
+            Ok(Mach::Binary(_macho)) => {
                 println!("Already a single arch binary");
                 process::exit(2);
             },
@@ -53,12 +52,12 @@ fn main () {
                     if arch.is_64() && m64 {
                         let bytes = &buffer[arch.offset as usize..][..arch.size as usize];
                         let mut file = File::create(path).unwrap();
-                        file.write_all(bytes);
+                        file.write_all(bytes).unwrap();
                         break;
                     } else if !m64 {
                         let bytes = &buffer[arch.offset as usize..][..arch.size as usize];
                         let mut file = File::create(path).unwrap();
-                        file.write_all(bytes);
+                        file.write_all(bytes).unwrap();
                     }
                 }
             },

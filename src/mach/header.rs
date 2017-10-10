@@ -165,11 +165,11 @@ pub struct Header32 {
     pub magic: u32,
     /// cpu specifier
     pub cputype: u32,
+    /// machine specifier
+    pub cpusubtype: u8,
     pub padding1: u8,
     pub padding2: u8,
     pub caps: u8,
-    /// machine specifier
-    pub cpusubtype: u8,
     /// type of file
     pub filetype: u32,
     /// number of load commands
@@ -485,5 +485,20 @@ impl ctx::TryIntoCtx<container::Ctx> for Header {
 impl ctx::IntoCtx<container::Ctx> for Header {
     fn into_ctx(self, bytes: &mut [u8], ctx: container::Ctx) {
         bytes.pwrite_with(self, 0, ctx).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_basic_header32() {
+        use mach::constants::cputype::CPU_TYPE_ARM;
+        const CPU_SUBTYPE_ARM_V7: u8 = 9;
+        use super::Header;
+        use scroll::Pread;
+        let bytes = b"\xce\xfa\xed\xfe\x0c\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\x06\x00\x00\x00\x8c\r\x00\x00\x00\x00\x00\x00\x1b\x00\x00\x00\x18\x00\x00\x00\xe0\xf7B\xbb\x1c\xf50w\xa6\xf7u\xa3\xba(";
+        let header: Header = bytes.pread(0).unwrap();
+        assert_eq!(header.cputype, CPU_TYPE_ARM);
+        assert_eq!(header.cpusubtype, CPU_SUBTYPE_ARM_V7);
     }
 }

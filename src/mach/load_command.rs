@@ -30,7 +30,7 @@ pub type LcStr = u32;
 pub const SIZEOF_LC_STR: usize = 4;
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct Section32 {
     /// name of this section
     pub sectname:  [u8; 16],
@@ -60,7 +60,7 @@ pub const SIZEOF_SECTION_32: usize = 68;
 
 /// for 64-bit architectures
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct Section64 {
     /// name of this section
     pub sectname:  [u8; 16],
@@ -91,7 +91,7 @@ pub struct Section64 {
 pub const SIZEOF_SECTION_64: usize = 80;
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct SegmentCommand32 {
     pub cmd:      u32,
     pub cmdsize:  u32,
@@ -115,7 +115,7 @@ impl SegmentCommand32 {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct SegmentCommand64 {
     pub cmd:      u32,
     pub cmdsize:  u32,
@@ -142,7 +142,7 @@ impl SegmentCommand64 {
 /// minor version number.  The address of where the headers are loaded is in
 /// header_addr. (THIS IS OBSOLETE and no longer supported).
 #[repr(packed)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct Fvmlib {
     /// library's target pathname
     pub name: u32,
@@ -160,7 +160,7 @@ pub const SIZEOF_FVMLIB: usize = 12;
 /// fvmlib_command (cmd == LC_LOADFVMLIB) for each library it uses.
 /// (THIS IS OBSOLETE and no longer supported).
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct FvmlibCommand {
     /// LC_IDFVMLIB or LC_LOADFVMLIB
     pub cmd: u32,
@@ -192,7 +192,7 @@ pub const SIZEOF_FVMLIB_COMMAND: usize = 20;
 /// dylib_command (cmd == LC_LOAD_DYLIB, LC_LOAD_WEAK_DYLIB, or
 /// LC_REEXPORT_DYLIB) for each library it uses.
 #[repr(packed)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct Dylib {
     /// library's path name
     pub name: LcStr,
@@ -207,7 +207,7 @@ pub struct Dylib {
 pub const SIZEOF_DYLIB: usize = 16;
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct DylibCommand {
     /// LC_ID_DYLIB, LC_LOAD_DYLIB, LC_LOAD_WEAK_DYLIB, LC_REEXPORT_DYLIB
     pub cmd: u32,
@@ -228,7 +228,7 @@ pub const SIZEOF_DYLIB_COMMAND: usize = 20;
 /// The name of the umbrella framework for subframeworks is recorded in the
 /// following structure.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct SubFrameworkCommand {
     /// LC_SUB_FRAMEWORK
     pub cmd:     u32,
@@ -248,7 +248,7 @@ pub const SIZEOF_SUB_FRAMEWORK_COMMAND: usize = 12;
 /// usually a framework name.  It can also be a name used for bundles clients
 /// where the bundle is built with "-client_name client_name".
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct SubClientCommand {
     /// LC_SUB_CLIENT
     pub cmd:     u32,
@@ -272,7 +272,7 @@ pub const SIZEOF_SUB_CLIENT_COMMAND: usize = 12;
 /// Zero or more sub_umbrella frameworks may be use by an umbrella framework.
 /// The name of a sub_umbrella framework is recorded in the following structure.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct SubUmbrellaCommand {
     /// LC_SUB_UMBRELLA
     pub cmd:     u32,
@@ -298,7 +298,7 @@ pub const SIZEOF_SUB_UMBRELLA_COMMAND: usize = 12;
 /// The name of a sub_library framework is recorded in the following structure.
 /// For example /usr/lib/libobjc_profile.A.dylib would be recorded as "libobjc".
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct SubLibraryCommand {
     /// LC_SUB_LIBRARY
     pub cmd:     u32,
@@ -318,7 +318,7 @@ pub const SIZEOF_SUB_LIBRARY_COMMAND: usize = 12;
 /// of the first byte.  So the bit for the Nth module is:
 /// (linked_modules[N/8] >> N%8) & 1
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct PreboundDylibCommand {
     /// LC_PREBOUND_DYLIB
     pub cmd:     u32,
@@ -337,7 +337,7 @@ pub const SIZEOF_PREBOUND_DYLIB_COMMAND: usize = 20;
 
 /// The name of the dynamic linker
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct DylinkerCommand {
     pub cmd:     u32,
     pub cmdsize: u32,
@@ -547,7 +547,7 @@ impl fmt::Debug for ThreadCommand {
 /// and then calls it.  This gets called before any module initialization
 /// routines (used for C++ static constructors) in the library.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct RoutinesCommand32 {
     /// LC_ROUTINES
     pub cmd:         u32,
@@ -567,7 +567,7 @@ pub struct RoutinesCommand32 {
 
 /// The 64-bit routines command.  Same use as above.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct RoutinesCommand64 {
     /// LC_ROUTINES_64
     pub cmd:          u32,
@@ -586,7 +586,7 @@ pub struct RoutinesCommand64 {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct SymtabCommand {
   pub cmd:     u32,
   pub cmdsize: u32,
@@ -650,7 +650,7 @@ pub const SIZEOF_SYMTAB_COMMAND: usize = 24;
 /// For executable and object modules the relocation entries continue to hang
 /// off the section structures.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct DysymtabCommand {
     pub cmd: u32,
     pub cmdsize: u32,
@@ -724,7 +724,7 @@ pub const SIZEOF_DYSYMTAB_COMMAND: usize = 80;
 // TODO: unimplemented
 /// a table of contents entry
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct DylibTableOfContents {
     /// the defined external symbol (index into the symbol table)
     pub symbol_index: u32,
@@ -735,7 +735,7 @@ pub struct DylibTableOfContents {
 // TODO: unimplemented
 /// a module table entry
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct DylibModule {
     /// the module name (index into string table)
     pub module_name: u32,
@@ -770,7 +770,7 @@ pub struct DylibModule {
 // TODO: unimplemented
 /// a 64-bit module table entry
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct DylibModule64 {
     /// the module name (index into string table)
     pub module_name: u32,
@@ -811,7 +811,7 @@ pub struct DylibModule64 {
 /// reference that is being made.  The constants for the flags are defined in
 /// <mach-o/nlist.h> as they are also used for symbol table entries.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct DylibReference {
     /// 24 bits bit-field index into the symbol table
     pub isym: [u8; 24],
@@ -822,7 +822,7 @@ pub struct DylibReference {
 /// The twolevel_hints_command contains the offset and number of hints in the
 /// two-level namespace lookup hints table.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct TwolevelHintsCommand {
     /// LC_TWOLEVEL_HINTS
     pub cmd: u32,
@@ -849,7 +849,7 @@ pub struct TwolevelHintsCommand {
 /// library's table of contents.  This is used as the starting point of the
 /// binary search or a directed linear search.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct TwolevelHint {
     /// index into the sub images
     pub isub_image: u64,
@@ -867,7 +867,7 @@ pub struct TwolevelHint {
 /// input file.
 // TODO: unimplemented
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct PrebindCksumCommand {
     /// LC_PREBIND_CKSUM
     pub cmd: u32,
@@ -880,7 +880,7 @@ pub struct PrebindCksumCommand {
 /// The uuid load command contains a single 128-bit unique random number that
 /// identifies an object produced by the static link editor.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct UuidCommand {
     /// LC_UUID
     pub cmd: u32,
@@ -895,7 +895,7 @@ pub const SIZEOF_UUID_COMMAND: usize = 24;
 /// The rpath_command contains a path which at runtime should be added to
 /// the current run path used to find @rpath prefixed dylibs.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct RpathCommand {
     /// LC_RPATH
     pub cmd: u32,
@@ -910,7 +910,7 @@ pub const SIZEOF_RPATH_COMMAND: usize = 12;
 /// The linkedit_data_command contains the offsets and sizes of a blob
 /// of data in the __LINKEDIT segment.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct LinkeditDataCommand {
     /// LC_CODE_SIGNATURE, LC_SEGMENT_SPLIT_INFO, LC_FUNCTION_STARTS, LC_DATA_IN_CODE, LC_DYLIB_CODE_SIGN_DRS or LC_LINKER_OPTIMIZATION_HINT.
     pub cmd: u32,
@@ -927,7 +927,7 @@ pub const SIZEOF_LINKEDIT_DATA_COMMAND: usize = 16;
 /// The encryption_info_command contains the file offset and size of an
 /// of an encrypted segment.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct EncryptionInfoCommand32 {
     /// LC_ENCRYPTION_INFO
     pub cmd: u32,
@@ -946,7 +946,7 @@ pub const SIZEOF_ENCRYPTION_INFO_COMMAND_32: usize = 20;
 /// The encryption_info_command_64 contains the file offset and size of an
 /// of an encrypted segment (for use in x86_64 targets).
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct EncryptionInfoCommand64 {
     /// LC_ENCRYPTION_INFO_64
     pub cmd: u32,
@@ -969,7 +969,7 @@ pub const SIZEOF_ENCRYPTION_INFO_COMMAND_64: usize = 24;
 ///
 /// LC_VERSION_MIN_MACOSX or LC_VERSION_MIN_IPHONEOS
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct VersionMinCommand {
     pub cmd: u32,
     pub cmdsize: u32,
@@ -1025,7 +1025,7 @@ pub const SIZEOF_DYLIB_INFO_COMMAND: usize = 48;
 
 /// The linker_option_command contains linker options embedded in object files.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct LinkerOptionCommand {
     /// LC_LINKER_OPTION only used in MH_OBJECT fipub constypes
     pub cmd: u32,
@@ -1044,7 +1044,7 @@ pub const SIZEOF_LINKER_OPTION_COMMAND: usize = 12;
 /// roots also being a multiple of a long.  Also the padding must again be
 /// zeroed. (THIS IS OBSOLETE and no longer supported).
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct SymsegCommand {
     /// LC_SYMSEG
     pub cmd: u32,
@@ -1063,7 +1063,7 @@ pub const SIZEOF_SYMSEG_COMMAND: usize = 16;
 /// the command is padded out with zero bytes to a multiple of 4 bytes/
 /// (THIS IS OBSOLETE and no longer supported).
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct IdentCommand {
     /// LC_IDENT
     pub cmd: u32,
@@ -1078,7 +1078,7 @@ pub const SIZEOF_IDENT_COMMAND: usize = 8;
 /// internal use.  The kernel ignores this command when loading a program into
 /// memory).
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct FvmfileCommand {
     /// LC_FVMFILE
     pub cmd: u32,
@@ -1097,7 +1097,7 @@ pub const SIZEOF_FVMFILE_COMMAND: usize = 16;
 /// of main().  If -stack_size was used at link time, the stacksize
 /// field will contain the stack size need for the main thread.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct EntryPointCommand {
     pub cmd: u32,
     pub cmdsize: u32,
@@ -1112,7 +1112,7 @@ pub const SIZEOF_ENTRY_POINT_COMMAND: usize = 24;
 /// The source_version_command is an optional load command containing
 /// the version of the sources used to build the binary.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct SourceVersionCommand {
     /// LC_SOURCE_VERSION
     pub cmd: u32,
@@ -1125,7 +1125,7 @@ pub struct SourceVersionCommand {
 /// to point to an array of data_in_code_entry entries. Each entry
 /// describes a range of data in a code section.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct DataInCodeEntry {
     /// from mach_header to start of data range
     pub offset: u32,

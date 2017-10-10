@@ -11,6 +11,7 @@ I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, do
 - remove all unused muts; this will make nightly and future stables no longer warn
 
 ### Changed
+- mach header cpusubtype bug fixed, thanks @mitsuhiko !
 - add proper std feature flag to log; this was an oversight in last version
 
 ## [0.0.11] - 2017-08-24

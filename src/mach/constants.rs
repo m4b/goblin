@@ -194,6 +194,9 @@ pub mod cputype {
 
     pub type CpuType = u32;
 
+    /// the mask for CPU feature flags
+    pub const CPU_SUBTYPE_MASK: u32 = 0xff000000;
+
     pub const CPU_ARCH_MASK: CpuType = 0xff000000;
     pub const CPU_ARCH_ABI64: CpuType = 0x01000000;
     pub const CPU_TYPE_X86: CpuType = 7;

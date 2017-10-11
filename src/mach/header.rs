@@ -5,7 +5,7 @@ use scroll::{self, ctx, Pwrite, Endian};
 use scroll::ctx::SizeWith;
 use plain::{self, Plain};
 
-use mach::constants::cputype::cpu_type_to_str;
+use mach::constants::cputype::{cpu_type_to_str, CPU_SUBTYPE_MASK};
 use error;
 use container::{self, Container};
 
@@ -370,6 +370,18 @@ impl Header {
     pub fn size(&self) -> usize {
         use scroll::ctx::SizeWith;
         Self::size_with(&self.container())
+    }
+    /// Returns the cpu type
+    pub fn cputype(&self) -> u32 {
+        self.cputype
+    }
+    /// Returns the cpu subtype with the capabilities removed
+    pub fn cpusubtype(&self) -> u32 {
+        self.cpusubtype & !CPU_SUBTYPE_MASK
+    }
+    /// Returns the capabilities of the CPU
+    pub fn cpu_caps(&self) -> u32 {
+        (self.cpusubtype & CPU_SUBTYPE_MASK) >> 24
     }
     pub fn ctx(&self) -> error::Result<container::Ctx> {
         // todo check magic is not junk, and error otherwise

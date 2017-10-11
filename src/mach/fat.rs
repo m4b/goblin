@@ -111,7 +111,7 @@ impl FatArch {
 
     /// Whether this fat architecture header describes a 64-bit binary
     pub fn is_64(&self) -> bool {
-        (self.cputype & CPU_ARCH_ABI64) != 0
+        (self.cputype & CPU_ARCH_ABI64) == CPU_ARCH_ABI64
     }
 
     /// Parse a `FatArch` header from `bytes` at `offset`

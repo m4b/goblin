@@ -235,7 +235,22 @@ impl<'a> Iterator for SectionIterator<'a> {
             self.idx += 1;
             match self.data.gread_with::<Section>(&mut self.offset, self.ctx) {
                 Ok(section) => {
-                    let data = &self.data[section.offset as usize..][..section.size as usize];
+                    // it's not uncommon to encounter macho files where files are
+                    // truncated but the sections are still remaining in the header.
+                    // Because of this we want to not panic here but instead just
+                    // slice down to a empty data slice.  This way only if code
+                    // actually needs to access those sections it will fall over.
+                    let data = self.data
+                        .get(section.offset as usize..)
+                        .unwrap_or_else(|| {
+                            warn!("section #{} offset {} out of bounds", self.idx, section.offset);
+                            &[]
+                        })
+                        .get(..section.size as usize)
+                        .unwrap_or_else(|| {
+                            warn!("section #{} size {} out of bounds", self.idx, section.size);
+                            &[]
+                        });
                     Some(Ok((section, data)))
                 },
                 Err(e) => Some(Err(e.into()))

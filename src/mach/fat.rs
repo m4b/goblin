@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::{self, Read};
 
 use scroll::{self, Pread};
-use mach::constants::cputype;
+use mach::constants::cputype::{CpuType, CpuSubType, CPU_SUBTYPE_MASK, CPU_ARCH_ABI64};
 use error;
 
 pub const FAT_MAGIC: u32 = 0xcafebabe;
@@ -77,8 +77,8 @@ pub const SIZEOF_FAT_ARCH: usize = 20;
 impl fmt::Debug for FatArch {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("FatArch")
-            .field("cputype", &cputype::cpu_type_to_str(self.cputype))
-            .field("cmdsize", &self.cpusubtype)
+            .field("cputype", &self.cputype())
+            .field("cmdsize", &self.cpusubtype())
             .field("offset",  &format_args!("{:#x}", &self.offset))
             .field("size",    &self.size)
             .field("align",   &self.align)
@@ -94,10 +94,26 @@ impl FatArch {
         &bytes[start..end]
     }
 
+    /// Returns the cpu type
+    pub fn cputype(&self) -> CpuType {
+        self.cputype
+    }
+
+    /// Returns the cpu subtype with the capabilities removed
+    pub fn cpusubtype(&self) -> CpuSubType {
+        self.cpusubtype & !CPU_SUBTYPE_MASK
+    }
+
+    /// Returns the capabilities of the CPU
+    pub fn cpu_caps(&self) -> u32 {
+        (self.cpusubtype & CPU_SUBTYPE_MASK) >> 24
+    }
+
     /// Whether this fat architecture header describes a 64-bit binary
     pub fn is_64(&self) -> bool {
-        self.cputype == cputype::CPU_TYPE_X86_64 || self.cputype == cputype::CPU_TYPE_ARM64
+        (self.cputype & CPU_ARCH_ABI64) == CPU_ARCH_ABI64
     }
+
     /// Parse a `FatArch` header from `bytes` at `offset`
     pub fn parse(bytes: &[u8], offset: usize) -> error::Result<Self> {
         let arch = bytes.pread_with::<FatArch>(offset, scroll::BE)?;

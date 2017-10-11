@@ -5,7 +5,7 @@ use scroll::{self, ctx, Pwrite, Endian};
 use scroll::ctx::SizeWith;
 use plain::{self, Plain};
 
-use mach::constants::cputype::cpu_type_to_str;
+use mach::constants::cputype::{CpuType, CpuSubType, CPU_SUBTYPE_MASK};
 use error;
 use container::{self, Container};
 
@@ -157,7 +157,7 @@ pub fn filetype_to_str(filetype: u32) -> &'static str {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Debug)]
 #[derive(Pread, Pwrite, SizeWith)]
 /// A 32-bit Mach-o header
 pub struct Header32 {
@@ -181,21 +181,6 @@ pub const SIZEOF_HEADER_32: usize = 0x1c;
 
 unsafe impl Plain for Header32 {}
 
-impl fmt::Debug for Header32 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,
-               "0x{:x} {} 0x{:x} {} {} {} 0x{:x}",
-               self.magic,
-               cpu_type_to_str(self.cputype),
-               self.cpusubtype,
-               filetype_to_str(self.filetype),
-               self.ncmds,
-               self.sizeofcmds,
-               self.flags,
-        )
-    }
-}
-
 impl Header32 {
     /// Transmutes the given byte array into the corresponding 32-bit Mach-o header
     pub fn from_bytes(bytes: &[u8; SIZEOF_HEADER_32]) -> &Self {
@@ -207,7 +192,7 @@ impl Header32 {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Debug)]
 #[derive(Pread, Pwrite, SizeWith)]
 /// A 64-bit Mach-o header
 pub struct Header64 {
@@ -231,21 +216,6 @@ pub struct Header64 {
 unsafe impl Plain for Header64 {}
 
 pub const SIZEOF_HEADER_64: usize = 32;
-
-impl fmt::Debug for Header64 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,
-               "0x{:x} {} 0x{:x} {} {} {} 0x{:x} 0x{:x}",
-               self.magic,
-               cpu_type_to_str(self.cputype),
-               self.cpusubtype,
-               filetype_to_str(self.filetype),
-               self.ncmds,
-               self.sizeofcmds,
-               self.flags,
-               self.reserved)
-    }
-}
 
 impl Header64 {
     /// Transmutes the given byte array into the corresponding 64-bit Mach-o header
@@ -280,8 +250,8 @@ impl fmt::Debug for Header {
         write!(f,
                "0x{:x} {} 0x{:x} {} {} {} 0x{:x} 0x{:x}",
                self.magic,
-               cpu_type_to_str(self.cputype),
-               self.cpusubtype,
+               self.cputype(),
+               self.cpusubtype(),
                filetype_to_str(self.filetype),
                self.ncmds,
                self.sizeofcmds,
@@ -370,6 +340,18 @@ impl Header {
     pub fn size(&self) -> usize {
         use scroll::ctx::SizeWith;
         Self::size_with(&self.container())
+    }
+    /// Returns the cpu type
+    pub fn cputype(&self) -> CpuType {
+        self.cputype
+    }
+    /// Returns the cpu subtype with the capabilities removed
+    pub fn cpusubtype(&self) -> CpuSubType {
+        self.cpusubtype & !CPU_SUBTYPE_MASK
+    }
+    /// Returns the capabilities of the CPU
+    pub fn cpu_caps(&self) -> u32 {
+        (self.cpusubtype & CPU_SUBTYPE_MASK) >> 24
     }
     pub fn ctx(&self) -> error::Result<container::Ctx> {
         // todo check magic is not junk, and error otherwise

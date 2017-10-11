@@ -77,7 +77,7 @@ impl<'a> Strtab<'a> {
 
 impl<'a> fmt::Debug for Strtab<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "delim: {:?} {:?}", self.delim, str::from_utf8(&self.bytes))
+        write!(f, "delim: {:?} {:?}", self.delim, str::from_utf8(self.bytes))
     }
 }
 
@@ -96,7 +96,7 @@ impl<'a> Index<usize> for Strtab<'a> {
         // This can't delegate to get() because get() requires #[cfg(features = "std")]
         // It's also slightly less useful than get() because the lifetime -- specified by the Index
         // trait -- matches &self, even though we could return &'a instead
-        get_str(offset, &self.bytes, self.delim).unwrap()
+        get_str(offset, self.bytes, self.delim).unwrap()
     }
 }
 

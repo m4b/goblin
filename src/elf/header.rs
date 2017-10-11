@@ -175,7 +175,7 @@ mod std {
         #[inline]
         pub fn size(ctx: &Ctx) -> usize {
             use scroll::ctx::SizeWith;
-            Self::size_with(&ctx)
+            Self::size_with(ctx)
         }
         /// Returns the container type this header specifies
         pub fn container(&self) -> error::Result<Container> {
@@ -306,7 +306,7 @@ mod std {
                     Ok((Header::from(bytes.pread::<header64::Header>(0)?), header64::SIZEOF_EHDR))
                 },
                 _ => {
-                    return Err(error::Error::Malformed(format!("invalid ELF class {:x}", class)).into())
+                    Err(error::Error::Malformed(format!("invalid ELF class {:x}", class)).into())
                 }
             }
         }

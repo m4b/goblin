@@ -205,11 +205,10 @@ impl<'a> Import<'a> {
                     let (rva, name, ordinal) =
                         match &entry.synthetic {
                             &HintNameTableRVA ((rva, ref hint_entry)) => {
-                                let res = (rva, Cow::Borrowed(hint_entry.name), hint_entry.hint.clone());
                                 // if hint_entry.name = "" && hint_entry.hint = 0 {
                                 //     println!("<PE.Import> warning hint/name table rva from {} without hint {:#x}", dll, rva);
                                 // }
-                                res
+                                (rva, Cow::Borrowed(hint_entry.name), hint_entry.hint.clone())
                             },
                             &OrdinalNumber(ordinal) => {
                                 let name = format!("ORDINAL {}", ordinal);

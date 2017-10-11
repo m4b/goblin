@@ -1418,7 +1418,7 @@ impl CommandVariant {
     }
     pub fn cmd(&self) -> u32 {
         use self::CommandVariant::*;
-        let cmd = match *self {
+        match *self {
             Segment32              (comm) => comm.cmd,
             Segment64              (comm) => comm.cmd,
             Uuid                   (comm) => comm.cmd,
@@ -1467,8 +1467,7 @@ impl CommandVariant {
             LinkerOption           (comm) => comm.cmd,
             LinkerOptimizationHint (comm) => comm.cmd,
             Unimplemented          (comm) => comm.cmd,
-        };
-        cmd
+        }
     }
 }
 

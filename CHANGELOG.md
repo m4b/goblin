@@ -7,6 +7,7 @@ I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, do
 
 ## [Unreleased]
 ### Added
+- proper cputype and cpusubtype constants to mach, along with mappings, courtesy of @mitsuhiko
 - new osx and ios version constants
 - all mach load commands now implement IOread and IOwrite from scroll
 - add new elf::note module and associated structs + constants, and `iter_notes` method to Elf object

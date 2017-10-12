@@ -100,7 +100,7 @@ if_std! {
         #[inline]
         pub fn size(ctx: &Ctx) -> usize {
             use scroll::ctx::SizeWith;
-            Self::size_with(&ctx)
+            Self::size_with(ctx)
         }
         /// Create a new `PT_LOAD` ELF program header
         pub fn new() -> Self {
@@ -121,15 +121,15 @@ if_std! {
         }
         /// Sets the executable flag
         pub fn executable(&mut self) {
-            self.p_flags = self.p_flags | PF_X;
+            self.p_flags |= PF_X;
         }
         /// Sets the write flag
         pub fn write(&mut self) {
-            self.p_flags = self.p_flags | PF_W;
+            self.p_flags |= PF_W;
         }
         /// Sets the read flag
         pub fn read(&mut self) {
-            self.p_flags = self.p_flags | PF_R;
+            self.p_flags |= PF_R;
         }
 
         #[cfg(feature = "endian_fd")]

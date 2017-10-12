@@ -190,7 +190,7 @@ macro_rules! elf_sym_std_impl {
                 slice::from_raw_parts(symp, count)
             }
 
-            pub fn from_fd<'a>(fd: &mut File, offset: usize, count: usize) -> Result<Vec<Sym>> {
+            pub fn from_fd(fd: &mut File, offset: usize, count: usize) -> Result<Vec<Sym>> {
                 // TODO: AFAIK this shouldn't work, since i pass in a byte size...
                 let mut syms = vec![Sym::default(); count];
                 try!(fd.seek(Start(offset as u64)));

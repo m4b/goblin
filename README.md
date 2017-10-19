@@ -79,6 +79,7 @@ In alphabetic order:
 - [@llogiq](https://github.com/llogiq)
 - [@mitsuhiko](https://github.com/mitsuhiko)
 - [@mre](https://github.com/mre)
+- [@philipc](https://github.com/philipc)
 - [@sanxiyn](https://github.com/sanxiyn)
 - [@ticki](https://github.com/ticki)
 - [@willglynn](https://github.com/willglynn)

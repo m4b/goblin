@@ -6,7 +6,6 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, don't worry!
 
 ## [Unreleased]
-### Added
 - proper cputype and cpusubtype constants to mach, along with mappings, courtesy of @mitsuhiko
 - new osx and ios version constants
 - all mach load commands now implement IOread and IOwrite from scroll
@@ -14,6 +13,8 @@ I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, do
 - remove all unused muts; this will make nightly and future stables no longer warn
 
 ### Changed
+### Added
+- fix macho nstab treatment, thanks @philipc !
 - mach header cpusubtype bug fixed, thanks @mitsuhiko !
 - add proper std feature flag to log; this was an oversight in last version
 

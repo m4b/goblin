@@ -76,7 +76,8 @@ fn parse_self() {
         .filter(|member| {
             println!("member: {:?}", member);
             member.ends_with("goblin-archive.o")    // < 1.18
-                || (member.starts_with("goblin") && member.ends_with("0.o")) // >= 1.18
+                || (member.starts_with("goblin") && member.ends_with("0.o")) // >= 1.18 && < 1.22
+                || (member.starts_with("goblin") && member.ends_with("rust-cgu.o")) // >= 1.22
         })
         .next()
         .expect("goblin-<hash>.0.o not found");

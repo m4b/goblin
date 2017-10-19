@@ -9,6 +9,16 @@ use container::{self, Container};
 use mach::load_command;
 use core::fmt::{self, Debug};
 
+// The n_type field really contains four fields which are used via the following masks.
+/// if any of these bits set, a symbolic debugging entry
+pub const N_STAB: u8 = 0xe0;
+/// private external symbol bit
+pub const N_PEXT: u8 = 0x10;
+/// mask for the type bits
+pub const N_TYPE: u8 = 0x0e;
+/// external symbol bit, set for external symbols
+pub const N_EXT: u8 = 0x01;
+
 // If the type is N_SECT then the n_sect field contains an ordinal of the
 // section the symbol is defined in.  The sections are numbered from 1 and
 // refer to sections in order they appear in the load commands for the file
@@ -125,7 +135,7 @@ pub struct Nlist {
 impl Nlist {
     /// Gets this symbol's type in bits 0xe
     pub fn get_type(&self) -> u8 {
-        self.n_type & NLIST_TYPE_MASK
+        self.n_type & N_TYPE
     }
     /// Gets the str representation of the type of this symbol
     pub fn type_str(&self) -> &'static str {
@@ -133,11 +143,15 @@ impl Nlist {
     }
     /// Whether this symbol is global or not
     pub fn is_global(&self) -> bool {
-        self.n_type & !NLIST_TYPE_MASK == NLIST_TYPE_GLOBAL
+        self.n_type & N_EXT != 0
     }
     /// Whether this symbol is undefined or not
     pub fn is_undefined(&self) -> bool {
-        self.n_sect == 0 && self.n_type & NLIST_TYPE_MASK == 0
+        self.n_sect == 0 && self.n_type & N_TYPE == N_UNDF
+    }
+    /// Whether this symbol is a symbolic debugging entry
+    pub fn is_stab(&self) -> bool {
+        self.n_type & N_STAB != 0
     }
 }
 

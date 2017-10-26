@@ -38,7 +38,7 @@
 //!             let mut fd = File::open(path)?;
 //!             let mut buffer = Vec::new();
 //!             fd.read_to_end(&mut buffer)?;
-//!             match goblin::parse(&buffer)? {
+//!             match Object::parse(&buffer)? {
 //!                 Object::Elf(elf) => {
 //!                     println!("elf: {:#?}", &elf);
 //!                 },

@@ -271,12 +271,7 @@ pub const DF_1_GLOBAUDIT: u64 = 0x01000000;
 /// Singleton dyn are used.
 pub const DF_1_SINGLETON: u64 = 0x02000000;
 
-#[cfg(feature = "std")]
-pub use self::std::*;
-
-#[cfg(feature = "std")]
-mod std {
-    use super::*;
+if_std! {
     use core::fmt;
     use scroll::ctx;
     use core::result;
@@ -424,12 +419,7 @@ macro_rules! elf_dyn_std_impl {
             }
         }
 
-        #[cfg(feature = "std")]
-        pub use self::std::*;
-
-        #[cfg(feature = "std")]
-        mod std {
-
+        if_std! {
             use core::fmt;
             use core::slice;
 
@@ -441,7 +431,6 @@ macro_rules! elf_dyn_std_impl {
             use error::Result;
 
             use elf::dyn::Dyn as ElfDyn;
-            use super::*;
 
             impl From<ElfDyn> for Dyn {
                 fn from(dyn: ElfDyn) -> Self {
@@ -636,7 +625,7 @@ macro_rules! elf_dyn_std_impl {
                 }
                 info
             }
-        }
+        } // end if_std
     };
 }
 

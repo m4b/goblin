@@ -104,14 +104,8 @@ macro_rules! elf_reloc {
 
 macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
 
-        #[cfg(feature = "std")]
-        pub use self::std::*;
-
-        #[cfg(feature = "std")]
-        mod std {
-
+    if_std! {
             use elf::reloc::Reloc;
-            use super::*;
 
             use core::slice;
             use error::Result;
@@ -194,7 +188,7 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
                 }
                 Ok(relocs)
             }
-        }
+        } // end if_std
     };
 }
 
@@ -256,12 +250,7 @@ pub mod reloc64 {
 //////////////////////////////
 // Generic Reloc
 /////////////////////////////
-#[cfg(feature = "std")]
-pub use self::std::*;
-
-#[cfg(feature = "std")]
-mod std {
-    use super::*;
+if_std! {
     use core::fmt;
     use core::result;
     use scroll::ctx;
@@ -392,4 +381,4 @@ mod std {
             )
         }
     }
-}
+} // end if_std

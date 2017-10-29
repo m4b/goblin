@@ -208,7 +208,7 @@ if_std! {
             }
         }
     }
-}
+} // end if_std
 
 macro_rules! elf_program_header_std_impl { ($size:ty) => {
 
@@ -312,7 +312,7 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
                 Ok(phdrs)
             }
         }
-    }
+    } // end if_std
 };}
 
 

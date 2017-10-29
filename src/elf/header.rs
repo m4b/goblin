@@ -139,13 +139,7 @@ pub fn et_to_str(et: u16) -> &'static str {
     }
 }
 
-#[cfg(feature = "std")]
-pub use self::std::*;
-
-#[cfg(feature = "std")]
-mod std {
-
-    use super::*;
+if_std! {
     use error::{self};
     use scroll::{self, ctx, Endian};
     use core::fmt;
@@ -341,18 +335,13 @@ mod std {
             };
         }
     }
-}
+} // end if_std
 
 macro_rules! elf_header_std_impl {
     ($size:expr, $width:ty) => {
-        #[cfg(feature = "std")]
-        pub use self::std::*;
 
-        #[cfg(feature = "std")]
-        mod std {
-
+        if_std! {
             use elf::header::Header as ElfHeader;
-            use super::{Header, EI_DATA, SIZEOF_EHDR, ELFDATA2LSB, ELFDATA2MSB};
             use error::{Result, Error};
 
             use scroll::{self, ctx, Pread};
@@ -507,7 +496,7 @@ macro_rules! elf_header_std_impl {
                     Ok(elf_header)
                 }
             }
-        }
+        } // end if_std
     };
 }
 

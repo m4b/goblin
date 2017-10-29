@@ -267,14 +267,8 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
         }
     }
 
-    #[cfg(feature = "std")]
-    pub use self::std::*;
-
-    #[cfg(feature = "std")]
-    mod std {
-
+    if_std! {
         use elf::section_header::SectionHeader as ElfSectionHeader;
-        use super::*;
         use error::Result;
 
         use std::fs::File;
@@ -332,7 +326,7 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
                 Ok(shdrs)
             }
         }
-    }
+    } // end if_std
 };}
 
 
@@ -362,12 +356,7 @@ pub mod section_header64 {
 // Std/analysis/Unified Structs
 ///////////////////////////////
 
-#[cfg(feature = "std")]
-pub use self::std::*;
-
-#[cfg(feature = "std")]
-mod std {
-    use super::*;
+if_std! {
     use error;
     use core::fmt;
     use core::result;
@@ -541,4 +530,4 @@ mod std {
             }
         }
     }
-}
+} // end if_std

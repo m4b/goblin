@@ -116,13 +116,8 @@ macro_rules! elf_sym_std_impl {
             }
         }
 
-        #[cfg(feature = "std")]
-        pub use self::std::*;
-
-        #[cfg(feature = "std")]
-        mod std {
+        if_std! {
             use elf::sym::Sym as ElfSym;
-            use super::*;
             use error::Result;
 
             use core::fmt;
@@ -200,7 +195,7 @@ macro_rules! elf_sym_std_impl {
                 syms.dedup();
                 Ok(syms)
             }
-        }
+        } // end if_std
     };
 }
 
@@ -266,13 +261,7 @@ pub mod sym64 {
     elf_sym_std_impl!(u64);
 }
 
-#[cfg(feature = "std")]
-pub use self::std::*;
-
-#[cfg(feature = "std")]
-mod std {
-    use super::*;
-
+if_std! {
     use core::fmt;
     use scroll::ctx;
     use core::result;
@@ -410,4 +399,4 @@ mod std {
             }
         }
     }
-}
+} // end if_std

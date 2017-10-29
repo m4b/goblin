@@ -294,13 +294,6 @@ impl<'a> Object<'a> {
     }
 }
 
-#[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
-/// Parses an `Object` from `bytes`.
-#[deprecated(since = "0.0.11", note = "use `goblin::Object::parse` instead; this will be removed in 0.0.12")]
-pub fn parse(bytes: &[u8]) -> error::Result<Object> {
-    Object::parse(bytes)
-}
-
 /////////////////////////
 // Binary Modules
 /////////////////////////

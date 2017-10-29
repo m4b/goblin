@@ -76,6 +76,7 @@ In alphabetic order:
 - [@flanfly](https://github.com/flanfly)
 - [@jdub](https://github.com/jdub)
 - [@le-jzr](https://github.com/le-jzr)
+- [@lion128](https://github.com/lion128)
 - [@llogiq](https://github.com/llogiq)
 - [@mitsuhiko](https://github.com/mitsuhiko)
 - [@mre](https://github.com/mre)

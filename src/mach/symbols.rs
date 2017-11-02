@@ -2,7 +2,7 @@
 //!
 //! Symbols are essentially a type, offset, and the symbol name
 
-use scroll::{ctx, Pread};
+use scroll::{ctx, Pread, Pwrite};
 use scroll::ctx::SizeWith;
 use error;
 use container::{self, Container};
@@ -61,7 +61,7 @@ pub fn n_type_to_str(n_type: u8) -> &'static str {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Clone, Copy, Pread, Pwrite, SizeWith, IOread, IOwrite)]
 pub struct Nlist32 {
     /// index into the string table
     pub n_strx: u32,
@@ -90,7 +90,7 @@ impl Debug for Nlist32 {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Pread, Pwrite, SizeWith)]
+#[derive(Clone, Copy, Pread, Pwrite, SizeWith, IOread, IOwrite)]
 pub struct Nlist64 {
     /// index into the string table
     pub n_strx: u32,
@@ -118,7 +118,7 @@ impl Debug for Nlist64 {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone,)]
 pub struct Nlist {
     /// index into the string table
     pub n_strx: usize,
@@ -194,6 +194,30 @@ impl From<Nlist64> for Nlist {
     }
 }
 
+impl From<Nlist> for Nlist32 {
+    fn from(nlist: Nlist) -> Self {
+        Nlist32 {
+            n_strx: nlist.n_strx as u32,
+            n_type: nlist.n_type,
+            n_sect: nlist.n_sect as u8,
+            n_desc: nlist.n_desc,
+            n_value: nlist.n_value as u32,
+        }
+    }
+}
+
+impl From<Nlist> for Nlist64 {
+    fn from(nlist: Nlist) -> Self {
+        Nlist64 {
+            n_strx: nlist.n_strx as u32,
+            n_type: nlist.n_type,
+            n_sect: nlist.n_sect as u8,
+            n_desc: nlist.n_desc,
+            n_value: nlist.n_value,
+        }
+    }
+}
+
 impl<'a> ctx::TryFromCtx<'a, container::Ctx> for Nlist {
     type Error = ::error::Error;
     type Size = usize;
@@ -207,6 +231,29 @@ impl<'a> ctx::TryFromCtx<'a, container::Ctx> for Nlist {
             },
         };
         Ok(nlist)
+    }
+}
+
+impl ctx::TryIntoCtx<container::Ctx> for Nlist {
+    type Error = ::error::Error;
+    type Size = usize;
+
+    fn try_into_ctx(self, bytes: &mut [u8], container::Ctx { container, le }: container::Ctx) -> Result<Self::Size, Self::Error> {
+        let size = match container {
+            Container::Little => {
+                (bytes.pwrite_with::<Nlist32>(self.into(), 0, le)?)
+            },
+            Container::Big => {
+                (bytes.pwrite_with::<Nlist64>(self.into(), 0, le)?)
+            },
+        };
+        Ok(size)
+    }
+}
+
+impl ctx::IntoCtx<container::Ctx> for Nlist {
+    fn into_ctx(self, bytes: &mut [u8], ctx: container::Ctx) {
+        bytes.pwrite_with(self, 0, ctx).unwrap();
     }
 }
 

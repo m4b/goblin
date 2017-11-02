@@ -365,12 +365,16 @@ impl<'a> ctx::TryIntoCtx<container::Ctx> for Segment<'a> {
     type Size = usize;
     fn try_into_ctx(self, bytes: &mut [u8], ctx: container::Ctx) -> Result<Self::Size, Self::Error> {
         let segment_size = Self::size_with(&ctx);
+        // should be able to write the section data inline after this, but not working at the moment
+        //let section_size = bytes.pwrite(data, segment_size)?;
+        //debug!("Segment size: {} raw section data size: {}", segment_size, data.len());
         if ctx.is_big () {
             bytes.pwrite_with::<SegmentCommand64>(self.into(), 0, ctx.le)?;
         } else {
             bytes.pwrite_with::<SegmentCommand32>(self.into(), 0, ctx.le)?;
         }
-        Ok(segment_size )
+        //debug!("Section size: {}", section_size);
+        Ok(segment_size)
     }
 }
 
@@ -381,7 +385,8 @@ impl<'a> ctx::IntoCtx<container::Ctx> for Segment<'a> {
 }
 
 impl<'a> Segment<'a> {
-    /// Create a new, blank segment, with cmd either `LC_SEGMENT_64`, or `LC_SEGMENT`, depending on `ctx`. **NB** You are responsible for providing a correctly marshalled byte array as the sections. You should not use this for anything other than writing.
+    /// Create a new, blank segment, with cmd either `LC_SEGMENT_64`, or `LC_SEGMENT`, depending on `ctx`.
+    /// **NB** You are responsible for providing a correctly marshalled byte array as the sections. You should not use this for anything other than writing.
     pub fn new(ctx: container::Ctx, sections: &'a [u8]) -> Self {
         Segment {
             cmd:      if ctx.is_big() { LC_SEGMENT_64 } else { LC_SEGMENT },

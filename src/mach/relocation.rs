@@ -95,71 +95,73 @@ impl fmt::Debug for RelocationInfo {
     }
 }
 
+pub type RelocType = u8;
+
 /// Absolute address
-pub const X86_64_RELOC_UNSIGNED: u8 = 0;
+pub const X86_64_RELOC_UNSIGNED: RelocType = 0;
 /// Signed 32-bit displacement
-pub const X86_64_RELOC_SIGNED: u8 = 1;
+pub const X86_64_RELOC_SIGNED: RelocType = 1;
 /// A CALL/JMP instruction with 32-bit displacement
-pub const X86_64_RELOC_BRANCH: u8 = 2;
+pub const X86_64_RELOC_BRANCH: RelocType = 2;
 /// A MOVQ load of a GOT entry
-pub const X86_64_RELOC_GOT_LOAD: u8 = 3;
+pub const X86_64_RELOC_GOT_LOAD: RelocType = 3;
 /// Other GOT references
-pub const X86_64_RELOC_GOT: u8 = 4;
+pub const X86_64_RELOC_GOT: RelocType = 4;
 /// Must be followed by a X86_64_RELOC_UNSIGNED relocation
-pub const X86_64_RELOC_SUBTRACTOR: u8 = 5;
+pub const X86_64_RELOC_SUBTRACTOR: RelocType = 5;
 /// for signed 32-bit displacement with a -1 addend
-pub const X86_64_RELOC_SIGNED_1: u8 = 6;
+pub const X86_64_RELOC_SIGNED_1: RelocType = 6;
 /// for signed 32-bit displacement with a -2 addend
-pub const X86_64_RELOC_SIGNED_2: u8 = 7;
+pub const X86_64_RELOC_SIGNED_2: RelocType = 7;
 /// for signed 32-bit displacement with a -4 addend
-pub const X86_64_RELOC_SIGNED_4: u8 = 8;
+pub const X86_64_RELOC_SIGNED_4: RelocType = 8;
 /// for thread local variables
-pub const X86_64_RELOC_TLV: u8 = 9;
+pub const X86_64_RELOC_TLV: RelocType = 9;
 
 // x86 relocations
-pub const GENERIC_RELOC_VANILLA: u8 = 0;
-pub const GENERIC_RELOC_PAIR: u8 = 1;
-pub const GENERIC_RELOC_SECTDIFF: u8 = 2;
-pub const GENERIC_RELOC_LOCAL_SECTDIFF: u8 = 3;
-pub const GENERIC_RELOC_PB_LA_P: u8 = 4;
+pub const GENERIC_RELOC_VANILLA: RelocType = 0;
+pub const GENERIC_RELOC_PAIR: RelocType = 1;
+pub const GENERIC_RELOC_SECTDIFF: RelocType = 2;
+pub const GENERIC_RELOC_LOCAL_SECTDIFF: RelocType = 3;
+pub const GENERIC_RELOC_PB_LA_P: RelocType = 4;
 
 // arm relocations
-pub const ARM_RELOC_VANILLA: u8 = GENERIC_RELOC_VANILLA;
-pub const ARM_RELOC_PAIR: u8 = GENERIC_RELOC_PAIR;
-pub const ARM_RELOC_SECTDIFF: u8 = GENERIC_RELOC_SECTDIFF;
-pub const ARM_RELOC_LOCAL_SECTDIFF: u8 = 3;
-pub const ARM_RELOC_PB_LA_PTR: u8 = 4;
-pub const ARM_RELOC_BR24: u8 = 5;
-pub const ARM_THUMB_RELOC_BR22: u8 = 6;
+pub const ARM_RELOC_VANILLA: RelocType = GENERIC_RELOC_VANILLA;
+pub const ARM_RELOC_PAIR: RelocType = GENERIC_RELOC_PAIR;
+pub const ARM_RELOC_SECTDIFF: RelocType = GENERIC_RELOC_SECTDIFF;
+pub const ARM_RELOC_LOCAL_SECTDIFF: RelocType = 3;
+pub const ARM_RELOC_PB_LA_PTR: RelocType = 4;
+pub const ARM_RELOC_BR24: RelocType = 5;
+pub const ARM_THUMB_RELOC_BR22: RelocType = 6;
 /// Obsolete
-pub const ARM_THUMB_32BIT_BRANCH: u8 = 7;
-pub const ARM_RELOC_HALF: u8 = 8;
-pub const ARM_RELOC_HALF_SECTDIFF: u8 = 9;
+pub const ARM_THUMB_32BIT_BRANCH: RelocType = 7;
+pub const ARM_RELOC_HALF: RelocType = 8;
+pub const ARM_RELOC_HALF_SECTDIFF: RelocType = 9;
 
 /// For pointers.
-pub const ARM64_RELOC_UNSIGNED: u8 = 0;
+pub const ARM64_RELOC_UNSIGNED: RelocType = 0;
 /// Must be followed by an ARM64_RELOC_UNSIGNED
-pub const ARM64_RELOC_SUBTRACTOR: u8 = 1;
+pub const ARM64_RELOC_SUBTRACTOR: RelocType = 1;
 /// A B/BL instruction with 26-bit displacement.
-pub const ARM64_RELOC_BRANCH26: u8 = 2;
+pub const ARM64_RELOC_BRANCH26: RelocType = 2;
 /// PC-rel distance to page of target.
-pub const ARM64_RELOC_PAGE21: u8 = 3;
+pub const ARM64_RELOC_PAGE21: RelocType = 3;
 /// Offset within page, scaled by r_length.
-pub const ARM64_RELOC_PAGEOFF12: u8 = 4;
+pub const ARM64_RELOC_PAGEOFF12: RelocType = 4;
 /// PC-rel distance to page of GOT slot.
-pub const ARM64_RELOC_GOT_LOAD_PAGE21: u8 = 5;
+pub const ARM64_RELOC_GOT_LOAD_PAGE21: RelocType = 5;
 /// Offset within page of GOT slot, scaled by r_length.
-pub const ARM64_RELOC_GOT_LOAD_PAGEOFF12: u8 = 6;
+pub const ARM64_RELOC_GOT_LOAD_PAGEOFF12: RelocType = 6;
 /// For pointers to GOT slots.
-pub const ARM64_RELOC_POINTER_TO_GOT: u8 = 7;
+pub const ARM64_RELOC_POINTER_TO_GOT: RelocType = 7;
 /// PC-rel distance to page of TLVP slot.
-pub const ARM64_RELOC_TLVP_LOAD_PAGE21: u8 = 8;
+pub const ARM64_RELOC_TLVP_LOAD_PAGE21: RelocType = 8;
 /// Offset within page of TLVP slot, scaled by r_length.
-pub const ARM64_RELOC_TLVP_LOAD_PAGEOFF12: u8 = 9;
+pub const ARM64_RELOC_TLVP_LOAD_PAGEOFF12: RelocType = 9;
 /// Must be followed by ARM64_RELOC_PAGE21 or ARM64_RELOC_PAGEOFF12.
-pub const ARM64_RELOC_ADDEND: u8 = 10;
+pub const ARM64_RELOC_ADDEND: RelocType = 10;
 
-pub fn reloc_to_str(reloc: u8, cputype: mach::cputype::CpuType) -> &'static str {
+pub fn reloc_to_str(reloc: RelocType, cputype: mach::cputype::CpuType) -> &'static str {
     use mach::constants::cputype::*;
     match cputype {
         CPU_TYPE_ARM64 => {

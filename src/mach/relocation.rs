@@ -26,7 +26,7 @@ use core::fmt;
 use mach;
 
 // TODO: armv7 relocations are scattered, must and r_address with 0x8000_0000 to check if its scattered or not
-#[derive(Copy, Clone, Pread, Pwrite, IOwrite, IOread)]
+#[derive(Copy, Clone, Pread, Pwrite, IOwrite, SizeWith, IOread)]
 #[repr(C)]
 pub struct RelocationInfo {
     /// Offset in the section to what is being relocated
@@ -35,6 +35,8 @@ pub struct RelocationInfo {
     /// r_symbolnum, 24 bits, r_pcrel 1 bit, r_length 2 bits, r_extern 1 bit, r_type 4 bits
     pub r_info: u32,
 }
+
+pub const SIZEOF_RELOCATION_INFO: usize = 8;
 
 impl RelocationInfo {
     /// Symbol index if `r_extern` == 1 or section ordinal if `r_extern` == 0. In bits :24

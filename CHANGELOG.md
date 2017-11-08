@@ -7,7 +7,11 @@ I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, do
 
 ## [Unreleased]
 ### Changed
+- fix notes including \0 terminator (causes breakage because tools like grep treat resulting output as a binary output...)
+- BREAKING: remove deprecated goblin::parse method
 ### Added
+- mach: SizeWith for RelocationInfo
+- mach: IOWrite and Pwrite impls for Nlist
 
 ## [0.0.12] - 2017-10-29
 ### Changed

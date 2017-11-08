@@ -156,7 +156,9 @@ if_std! {
                 }
             };
             debug!("{:?} - {:#x}", header, *offset);
-            let name = bytes.gread_with::<&'a str>(offset, ctx::StrCtx::Length(header.n_namesz))?;
+            // -1 because includes \0 terminator
+            let name = bytes.gread_with::<&'a str>(offset, ctx::StrCtx::Length(header.n_namesz - 1))?;
+            *offset += 1;
             align(alignment, offset);
             debug!("note name {} - {:#x}", name, *offset);
             let desc = bytes.gread_with::<&'a [u8]>(offset, header.n_descsz)?;

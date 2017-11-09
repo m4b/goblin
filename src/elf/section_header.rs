@@ -410,9 +410,15 @@ if_std! {
                 sh_entsize: 0,
             }
         }
-        pub fn to_range(&self) -> Range<usize> {
+        /// Returns this section header's file offset range
+        pub fn file_range(&self) -> Range<usize> {
             (self.sh_offset as usize..self.sh_offset as usize + self.sh_size as usize)
         }
+        /// Returns this section header's virtual memory range
+        pub fn vm_range(&self) -> Range<usize> {
+            (self.sh_addr as usize..self.sh_addr as usize + self.sh_size as usize)
+        }
+        /// Parse `count` section headers from `bytes` at `offset`, using the given `ctx`
         #[cfg(feature = "endian_fd")]
         pub fn parse(bytes: &[u8], mut offset: usize, count: usize, ctx: Ctx) -> error::Result<Vec<SectionHeader>> {
             use scroll::Pread;

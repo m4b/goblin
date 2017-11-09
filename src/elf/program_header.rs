@@ -116,8 +116,13 @@ if_std! {
                 p_align : 2 << 20,
             }
         }
-        pub fn to_range(&self) -> Range<usize> {
+        /// Returns this program header's file offset range
+        pub fn file_range(&self) -> Range<usize> {
             (self.p_offset as usize..self.p_offset as usize + self.p_filesz as usize)
+        }
+        /// Returns this program header's virtual memory range
+        pub fn vm_range(&self) -> Range<usize> {
+            (self.p_vaddr as usize..self.p_vaddr as usize + self.p_memsz as usize)
         }
         /// Sets the executable flag
         pub fn executable(&mut self) {
@@ -131,7 +136,18 @@ if_std! {
         pub fn read(&mut self) {
             self.p_flags |= PF_R;
         }
-
+        /// Whether this program header is executable
+        pub fn is_executable(&self) -> bool {
+            self.p_flags & PF_X != 0
+        }
+        /// Whether this program header is readable
+        pub fn is_read(&self) -> bool {
+            self.p_flags & PF_R != 0
+        }
+        /// Whether this program header is writable
+        pub fn is_write(&self) -> bool {
+            self.p_flags & PF_W != 0
+        }
         #[cfg(feature = "endian_fd")]
         pub fn parse(bytes: &[u8], mut offset: usize, count: usize, ctx: Ctx) -> ::error::Result<Vec<ProgramHeader>> {
             use scroll::Pread;

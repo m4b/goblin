@@ -69,6 +69,7 @@ if_sylvan! {
     pub type Header = header::Header;
     pub type ProgramHeader = program_header::ProgramHeader;
     pub type SectionHeader = section_header::SectionHeader;
+    pub type Symtab<'a> = sym::Symtab<'a>;
     pub type Sym = sym::Sym;
     pub type Dyn = dyn::Dyn;
     pub type Dynamic = dyn::Dynamic;
@@ -76,7 +77,6 @@ if_sylvan! {
 
     pub type ProgramHeaders = Vec<ProgramHeader>;
     pub type SectionHeaders = Vec<SectionHeader>;
-    pub type Syms = Vec<Sym>;
     pub type ShdrIdx = usize;
 
     #[derive(Debug)]
@@ -97,10 +97,10 @@ if_sylvan! {
         /// The dynamically accessible symbols, i.e., exports, imports.
         /// This is what the dynamic linker uses to dynamically load and link your binary,
         /// or find imported symbols for binaries which dynamically link against your library
-        pub dynsyms: Syms,
-        /// The debugging symbol array
-        pub syms: Syms,
-        /// The string table for the symbol array
+        pub dynsyms: Symtab<'a>,
+        /// The debugging symbol table
+        pub syms: Symtab<'a>,
+        /// The string table for the symbol table
         pub strtab: Strtab<'a>,
         /// Contains dynamic linking information, with the _DYNAMIC array + a preprocessed DynamicInfo for that array
         pub dynamic: Option<Dynamic>,
@@ -217,20 +217,20 @@ if_sylvan! {
             let strtab_idx = header.e_shstrndx as usize;
             let shdr_strtab = get_strtab(&section_headers, strtab_idx)?;
 
-            let mut syms = vec![];
+            let mut syms = Symtab::default();
             let mut strtab = Strtab::default();
             for shdr in &section_headers {
                 if shdr.sh_type as u32 == section_header::SHT_SYMTAB {
                     let size = shdr.sh_entsize;
                     let count = if size == 0 { 0 } else { shdr.sh_size / size };
-                    syms = Sym::parse(bytes, shdr.sh_offset as usize, count as usize, ctx)?;
+                    syms = Symtab::parse(bytes, shdr.sh_offset as usize, count as usize, ctx)?;
                     strtab = get_strtab(&section_headers, shdr.sh_link as usize)?;
                 }
             }
 
             let mut soname = None;
             let mut libraries = vec![];
-            let mut dynsyms = vec![];
+            let mut dynsyms = Symtab::default();
             let mut dynrelas = vec![];
             let mut dynrels = vec![];
             let mut pltrelocs = vec![];
@@ -251,7 +251,7 @@ if_sylvan! {
                     libraries = dynamic.get_libraries(&dynstrtab);
                 }
                 let num_syms = if dyn_info.syment == 0 { 0 } else { if dyn_info.strtab <= dyn_info.symtab { 0 } else { (dyn_info.strtab - dyn_info.symtab) / dyn_info.syment }};
-                dynsyms = Sym::parse(bytes, dyn_info.symtab, num_syms, ctx)?;
+                dynsyms = Symtab::parse(bytes, dyn_info.symtab, num_syms, ctx)?;
                 // parse the dynamic relocations
                 dynrelas = Reloc::parse(bytes, dyn_info.rela, dyn_info.relasz, true, ctx)?;
                 dynrels = Reloc::parse(bytes, dyn_info.rel, dyn_info.relsz, false, ctx)?;
@@ -328,7 +328,7 @@ mod tests {
                 assert!(!binary.is_lib);
                 assert_eq!(binary.entry, 0);
                 assert_eq!(binary.bias, 0);
-                let syms = binary.syms;
+                let syms = binary.syms.to_vec().unwrap();
                 let mut i = 0;
                 assert!(binary.section_headers.len() != 0);
                 for sym in &syms {
@@ -358,7 +358,7 @@ mod tests {
                 assert!(!binary.is_lib);
                 assert_eq!(binary.entry, 0);
                 assert_eq!(binary.bias, 0);
-                let syms = binary.syms;
+                let syms = binary.syms.to_vec().unwrap();
                 let mut i = 0;
                 assert!(binary.section_headers.len() != 0);
                 for sym in &syms {

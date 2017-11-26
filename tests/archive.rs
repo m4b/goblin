@@ -77,7 +77,8 @@ fn parse_self() {
             println!("member: {:?}", member);
             member.ends_with("goblin-archive.o")    // < 1.18
                 || (member.starts_with("goblin") && member.ends_with("0.o")) // >= 1.18 && < 1.22
-                || (member.starts_with("goblin") && member.ends_with("rust-cgu.o")) // >= 1.22
+                || (member.starts_with("goblin") && member.ends_with("rust-cgu.o")) // = 1.22
+                || (member.starts_with("goblin") && member.ends_with("rcgu.o")) // >= nightly 1.23
         })
         .next()
         .expect("goblin-<hash>.0.o not found");

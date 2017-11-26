@@ -17,7 +17,7 @@ include = ["src/**/*", "Cargo.toml", "CHANGELOG.md", "LICENSE", "README.md", "et
 env_logger = "0.4.3"
 
 [dependencies]
-plain = "0.2.1"
+plain = "0.2.3"
 log = { version = "0.3.8", optional = true }
 
 [dependencies.scroll]

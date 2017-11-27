@@ -432,11 +432,6 @@ if_std! {
         pub fn iter(&self) -> SymIterator<'a> {
             self.clone().into_iter()
         }
-
-        /// Parse all symbols into a vector.
-        pub fn to_vec(&self) -> Result<Vec<Sym>> {
-            self.iter().collect()
-        }
     }
 
     impl<'a, 'b> IntoIterator for &'b Symtab<'a> {
@@ -463,14 +458,15 @@ if_std! {
     }
 
     impl<'a> Iterator for SymIterator<'a> {
-        type Item = Result<Sym>;
+        type Item = Sym;
 
         fn next(&mut self) -> Option<Self::Item> {
             if self.index >= self.count {
                 None
             } else {
                 self.index += 1;
-                Some(self.bytes.gread_with(&mut self.offset, self.ctx))
+                // Bounds were checked in Symtab::parse, so this cannot fail.
+                Some(self.bytes.gread_with(&mut self.offset, self.ctx).unwrap())
             }
         }
     }

@@ -328,7 +328,9 @@ mod tests {
                 assert!(!binary.is_lib);
                 assert_eq!(binary.entry, 0);
                 assert_eq!(binary.bias, 0);
-                let syms = binary.syms.to_vec().unwrap();
+                assert!(binary.syms.get(1000).is_none());
+                assert!(binary.syms.get(5).is_some());
+                let syms = binary.syms.to_vec();
                 let mut i = 0;
                 assert!(binary.section_headers.len() != 0);
                 for sym in &syms {
@@ -358,7 +360,9 @@ mod tests {
                 assert!(!binary.is_lib);
                 assert_eq!(binary.entry, 0);
                 assert_eq!(binary.bias, 0);
-                let syms = binary.syms.to_vec().unwrap();
+                assert!(binary.syms.get(1000).is_none());
+                assert!(binary.syms.get(5).is_some());
+                let syms = binary.syms.to_vec();
                 let mut i = 0;
                 assert!(binary.section_headers.len() != 0);
                 for sym in &syms {

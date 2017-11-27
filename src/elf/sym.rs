@@ -413,13 +413,18 @@ if_std! {
         /// Parse a table of `count` ELF symbols from `offset`.
         pub fn parse(bytes: &'a [u8], offset: usize, count: usize, ctx: Ctx) -> Result<Symtab<'a>> {
             let size = count * Sym::size_with(&ctx);
+            // TODO: make this a better error message when too large
             let bytes = bytes.pread_with(offset, size)?;
             Ok(Symtab { bytes, count, ctx })
         }
 
-        /// Parse a single symbol from the binary.
-        pub fn get(&self, index: usize) -> Result<Sym> {
-            self.bytes.pread_with(index * Sym::size_with(&self.ctx), self.ctx)
+        /// Try to parse a single symbol from the binary, at `index`.
+        pub fn get(&self, index: usize) -> Option<Sym> {
+            if index >= self.count {
+                None
+            } else {
+                Some(self.bytes.pread_with(index * Sym::size_with(&self.ctx), self.ctx).unwrap())
+            }
         }
 
         /// The number of symbols in the table.
@@ -430,11 +435,11 @@ if_std! {
 
         /// Iterate over all symbols.
         pub fn iter(&self) -> SymIterator<'a> {
-            self.clone().into_iter()
+            self.into_iter()
         }
 
         /// Parse all symbols into a vector.
-        pub fn to_vec(&self) -> Result<Vec<Sym>> {
+        pub fn to_vec(&self) -> Vec<Sym> {
             self.iter().collect()
         }
     }
@@ -463,14 +468,14 @@ if_std! {
     }
 
     impl<'a> Iterator for SymIterator<'a> {
-        type Item = Result<Sym>;
+        type Item = Sym;
 
         fn next(&mut self) -> Option<Self::Item> {
             if self.index >= self.count {
                 None
             } else {
                 self.index += 1;
-                Some(self.bytes.gread_with(&mut self.offset, self.ctx))
+                Some(self.bytes.gread_with(&mut self.offset, self.ctx).unwrap())
             }
         }
     }

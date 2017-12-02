@@ -262,9 +262,9 @@ pub mod sym64 {
 }
 
 if_std! {
-    use core::fmt;
     use scroll::{ctx, Pread};
     use scroll::ctx::SizeWith;
+    use core::fmt::{self, Debug};
     use core::result;
     use container::{Ctx, Container};
     use error::Result;
@@ -402,11 +402,25 @@ if_std! {
         }
     }
 
-    #[derive(Debug, Default)]
+    #[derive(Default)]
     pub struct Symtab<'a> {
         bytes: &'a [u8],
         count: usize,
         ctx: Ctx,
+        start: usize,
+        end: usize,
+    }
+
+    impl<'a> Debug for Symtab<'a> {
+        fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+            let len = self.bytes.len();
+            fmt.debug_struct("Symtab")
+                .field("bytes", &len)
+                .field("range", &format!("{:#x}..{:#x}", self.start, self.end))
+                .field("count", &self.count)
+                .field("Symbols", &self.to_vec())
+                .finish()
+        }
     }
 
     impl<'a> Symtab<'a> {
@@ -415,7 +429,7 @@ if_std! {
             let size = count * Sym::size_with(&ctx);
             // TODO: make this a better error message when too large
             let bytes = bytes.pread_with(offset, size)?;
-            Ok(Symtab { bytes, count, ctx })
+            Ok(Symtab { bytes, count, ctx, start: offset, end: offset+size })
         }
 
         /// Try to parse a single symbol from the binary, at `index`.

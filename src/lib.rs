@@ -81,16 +81,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate plain;
+#[cfg_attr(feature = "std", macro_use)]
 extern crate scroll;
 
-#[cfg(feature = "std")]
-#[macro_use] extern crate log;
+#[cfg_attr(feature = "std", macro_use)]
+#[cfg(feature = "std")] extern crate log;
 
 #[cfg(feature = "std")]
 extern crate core;
-
-#[cfg(feature = "std")]
-#[macro_use] extern crate scroll_derive;
 
 #[cfg(feature = "std")]
 pub mod error;

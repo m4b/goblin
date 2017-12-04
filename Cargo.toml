@@ -21,16 +21,13 @@ plain = "0.2.3"
 log = { version = "0.3.8", optional = true }
 
 [dependencies.scroll]
-version = "0.7.0"
-default_features = false
-
-[dependencies.scroll_derive]
 version = "0.8.0"
-optional = true
+path = "../scroll"
+default_features = false
 
 [features]
 default = ["std", "elf32", "elf64", "mach32", "mach64", "pe32", "pe64", "goblin", "endian_fd", "archive", "scroll/std"]
-std = ["scroll/std", "scroll_derive", "log"]
+std = ["scroll/derive", "log"]
 endian_fd = ["std"]
 elf32 = []
 elf64 = []

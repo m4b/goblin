@@ -54,8 +54,13 @@ fn parse_archive() {
 
 #[test]
 fn parse_self() {
+    use std::fs;
     use std::io::Read;
-    let path = Path::new("target").join("debug").join("libgoblin.rlib");
+    let mut path = Path::new("target").join("debug").join("libgoblin.rlib");
+    // https://github.com/m4b/goblin/issues/63
+    if !fs::metadata(&path).is_ok() {
+        path = Path::new("target").join("release").join("libgoblin.rlib");
+    }
     let buffer = {
         let mut fd = File::open(path).expect("open file");
         let mut v = Vec::new();

@@ -22,7 +22,6 @@ log = { version = "0.3.8", optional = true }
 
 [dependencies.scroll]
 version = "0.8.0"
-path = "../scroll"
 default_features = false
 
 [features]

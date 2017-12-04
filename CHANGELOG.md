@@ -7,6 +7,8 @@ I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, do
 
 ## [Unreleased]
 ### Changed
+- use scroll 0.8.0 and us scroll_derive via scroll
+- Technically BREAKING: @philipc added Symtab and symbol iterator to ELF, but is basically the same, unless you were explicitly relying on the backing vector
 - fix notes including \0 terminator (causes breakage because tools like grep treat resulting output as a binary output...)
 - BREAKING: remove deprecated goblin::parse method
 ### Added

@@ -403,6 +403,7 @@ if_std! {
     }
 
     #[derive(Default)]
+    /// An ELF symbol table, allowing lazy iteration over symbols
     pub struct Symtab<'a> {
         bytes: &'a [u8],
         count: usize,
@@ -473,6 +474,7 @@ if_std! {
         }
     }
 
+    /// An iterator over symbols in an ELF symbol table
     pub struct SymIterator<'a> {
         bytes: &'a [u8],
         offset: usize,

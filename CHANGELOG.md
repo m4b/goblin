@@ -5,13 +5,15 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, don't worry!
 
-## [Unreleased]
+## [0.0.13] - 2017-12-10
 ### Changed
-- use scroll 0.8.0 and us scroll_derive via scroll
-- Technically BREAKING: @philipc added Symtab and symbol iterator to ELF, but is basically the same, unless you were explicitly relying on the backing vector
-- fix notes including \0 terminator (causes breakage because tools like grep treat resulting output as a binary output...)
 - BREAKING: remove deprecated goblin::parse method
+- BREAKING: ELF `to_range` removed on program and section headers; use `vm_range` and `file_range` for respective ranges
+- Technically BREAKING: @philipc added Symtab and symbol iterator to ELF, but is basically the same, unless you were explicitly relying on the backing vector
+- use scroll 0.8.0 and us scroll_derive via scroll
+- fix notes including \0 terminator (causes breakage because tools like grep treat resulting output as a binary output...)
 ### Added
+- pe: add PE characteristics constants courtesy @philipc
 - mach: SizeWith for RelocationInfo
 - mach: IOWrite and Pwrite impls for Nlist
 

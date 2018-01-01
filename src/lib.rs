@@ -93,6 +93,9 @@ extern crate core;
 #[cfg(feature = "std")]
 pub mod error;
 
+extern crate lazy_transducer;
+extern crate rayon;
+
 pub mod strtab;
 
 /////////////////////////

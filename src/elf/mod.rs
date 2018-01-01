@@ -39,6 +39,8 @@
 #[macro_use]
 mod gnu_hash;
 
+use lazy_transducer::{Builder, ScrollTransducer};
+
 // These are shareable values for the 32/64 bit implementations.
 //
 // They are publicly re-exported by the pub-using module
@@ -62,6 +64,7 @@ macro_rules! if_sylvan {
 
 if_sylvan! {
     use scroll::{self, ctx, Pread, Endian};
+    use scroll::ctx::SizeWith;
     use strtab::Strtab;
     use error;
     use container::{Container, Ctx};
@@ -78,6 +81,7 @@ if_sylvan! {
     pub type ProgramHeaders = Vec<ProgramHeader>;
     pub type SectionHeaders = Vec<SectionHeader>;
     pub type ShdrIdx = usize;
+    pub type Relocs<'a> = ScrollTransducer<'a, Reloc, (bool, Ctx)>;
 
     #[derive(Debug)]
     /// An ELF binary. The underlying data structures are read according to the headers byte order and container size (32 or 64).
@@ -105,11 +109,11 @@ if_sylvan! {
         /// Contains dynamic linking information, with the _DYNAMIC array + a preprocessed DynamicInfo for that array
         pub dynamic: Option<Dynamic>,
         /// The dynamic relocation entries (strings, copy-data, etc.) with an addend
-        pub dynrelas: Vec<Reloc>,
+        pub dynrelas: Relocs<'a>,
         /// The dynamic relocation entries without an addend
-        pub dynrels: Vec<Reloc>,
+        pub dynrels: Relocs<'a>,
         /// The plt relocation entries (procedure linkage table). For 32-bit binaries these are usually Rel (no addend)
-        pub pltrelocs: Vec<Reloc>,
+        pub pltrelocs: Relocs<'a>,
         /// Section relocations by section index (only present if this is a relocatable object file)
         pub shdr_relocs: Vec<(ShdrIdx, Vec<Reloc>)>,
         /// The binary's soname, if it has one
@@ -231,9 +235,9 @@ if_sylvan! {
             let mut soname = None;
             let mut libraries = vec![];
             let mut dynsyms = Symtab::default();
-            let mut dynrelas = vec![];
-            let mut dynrels = vec![];
-            let mut pltrelocs = vec![];
+            let (mut dynrelas, dynrela_ctx) = (Builder::empty(), (true, ctx));;
+            let (mut dynrels, dynrel_ctx) = (Builder::empty(), (false, ctx));
+            let (mut pltrelocs, mut pltrela_ctx) = (Builder::empty(), (false, ctx));
             let mut dynstrtab = Strtab::default();
             let dynamic = Dynamic::parse(bytes, &program_headers, bias, ctx)?;
             if let Some(ref dynamic) = dynamic {
@@ -253,10 +257,11 @@ if_sylvan! {
                 let num_syms = if dyn_info.syment == 0 { 0 } else { if dyn_info.strtab <= dyn_info.symtab { 0 } else { (dyn_info.strtab - dyn_info.symtab) / dyn_info.syment }};
                 dynsyms = Symtab::parse(bytes, dyn_info.symtab, num_syms, ctx)?;
                 // parse the dynamic relocations
-                dynrelas = Reloc::parse(bytes, dyn_info.rela, dyn_info.relasz, true, ctx)?;
-                dynrels = Reloc::parse(bytes, dyn_info.rel, dyn_info.relsz, false, ctx)?;
-                let is_rela = dyn_info.pltrel as u64 == dyn::DT_RELA;
-                pltrelocs = Reloc::parse(bytes, dyn_info.jmprel, dyn_info.pltrelsz, is_rela, ctx)?;
+                dynrelas = dynrelas.input(&bytes[dyn_info.rela..]).count(dyn_info.relasz / Reloc::size_with(&dynrela_ctx));
+                //dynrelas = Reloc::parse(bytes, dyn_info.rela, dyn_info.relasz, true, ctx)?;
+                dynrels = dynrels.input(&bytes[dyn_info.rel..]).count(dyn_info.relsz / Reloc::size_with(&dynrel_ctx));
+                pltrela_ctx.0 = dyn_info.pltrel as u64 == dyn::DT_RELA;
+                pltrelocs = pltrelocs.input(&bytes[dyn_info.jmprel..]).count(dyn_info.pltrelsz / Reloc::size_with(&pltrela_ctx));
             }
 
             // iterate through shdrs again iff we're an ET_REL
@@ -288,9 +293,9 @@ if_sylvan! {
                 dynstrtab: dynstrtab,
                 syms: syms,
                 strtab: strtab,
-                dynrelas: dynrelas,
-                dynrels: dynrels,
-                pltrelocs: pltrelocs,
+                dynrelas: dynrelas.parse_with(dynrela_ctx).unwrap(),
+                dynrels: dynrels.parse_with(dynrel_ctx).unwrap(),
+                pltrelocs: pltrelocs.parse_with(pltrela_ctx).unwrap(),
                 shdr_relocs: shdr_relocs,
                 soname: soname,
                 interpreter: interpreter,

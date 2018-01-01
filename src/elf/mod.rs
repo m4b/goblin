@@ -235,9 +235,9 @@ if_sylvan! {
             let mut soname = None;
             let mut libraries = vec![];
             let mut dynsyms = Symtab::default();
-            let (mut dynrelas, dynrela_ctx) = (Builder::empty(), (true, ctx));;
-            let (mut dynrels, dynrel_ctx) = (Builder::empty(), (false, ctx));
-            let (mut pltrelocs, mut pltrela_ctx) = (Builder::empty(), (false, ctx));
+            let (mut dynrelas, dynrela_ctx) = (Builder::new(bytes), (true, ctx));;
+            let (mut dynrels, dynrel_ctx) = (Builder::new(bytes), (false, ctx));
+            let (mut pltrelocs, mut pltrela_ctx) = (Builder::new(bytes), (false, ctx));
             let mut dynstrtab = Strtab::default();
             let dynamic = Dynamic::parse(bytes, &program_headers, bias, ctx)?;
             if let Some(ref dynamic) = dynamic {

@@ -116,8 +116,10 @@ impl<'a> MachO<'a> {
     pub fn parse(bytes: &'a [u8], mut offset: usize) -> error::Result<MachO<'a>> {
         let offset = &mut offset;
         let header: header::Header = bytes.pread(*offset)?;
+        debug!("Mach-o header: {:?}", header);
         let ctx = header.ctx()?;
         let little_endian = ctx.le.is_little();
+        debug!("Ctx: {:?}", ctx);
         let is_64 = ctx.container.is_big();
         *offset = *offset + header.size();
         let ncmds = header.ncmds;
@@ -130,14 +132,15 @@ impl<'a> MachO<'a> {
         let mut main_entry_offset = None;
         let mut name = None;
         let mut segments = segment::Segments::new(ctx);
-        for _ in 0..ncmds {
+        for i in 0..ncmds {
             let cmd = load_command::LoadCommand::parse(bytes, offset, ctx.le)?;
+            debug!("{} - Command: {:?}", i, cmd);
             match cmd.command {
                 load_command::CommandVariant::Segment32(command) => {
-                    segments.push(segment::Segment::from_32(bytes.as_ref(), &command, cmd.offset, ctx))
+                    segments.push(segment::Segment::from_32(bytes, &command, cmd.offset, ctx))
                 },
                 load_command::CommandVariant::Segment64(command) => {
-                    segments.push(segment::Segment::from_64(bytes.as_ref(), &command, cmd.offset, ctx))
+                    segments.push(segment::Segment::from_64(bytes, &command, cmd.offset, ctx))
                 },
                 load_command::CommandVariant::Symtab(command) => {
                     symbols = Some(symbols::Symbols::parse(bytes, &command, ctx)?);

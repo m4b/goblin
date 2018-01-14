@@ -451,6 +451,9 @@ impl ctx::IntoCtx<container::Ctx> for Header {
 
 #[cfg(test)]
 mod tests {
+    use std::mem::size_of;
+    use super::*;
+
     #[test]
     fn test_basic_header32() {
         use mach::constants::cputype::CPU_TYPE_ARM;
@@ -461,5 +464,15 @@ mod tests {
         let header: Header = bytes.pread(0).unwrap();
         assert_eq!(header.cputype, CPU_TYPE_ARM);
         assert_eq!(header.cpusubtype, CPU_SUBTYPE_ARM_V7);
+    }
+
+    #[test]
+    fn sizeof_header32() {
+        assert_eq!(SIZEOF_HEADER_32, size_of::<Header32>());
+    }
+
+    #[test]
+    fn sizeof_header64() {
+        assert_eq!(SIZEOF_HEADER_64, size_of::<Header64>());
     }
 }

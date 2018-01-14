@@ -1487,6 +1487,6 @@ impl LoadCommand {
         let command = bytes.pread_with::<CommandVariant>(start, le)?;
         let size = command.cmdsize();
         *offset = start + size;
-        Ok(LoadCommand { offset: start, command: command })
+        Ok(LoadCommand { offset: start, command })
     }
 }

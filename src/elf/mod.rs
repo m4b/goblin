@@ -158,19 +158,35 @@ if_sylvan! {
             }
         }
         /// Try to iterate notes in SHT_NOTE sections; returns `None` if there aren't any note sections in this binary
-        pub fn iter_note_sections(&self, data:&'a [u8]) -> Option<note::NoteIterator<'a>> {
+        ///
+        /// If a section_name is given, only the section with the according name is iterated.
+        pub fn iter_note_sections(
+            &self,
+            data: &'a [u8],
+            section_name: Option<&str>,
+        ) -> Option<note::NoteIterator<'a>> {
             let mut iters = vec![];
             for sect in &self.section_headers {
-                if sect.sh_type == section_header::SHT_NOTE {
-                    let offset = sect.sh_offset as usize;
-                    let alignment = sect.sh_addralign as usize;
-                    iters.push(note::NoteDataIterator {
-                        data,
-                        offset,
-                        size: offset + sect.sh_size as usize,
-                        ctx: (alignment, self.ctx)
-                    });
+                if sect.sh_type != section_header::SHT_NOTE {
+                    continue;
                 }
+
+                if let Some(name) = section_name {
+                    if self.shdr_strtab.get(sect.sh_name)
+                        .and_then(|r| r.map(|n| n != name).ok())
+                        .unwrap_or(true) {
+                        continue;
+                    }
+                }
+
+                let offset = sect.sh_offset as usize;
+                let alignment = sect.sh_addralign as usize;
+                iters.push(note::NoteDataIterator {
+                    data,
+                    offset,
+                    size: offset + sect.sh_size as usize,
+                    ctx: (alignment, self.ctx)
+                });
             }
 
             if iters.is_empty() {

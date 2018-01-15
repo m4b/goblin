@@ -7,7 +7,10 @@ I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, do
 
 ## [Unreleased]
 ### Changed
+- BREAKING: mach: remove `is_little_endian()`, `ctx()`, and `container()` methods from header, as they were completely invalid for big-endian architectures since the header was parsed according to the endianness of the binary correctly into memory, and hence would always report `MH_MAGIC` or `MH_MAGIC64` as the magic value.
 ### Added
+- mach: added hotly requested feature - goblin now has new functionality to parse big-endian, powerpc 32-bit mach-o binaries correctly
+- mach: new function to correctly extract the parsing context for a mach-o binary, `parse_magic_and_ctx`
 
 ## [0.0.13] - 2017-12-10
 ### Changed

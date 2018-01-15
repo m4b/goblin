@@ -1,11 +1,10 @@
 //! A header contains minimal architecture information, the binary kind, the number of load commands, as well as an endianness hint
 
 use std::fmt;
-use scroll::{self, ctx, Pwrite, Pread, Endian};
+use scroll::{ctx, Pwrite, Pread};
 use scroll::ctx::SizeWith;
 use plain::{self, Plain};
 
-use mach;
 use mach::constants::cputype::{CpuType, CpuSubType, CPU_SUBTYPE_MASK};
 use error;
 use container::{self, Container};
@@ -326,22 +325,6 @@ impl Header {
         header.magic = if ctx.is_big () { MH_MAGIC_64 } else { MH_MAGIC };
         header
     }
-    #[inline]
-    pub fn is_little_endian(&self) -> bool {
-        #[cfg(target_endian="big")]
-        let res = self.magic == MH_CIGAM || self.magic == MH_CIGAM_64;
-        #[cfg(target_endian="little")]
-        let res = self.magic == MH_MAGIC || self.magic == MH_MAGIC_64;
-        res
-    }
-    #[inline]
-    pub fn container(&self) -> container::Container {
-        if self.magic == MH_MAGIC_64 || self.magic == MH_CIGAM_64 { Container::Big } else { Container::Little }
-    }
-    pub fn size(&self) -> usize {
-        use scroll::ctx::SizeWith;
-        Self::size_with(&self.container())
-    }
     /// Returns the cpu type
     pub fn cputype(&self) -> CpuType {
         self.cputype
@@ -353,14 +336,6 @@ impl Header {
     /// Returns the capabilities of the CPU
     pub fn cpu_caps(&self) -> u32 {
         (self.cpusubtype & CPU_SUBTYPE_MASK) >> 24
-    }
-    pub fn ctx(&self) -> error::Result<container::Ctx> {
-        // todo check magic is not junk, and error otherwise
-        let is_lsb = self.is_little_endian();
-        let endianness = scroll::Endian::from(is_lsb);
-        // todo check magic is 32 and not junk, and error otherwise
-        let container = self.container();
-        Ok(container::Ctx::new(container, endianness))
     }
 }
 
@@ -392,35 +367,24 @@ impl ctx::SizeWith<Container> for Header {
     }
 }
 
-impl<'a> ctx::TryFromCtx<'a, Endian> for Header {
+impl<'a> ctx::TryFromCtx<'a, container::Ctx> for Header {
     type Error = ::error::Error;
     type Size = usize;
-    fn try_from_ctx(bytes: &'a [u8], _: Endian) -> error::Result<(Self, Self::Size)> {
+    fn try_from_ctx(bytes: &'a [u8], container::Ctx { le, container }: container::Ctx) -> error::Result<(Self, Self::Size)> {
         let size = bytes.len();
         if size < SIZEOF_HEADER_32 || size < SIZEOF_HEADER_64 {
-            let error = error::Error::Malformed(format!("bytes size is smaller than an Mach-o header"));
+            let error = error::Error::Malformed(format!("bytes size is smaller than a Mach-o header"));
             Err(error)
         } else {
-            let magic = mach::peek(bytes, 0)?;
-            match magic {
-                MH_CIGAM_64 | MH_CIGAM | MH_MAGIC_64 | MH_MAGIC => {
-                    let is_lsb = magic == MH_CIGAM || magic == MH_CIGAM_64;
-                    let le = scroll::Endian::from(is_lsb);
-                    // todo check magic is 32 and not junk, and error otherwise
-                    let container = if magic == MH_MAGIC_64 || magic == MH_CIGAM_64 { Container::Big } else { Container::Little };
-                    match container {
-                        Container::Little => {
-                            Ok((Header::from(bytes.pread_with::<Header32>(0, le)?), SIZEOF_HEADER_32))
-                        },
-                        Container::Big => {
-                            Ok((Header::from(bytes.pread_with::<Header64>(0, le)?), SIZEOF_HEADER_64))
-                        },
-                    }
+            match container {
+                Container::Little => {
+                    let header = bytes.pread_with::<Header32>(0, le)?;
+                    Ok((Header::from(header), SIZEOF_HEADER_32))
                 },
-                _ => {
-                    let error = error::Error::BadMagic(magic as u64);
-                    Err(error)
-                }
+                Container::Big => {
+                    let header = bytes.pread_with::<Header64>(0, le)?;
+                    Ok((Header::from(header), SIZEOF_HEADER_64))
+                },
             }
         }
     }

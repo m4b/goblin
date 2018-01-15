@@ -475,6 +475,18 @@ impl ThreadCommand {
                     | ((self.thread_state[65] as u64) << 32);
                 Ok(pc)
             }
+            // https://github.com/m4b/goblin/issues/64
+            // Probably a G4
+            super::cputype::CPU_TYPE_POWERPC => {
+                Ok(self.thread_state[0] as u64)
+            },
+            // I think the G5 was the last motorola powerpc processor used by apple before switching to intel cpus.
+            // unfortunately I don't have any binaries on hand to see what its thread state looks like :/
+            // super::cputype::CPU_TYPE_POWERPC64 => {
+            // }
+            // Assuming above is added, I don't believe apple ever ported mach-o the mach kernel
+            // (and hence its binary format) to any other machines except the above,
+            // but I would be happy to learn otherwise
             _ => {
                 Err(error::Error::Malformed(format!("unable to find instruction pointer for cputype {:?}", cputype)))
             }

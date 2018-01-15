@@ -1,7 +1,8 @@
 //! The Mach-o, mostly zero-copy, binary format parser and raw struct definitions
 use core::fmt;
 
-use scroll::{self, Pread, LE};
+use scroll::{self, Pread, BE};
+use scroll::ctx::SizeWith;
 
 use error;
 use container;
@@ -22,6 +23,23 @@ pub use self::constants::cputype as cputype;
 /// Returns a big endian magical number
 pub fn peek(bytes: &[u8], offset: usize) -> error::Result<u32> {
     Ok(bytes.pread_with::<u32>(offset, scroll::BE)?)
+}
+
+/// Parses a magic number, and an accompanying mach-o binary parsing context, according to the magic number.
+pub fn parse_magic_and_ctx(bytes: &[u8], offset: usize) -> error::Result<(u32, Option<container::Ctx>)> {
+    use mach::header::*;
+    use container::Container;
+    let magic = bytes.pread_with::<u32>(offset, BE)?;
+    let ctx = match magic {
+        MH_CIGAM_64 | MH_CIGAM | MH_MAGIC_64 | MH_MAGIC => {
+            let is_lsb = magic == MH_CIGAM || magic == MH_CIGAM_64;
+            let le = scroll::Endian::from(is_lsb);
+            let container = if magic == MH_MAGIC_64 || magic == MH_CIGAM_64 { Container::Big } else { Container::Little };
+            Some(container::Ctx::new(container, le))
+        },
+        _ => None,
+    };
+    Ok((magic, ctx))
 }
 
 /// A cross-platform, zero-copy, endian-aware, 32/64 bit Mach-o binary parser
@@ -73,9 +91,11 @@ impl<'a> fmt::Debug for MachO<'a> {
 }
 
 impl<'a> MachO<'a> {
+    /// Is this a relocatable object file?
     pub fn is_object_file(&self) -> bool {
         self.header.filetype == header::MH_OBJECT
     }
+    /// Return an iterator over all the symbols in this binary
     pub fn symbols(&self) -> symbols::SymbolIterator<'a> {
         if let &Some(ref symbols) = &self.symbols {
             symbols.into_iter()
@@ -83,6 +103,7 @@ impl<'a> MachO<'a> {
             symbols::SymbolIterator::default()
         }
     }
+    /// Return a vector of the relocations in this binary
     pub fn relocations(&self) -> error::Result<Vec<(usize, segment::RelocationIterator, segment::Section)>> {
         debug!("Iterating relocations");
         let mut relocs = Vec::new();
@@ -114,14 +135,15 @@ impl<'a> MachO<'a> {
     }
     /// Parses the Mach-o binary from `bytes` at `offset`
     pub fn parse(bytes: &'a [u8], mut offset: usize) -> error::Result<MachO<'a>> {
-        let offset = &mut offset;
-        let header: header::Header = bytes.pread_with(*offset, LE)?;
-        debug!("Mach-o header: {:?}", header);
-        let ctx = header.ctx()?;
-        let little_endian = ctx.le.is_little();
+        let (magic, maybe_ctx) = parse_magic_and_ctx(bytes, offset)?;
+        let ctx = if let Some(ctx) = maybe_ctx { ctx } else { return Err(error::Error::BadMagic(magic as u64)) };
         debug!("Ctx: {:?}", ctx);
+        let offset = &mut offset;
+        let header: header::Header = bytes.pread_with(*offset, ctx)?;
+        debug!("Mach-o header: {:?}", header);
+        let little_endian = ctx.le.is_little();
         let is_64 = ctx.container.is_big();
-        *offset = *offset + header.size();
+        *offset = *offset + header::Header::size_with(&ctx.container);
         let ncmds = header.ncmds;
         let mut cmds: Vec<load_command::LoadCommand> = Vec::with_capacity(ncmds);
         let mut symbols = None;
@@ -380,7 +402,7 @@ impl<'a> Mach<'a> {
                 let multi = MultiArch::new(bytes)?;
                 Ok(Mach::Fat(multi))
             },
-            // we're a regular binary
+            // we might be a regular binary
             _ => {
                 let binary = MachO::parse(bytes, 0)?;
                 Ok(Mach::Binary(binary))

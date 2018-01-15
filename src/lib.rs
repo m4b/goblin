@@ -231,7 +231,7 @@ if_std! {
         } else if (&bytes[0..2]).pread_with::<u16>(0, LE)? == pe::header::DOS_MAGIC {
             Ok(Hint::PE)
         } else {
-            let magic = mach::peek(bytes, 0)?;
+            let (magic, maybe_ctx) = mach::parse_magic_and_ctx(bytes, 0)?;
             match magic {
                 fat::FAT_MAGIC => {
                     // should probably verify this is always Big Endian...
@@ -239,9 +239,11 @@ if_std! {
                     Ok(Hint::MachFat(narchitectures))
                 },
                 header::MH_CIGAM_64 | header::MH_CIGAM | header::MH_MAGIC_64 | header::MH_MAGIC => {
-                    let is_lsb = magic == header::MH_CIGAM || magic == header::MH_CIGAM_64;
-                    let is_64 = magic == header::MH_MAGIC_64 || magic == header::MH_CIGAM_64;
-                    Ok(Hint::Mach(HintData { is_lsb, is_64: Some(is_64) }))
+                    if let Some(ctx) = maybe_ctx {
+                        Ok(Hint::Mach(HintData { is_lsb: ctx.le.is_little(), is_64: Some(ctx.container.is_big()) }))
+                    } else {
+                        Err(error::Error::Malformed(format!("Correct mach magic {:#x} does not have a matching parsing context!", magic).into()))
+                    }
                 },
                 // its something else
                 _ => Ok(Hint::Unknown(bytes.pread::<u64>(0)?))

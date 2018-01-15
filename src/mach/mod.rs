@@ -1,7 +1,7 @@
 //! The Mach-o, mostly zero-copy, binary format parser and raw struct definitions
 use core::fmt;
 
-use scroll::{self, Pread};
+use scroll::{self, Pread, LE};
 
 use error;
 use container;
@@ -115,7 +115,7 @@ impl<'a> MachO<'a> {
     /// Parses the Mach-o binary from `bytes` at `offset`
     pub fn parse(bytes: &'a [u8], mut offset: usize) -> error::Result<MachO<'a>> {
         let offset = &mut offset;
-        let header: header::Header = bytes.pread(*offset)?;
+        let header: header::Header = bytes.pread_with(*offset, LE)?;
         debug!("Mach-o header: {:?}", header);
         let ctx = header.ctx()?;
         let little_endian = ctx.le.is_little();
@@ -134,7 +134,7 @@ impl<'a> MachO<'a> {
         let mut segments = segment::Segments::new(ctx);
         for i in 0..ncmds {
             let cmd = load_command::LoadCommand::parse(bytes, offset, ctx.le)?;
-            debug!("{} - Command: {:?}", i, cmd);
+            debug!("{} - {:?}", i, cmd);
             match cmd.command {
                 load_command::CommandVariant::Segment32(command) => {
                     segments.push(segment::Segment::from_32(bytes, &command, cmd.offset, ctx))

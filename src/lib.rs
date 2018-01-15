@@ -213,7 +213,8 @@ if_std! {
     /// Peeks at `bytes`, and returns a `Hint`
     #[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
     pub fn peek_bytes(bytes: &[u8; 16]) -> error::Result<Hint> {
-        use scroll::{Pread, BE};
+        use scroll::{Pread, LE, BE};
+        use mach::{fat, header};
         if &bytes[0..elf::header::SELFMAG] == elf::header::ELFMAG {
             let class = bytes[elf::header::EI_CLASS];
             let is_lsb = bytes[elf::header::EI_DATA] == elf::header::ELFDATA2LSB;
@@ -224,13 +225,12 @@ if_std! {
                     Some (false)
                 } else { None };
 
-            Ok(Hint::Elf(HintData { is_lsb: is_lsb, is_64: is_64 }))
+            Ok(Hint::Elf(HintData { is_lsb, is_64 }))
         } else if &bytes[0..archive::SIZEOF_MAGIC] == archive::MAGIC {
             Ok(Hint::Archive)
-        } else if (&bytes[0..2]).pread::<u16>(0)? == pe::header::DOS_MAGIC {
+        } else if (&bytes[0..2]).pread_with::<u16>(0, LE)? == pe::header::DOS_MAGIC {
             Ok(Hint::PE)
         } else {
-            use mach::{fat, header};
             let magic = mach::peek(bytes, 0)?;
             match magic {
                 fat::FAT_MAGIC => {
@@ -241,7 +241,7 @@ if_std! {
                 header::MH_CIGAM_64 | header::MH_CIGAM | header::MH_MAGIC_64 | header::MH_MAGIC => {
                     let is_lsb = magic == header::MH_CIGAM || magic == header::MH_CIGAM_64;
                     let is_64 = magic == header::MH_MAGIC_64 || magic == header::MH_CIGAM_64;
-                    Ok(Hint::Mach(HintData { is_lsb: is_lsb, is_64: Some(is_64) }))
+                    Ok(Hint::Mach(HintData { is_lsb, is_64: Some(is_64) }))
                 },
                 // its something else
                 _ => Ok(Hint::Unknown(bytes.pread::<u64>(0)?))

@@ -1,10 +1,11 @@
 //! A header contains minimal architecture information, the binary kind, the number of load commands, as well as an endianness hint
 
 use std::fmt;
-use scroll::{self, ctx, Pwrite, Endian};
+use scroll::{self, ctx, Pwrite, Pread, Endian};
 use scroll::ctx::SizeWith;
 use plain::{self, Plain};
 
+use mach;
 use mach::constants::cputype::{CpuType, CpuSubType, CPU_SUBTYPE_MASK};
 use error;
 use container::{self, Container};
@@ -395,14 +396,12 @@ impl<'a> ctx::TryFromCtx<'a, Endian> for Header {
     type Error = ::error::Error;
     type Size = usize;
     fn try_from_ctx(bytes: &'a [u8], _: Endian) -> error::Result<(Self, Self::Size)> {
-        use mach;
-        use scroll::{Pread};
         let size = bytes.len();
         if size < SIZEOF_HEADER_32 || size < SIZEOF_HEADER_64 {
             let error = error::Error::Malformed(format!("bytes size is smaller than an Mach-o header"));
             Err(error)
         } else {
-            let magic = mach::peek(&bytes, 0)?;
+            let magic = mach::peek(bytes, 0)?;
             match magic {
                 MH_CIGAM_64 | MH_CIGAM | MH_MAGIC_64 | MH_MAGIC => {
                     let is_lsb = magic == MH_CIGAM || magic == MH_CIGAM_64;

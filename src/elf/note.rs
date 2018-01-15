@@ -62,15 +62,15 @@ if_std! {
     use container;
     use scroll::{ctx, Pread};
 
-    /// An iterator over ELF binary notes
-    pub struct NoteIterator<'a> {
+    /// An iterator over ELF binary notes in a note section or segment
+    pub struct NoteDataIterator<'a> {
         pub data: &'a [u8],
         pub size: usize,
         pub offset: usize,
         pub ctx: (usize, container::Ctx), // (alignment, ctx)
     }
 
-    impl<'a> Iterator for NoteIterator<'a> {
+    impl<'a> Iterator for NoteDataIterator<'a> {
         type Item = error::Result<Note<'a>>;
         fn next(&mut self) -> Option<Self::Item> {
             if self.offset >= self.size {
@@ -82,6 +82,27 @@ if_std! {
                     Err(e) => Some(Err(e.into()))
                 }
             }
+        }
+    }
+
+    /// An iterator over ELF binary notes
+    pub struct NoteIterator<'a> {
+        pub iters: Vec<NoteDataIterator<'a>>,
+        pub index: usize,
+    }
+
+    impl<'a> Iterator for NoteIterator<'a> {
+        type Item = error::Result<Note<'a>>;
+        fn next(&mut self) -> Option<Self::Item> {
+            while self.index < self.iters.len() {
+                if let Some(note_result) = self.iters[self.index].next() {
+                    return Some(note_result);
+                }
+
+                self.index += 1;
+            }
+
+            None
         }
     }
 

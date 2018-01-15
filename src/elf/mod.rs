@@ -131,23 +131,56 @@ if_sylvan! {
     }
 
     impl<'a> Elf<'a> {
-        /// Try to iterate the notes; returns `None` if there aren't any notes in this binary
-        pub fn iter_notes(&self, data: &'a [u8]) -> Option<note::NoteIterator<'a>> {
+        /// Try to iterate notes in PT_NOTE program headers; returns `None` if there aren't any note headers in this binary
+        pub fn iter_note_headers(&self, data: &'a [u8]) -> Option<note::NoteIterator<'a>> {
+            let mut iters = vec![];
             for phdr in &self.program_headers {
                 if phdr.p_type == program_header::PT_NOTE {
                     let offset = phdr.p_offset as usize;
                     let alignment = phdr.p_align as usize;
-                    return Some(
-                        note::NoteIterator {
-                            data,
-                            offset,
-                            size: offset + phdr.p_filesz as usize,
-                            ctx: (alignment, self.ctx)
-                        }
-                    )
+
+                    iters.push(note::NoteDataIterator {
+                        data,
+                        offset,
+                        size: offset + phdr.p_filesz as usize,
+                        ctx: (alignment, self.ctx)
+                    });
                 }
             }
-            None
+
+            if iters.is_empty() {
+                None
+            } else {
+                Some(note::NoteIterator {
+                    iters: iters,
+                    index: 0,
+                })
+            }
+        }
+        /// Try to iterate notes in SHT_NOTE sections; returns `None` if there aren't any note sections in this binary
+        pub fn iter_note_sections(&self, data:&'a [u8]) -> Option<note::NoteIterator<'a>> {
+            let mut iters = vec![];
+            for sect in &self.section_headers {
+                if sect.sh_type == section_header::SHT_NOTE {
+                    let offset = sect.sh_offset as usize;
+                    let alignment = sect.sh_addralign as usize;
+                    iters.push(note::NoteDataIterator {
+                        data,
+                        offset,
+                        size: offset + sect.sh_size as usize,
+                        ctx: (alignment, self.ctx)
+                    });
+                }
+            }
+
+            if iters.is_empty() {
+                None
+            } else {
+                Some(note::NoteIterator {
+                    iters: iters,
+                    index: 0,
+                })
+            }
         }
         pub fn is_object_file(&self) -> bool {
             self.header.e_type == header::ET_REL

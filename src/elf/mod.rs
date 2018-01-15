@@ -171,12 +171,10 @@ if_sylvan! {
                     continue;
                 }
 
-                if let Some(name) = section_name {
-                    if self.shdr_strtab.get(sect.sh_name)
-                        .and_then(|r| r.map(|n| n != name).ok())
-                        .unwrap_or(true) {
-                        continue;
-                    }
+                if section_name.is_some() && !self.shdr_strtab
+                    .get(sect.sh_name)
+                    .map_or(false, |r| r.ok() == section_name) {
+                    continue;
                 }
 
                 let offset = sect.sh_offset as usize;

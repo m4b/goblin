@@ -62,15 +62,15 @@ if_std! {
     use container;
     use scroll::{ctx, Pread};
 
-    /// An iterator over ELF binary notes
-    pub struct NoteIterator<'a> {
+    /// An iterator over ELF binary notes in a note section or segment
+    pub struct NoteDataIterator<'a> {
         pub data: &'a [u8],
         pub size: usize,
         pub offset: usize,
         pub ctx: (usize, container::Ctx), // (alignment, ctx)
     }
 
-    impl<'a> Iterator for NoteIterator<'a> {
+    impl<'a> Iterator for NoteDataIterator<'a> {
         type Item = error::Result<Note<'a>>;
         fn next(&mut self) -> Option<Self::Item> {
             if self.offset >= self.size {
@@ -82,6 +82,27 @@ if_std! {
                     Err(e) => Some(Err(e.into()))
                 }
             }
+        }
+    }
+
+    /// An iterator over ELF binary notes
+    pub struct NoteIterator<'a> {
+        pub iters: Vec<NoteDataIterator<'a>>,
+        pub index: usize,
+    }
+
+    impl<'a> Iterator for NoteIterator<'a> {
+        type Item = error::Result<Note<'a>>;
+        fn next(&mut self) -> Option<Self::Item> {
+            while self.index < self.iters.len() {
+                if let Some(note_result) = self.iters[self.index].next() {
+                    return Some(note_result);
+                }
+
+                self.index += 1;
+            }
+
+            None
         }
     }
 
@@ -169,6 +190,81 @@ if_std! {
                 desc,
                 n_type: header.n_type,
             }, *offset))
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        static NOTE_DATA: [u8; 68] = [0x04, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+                                     0x01, 0x00, 0x00, 0x00, 0x47, 0x4e, 0x55, 0x00,
+                                     0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
+                                     0x06, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00,
+                                     0x04, 0x00, 0x00, 0x00, 0x14, 0x00, 0x00, 0x00,
+                                     0x03, 0x00, 0x00, 0x00, 0x47, 0x4e, 0x55, 0x00,
+                                     0xbc, 0xfc, 0x66, 0xcd, 0xc7, 0xd5, 0x14, 0x7b,
+                                     0x53, 0xb1, 0x10, 0x11, 0x94, 0x86, 0x8e, 0xf9,
+                                     0x4f, 0xe8, 0xdd, 0xdb];
+
+        static CONTEXT: (usize, container::Ctx) = (4, container::Ctx {
+            container: container::Container::Big,
+            le: ::scroll::Endian::Little,
+        });
+
+        fn make_note_iter(start: usize, end: usize) -> NoteDataIterator<'static> {
+            NoteDataIterator {
+                data: &NOTE_DATA,
+                size: end,
+                offset: start,
+                ctx: CONTEXT,
+            }
+        }
+
+        #[test]
+        fn iter_single_section() {
+            let mut notes = NoteIterator {
+                iters: vec![make_note_iter(0, 68)],
+                index: 0,
+            };
+
+            assert_eq!(notes.next().unwrap().unwrap().n_type, NT_GNU_ABI_TAG);
+            assert_eq!(notes.next().unwrap().unwrap().n_type, NT_GNU_BUILD_ID);
+            assert!(notes.next().is_none());
+        }
+
+        #[test]
+        fn iter_multiple_sections() {
+            let mut notes = NoteIterator {
+                iters: vec![make_note_iter(0, 32), make_note_iter(32, 68)],
+                index: 0,
+            };
+
+            assert_eq!(notes.next().unwrap().unwrap().n_type, NT_GNU_ABI_TAG);
+            assert_eq!(notes.next().unwrap().unwrap().n_type, NT_GNU_BUILD_ID);
+            assert!(notes.next().is_none());
+        }
+
+        #[test]
+        fn skip_empty_sections() {
+            let mut notes = NoteIterator {
+                iters: vec![
+                    make_note_iter(0, 32),
+                    make_note_iter(0, 0),
+                    make_note_iter(32, 68),
+                ],
+                index: 0,
+            };
+
+            assert_eq!(notes.next().unwrap().unwrap().n_type, NT_GNU_ABI_TAG);
+            assert_eq!(notes.next().unwrap().unwrap().n_type, NT_GNU_BUILD_ID);
+            assert!(notes.next().is_none());
+        }
+
+        #[test]
+        fn ignore_no_sections() {
+            let mut notes = NoteIterator { iters: vec![], index: 0 };
+            assert!(notes.next().is_none());
         }
     }
 }

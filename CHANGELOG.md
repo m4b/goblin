@@ -5,8 +5,13 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, don't worry!
 
+## [Unreleased]
+### Changed
+### Added
+
 ## [0.0.14] - 2018-1-15
 ### Changed
+- BREAKING: elf: `iter_notes` renamed to `iter_note_headers`
 - BREAKING: mach: remove `is_little_endian()`, `ctx()`, and `container()` methods from header, as they were completely invalid for big-endian architectures since the header was parsed according to the endianness of the binary correctly into memory, and hence would always report `MH_MAGIC` or `MH_MAGIC64` as the magic value.
 - elf: courtesy of @jan-auer, note iterator now properly iterates over multiple PH_NOTEs
 ### Added

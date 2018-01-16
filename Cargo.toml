@@ -1,14 +1,14 @@
 [package]
 name = "goblin"
-version = "0.0.13"
+version = "0.0.14"
 authors = ["m4b <m4b.github.io@gmail.com>", "seu <seu@panopticon.re>", "Will Glynn <will@willglynn.com>"]
 readme = "README.md"
 keywords = ["binary", "elf", "mach", "pe", "archive"]
 repository = "https://github.com/m4b/goblin"
 license = "MIT"
-description = "An impish, cross-platform binary parsing and loading crate"
+description = "An impish, cross-platform, ELF, Mach-o, and PE binary parsing and loading crate"
 documentation = "https://docs.rs/goblin"
-categories = ["parsing"]
+categories = ["parsing", "development-tools::debugging"]
 include = ["src/**/*", "Cargo.toml", "CHANGELOG.md", "LICENSE", "README.md", "etc/*", "examples/*", "tests/*", "fuzz/**/*"]
 
 [lib]

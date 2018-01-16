@@ -418,13 +418,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_basic_header32() {
+    fn test_parse_armv7_header() {
         use mach::constants::cputype::CPU_TYPE_ARM;
         const CPU_SUBTYPE_ARM_V7: u32 = 9;
         use super::Header;
-        use scroll::Pread;
+        use container::{Ctx, Container, Endian};
+        use scroll::{Pread};
         let bytes = b"\xce\xfa\xed\xfe\x0c\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\x06\x00\x00\x00\x8c\r\x00\x00\x00\x00\x00\x00\x1b\x00\x00\x00\x18\x00\x00\x00\xe0\xf7B\xbb\x1c\xf50w\xa6\xf7u\xa3\xba(";
-        let header: Header = bytes.pread(0).unwrap();
+        let header: Header = bytes.pread_with(0, Ctx::new(Container::Little, Endian::Little)).unwrap();
         assert_eq!(header.cputype, CPU_TYPE_ARM);
         assert_eq!(header.cpusubtype, CPU_SUBTYPE_ARM_V7);
     }

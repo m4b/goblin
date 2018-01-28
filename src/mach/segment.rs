@@ -419,9 +419,9 @@ impl<'a> Segment<'a> {
         Ok(sections)
     }
     /// Convert the raw C 32-bit segment command to a generalized version
-    pub fn from_32(bytes: &'a[u8], segment: &SegmentCommand32, offset: usize, ctx: container::Ctx) -> Self {
-        let data = &bytes[segment.fileoff as usize..(segment.fileoff + segment.filesize) as usize];
-        Segment {
+    pub fn from_32(bytes: &'a[u8], segment: &SegmentCommand32, offset: usize, ctx: container::Ctx) -> Result<Self, error::Error> {
+        let data = bytes.pread_with(segment.fileoff as usize, segment.filesize as usize)?;
+        Ok(Segment {
             cmd:      segment.cmd,
             cmdsize:  segment.cmdsize,
             segname:  segment.segname,
@@ -437,12 +437,12 @@ impl<'a> Segment<'a> {
             offset:   offset,
             raw_data: bytes,
             ctx:      ctx,
-        }
+        })
     }
     /// Convert the raw C 64-bit segment command to a generalized version
-    pub fn from_64(bytes: &'a [u8], segment: &SegmentCommand64, offset: usize, ctx: container::Ctx) -> Self {
-        let data = &bytes[segment.fileoff as usize..(segment.fileoff + segment.filesize) as usize];
-        Segment {
+    pub fn from_64(bytes: &'a [u8], segment: &SegmentCommand64, offset: usize, ctx: container::Ctx) -> Result<Self, error::Error> {
+        let data = bytes.pread_with(segment.fileoff as usize, segment.filesize as usize)?;
+        Ok(Segment {
             cmd:      segment.cmd,
             cmdsize:  segment.cmdsize,
             segname:  segment.segname,
@@ -458,7 +458,7 @@ impl<'a> Segment<'a> {
             data:     data,
             raw_data: bytes,
             ctx:      ctx,
-        }
+        })
     }
 }
 

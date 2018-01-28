@@ -159,10 +159,10 @@ impl<'a> MachO<'a> {
             debug!("{} - {:?}", i, cmd);
             match cmd.command {
                 load_command::CommandVariant::Segment32(command) => {
-                    segments.push(segment::Segment::from_32(bytes, &command, cmd.offset, ctx))
+                    segments.push(segment::Segment::from_32(bytes, &command, cmd.offset, ctx)?)
                 },
                 load_command::CommandVariant::Segment64(command) => {
-                    segments.push(segment::Segment::from_64(bytes, &command, cmd.offset, ctx))
+                    segments.push(segment::Segment::from_64(bytes, &command, cmd.offset, ctx)?)
                 },
                 load_command::CommandVariant::Symtab(command) => {
                     symbols = Some(symbols::Symbols::parse(bytes, &command, ctx)?);

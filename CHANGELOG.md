@@ -8,6 +8,7 @@ I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, do
 ## [Unreleased]
 ### Changed
 ### Added
+ - mach: correctly add weak dylibs to import libs: https://github.com/m4b/goblin/issues/73
 
 ## [0.0.14] - 2018-1-15
 ### Changed

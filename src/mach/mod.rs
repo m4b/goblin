@@ -159,6 +159,7 @@ impl<'a> MachO<'a> {
             debug!("{} - {:?}", i, cmd);
             match cmd.command {
                 load_command::CommandVariant::Segment32(command) => {
+                    // FIXME: we may want to be less strict about failure here, and just return an empty segment to allow parsing to continue?
                     segments.push(segment::Segment::from_32(bytes, &command, cmd.offset, ctx)?)
                 },
                 load_command::CommandVariant::Segment64(command) => {

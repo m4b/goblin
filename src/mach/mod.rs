@@ -170,6 +170,7 @@ impl<'a> MachO<'a> {
                   load_command::CommandVariant::LoadDylib      (command)
                 | load_command::CommandVariant::LoadUpwardDylib(command)
                 | load_command::CommandVariant::ReexportDylib  (command)
+                | load_command::CommandVariant::LoadWeakDylib  (command)
                 | load_command::CommandVariant::LazyLoadDylib  (command) => {
                     let lib = bytes.pread::<&str>(cmd.offset + command.dylib.name as usize)?;
                     libs.push(lib);

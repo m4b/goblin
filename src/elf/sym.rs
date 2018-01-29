@@ -262,6 +262,8 @@ pub mod sym64 {
 }
 
 if_std! {
+    use lazy_transducer::{ScrollTransducer, IntoIter, IntoParIter};
+    use rayon::prelude::*;
     use scroll::{ctx, Pread};
     use scroll::ctx::SizeWith;
     use core::fmt::{self, Debug};
@@ -402,14 +404,24 @@ if_std! {
         }
     }
 
-    #[derive(Default)]
     /// An ELF symbol table, allowing lazy iteration over symbols
     pub struct Symtab<'a> {
         bytes: &'a [u8],
-        count: usize,
-        ctx: Ctx,
         start: usize,
         end: usize,
+        lt: ScrollTransducer<'a, Sym, Ctx>,
+    }
+
+    impl<'a> Default for Symtab<'a> {
+        fn default() -> Self {
+            let bytes = &[];
+            Symtab {
+                bytes,
+                start: 0,
+                end: 0,
+                lt: ScrollTransducer::parse_with(bytes, 0, Ctx::default()).unwrap(),
+            }
+        }
     }
 
     impl<'a> Debug for Symtab<'a> {
@@ -418,61 +430,77 @@ if_std! {
             fmt.debug_struct("Symtab")
                 .field("bytes", &len)
                 .field("range", &format!("{:#x}..{:#x}", self.start, self.end))
-                .field("count", &self.count)
+                .field("count", &self.lt.len())
                 .field("Symbols", &self.to_vec())
                 .finish()
         }
     }
 
+    pub type SymIter<'a> = IntoIter<'a, (&'a [u8], Ctx), Sym>;
+    pub type SymParIter<'a> = IntoParIter<'a, (&'a [u8], Ctx), Sym>;
+
     impl<'a> Symtab<'a> {
         /// Parse a table of `count` ELF symbols from `offset`.
         pub fn parse(bytes: &'a [u8], offset: usize, count: usize, ctx: Ctx) -> Result<Symtab<'a>> {
+            // scrolltransducer does all this for us, but i don't feel like re-mapping the error
             let size = count * Sym::size_with(&ctx);
             // TODO: make this a better error message when too large
             let bytes = bytes.pread_with(offset, size)?;
-            Ok(Symtab { bytes, count, ctx, start: offset, end: offset+size })
+            let lt = ScrollTransducer::parse_with(bytes, count, ctx).unwrap();
+            Ok(Symtab { bytes, start: offset, end: offset+size, lt })
         }
 
         /// Try to parse a single symbol from the binary, at `index`.
         pub fn get(&self, index: usize) -> Option<Sym> {
-            if index >= self.count {
-                None
-            } else {
-                Some(self.bytes.pread_with(index * Sym::size_with(&self.ctx), self.ctx).unwrap())
-            }
+            self.lt.get(index)
         }
 
         /// The number of symbols in the table.
         #[inline]
         pub fn len(&self) -> usize {
-            self.count
+            self.lt.len()
         }
 
         /// Iterate over all symbols.
-        pub fn iter(&self) -> SymIterator<'a> {
+        pub fn iter(&self) -> SymIter<'a> {
             self.into_iter()
+        }
+
+        /// Iterate over all symbols in parallel
+        pub fn par_iter(&self) -> SymParIter<'a> {
+            self.lt.clone().into_par_iter()
         }
 
         /// Parse all symbols into a vector.
         pub fn to_vec(&self) -> Vec<Sym> {
-            self.iter().collect()
+            self.lt.clone().into_par_iter().collect()
         }
     }
 
     impl<'a, 'b> IntoIterator for &'b Symtab<'a> {
-        type Item = <SymIterator<'a> as Iterator>::Item;
-        type IntoIter = SymIterator<'a>;
+        //type Item = <SymIterator<'a> as Iterator>::Item;
+        type Item = <SymIter<'a> as Iterator>::Item;
+        type IntoIter = SymIter<'a>;
 
         fn into_iter(self) -> Self::IntoIter {
-            SymIterator {
-                bytes: self.bytes,
-                offset: 0,
-                index: 0,
-                count: self.count,
-                ctx: self.ctx,
-            }
+            self.lt.clone().into_iter()
         }
     }
+
+    // impl<'a, 'b> IntoIterator for &'b Symtab<'a> {
+    //     type Item = <SymIterator<'a> as Iterator>::Item;
+    //     type IntoIter = SymIterator<'a>;
+
+    //     fn into_iter(self) -> Self::IntoIter {
+    //         SymIterator {
+    //             bytes: self.bytes,
+    //             offset: 0,
+    //             index: 0,
+    //             count: self.count,
+    //             ctx: self.ctx,
+    //         }
+    //     }
+    // }
 
     /// An iterator over symbols in an ELF symbol table
     pub struct SymIterator<'a> {

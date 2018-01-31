@@ -1,4 +1,5 @@
 use scroll::{Pread};
+use alloc::string::ToString;
 use error;
 
 use super::section_table;

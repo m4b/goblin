@@ -4,8 +4,9 @@
 use scroll;
 use core::result;
 use core::fmt::{self, Display};
-use std::error;
-use std::io;
+use alloc::string::String;
+#[cfg(feature = "std")]
+use std::{error, io};
 
 #[derive(Debug)]
 /// A custom Goblin error
@@ -17,17 +18,26 @@ pub enum Error {
     /// An error emanating from reading and interpreting bytes
     Scroll(scroll::Error),
     /// An IO based error
+    #[cfg(feature = "std")]
     IO(io::Error),
 }
 
-impl error::Error for Error {
-    fn description(&self) -> &str {
+impl Error {
+    pub fn description(&self) -> &str {
         match *self {
+            #[cfg(feature = "std")]
             Error::IO(_) => { "IO error" }
             Error::Scroll(_) => { "Scroll error" }
             Error::BadMagic(_) => { "Invalid magic number" }
             Error::Malformed(_) => { "Entity is malformed in some way" }
         }
+    }
+}
+
+#[cfg(feature = "std")]
+impl error::Error for Error {
+    fn description(&self) -> &str {
+        Error::description(self)
     }
     fn cause(&self) -> Option<&error::Error> {
         match *self {
@@ -39,6 +49,7 @@ impl error::Error for Error {
     }
 }
 
+#[cfg(feature = "std")]
 impl From<io::Error> for Error {
     fn from(err: io::Error) -> Error {
         Error::IO(err)
@@ -54,6 +65,7 @@ impl From<scroll::Error> for Error {
 impl Display for Error {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            #[cfg(feature = "std")]
             Error::IO(ref err) => { write!(fmt, "{}", err) },
             Error::Scroll(ref err) => { write!(fmt, "{}", err) },
             Error::BadMagic(magic) => { write! (fmt, "Invalid magic number: 0x{:x}", magic) },

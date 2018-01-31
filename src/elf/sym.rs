@@ -116,16 +116,19 @@ macro_rules! elf_sym_std_impl {
             }
         }
 
-        if_std! {
+        if_alloc! {
             use elf::sym::Sym as ElfSym;
-            use error::Result;
 
             use core::fmt;
             use core::slice;
 
-            use std::fs::File;
-            use std::io::{Read, Seek};
-            use std::io::SeekFrom::Start;
+            if_std! {
+                use error::Result;
+
+                use std::fs::File;
+                use std::io::{Read, Seek};
+                use std::io::SeekFrom::Start;
+            }
 
             impl Sym {
                 /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` bind and a `st_value` of 0
@@ -185,6 +188,7 @@ macro_rules! elf_sym_std_impl {
                 slice::from_raw_parts(symp, count)
             }
 
+            #[cfg(feature = "std")]
             pub fn from_fd(fd: &mut File, offset: usize, count: usize) -> Result<Vec<Sym>> {
                 // TODO: AFAIK this shouldn't work, since i pass in a byte size...
                 let mut syms = vec![Sym::default(); count];
@@ -195,7 +199,7 @@ macro_rules! elf_sym_std_impl {
                 syms.dedup();
                 Ok(syms)
             }
-        } // end if_std
+        } // end if_alloc
     };
 }
 
@@ -204,7 +208,7 @@ pub mod sym32 {
 
     #[repr(C)]
     #[derive(Clone, Copy, PartialEq, Default)]
-    #[cfg_attr(feature = "std", derive(Pread, Pwrite, SizeWith))]
+    #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
     /// 32-bit Sym - used for both static and dynamic symbol information in a binary
     pub struct Sym {
         /// Symbol name (string tbl index)
@@ -235,7 +239,7 @@ pub mod sym64 {
 
     #[repr(C)]
     #[derive(Clone, Copy, PartialEq, Default)]
-    #[cfg_attr(feature = "std", derive(Pread, Pwrite, SizeWith))]
+    #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
     /// 64-bit Sym - used for both static and dynamic symbol information in a binary
     pub struct Sym {
         /// Symbol name (string tbl index)
@@ -261,13 +265,14 @@ pub mod sym64 {
     elf_sym_std_impl!(u64);
 }
 
-if_std! {
+if_alloc! {
     use scroll::{ctx, Pread};
     use scroll::ctx::SizeWith;
     use core::fmt::{self, Debug};
     use core::result;
     use container::{Ctx, Container};
     use error::Result;
+    use alloc::vec::Vec;
 
     #[derive(Default, PartialEq, Clone)]
     /// A unified Sym definition - convertable to and from 32-bit and 64-bit variants
@@ -501,4 +506,4 @@ if_std! {
             self.count - self.index
         }
     }
-} // end if_std
+} // end if_alloc

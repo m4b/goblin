@@ -139,11 +139,12 @@ pub fn et_to_str(et: u16) -> &'static str {
     }
 }
 
-if_std! {
+if_alloc! {
     use error::{self};
     use scroll::{self, ctx, Endian};
     use core::fmt;
     use container::{Ctx, Container};
+    use alloc::string::ToString;
 
     #[derive(Copy, Clone, PartialEq)]
     /// An ELF header
@@ -335,20 +336,25 @@ if_std! {
             };
         }
     }
-} // end if_std
+} // end if_alloc
 
 macro_rules! elf_header_std_impl {
     ($size:expr, $width:ty) => {
 
-        if_std! {
+        if_alloc! {
             use elf::header::Header as ElfHeader;
-            use error::{Result, Error};
+            use error::Error;
+            #[cfg(any(feature = "std", feature = "endian_fd"))]
+            use error::Result;
 
             use scroll::{self, ctx, Pread};
-            use std::fs::File;
-            use std::io::{Read};
 
             use core::result;
+
+            if_std! {
+                use std::fs::File;
+                use std::io::{Read};
+            }
 
             impl From<ElfHeader> for Header {
                 fn from(eh: ElfHeader) -> Self {
@@ -456,8 +462,8 @@ macro_rules! elf_header_std_impl {
             }
 
             impl Header {
-
                 /// Load a header from a file. **You must** ensure the seek is at the correct position.
+                #[cfg(feature = "std")]
                 pub fn from_fd(bytes: &mut File) -> Result<Header> {
                     let mut elf_header = [0; $size];
                     bytes.read(&mut elf_header)?;
@@ -496,7 +502,7 @@ macro_rules! elf_header_std_impl {
                     Ok(elf_header)
                 }
             }
-        } // end if_std
+        } // end if_alloc
     };
 }
 
@@ -510,6 +516,7 @@ macro_rules! elf_header_test {
             use elf::header::Header as ElfHeader;
             use super::*;
             use container::{Ctx, Container};
+            use alloc::vec::Vec;
             #[test]
             fn size_of() {
                 assert_eq!(::std::mem::size_of::<Header>(), SIZEOF_EHDR);

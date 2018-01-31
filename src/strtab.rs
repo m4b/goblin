@@ -6,8 +6,10 @@ use core::slice;
 use core::str;
 use core::fmt;
 use scroll::{self, ctx, Pread};
-#[cfg(feature = "std")]
-use error;
+if_alloc! {
+    use error;
+    use alloc::vec::Vec;
+}
 
 /// A common string table format which is indexed by byte offsets (and not
 /// member index). Constructed using [`parse`](#method.parse)
@@ -31,7 +33,7 @@ impl<'a> Strtab<'a> {
     pub unsafe fn from_raw(ptr: *const u8, size: usize, delim: u8) -> Strtab<'a> {
         Strtab { delim: ctx::StrCtx::Delimiter(delim), bytes: slice::from_raw_parts(ptr, size) }
     }
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     /// Parses a strtab from `bytes` at `offset` with `len` size as the backing string table, using `delim` as the delimiter
     pub fn parse(bytes: &'a [u8], offset: usize, len: usize, delim: u8) -> error::Result<Strtab<'a>> {
         let (end, overflow) = offset.overflowing_add(len);
@@ -40,7 +42,7 @@ impl<'a> Strtab<'a> {
         }
         Ok(Strtab { bytes: &bytes[offset..end], delim: ctx::StrCtx::Delimiter(delim) })
     }
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     /// Converts the string table to a vector, with the original `delim` used to separate the strings
     pub fn to_vec(self) -> error::Result<Vec<&'a str>> {
         let len = self.bytes.len();
@@ -55,8 +57,8 @@ impl<'a> Strtab<'a> {
     }
     /// Safely parses and gets a str reference from the backing bytes starting at byte `offset`.
     /// If the index is out of bounds, `None` is returned.
-    /// Requires `feature = "std"`
-    #[cfg(feature = "std")]
+    /// Requires `feature = "alloc"`
+    #[cfg(feature = "alloc")]
     pub fn get(&self, offset: usize) -> Option<error::Result<&'a str>> {
         if offset >= self.bytes.len() {
             None
@@ -93,7 +95,7 @@ impl<'a> Index<usize> for Strtab<'a> {
     /// **NB**: this will panic if the underlying bytes are not valid utf8, or the offset is invalid
     #[inline(always)]
     fn index(&self, offset: usize) -> &Self::Output {
-        // This can't delegate to get() because get() requires #[cfg(features = "std")]
+        // This can't delegate to get() because get() requires #[cfg(features = "alloc")]
         // It's also slightly less useful than get() because the lifetime -- specified by the Index
         // trait -- matches &self, even though we could return &'a instead
         get_str(offset, self.bytes, self.delim).unwrap()

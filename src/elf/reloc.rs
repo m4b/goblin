@@ -51,7 +51,7 @@ macro_rules! elf_reloc {
         use core::fmt;
         #[repr(C)]
         #[derive(Clone, Copy, PartialEq, Default)]
-        #[cfg_attr(feature = "std", derive(Pread, Pwrite, SizeWith))]
+        #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
         /// Relocation with an explicit addend
         pub struct Rela {
             /// Address
@@ -63,7 +63,7 @@ macro_rules! elf_reloc {
         }
         #[repr(C)]
         #[derive(Clone, PartialEq, Default)]
-        #[cfg_attr(feature = "std", derive(Pread, Pwrite, SizeWith))]
+        #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
         /// Relocation without an addend
         pub struct Rel {
             /// address
@@ -104,15 +104,18 @@ macro_rules! elf_reloc {
 
 macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
 
-    if_std! {
+    if_alloc! {
             use elf::reloc::Reloc;
 
             use core::slice;
-            use error::Result;
 
-            use std::fs::File;
-            use std::io::{Read, Seek};
-            use std::io::SeekFrom::Start;
+            if_std! {
+                use error::Result;
+
+                use std::fs::File;
+                use std::io::{Read, Seek};
+                use std::io::SeekFrom::Start;
+            }
 
             impl From<Rela> for Reloc {
                 fn from(rela: Rela) -> Self {
@@ -179,6 +182,7 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
                 slice::from_raw_parts(ptr, size / SIZEOF_REL)
             }
 
+            #[cfg(feature = "std")]
             pub fn from_fd(fd: &mut File, offset: usize, size: usize) -> Result<Vec<Rela>> {
                 let count = size / SIZEOF_RELA;
                 let mut relocs = vec![Rela::default(); count];
@@ -188,7 +192,7 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
                 }
                 Ok(relocs)
             }
-        } // end if_std
+        } // end if_alloc
     };
 }
 
@@ -250,11 +254,13 @@ pub mod reloc64 {
 //////////////////////////////
 // Generic Reloc
 /////////////////////////////
-if_std! {
+if_alloc! {
     use core::fmt;
     use core::result;
     use scroll::ctx;
     use container::{Ctx, Container};
+    #[cfg(feature = "endian_fd")]
+    use alloc::vec::Vec;
 
     #[derive(Clone, Copy, PartialEq, Default)]
     /// A unified ELF relocation structure
@@ -381,4 +387,4 @@ if_std! {
             )
         }
     }
-} // end if_std
+} // end if_alloc

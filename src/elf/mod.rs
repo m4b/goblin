@@ -53,18 +53,12 @@ pub mod reloc;
 pub mod note;
 
 
-macro_rules! if_sylvan {
-    ($($i:item)*) => ($(
-        #[cfg(all(feature = "std", feature = "elf32", feature = "elf64", feature = "endian_fd"))]
-        $i
-    )*)
-}
-
-if_sylvan! {
+if_endian_fd! {
     use scroll::{self, ctx, Pread, Endian};
     use strtab::Strtab;
     use error;
     use container::{Container, Ctx};
+    use alloc::vec::Vec;
 
     pub type Header = header::Header;
     pub type ProgramHeader = program_header::ProgramHeader;

@@ -11,8 +11,9 @@ use scroll::{self, Pread};
 use strtab;
 use error::{Result, Error};
 
-use std::usize;
-use std::collections::HashMap;
+use core::usize;
+use alloc::btree_map::BTreeMap;
+use alloc::vec::Vec;
 
 pub const SIZEOF_MAGIC: usize = 8;
 /// The magic number of a Unix Archive
@@ -334,9 +335,9 @@ pub struct Archive<'a> {
     sysv_name_index: NameIndex<'a>,
     // the array of members, which are indexed by the members hash and symbol index
     member_array: Vec<Member<'a>>,
-    members: HashMap<&'a str, usize>,
+    members: BTreeMap<&'a str, usize>,
     // symbol -> member
-    symbol_index: HashMap<&'a str, usize>
+    symbol_index: BTreeMap<&'a str, usize>
 }
 
 
@@ -383,8 +384,8 @@ impl<'a> Archive<'a> {
         }
 
         // preprocess member names
-        let mut members = HashMap::new();
-        let mut member_index_by_offset: HashMap<u32, usize> = HashMap::with_capacity(member_array.len());
+        let mut members = BTreeMap::new();
+        let mut member_index_by_offset: BTreeMap<u32, usize> = BTreeMap::new();
         for (i, member) in member_array.iter_mut().enumerate() {
             // copy in any SysV extended names
             if let Ok(sysv_name) = sysv_name_index.get(member.raw_name()) {
@@ -400,7 +401,7 @@ impl<'a> Archive<'a> {
         }
 
         // build the symbol index, translating symbol names into member indexes
-        let mut symbol_index: HashMap<&str, usize> = HashMap::new();
+        let mut symbol_index: BTreeMap<&str, usize> = BTreeMap::new();
         for (member_offset, name) in index.symbol_indexes.iter().zip(index.strtab.iter()) {
             let name = name.clone();
             let member_index = member_index_by_offset[member_offset];

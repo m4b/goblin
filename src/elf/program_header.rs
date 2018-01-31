@@ -75,12 +75,13 @@ pub fn pt_to_str(pt: u32) -> &'static str {
     }
 }
 
-if_std! {
+if_alloc! {
     use core::fmt;
     use scroll::ctx;
     use core::result;
     use core::ops::Range;
     use container::{Ctx, Container};
+    use alloc::vec::Vec;
 
     #[derive(Default, PartialEq, Clone)]
     /// A unified ProgramHeader - convertable to and from 32-bit and 64-bit variants
@@ -224,7 +225,7 @@ if_std! {
             }
         }
     }
-} // end if_std
+} // end if_alloc
 
 macro_rules! elf_program_header_std_impl { ($size:ty) => {
 
@@ -237,19 +238,22 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
         }
     }
 
-    if_std! {
+    if_alloc! {
 
         use elf::program_header::ProgramHeader as ElfProgramHeader;
+        #[cfg(any(feature = "std", feature = "endian_fd"))]
         use error::Result;
 
         use core::slice;
         use core::fmt;
 
-        use std::fs::File;
-        use std::io::{Seek, Read};
-        use std::io::SeekFrom::Start;
-
         use plain::Plain;
+
+        if_std! {
+            use std::fs::File;
+            use std::io::{Seek, Read};
+            use std::io::SeekFrom::Start;
+        }
 
         impl From<ProgramHeader> for ElfProgramHeader {
             fn from(ph: ProgramHeader) -> Self {
@@ -319,6 +323,7 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
                 slice::from_raw_parts(phdrp, phnum)
             }
 
+            #[cfg(feature = "std")]
             pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> Result<Vec<ProgramHeader>> {
                 let mut phdrs = vec![ProgramHeader::default(); count];
                 try!(fd.seek(Start(offset)));
@@ -328,7 +333,7 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
                 Ok(phdrs)
             }
         }
-    } // end if_std
+    } // end if_alloc
 };}
 
 
@@ -337,7 +342,7 @@ pub mod program_header32 {
 
     #[repr(C)]
     #[derive(Copy, Clone, PartialEq, Default)]
-    #[cfg_attr(feature = "std", derive(Pread, Pwrite, SizeWith))]
+    #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
     /// A 64-bit ProgramHeader typically specifies how to map executable and data segments into memory
     pub struct ProgramHeader {
         /// Segment type
@@ -373,7 +378,7 @@ pub mod program_header64 {
 
     #[repr(C)]
     #[derive(Copy, Clone, PartialEq, Default)]
-    #[cfg_attr(feature = "std", derive(Pread, Pwrite, SizeWith))]
+    #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
     /// A 32-bit ProgramHeader typically specifies how to map executable and data segments into memory
     pub struct ProgramHeader {
         /// Segment type

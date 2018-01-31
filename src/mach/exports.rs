@@ -11,6 +11,8 @@ use scroll::{self, Pread, Uleb128};
 use error;
 use core::fmt::{self, Debug};
 use mach::load_command;
+use alloc::vec::Vec;
+use alloc::string::String;
 
 type Flag = u64;
 

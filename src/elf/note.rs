@@ -32,7 +32,7 @@ pub const NT_GNU_BUILD_ID: u32 = 3;
 pub const NT_GNU_GOLD_VERSION: u32 = 4;
 
 #[derive(Clone, Copy, Debug)]
-#[cfg_attr(feature = "std", derive(Pread, Pwrite, IOread, IOwrite, SizeWith))]
+#[cfg_attr(feature = "alloc", derive(Pread, Pwrite, IOread, IOwrite, SizeWith))]
 #[repr(C)]
 /// Note section contents. Each entry in the note section begins with a header of a fixed form.
 pub struct Nhdr32 {
@@ -45,7 +45,7 @@ pub struct Nhdr32 {
 }
 
 #[derive(Clone, Copy, Debug)]
-#[cfg_attr(feature = "std", derive(Pread, Pwrite, IOread, IOwrite, SizeWith))]
+#[cfg_attr(feature = "alloc", derive(Pread, Pwrite, IOread, IOwrite, SizeWith))]
 #[repr(C)]
 /// Note section contents. Each entry in the note section begins with a header of a fixed form.
 pub struct Nhdr64 {
@@ -57,10 +57,11 @@ pub struct Nhdr64 {
     pub n_type: u64,
 }
 
-if_std! {
+if_alloc! {
     use error;
     use container;
     use scroll::{ctx, Pread};
+    use alloc::vec::Vec;
 
     /// An iterator over ELF binary notes in a note section or segment
     pub struct NoteDataIterator<'a> {

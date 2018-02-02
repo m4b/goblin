@@ -52,8 +52,14 @@ pub mod dyn;
 pub mod reloc;
 pub mod note;
 
+macro_rules! if_sylvan {
+    ($($i:item)*) => ($(
+        #[cfg(all(feature = "elf32", feature = "elf64", feature = "endian_fd"))]
+        $i
+    )*)
+}
 
-if_endian_fd! {
+if_sylvan! {
     use scroll::{self, ctx, Pread, Endian};
     use strtab::Strtab;
     use error;

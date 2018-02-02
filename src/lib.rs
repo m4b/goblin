@@ -125,14 +125,6 @@ macro_rules! if_alloc {
     )*)
 }
 
-#[allow(unused)]
-macro_rules! if_endian_fd {
-    ($($i:item)*) => ($(
-        #[cfg(feature = "endian_fd")]
-        $i
-    )*)
-}
-
 #[cfg(feature = "alloc")]
 pub mod error;
 
@@ -220,6 +212,13 @@ pub mod container {
             Ctx { container: Container::default(), le: scroll::Endian::default() }
         }
     }
+}
+
+macro_rules! if_endian_fd {
+    ($($i:item)*) => ($(
+        #[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
+        $i
+    )*)
 }
 
 if_endian_fd! {

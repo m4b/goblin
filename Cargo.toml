@@ -32,7 +32,7 @@ default_features = false
 default = ["std", "elf32", "elf64", "mach32", "mach64", "pe32", "pe64", "archive", "endian_fd"]
 std = ["alloc", "scroll/std"]
 alloc = ["scroll/derive", "log"]
-endian_fd = ["alloc", "elf32", "elf64", "mach32", "mach64", "pe32", "pe64", "archive"]
+endian_fd = ["alloc"]
 elf32 = []
 elf64 = []
 # for now we will require mach and pe to be alloc + endian_fd

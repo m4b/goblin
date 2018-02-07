@@ -214,14 +214,14 @@ pub mod container {
     }
 }
 
-macro_rules! if_endian_fd {
+macro_rules! if_everything {
     ($($i:item)*) => ($(
         #[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
         $i
     )*)
 }
 
-if_endian_fd! {
+if_everything! {
 
     #[derive(Debug, Default)]
     /// Information obtained from a peek `Hint`

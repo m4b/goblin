@@ -7,7 +7,9 @@ I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, do
 
 ## [Unreleased]
 ### Changed
+ - update to scroll 0.9
 ### Added
+ - new nightly "alloc" feature: allows compiling the goblin parser on nightly with extern crate + no_std, thanks @philipc!
  - mach.segments: do not panic on bad internal data bounds: https://github.com/m4b/goblin/issues/74
  - mach: correctly add weak dylibs to import libs: https://github.com/m4b/goblin/issues/73
 

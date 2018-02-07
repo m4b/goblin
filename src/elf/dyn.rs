@@ -3,7 +3,7 @@ macro_rules! elf_dyn {
     ($size:ty) => {
         #[repr(C)]
         #[derive(Copy, Clone, PartialEq, Default)]
-        #[cfg_attr(feature = "std", derive(Pread, Pwrite, SizeWith))]
+        #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
         /// An entry in the dynamic array
         pub struct Dyn {
             /// Dynamic entry type
@@ -271,13 +271,14 @@ pub const DF_1_GLOBAUDIT: u64 = 0x01000000;
 /// Singleton dyn are used.
 pub const DF_1_SINGLETON: u64 = 0x02000000;
 
-if_std! {
+if_alloc! {
     use core::fmt;
     use scroll::ctx;
     use core::result;
     use container::{Ctx, Container};
     use strtab::Strtab;
     use self::dyn32::{DynamicInfo};
+    use alloc::vec::Vec;
 
     #[derive(Default, PartialEq, Clone)]
     pub struct Dyn {
@@ -419,18 +420,22 @@ macro_rules! elf_dyn_std_impl {
             }
         }
 
-        if_std! {
+        if_alloc! {
             use core::fmt;
             use core::slice;
+            use alloc::vec::Vec;
 
-            use std::fs::File;
-            use std::io::{Read, Seek};
-            use std::io::SeekFrom::Start;
             use elf::program_header::{PT_DYNAMIC};
             use strtab::Strtab;
-            use error::Result;
 
             use elf::dyn::Dyn as ElfDyn;
+
+            if_std! {
+                use std::fs::File;
+                use std::io::{Read, Seek};
+                use std::io::SeekFrom::Start;
+                use error::Result;
+            }
 
             impl From<ElfDyn> for Dyn {
                 fn from(dyn: ElfDyn) -> Self {
@@ -489,6 +494,7 @@ macro_rules! elf_dyn_std_impl {
             }
 
             /// Returns a vector of dynamic entries from the given fd and program headers
+            #[cfg(feature = "std")]
             pub fn from_fd(mut fd: &File, phdrs: &[$phdr]) -> Result<Option<Vec<Dyn>>> {
                 for phdr in phdrs {
                     if phdr.p_type == PT_DYNAMIC {

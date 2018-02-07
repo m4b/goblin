@@ -2,7 +2,7 @@ macro_rules! elf_section_header {
     ($size:ident) => {
         #[repr(C)]
         #[derive(Copy, Clone, Eq, PartialEq, Default)]
-        #[cfg_attr(feature = "std", derive(Pread, Pwrite, SizeWith))]
+        #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
         /// Section Headers are typically used by humans and static linkers for additional information or how to relocate the object
         ///
         /// **NOTE** section headers are strippable from a binary without any loss of portability/executability; _do not_ rely on them being there!
@@ -267,15 +267,19 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
         }
     }
 
-    if_std! {
+    if_alloc! {
         use elf::section_header::SectionHeader as ElfSectionHeader;
-        use error::Result;
-
-        use std::fs::File;
-        use std::io::{Read, Seek};
-        use std::io::SeekFrom::Start;
 
         use plain::Plain;
+        use alloc::vec::Vec;
+
+        if_std! {
+            use error::Result;
+
+            use std::fs::File;
+            use std::io::{Read, Seek};
+            use std::io::SeekFrom::Start;
+        }
 
         impl From<SectionHeader> for ElfSectionHeader {
             fn from(sh: SectionHeader) -> Self {
@@ -317,6 +321,7 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
                 shdrs
             }
 
+            #[cfg(feature = "std")]
             pub fn from_fd(fd: &mut File, offset: u64, shnum: usize) -> Result<Vec<SectionHeader>> {
                 let mut shdrs = vec![SectionHeader::default(); shnum];
                 try!(fd.seek(Start(offset)));
@@ -326,7 +331,7 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
                 Ok(shdrs)
             }
         }
-    } // end if_std
+    } // end if_alloc
 };}
 
 
@@ -356,13 +361,16 @@ pub mod section_header64 {
 // Std/analysis/Unified Structs
 ///////////////////////////////
 
-if_std! {
+if_alloc! {
     use error;
     use core::fmt;
     use core::result;
     use core::ops::Range;
     use scroll::ctx;
     use container::{Container, Ctx};
+
+    #[cfg(feature = "endian_fd")]
+    use alloc::vec::Vec;
 
     #[derive(Default, PartialEq, Clone)]
     /// A unified SectionHeader - convertable to and from 32-bit and 64-bit variants
@@ -536,4 +544,4 @@ if_std! {
             }
         }
     }
-} // end if_std
+} // end if_alloc

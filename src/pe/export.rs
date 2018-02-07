@@ -1,4 +1,5 @@
 use scroll::{self, Pread};
+use alloc::vec::Vec;
 
 use error;
 

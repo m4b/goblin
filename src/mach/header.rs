@@ -1,6 +1,6 @@
 //! A header contains minimal architecture information, the binary kind, the number of load commands, as well as an endianness hint
 
-use std::fmt;
+use core::fmt;
 use scroll::{ctx, Pwrite, Pread};
 use scroll::ctx::SizeWith;
 use plain::{self, Plain};

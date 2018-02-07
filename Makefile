@@ -25,9 +25,22 @@ example:
 api:
 	cargo build --no-default-features
 	cargo build --no-default-features --features="std"
+	cargo build --no-default-features --features="endian_fd std"
 	cargo build --no-default-features --features="elf32"
 	cargo build --no-default-features --features="elf32 elf64"
 	cargo build --no-default-features --features="elf32 elf64 std"
+	cargo build --no-default-features --features="elf32 elf64 endian_fd std"
+	cargo build --no-default-features --features="archive std"
+	cargo build --no-default-features --features="mach64 std"
+	cargo build --no-default-features --features="mach32 std"
+	cargo build --no-default-features --features="mach64 mach32 std"
+	cargo build --no-default-features --features="pe32 std"
+	cargo build --no-default-features --features="pe32 pe64 std"
+	cargo build
+
+nightly_api:
+	cargo build --no-default-features --features="alloc"
+	cargo build --no-default-features --features="endian_fd"
 	cargo build --no-default-features --features="elf32 elf64 endian_fd"
 	cargo build --no-default-features --features="archive"
 	cargo build --no-default-features --features="mach64"
@@ -35,6 +48,5 @@ api:
 	cargo build --no-default-features --features="mach64 mach32"
 	cargo build --no-default-features --features="pe32"
 	cargo build --no-default-features --features="pe32 pe64"
-	cargo build
 
 .PHONY: clean test example doc

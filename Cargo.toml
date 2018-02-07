@@ -18,25 +18,29 @@ env_logger = "0.4.3"
 
 [dependencies]
 plain = "0.2.3"
-log = { version = "0.3.8", optional = true }
+
+[dependencies.log]
+version = "0.3.8"
+default-features = false
+optional = true
 
 [dependencies.scroll]
-version = "0.8.0"
+version = "0.9.0"
 default_features = false
 
 [features]
-default = ["std", "elf32", "elf64", "mach32", "mach64", "pe32", "pe64", "goblin", "endian_fd", "archive", "scroll/std"]
-std = ["scroll/derive", "log"]
-endian_fd = ["std"]
+default = ["std", "elf32", "elf64", "mach32", "mach64", "pe32", "pe64", "archive", "endian_fd"]
+std = ["alloc", "scroll/std"]
+alloc = ["scroll/derive", "log"]
+endian_fd = ["alloc"]
 elf32 = []
 elf64 = []
-# for now we will require mach and pe to be std + endian_fd
-mach32 = ["std", "endian_fd"]
-mach64 = ["std", "endian_fd"]
-pe32 = ["std", "endian_fd"]
-pe64 = ["std", "endian_fd"]
-archive = ["endian_fd"]
-goblin = []
+# for now we will require mach and pe to be alloc + endian_fd
+mach32 = ["alloc", "endian_fd"]
+mach64 = ["alloc", "endian_fd"]
+pe32 = ["alloc", "endian_fd"]
+pe64 = ["alloc", "endian_fd"]
+archive = ["alloc"]
 
 # [profile.dev]
 # opt-level = 0

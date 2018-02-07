@@ -1,5 +1,6 @@
 //! The Mach-o, mostly zero-copy, binary format parser and raw struct definitions
 use core::fmt;
+use alloc::vec::Vec;
 
 use scroll::{self, Pread, BE};
 use scroll::ctx::SizeWith;
@@ -70,7 +71,6 @@ pub struct MachO<'a> {
     bind_interpreter: Option<imports::BindInterpreter<'a>>,
 }
 
-#[cfg(feature = "std")]
 impl<'a> fmt::Debug for MachO<'a> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("MachO")
@@ -241,7 +241,6 @@ impl<'a> MachO<'a> {
     }
 }
 
-#[cfg(feature = "std")]
 /// A Mach-o multi architecture (Fat) binary container
 pub struct MultiArch<'a> {
     data: &'a [u8],
@@ -313,7 +312,6 @@ impl<'a, 'b> IntoIterator for &'b MultiArch<'a> {
     }
 }
 
-#[cfg(feature = "std")]
 impl<'a> MultiArch<'a> {
     /// Lazily construct `Self`
     pub fn new(bytes: &'a [u8]) -> error::Result<Self> {
@@ -370,7 +368,6 @@ impl<'a> MultiArch<'a> {
     }
 }
 
-#[cfg(feature = "std")]
 impl<'a> fmt::Debug for MultiArch<'a> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("MultiArch")

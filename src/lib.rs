@@ -79,32 +79,56 @@
 //! via `endian_fd`
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(all(feature = "alloc", not(feature = "std")), feature(alloc))]
 
 extern crate plain;
-#[cfg_attr(feature = "std", macro_use)]
+#[cfg_attr(feature = "alloc", macro_use)]
 extern crate scroll;
 
-#[cfg_attr(feature = "std", macro_use)]
-#[cfg(feature = "std")] extern crate log;
+#[cfg(feature = "log")]
+#[macro_use]
+extern crate log;
 
 #[cfg(feature = "std")]
 extern crate core;
 
-#[cfg(feature = "std")]
-pub mod error;
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+#[macro_use]
+extern crate alloc;
 
-pub mod strtab;
+#[cfg(feature = "std")]
+mod alloc {
+    pub use std::borrow;
+    pub use std::boxed;
+    pub use std::string;
+    pub use std::vec;
+    pub use std::collections::btree_map;
+}
 
 /////////////////////////
 // Misc/Helper Modules
 /////////////////////////
 
+#[allow(unused)]
 macro_rules! if_std {
     ($($i:item)*) => ($(
         #[cfg(feature = "std")]
         $i
     )*)
 }
+
+#[allow(unused)]
+macro_rules! if_alloc {
+    ($($i:item)*) => ($(
+        #[cfg(feature = "alloc")]
+        $i
+    )*)
+}
+
+#[cfg(feature = "alloc")]
+pub mod error;
+
+pub mod strtab;
 
 /// Binary container size information and byte-order context
 pub mod container {
@@ -190,7 +214,14 @@ pub mod container {
     }
 }
 
-if_std! {
+macro_rules! if_endian_fd {
+    ($($i:item)*) => ($(
+        #[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
+        $i
+    )*)
+}
+
+if_endian_fd! {
 
     #[derive(Debug, Default)]
     /// Information obtained from a peek `Hint`
@@ -211,7 +242,6 @@ if_std! {
     }
 
     /// Peeks at `bytes`, and returns a `Hint`
-    #[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
     pub fn peek_bytes(bytes: &[u8; 16]) -> error::Result<Hint> {
         use scroll::{Pread, LE, BE};
         use mach::{fat, header};
@@ -252,7 +282,7 @@ if_std! {
     }
 
     /// Peeks at the underlying Read object. Requires the underlying bytes to have at least 16 byte length. Resets the seek to `Start` after reading.
-    #[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
+    #[cfg(feature = "std")]
     pub fn peek<R: ::std::io::Read + ::std::io::Seek>(fd: &mut R) -> error::Result<Hint> {
         use std::io::SeekFrom;
         let mut bytes = [0u8; 16];
@@ -261,38 +291,38 @@ if_std! {
         fd.seek(SeekFrom::Start(0))?;
         peek_bytes(&bytes)
     }
-}
 
-#[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
-#[derive(Debug)]
-/// A parseable object that goblin understands
-pub enum Object<'a> {
-    /// An ELF32/ELF64!
-    Elf(elf::Elf<'a>),
-    /// A PE32/PE32+!
-    PE(pe::PE<'a>),
-    /// A 32/64-bit Mach-o binary _OR_ it is a multi-architecture binary container!
-    Mach(mach::Mach<'a>),
-    /// A Unix archive
-    Archive(archive::Archive<'a>),
-    /// None of the above, with the given magic value
-    Unknown(u64),
-}
+    #[derive(Debug)]
+    /// A parseable object that goblin understands
+    pub enum Object<'a> {
+        /// An ELF32/ELF64!
+        Elf(elf::Elf<'a>),
+        /// A PE32/PE32+!
+        PE(pe::PE<'a>),
+        /// A 32/64-bit Mach-o binary _OR_ it is a multi-architecture binary container!
+        Mach(mach::Mach<'a>),
+        /// A Unix archive
+        Archive(archive::Archive<'a>),
+        /// None of the above, with the given magic value
+        Unknown(u64),
+    }
 
-#[cfg(all(feature = "endian_fd", feature = "elf64", feature = "elf32", feature = "pe64", feature = "pe32", feature = "mach64", feature = "mach32", feature = "archive"))]
-impl<'a> Object<'a> {
-    /// Tries to parse an `Object` from `bytes`
-    pub fn parse(bytes: &[u8]) -> error::Result<Object> {
-        use std::io::Cursor;
-        match peek(&mut Cursor::new(&bytes))? {
-            Hint::Elf(_) => Ok(Object::Elf(elf::Elf::parse(bytes)?)),
-            Hint::Mach(_) | Hint::MachFat(_) => Ok(Object::Mach(mach::Mach::parse(bytes)?)),
-            Hint::Archive => Ok(Object::Archive(archive::Archive::parse(bytes)?)),
-            Hint::PE => Ok(Object::PE(pe::PE::parse(bytes)?)),
-            Hint::Unknown(magic) => Ok(Object::Unknown(magic))
+    // TODO: this could avoid std using peek_bytes
+    #[cfg(feature = "std")]
+    impl<'a> Object<'a> {
+        /// Tries to parse an `Object` from `bytes`
+        pub fn parse(bytes: &[u8]) -> error::Result<Object> {
+            use std::io::Cursor;
+            match peek(&mut Cursor::new(&bytes))? {
+                Hint::Elf(_) => Ok(Object::Elf(elf::Elf::parse(bytes)?)),
+                Hint::Mach(_) | Hint::MachFat(_) => Ok(Object::Mach(mach::Mach::parse(bytes)?)),
+                Hint::Archive => Ok(Object::Archive(archive::Archive::parse(bytes)?)),
+                Hint::PE => Ok(Object::PE(pe::PE::parse(bytes)?)),
+                Hint::Unknown(magic) => Ok(Object::Unknown(magic))
+            }
         }
     }
-}
+} // end if_endian_fd
 
 /////////////////////////
 // Binary Modules
@@ -334,11 +364,11 @@ pub mod elf64 {
     }
 }
 
-#[cfg(all(feature = "mach32", feature = "mach64", feature = "endian_fd"))]
+#[cfg(any(feature = "mach32", feature = "mach64"))]
 pub mod mach;
 
-#[cfg(all(feature = "pe32", feature = "pe64", feature = "endian_fd"))]
+#[cfg(any(feature = "pe32", feature = "pe64"))]
 pub mod pe;
 
-#[cfg(all(feature = "archive", feature = "std"))]
+#[cfg(feature = "archive")]
 pub mod archive;

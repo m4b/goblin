@@ -2,8 +2,10 @@
 
 use core::fmt;
 
-use std::fs::File;
-use std::io::{self, Read};
+if_std! {
+    use std::fs::File;
+    use std::io::{self, Read};
+}
 
 use scroll::{self, Pread};
 use mach::constants::cputype::{CpuType, CpuSubType, CPU_SUBTYPE_MASK, CPU_ARCH_ABI64};
@@ -13,8 +15,7 @@ pub const FAT_MAGIC: u32 = 0xcafebabe;
 pub const FAT_CIGAM: u32 = 0xbebafeca;
 
 #[repr(C)]
-#[derive(Clone, Copy, Default)]
-#[cfg_attr(feature = "std", derive(Pread, Pwrite, SizeWith))]
+#[derive(Clone, Copy, Default, Pread, Pwrite, SizeWith)]
 /// The Mach-o `FatHeader` always has its data bigendian
 pub struct FatHeader {
     /// The magic number, `cafebabe`
@@ -44,6 +45,7 @@ impl FatHeader {
     }
 
     /// Reads a `FatHeader` from a `File` on disk
+    #[cfg(feature = "std")]
     pub fn from_fd(fd: &mut File) -> io::Result<FatHeader> {
         let mut header = [0; SIZEOF_FAT_HEADER];
         try!(fd.read(&mut header));
@@ -58,8 +60,7 @@ impl FatHeader {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Default)]
-#[cfg_attr(feature = "std", derive(Pread, Pwrite, SizeWith))]
+#[derive(Clone, Copy, Default, Pread, Pwrite, SizeWith)]
 /// The Mach-o `FatArch` always has its data bigendian
 pub struct FatArch {
     /// What kind of CPU this binary is

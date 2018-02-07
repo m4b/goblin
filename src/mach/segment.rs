@@ -1,8 +1,10 @@
 use scroll::{self, Pread, Pwrite};
 use scroll::ctx::{self, SizeWith};
 
-use std::fmt;
-use std::ops::{Deref, DerefMut};
+use core::fmt;
+use core::ops::{Deref, DerefMut};
+use alloc::boxed::Box;
+use alloc::vec::Vec;
 
 use container;
 use error;
@@ -220,7 +222,7 @@ pub struct SectionIterator<'a> {
 
 pub type SectionData<'a> = &'a [u8];
 
-impl<'a> ::std::iter::ExactSizeIterator for SectionIterator<'a> {
+impl<'a> ::core::iter::ExactSizeIterator for SectionIterator<'a> {
     fn len(&self) -> usize {
         self.count
     }
@@ -484,7 +486,7 @@ impl<'a> DerefMut for Segments<'a> {
 
 impl<'a, 'b> IntoIterator for &'b Segments<'a> {
     type Item = &'b Segment<'a>;
-    type IntoIter = ::std::slice::Iter<'b, Segment<'a>>;
+    type IntoIter = ::core::slice::Iter<'b, Segment<'a>>;
     fn into_iter(self) -> Self::IntoIter {
         self.segments.iter()
     }

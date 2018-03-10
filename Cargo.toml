@@ -14,13 +14,13 @@ include = ["src/**/*", "Cargo.toml", "CHANGELOG.md", "LICENSE", "README.md", "et
 [lib]
 
 [dev-dependencies]
-env_logger = "0.4.3"
+env_logger = "0.5"
 
 [dependencies]
 plain = "0.2.3"
 
 [dependencies.log]
-version = "0.3.8"
+version = "0.4"
 default-features = false
 optional = true
 

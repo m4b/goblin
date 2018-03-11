@@ -21,7 +21,7 @@ fn run () -> error::Result<()> {
 }
 
 pub fn main () {
-    env_logger::init().unwrap();
+    env_logger::init();
     match run() {
         Ok(()) => (),
         Err(err) => println!("{:#}", err)

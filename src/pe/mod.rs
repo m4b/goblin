@@ -90,9 +90,10 @@ impl<'a> PE<'a> {
             }
             debug!("exports: {:#?}", exports);
             if let &Some(import_table) = optional_header.data_directories.get_import_table() {
-                let id = match is_64 {
-                    true => import::ImportData::parse::<u64>(bytes, &import_table, &sections)?,
-                    false => import::ImportData::parse::<u32>(bytes, &import_table, &sections)?
+                let id = if is_64 {
+                    import::ImportData::parse::<u64>(bytes, &import_table, &sections)?
+                } else {
+                    import::ImportData::parse::<u32>(bytes, &import_table, &sections)?
                 };
                 debug!("import data {:#?}", id);
                 if is_64 {

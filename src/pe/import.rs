@@ -19,25 +19,28 @@ pub const IMPORT_RVA_MASK_64: u64 = 0x0000_0000_8fff_ffff;
 pub trait Bitfield<'a>: PartialEq + Eq + LowerHex + Debug + TryFromCtx<'a, scroll::Endian, Error=scroll::Error, Size=usize> {
     fn is_ordinal(&self) -> bool;
     fn to_ordinal(&self) -> u16;
-    fn to_rva(&self) -> usize;
+    fn to_rva(&self) -> u32;
     fn size_of() -> usize;
     fn is_zero(&self) -> bool;
+    fn vec_to_import_address_table(Vec<Self>) -> ImportAddressTable;
 }
 
 impl<'a> Bitfield<'a> for u64 {
     fn is_ordinal(&self) -> bool { self & IMPORT_BY_ORDINAL_64 == IMPORT_BY_ORDINAL_64 }
     fn to_ordinal(&self) -> u16 { (0xffff & self) as u16 }
-    fn to_rva(&self) -> usize { (self & IMPORT_RVA_MASK_64) as usize }
+    fn to_rva(&self) -> u32 { (self & IMPORT_RVA_MASK_64) as u32 }
     fn size_of() -> usize { 8 }
-    fn is_zero(&self) -> bool { *self == 0}
+    fn is_zero(&self) -> bool { *self == 0 }
+    fn vec_to_import_address_table(table: Vec<u64>) -> ImportAddressTable { ImportAddressTable::PE64(table) }
 }
 
 impl<'a> Bitfield<'a> for u32 {
     fn is_ordinal(&self) -> bool { self & IMPORT_BY_ORDINAL_32 == IMPORT_BY_ORDINAL_32 }
     fn to_ordinal(&self) -> u16 { (0xffff & self) as u16 }
-    fn to_rva(&self) -> usize { (self & IMPORT_RVA_MASK_32) as usize }
+    fn to_rva(&self) -> u32 { (self & IMPORT_RVA_MASK_32) as u32 }
     fn size_of() -> usize { 4 }
-    fn is_zero(&self) -> bool { *self == 0}
+    fn is_zero(&self) -> bool { *self == 0 }
+    fn vec_to_import_address_table(table: Vec<u32>) -> ImportAddressTable { ImportAddressTable::PE32(table) }
 }
 
 #[derive(Debug, Clone)]
@@ -58,7 +61,7 @@ impl<'a> HintNameTableEntry<'a> {
 #[derive(Debug, Clone)]
 pub enum SyntheticImportLookupTableEntry<'a> {
     OrdinalNumber(u16),
-    HintNameTableRVA ((usize, HintNameTableEntry<'a>)), // [u8; 31] bitfield :/
+    HintNameTableRVA ((u32, HintNameTableEntry<'a>)), // [u8; 31] bitfield :/
 }
 
 pub type ImportLookupTable<'a> = Vec<SyntheticImportLookupTableEntry<'a>>;
@@ -105,7 +108,11 @@ impl<'a> SyntheticImportLookupTableEntry<'a> {
 }
 
 // get until entry is 0
-pub type ImportAddressTable = Vec<usize>;
+#[derive(Debug)]
+pub enum ImportAddressTable {
+    PE32(Vec<u32>),
+    PE64(Vec<u64>)
+}
 
 #[repr(C)]
 #[derive(Debug)]
@@ -161,14 +168,14 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
         let import_address_table_offset = &mut utils::find_offset(import_directory_entry.import_address_table_rva as usize, sections).ok_or(error::Error::Malformed(format!("Cannot map import_address_table_rva {:#x} into offset for {}", import_directory_entry.import_address_table_rva, name)))?;
         let mut import_address_table = Vec::new();
         loop {
-            let import_address = bytes.gread_with(import_address_table_offset, LE)?;
-            if import_address == 0 { break } else { import_address_table.push(import_address); }
+            let import_address: T = bytes.gread_with(import_address_table_offset, LE)?;
+            if import_address.is_zero() { break } else { import_address_table.push(import_address); }
         }
         Ok(SyntheticImportDirectoryEntry {
             import_directory_entry: import_directory_entry,
             name: name,
             import_lookup_table: import_lookup_table,
-            import_address_table: import_address_table
+            import_address_table: T::vec_to_import_address_table(import_address_table)
         })
     }
 }

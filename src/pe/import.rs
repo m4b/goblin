@@ -15,8 +15,6 @@ pub const IMPORT_BY_ORDINAL_32: u32 = 0x8000_0000;
 pub const IMPORT_BY_ORDINAL_64: u64 = 0x8000_0000_0000_0000;
 pub const IMPORT_RVA_MASK_32: u32 = 0x8fff_ffff;
 pub const IMPORT_RVA_MASK_64: u64 = 0x0000_0000_8fff_ffff;
-pub const SIZEOF_IMPORT_ADDRESS_TABLE_ENTRY_32: usize = 4;
-pub const SIZEOF_IMPORT_ADDRESS_TABLE_ENTRY_64: usize = 8;
 
 pub trait Bitfield<'a>: PartialEq + Eq + LowerHex + Debug + TryFromCtx<'a, scroll::Endian, Error=scroll::Error, Size=usize> {
     fn is_ordinal(&self) -> bool;

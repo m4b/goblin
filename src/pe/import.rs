@@ -61,14 +61,9 @@ pub enum SyntheticImportLookupTableEntry<'a> {
     HintNameTableRVA ((usize, HintNameTableEntry<'a>)), // [u8; 31] bitfield :/
 }
 
-#[derive(Debug)]
-pub struct ImportLookupTableEntry<'a> {
-    pub synthetic: SyntheticImportLookupTableEntry<'a>,
-}
+pub type ImportLookupTable<'a> = Vec<SyntheticImportLookupTableEntry<'a>>;
 
-pub type ImportLookupTable<'a> = Vec<ImportLookupTableEntry<'a>>;
-
-impl<'a> ImportLookupTableEntry<'a> {
+impl<'a> SyntheticImportLookupTableEntry<'a> {
     pub fn parse<T: Bitfield<'a>>(bytes: &'a [u8], mut offset: usize, sections: &[section_table::SectionTable])
                                                                       -> error::Result<ImportLookupTable<'a>> {
         let le = scroll::LE;
@@ -80,7 +75,7 @@ impl<'a> ImportLookupTableEntry<'a> {
                 debug!("imports done");
                 break;
             } else {
-                let synthetic = {
+                let entry = {
                     debug!("bitfield {:#x}", bitfield);
                     use self::SyntheticImportLookupTableEntry::*;
                     if bitfield.is_ordinal() {
@@ -102,7 +97,6 @@ impl<'a> ImportLookupTableEntry<'a> {
                         HintNameTableRVA ((rva, hentry))
                     }
                 };
-                let entry = ImportLookupTableEntry { synthetic: synthetic };
                 table.push(entry);
             }
         }
@@ -156,7 +150,7 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
             let import_lookup_table_rva = import_directory_entry.import_lookup_table_rva;
             debug!("Synthesizing lookup table imports for {} lib, with import lookup table rva: {:#x}", name, import_lookup_table_rva);
             if let Some(import_lookup_table_offset) = utils::find_offset(import_lookup_table_rva as usize, sections) {
-                let import_lookup_table = ImportLookupTableEntry::parse::<T>(bytes, import_lookup_table_offset, sections)?;
+                let import_lookup_table = SyntheticImportLookupTableEntry::parse::<T>(bytes, import_lookup_table_offset, sections)?;
                 debug!("Successfully synthesized import lookup table entry: {:#?}", import_lookup_table);
                 Some(import_lookup_table)
             } else {
@@ -231,7 +225,7 @@ impl<'a> Import<'a> {
                     let offset = import_base + (i * T::size_of());
                     use self::SyntheticImportLookupTableEntry::*;
                     let (rva, name, ordinal) =
-                        match &entry.synthetic {
+                        match entry {
                             &HintNameTableRVA ((rva, ref hint_entry)) => {
                                 // if hint_entry.name = "" && hint_entry.hint = 0 {
                                 //     println!("<PE.Import> warning hint/name table rva from {} without hint {:#x}", dll, rva);

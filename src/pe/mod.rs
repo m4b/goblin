@@ -90,9 +90,17 @@ impl<'a> PE<'a> {
             }
             debug!("exports: {:#?}", exports);
             if let &Some(import_table) = optional_header.data_directories.get_import_table() {
-                let id = import::ImportData::parse(bytes, &import_table, &sections)?;
+                let id = if is_64 {
+                    import::ImportData::parse::<u64>(bytes, &import_table, &sections)?
+                } else {
+                    import::ImportData::parse::<u32>(bytes, &import_table, &sections)?
+                };
                 debug!("import data {:#?}", id);
-                imports = import::Import::parse(bytes, &id, &sections)?;
+                if is_64 {
+                    imports = import::Import::parse::<u64>(bytes, &id, &sections)?
+                } else {
+                    imports = import::Import::parse::<u32>(bytes, &id, &sections)?
+                }
                 libraries = id.import_data.iter().map( | data | { data.name }).collect::<Vec<&'a str>>();
                 libraries.sort();
                 libraries.dedup();

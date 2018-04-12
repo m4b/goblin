@@ -45,6 +45,7 @@ mod gnu_hash;
 pub mod header;
 pub mod program_header;
 pub mod section_header;
+pub mod compression_header;
 #[macro_use]
 pub mod sym;
 pub mod dyn;

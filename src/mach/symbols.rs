@@ -45,6 +45,39 @@ pub const N_PBUD: u8 = 0xc;
 /// indirect
 pub const N_INDR: u8 = 0xa;
 
+// n_types when N_STAB
+pub const N_GSYM:    u8 = 0x20;
+pub const N_FNAME:   u8 = 0x22;
+pub const N_FUN:     u8 = 0x24;
+pub const N_STSYM:   u8 = 0x26;
+pub const N_LCSYM:   u8 = 0x28;
+pub const N_BNSYM:   u8 = 0x2e;
+pub const N_PC:      u8 = 0x30;
+pub const N_AST:     u8 = 0x32;
+pub const N_OPT:     u8 = 0x3c;
+pub const N_RSYM:    u8 = 0x40;
+pub const N_SLINE:   u8 = 0x44;
+pub const N_ENSYM:   u8 = 0x4e;
+pub const N_SSYM:    u8 = 0x60;
+pub const N_SO:      u8 = 0x64;
+pub const N_OSO:     u8 = 0x66;
+pub const N_LSYM:    u8 = 0x80;
+pub const N_BINCL:   u8 = 0x82;
+pub const N_SOL:     u8 = 0x84;
+pub const N_PARAMS:  u8 = 0x86;
+pub const N_VERSION: u8 = 0x88;
+pub const N_OLEVEL:  u8 = 0x8a;
+pub const N_PSYM:    u8 = 0xa0;
+pub const N_EINCL:   u8 = 0xa2;
+pub const N_ENTRY:   u8 = 0xa4;
+pub const N_LBRAC:   u8 = 0xc0;
+pub const N_EXCL:    u8 = 0xc2;
+pub const N_RBRAC:   u8 = 0xe0;
+pub const N_BCOMM:   u8 = 0xe2;
+pub const N_ECOMM:   u8 = 0xe4;
+pub const N_ECOML:   u8 = 0xe8;
+pub const N_LENG:    u8 = 0xfe;
+
 pub const NLIST_TYPE_MASK: u8 = 0xe;
 pub const NLIST_TYPE_GLOBAL: u8 = 0x1;
 pub const NLIST_TYPE_LOCAL: u8 = 0x0;

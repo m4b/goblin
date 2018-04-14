@@ -14,4 +14,7 @@ matrix:
 script:
   - cargo build --verbose
   - cargo test --verbose
-  - cargo build --no-default-features
+  - cargo build --release
+  - cargo test --release
+  - make api
+  - if [ "$TRAVIS_RUST_VERSION" = "nightly" ]; then make nightly_api; fi

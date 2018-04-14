@@ -104,12 +104,14 @@ pub mod compression_header32 {
 
     elf_compression_header_std_impl!(u32);
 
-    impl From<ElfCompressionHeader> for CompressionHeader {
-        fn from(ch: ElfCompressionHeader) -> Self {
-            CompressionHeader {
-                ch_type: ch.ch_type,
-                ch_size: ch.ch_size as u32,
-                ch_addralign: ch.ch_addralign as u32,
+    if_alloc! {
+        impl From<ElfCompressionHeader> for CompressionHeader {
+            fn from(ch: ElfCompressionHeader) -> Self {
+                CompressionHeader {
+                    ch_type: ch.ch_type,
+                    ch_size: ch.ch_size as u32,
+                    ch_addralign: ch.ch_addralign as u32,
+                }
             }
         }
     }
@@ -139,13 +141,15 @@ pub mod compression_header64 {
 
     elf_compression_header_std_impl!(u64);
 
-    impl From<ElfCompressionHeader> for CompressionHeader {
-        fn from(ch: ElfCompressionHeader) -> Self {
-            CompressionHeader {
-                ch_type: ch.ch_type,
-                ch_reserved: 0,
-                ch_size: ch.ch_size as u64,
-                ch_addralign: ch.ch_addralign as u64,
+    if_alloc! {
+        impl From<ElfCompressionHeader> for CompressionHeader {
+            fn from(ch: ElfCompressionHeader) -> Self {
+                CompressionHeader {
+                    ch_type: ch.ch_type,
+                    ch_reserved: 0,
+                    ch_size: ch.ch_size as u64,
+                    ch_addralign: ch.ch_addralign as u64,
+                }
             }
         }
     }

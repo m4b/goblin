@@ -121,10 +121,9 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
                 fn from(rela: Rela) -> Self {
                     Reloc {
                         r_offset: rela.r_offset as u64,
-                        r_addend: rela.r_addend as i64,
+                        r_addend: Some(rela.r_addend as i64),
                         r_sym: r_sym(rela.r_info) as usize,
                         r_type: r_type(rela.r_info),
-                        is_rela: true,
                     }
                 }
             }
@@ -133,10 +132,9 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
                 fn from(rel: Rel) -> Self {
                     Reloc {
                         r_offset: rel.r_offset as u64,
-                        r_addend: 0,
+                        r_addend: None,
                         r_sym: r_sym(rel.r_info) as usize,
                         r_type: r_type(rel.r_info),
-                        is_rela: false,
                     }
                 }
             }
@@ -147,7 +145,7 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
                     Rela {
                         r_offset: rela.r_offset as $size,
                         r_info: r_info,
-                        r_addend: rela.r_addend as $isize,
+                        r_addend: rela.r_addend.unwrap_or(0) as $isize,
                     }
                 }
             }
@@ -268,13 +266,11 @@ if_alloc! {
         /// Address
         pub r_offset: u64,
         /// Addend
-        pub r_addend: i64,
+        pub r_addend: Option<i64>,
         /// The index into the corresponding symbol table - either dynamic or regular
         pub r_sym: usize,
         /// The relocation type
         pub r_type: u32,
-        /// Whether this was constructed from a rela or rel relocation entry type
-        pub is_rela: bool
     }
 
     impl Reloc {
@@ -377,14 +373,22 @@ if_alloc! {
 
     impl fmt::Debug for Reloc {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f,
-                   "r_offset: {:x} r_typ: {} r_sym: {} r_addend: {:x} rela: {}",
-                   self.r_offset,
-                   self.r_type,
-                   self.r_sym,
-                   self.r_addend,
-                   self.is_rela,
-            )
+            if let Some(addend) = self.r_addend {
+                write!(f,
+                    "r_offset: {:x} r_typ: {} r_sym: {} r_addend: {:x}",
+                    self.r_offset,
+                    self.r_type,
+                    self.r_sym,
+                    addend,
+                )
+            } else {
+                write!(f,
+                    "r_offset: {:x} r_typ: {} r_sym: {}",
+                    self.r_offset,
+                    self.r_type,
+                    self.r_sym,
+                )
+            }
         }
     }
 } // end if_alloc

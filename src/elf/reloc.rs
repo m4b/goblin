@@ -120,8 +120,8 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
             impl From<Rela> for Reloc {
                 fn from(rela: Rela) -> Self {
                     Reloc {
-                        r_offset: rela.r_offset as usize,
-                        r_addend: rela.r_addend as isize,
+                        r_offset: rela.r_offset as u64,
+                        r_addend: rela.r_addend as i64,
                         r_sym: r_sym(rela.r_info) as usize,
                         r_type: r_type(rela.r_info),
                         is_rela: true,
@@ -132,7 +132,7 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
             impl From<Rel> for Reloc {
                 fn from(rel: Rel) -> Self {
                     Reloc {
-                        r_offset: rel.r_offset as usize,
+                        r_offset: rel.r_offset as u64,
                         r_addend: 0,
                         r_sym: r_sym(rel.r_info) as usize,
                         r_type: r_type(rel.r_info),
@@ -266,9 +266,9 @@ if_alloc! {
     /// A unified ELF relocation structure
     pub struct Reloc {
         /// Address
-        pub r_offset: usize,
+        pub r_offset: u64,
         /// Addend
-        pub r_addend: isize,
+        pub r_addend: i64,
         /// The index into the corresponding symbol table - either dynamic or regular
         pub r_sym: usize,
         /// The relocation type

@@ -16,7 +16,7 @@ Add to your `Cargo.toml`
 
 ```toml
 [dependencies]
-goblin = "0.0.14"
+goblin = "0.0.15"
 ```
 
 ### Features
@@ -73,15 +73,19 @@ Thank you all :heart: !
 
 In alphabetic order:
 
+- [@amanieu](https://github.com/amanieu)
 - [@flanfly](https://github.com/flanfly)
 - [@jan-auer](https://github.com/jan-auer)
 - [@jdub](https://github.com/jdub)
+- [@jrmuizel](https://github.com/jrmuizel)
+  [@kjempelodott](https://github.com/kjempelodott)
 - [@le-jzr](https://github.com/le-jzr)
 - [@lion128](https://github.com/lion128)
 - [@llogiq](https://github.com/llogiq)
 - [@mitsuhiko](https://github.com/mitsuhiko)
 - [@mre](https://github.com/mre)
 - [@philipc](https://github.com/philipc)
+- [@rocallahan](https://github.com/rocallahan)
 - [@sanxiyn](https://github.com/sanxiyn)
 - [@ticki](https://github.com/ticki)
 - [@willglynn](https://github.com/willglynn)

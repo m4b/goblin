@@ -7,6 +7,10 @@ I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, do
 
 ## [Unreleased]
 ### Changed
+### Added
+
+## [0.0.15] - 2018-4-22
+### Changed
  - BREAKING: elf.reloc: u64/i64 used for r_offset/r_addend, and addend is now proper optional, thanks @amanieu! https://github.com/m4b/goblin/pull/86/
  - update to scroll 0.9
  - pe32+: parse better, thanks @kjempelodott, https://github.com/m4b/goblin/pull/82

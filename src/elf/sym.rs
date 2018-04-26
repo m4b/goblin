@@ -70,6 +70,7 @@ pub fn is_import(info: u8, value: u64) -> bool {
 }
 
 /// Convenience function to get the &'static str type from the symbols `st_info`.
+#[inline]
 pub fn get_type(info: u8) -> &'static str {
     type_to_str(st_type(info))
 }
@@ -132,17 +133,20 @@ macro_rules! elf_sym_std_impl {
 
             impl Sym {
                 /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` bind and a `st_value` of 0
+                #[inline]
                 pub fn is_import(&self) -> bool {
                     let bind = self.st_info >> 4;
                     (bind == STB_GLOBAL || bind == STB_WEAK) && self.st_value == 0
                 }
                 /// Checks whether this `Sym` has type `STT_FUNC`
+                #[inline]
                 pub fn is_function(&self) -> bool {
                     st_type(self.st_info) == STT_FUNC
                 }
             }
 
             impl From<Sym> for ElfSym {
+                #[inline]
                 fn from(sym: Sym) -> Self {
                     ElfSym {
                         st_name:     sym.st_name as usize,
@@ -156,6 +160,7 @@ macro_rules! elf_sym_std_impl {
             }
 
             impl From<ElfSym> for Sym {
+                #[inline]
                 fn from(sym: ElfSym) -> Self {
                     Sym {
                         st_name:     sym.st_name as u32,
@@ -184,6 +189,7 @@ macro_rules! elf_sym_std_impl {
                 }
             }
 
+            #[inline]
             pub unsafe fn from_raw<'a>(symp: *const Sym, count: usize) -> &'a [Sym] {
                 slice::from_raw_parts(symp, count)
             }
@@ -286,16 +292,19 @@ if_alloc! {
     }
 
     impl Sym {
+        #[inline]
         pub fn size(container: Container) -> usize {
             use scroll::ctx::SizeWith;
             Self::size_with(&Ctx::from(container))
         }
         /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` bind and a `st_value` of 0
+        #[inline]
         pub fn is_import(&self) -> bool {
             let bind = self.st_bind();
             (bind == STB_GLOBAL || bind == STB_WEAK) && self.st_value == 0
         }
         /// Checks whether this `Sym` has type `STT_FUNC`
+        #[inline]
         pub fn is_function(&self) -> bool {
             st_type(self.st_info) == STT_FUNC
         }
@@ -344,6 +353,7 @@ if_alloc! {
 
     impl ctx::SizeWith<Ctx> for Sym {
         type Units = usize;
+        #[inline]
         fn size_with(&Ctx {container, .. }: &Ctx) -> usize {
             match container {
                 Container::Little => {
@@ -359,6 +369,7 @@ if_alloc! {
     impl<'a> ctx::TryFromCtx<'a, Ctx> for Sym {
         type Error = ::error::Error;
         type Size = usize;
+        #[inline]
         fn try_from_ctx(bytes: &'a [u8], Ctx { container, le}: Ctx) -> result::Result<(Self, Self::Size), Self::Error> {
             use scroll::Pread;
             let sym = match container {
@@ -376,6 +387,7 @@ if_alloc! {
     impl ctx::TryIntoCtx<Ctx> for Sym {
         type Error = ::error::Error;
         type Size = usize;
+        #[inline]
         fn try_into_ctx(self, bytes: &mut [u8], Ctx {container, le}: Ctx) -> result::Result<Self::Size, Self::Error> {
             use scroll::Pwrite;
             match container {
@@ -392,6 +404,7 @@ if_alloc! {
     }
 
     impl ctx::IntoCtx<Ctx> for Sym {
+        #[inline]
         fn into_ctx(self, bytes: &mut [u8], Ctx {container, le}: Ctx) {
             use scroll::Pwrite;
             match container {
@@ -439,6 +452,7 @@ if_alloc! {
         }
 
         /// Try to parse a single symbol from the binary, at `index`.
+        #[inline]
         pub fn get(&self, index: usize) -> Option<Sym> {
             if index >= self.count {
                 None
@@ -454,6 +468,7 @@ if_alloc! {
         }
 
         /// Iterate over all symbols.
+        #[inline]
         pub fn iter(&self) -> SymIterator<'a> {
             self.into_iter()
         }
@@ -468,6 +483,7 @@ if_alloc! {
         type Item = <SymIterator<'a> as Iterator>::Item;
         type IntoIter = SymIterator<'a>;
 
+        #[inline]
         fn into_iter(self) -> Self::IntoIter {
             SymIterator {
                 bytes: self.bytes,
@@ -491,6 +507,7 @@ if_alloc! {
     impl<'a> Iterator for SymIterator<'a> {
         type Item = Sym;
 
+        #[inline]
         fn next(&mut self) -> Option<Self::Item> {
             if self.index >= self.count {
                 None
@@ -502,6 +519,7 @@ if_alloc! {
     }
 
     impl<'a> ExactSizeIterator for SymIterator<'a> {
+        #[inline]
         fn len(&self) -> usize {
             self.count - self.index
         }

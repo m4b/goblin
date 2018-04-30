@@ -153,6 +153,47 @@ pub const DT_VERNEED: u64 = 0x6ffffffe;
 /// Number of needed versions
 pub const DT_VERNEEDNUM: u64 = 0x6fffffff;
 
+// MIPS-specific Dynamic Array Tags
+/// 32-bit version id for the Runtime Linker Interface.
+pub const DT_MIPS_RLD_VERSION: u64 = 0x70000001;
+/// A 32-bit timestamp.
+pub const DT_MIPS_TIME_STAMP: u64 = 0x70000002;
+/// The sum of all external strings and common size.
+pub const DT_MIPS_ICHECKSUM: u64 = 0x70000003;
+/// Index into the object file string table.
+///
+/// An index of zero means no version string was specified.
+pub const DT_MIPS_IVERSION: u64 = 0x70000004;
+/// 1-bit flags.
+pub const DT_MIPS_FLAGS: u64 = 0x70000005;
+/// The base address of the segment. It can be adjusted when the operating
+/// system kernel actually maps segments.
+pub const DT_MIPS_BASE_ADDRESS: u64 = 0x70000006;
+/// Holds the address of the .conflict section.
+pub const DT_MIPS_CONFLICT: u64 = 0x70000008;
+/// Holds the address of the .liblist section.
+pub const DT_MIPS_LIBLIST: u64 = 0x70000009;
+/// Holds the number of local global offset table entries.
+pub const DT_MIPS_LOCAL_GOTNO: u64 = 0x7000000a;
+/// Holds the number of entries in the .conflict section.
+pub const DT_MIPS_CONFLICTNO: u64 = 0x7000000b;
+/// Holds the number of entries in the .liblist section.
+pub const DT_MIPS_LIBLISTNO: u64 = 0x70000010;
+/// Holds the number of entries in the .dynsym section.
+pub const DT_MIPS_SYMTABNO: u64 = 0x70000011;
+/// Holds the index into the dynamic symbol table which is the entry of the
+/// first external symbol that is not referenced within the same object.
+pub const DT_MIPS_UNREFEXTNO: u64 = 0x70000012;
+/// Holds the index of the first dynamic symbol table entry that corresponds to
+/// an entry in the global offset table.
+pub const DT_MIPS_GOTSYM: u64 = 0x70000013;
+/// Holds the number of page table entries in the global offset table.
+pub const DT_MIPS_HIPAGENO: u64 = 0x70000014;
+/// Address of a 32-bit word in the .data section used by debugging. Its
+/// contents are unspecified.
+pub const DT_MIPS_RLD_MAP: u64 = 0x70000016;
+
+
 /// Converts a tag to its string representation.
 #[inline]
 pub fn tag_to_str(tag: u64) -> &'static str {
@@ -204,6 +245,22 @@ pub fn tag_to_str(tag: u64) -> &'static str {
         DT_VERNEED => "DT_VERNEED",
         DT_VERNEEDNUM => "DT_VERNEEDNUM",
         DT_FLAGS_1 => "DT_FLAGS_1",
+        DT_MIPS_RLD_VERSION => "DT_MIPS_RLD_VERSION",
+        DT_MIPS_TIME_STAMP => "DT_MIPS_TIME_STAMP",
+        DT_MIPS_ICHECKSUM => "DT_MIPS_ICHECKSUM",
+        DT_MIPS_IVERSION => "DT_MIPS_IVERSION",
+        DT_MIPS_FLAGS => "DT_MIPS_FLAGS",
+        DT_MIPS_BASE_ADDRESS => "DT_MIPS_BASE_ADDRESS",
+        DT_MIPS_CONFLICT => "DT_MIPS_CONFLICT",
+        DT_MIPS_LIBLIST => "DT_MIPS_LIBLIST",
+        DT_MIPS_LOCAL_GOTNO => "DT_MIPS_LOCAL_GOTNO",
+        DT_MIPS_CONFLICTNO => "DT_MIPS_CONFLICTNO",
+        DT_MIPS_LIBLISTNO => "DT_MIPS_LIBLISTNO",
+        DT_MIPS_SYMTABNO => "DT_MIPS_SYMTABNO",
+        DT_MIPS_UNREFEXTNO => "DT_MIPS_UNREFEXTNO",
+        DT_MIPS_GOTSYM => "DT_MIPS_GOTSYM",
+        DT_MIPS_HIPAGENO => "DT_MIPS_HIPAGENO",
+        DT_MIPS_RLD_MAP => "DT_MIPS_RLD_MAP",
         _ => "UNKNOWN_TAG",
     }
 }

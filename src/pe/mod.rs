@@ -42,7 +42,7 @@ pub struct PE<'a> {
     /// Data for any imported symbols, and from which `dll`, etc., in this binary
     pub import_data: Option<import::ImportData<'a>>,
     /// The list of exported symbols in this binary, contains synthetic information for easier analysis
-    pub exports: Vec<export::Export<'a>>,
+    pub exports: Option<Vec<export::Export<'a>>>,
     /// The list symbols imported by this binary from other `dll`s
     pub imports: Vec<import::Import<'a>>,
     /// The list of libraries which this binary imports symbols from
@@ -67,7 +67,7 @@ impl<'a> PE<'a> {
         let is_lib = characteristic::is_dll(header.coff_header.characteristics);
         let mut entry = 0;
         let mut image_base = 0;
-        let mut exports = vec![];
+        let mut exports = None;
         let mut export_data = None;
         let mut name = None;
         let mut imports = vec![];
@@ -81,12 +81,13 @@ impl<'a> PE<'a> {
             is_64 = optional_header.container()? == container::Container::Big;
             debug!("entry {:#x} image_base {:#x} is_64: {}", entry, image_base, is_64);
             if let &Some(export_table) = optional_header.data_directories.get_export_table() {
-                let ed = export::ExportData::parse(bytes, &export_table, &sections)?;
-                debug!("export data {:#?}", ed);
-                exports = export::Export::parse(bytes, &ed, &sections)?;
-                name = Some(ed.name);
-                debug!("name: {}", ed.name);
-                export_data = Some(ed);
+                if let Ok(ed) = export::ExportData::parse(bytes, &export_table, &sections) {
+                    debug!("export data {:#?}", ed);
+                    exports = export::Export::parse(bytes, &ed, &sections).ok();
+                    name = ed.name;
+                    debug!("name: {:#?}", name);
+                    export_data = Some(ed);
+                }
             }
             debug!("exports: {:#?}", exports);
             if let &Some(import_table) = optional_header.data_directories.get_import_table() {

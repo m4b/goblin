@@ -18,8 +18,10 @@ pub const PE_POINTER_OFFSET: u32 = 0x3c;
 
 impl DosHeader {
     pub fn parse(bytes: &[u8]) -> error::Result<Self> {
-        let signature = bytes.pread_with(0, scroll::LE)?;
-        let pe_pointer = bytes.pread_with(PE_POINTER_OFFSET as usize, scroll::LE)?;
+        let signature = bytes.pread_with(0, scroll::LE)
+            .map_err(|_| error::Error::Malformed(format!("cannot parse DOS signature (offset {:#x})", 0)))?;
+        let pe_pointer = bytes.pread_with(PE_POINTER_OFFSET as usize, scroll::LE)
+            .map_err(|_| error::Error::Malformed(format!("cannot parse PE header pointer (offset {:#x})", PE_POINTER_OFFSET)))?;
         Ok (DosHeader { signature: signature, pe_pointer: pe_pointer })
     }
 }
@@ -49,14 +51,22 @@ pub const COFF_MACHINE_X86_64: u16 = 0x8664;
 impl CoffHeader {
     pub fn parse(bytes: &[u8], offset: &mut usize) -> error::Result<Self> {
         let mut coff = CoffHeader::default();
-        coff.signature = bytes.gread_with(offset, scroll::LE)?;
-        coff.machine = bytes.gread_with(offset, scroll::LE)?;
-        coff.number_of_sections = bytes.gread_with(offset, scroll::LE)?;
-        coff.time_date_stamp = bytes.gread_with(offset, scroll::LE)?;
-        coff.pointer_to_symbol_table = bytes.gread_with(offset, scroll::LE)?;
-        coff.number_of_symbol_table = bytes.gread_with(offset, scroll::LE)?;
-        coff.size_of_optional_header = bytes.gread_with(offset, scroll::LE)?;
-        coff.characteristics = bytes.gread_with(offset, scroll::LE)?;
+        coff.signature = bytes.gread_with(offset, scroll::LE)
+            .map_err(|_| error::Error::Malformed(format!("cannot parse COFF signature (offset {:#x})", offset)))?;
+        coff.machine = bytes.gread_with(offset, scroll::LE)
+            .map_err(|_| error::Error::Malformed(format!("cannot parse COFF machine (offset {:#x})", offset)))?;
+        coff.number_of_sections = bytes.gread_with(offset, scroll::LE)
+            .map_err(|_| error::Error::Malformed(format!("cannot parse COFF number of sections (offset {:#x})", offset)))?;
+        coff.time_date_stamp = bytes.gread_with(offset, scroll::LE)
+            .map_err(|_| error::Error::Malformed(format!("cannot parse COFF time date stamp (offset {:#x})", offset)))?;
+        coff.pointer_to_symbol_table = bytes.gread_with(offset, scroll::LE)
+            .map_err(|_| error::Error::Malformed(format!("cannot parse COFF pointer to symbol table (offset {:#x})", offset)))?;
+        coff.number_of_symbol_table = bytes.gread_with(offset, scroll::LE)
+            .map_err(|_| error::Error::Malformed(format!("cannot parse COFF number of symbol (offset {:#x})", offset)))?;
+        coff.size_of_optional_header = bytes.gread_with(offset, scroll::LE)
+            .map_err(|_| error::Error::Malformed(format!("cannot parse COFF size of optional header (offset {:#x})", offset)))?;
+        coff.characteristics = bytes.gread_with(offset, scroll::LE)
+            .map_err(|_| error::Error::Malformed(format!("cannot parse COFF characteristics (offset {:#x})", offset)))?;
         Ok(coff)
     }
 }

@@ -169,11 +169,13 @@ if_alloc! {
         type Size = usize;
         fn try_from_ctx(bytes: &'a [u8], (alignment, ctx): (usize, container::Ctx)) -> Result<(Self, Self::Size), Self::Error> {
             let offset = &mut 0;
+            let mut alignment = alignment;
+            if alignment < 4 {
+                alignment = 4;
+            }
             let header: NoteHeader = {
                 match alignment {
-                    4 => bytes.gread_with::<Nhdr32>(offset, ctx.le)?.into(),
-                    // this is a guess; i haven't seen gcc/clang compilers emit 64-bit notes, and i don't have any non gcc/clang compilers
-                    8 => bytes.gread_with::<Nhdr64>(offset, ctx.le)?.into(),
+                    4|8 => bytes.gread_with::<Nhdr32>(offset, ctx.le)?.into(),
                     _ => return Err(error::Error::Malformed(format!("Notes has unimplemented alignment requirement: {:#x}", alignment)))
                 }
             };

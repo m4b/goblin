@@ -201,8 +201,8 @@ impl<'a> Reexport<'a> {
 /// An exported symbol in this binary, contains synthetic data (name offset, etc., are computed)
 pub struct Export<'a> {
     pub name: Option<&'a str>,
-    pub offset: Option<usize>,
-    pub rva: Option<usize>,
+    pub offset: usize,
+    pub rva: usize,
     // pub size: usize,
     pub reexport: Option<Reexport<'a>>,
 }
@@ -222,40 +222,35 @@ impl<'a, 'b> scroll::ctx::TryFromCtx<'a, ExportCtx<'b>> for Export<'a> {
     #[inline]
     fn try_from_ctx(bytes: &'a [u8], ExportCtx { ptr, idx, sections, addresses, ordinals }: ExportCtx<'b>) -> Result<(Self, Self::Size), Self::Error> {
         use self::ExportAddressTableEntry::*;
-        
+
         let name = ptr.map_or(None, |ptr| {
             let name_offset = utils::find_offset(ptr as usize, sections);
             name_offset.and_then(|offset| bytes.pread::<&str>(offset).ok())
         });
 
-        let ordinal = ordinals.get(idx);
-        match ordinal {
-            Some(&address_index) => {
-                let address_index = address_index as usize;
-                if address_index >= addresses.len() {
-                    Ok((Export { name: name, offset: None, rva: None, reexport: None }, 0))
-                }
-                else {
-                    match addresses[address_index] {
-                        ExportRVA(rva) => {
-                            let rva = rva as usize;
-                            let offset = utils::find_offset(rva, sections);
-                            Ok((Export { name: name, offset: offset, rva: Some(rva), reexport: None }, 0))
-                        },
+        if let Some(ordinal) = ordinals.get(idx) {
+            if let Some(rva) = addresses.get(*ordinal as usize) {
+                match *rva {
+                    ExportRVA(rva) => {
+                        let rva = rva as usize;
+                        let offset = utils::find_offset_or(rva, sections, &format!("cannot map RVA ({:#x}) of export ordinal {} into offset", rva, ordinal))?;
+                        Ok((Export { name, offset, rva, reexport: None }, 0))
+                    },
 
-                        ForwarderRVA(rva) => {
-                            let rva = rva as usize;
-                            let offset = utils::find_offset(rva, sections);
-                            let reexport = offset.and_then(|offset| Reexport::parse(bytes, offset).ok());
-                            Ok((Export { name: name, offset: offset, rva: Some(rva), reexport }, 0))
-                        }
+                    ForwarderRVA(rva) => {
+                        let rva = rva as usize;
+                        let offset = utils::find_offset_or(rva, sections, &format!("cannot map RVA ({:#x}) of export ordinal {} into offset", rva, ordinal))?;
+                        let reexport = Reexport::parse(bytes, offset)?;
+                        Ok((Export { name, offset, rva, reexport: Some(reexport) }, 0))
                     }
                 }
-            },
-
-            None => {
-                Ok((Export { name: name, offset: None, rva: None, reexport: None}, 0))
             }
+            else {
+                Err(error::Error::Malformed(format!("cannot get RVA of export ordinal {}", ordinal)))
+            }
+        }
+        else {
+            Err(error::Error::Malformed(format!("cannot get ordinal of export name entry {}", idx)))
         }
     }
 }
@@ -280,10 +275,10 @@ impl<'a> Export<'a> {
                 pointers.get(idx as usize).map(|v| *v)
             });
 
-            let export = bytes.pread_with(0, ExportCtx { ptr: ptr, idx: idx as usize, sections: sections, addresses: addresses, ordinals: ordinals })?;
-            exports.push(export);
+            if let Ok(export) = bytes.pread_with(0, ExportCtx { ptr: ptr, idx: idx as usize, sections: sections, addresses: addresses, ordinals: ordinals }) {
+                exports.push(export);
+            }
         }
-
 
         // TODO: sort + compute size
         Ok (exports)

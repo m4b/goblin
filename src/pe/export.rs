@@ -58,9 +58,9 @@ pub type ExportOrdinalTable = Vec<u16>;
 pub struct ExportData<'a> {
     pub name: Option<&'a str>,
     pub export_directory_table: ExportDirectoryTable,
-    pub export_name_pointer_table: Option<ExportNamePointerTable>,
-    pub export_ordinal_table: Option<ExportOrdinalTable>,
-    pub export_address_table: Option<ExportAddressTable>,
+    pub export_name_pointer_table: ExportNamePointerTable,
+    pub export_ordinal_table: ExportOrdinalTable,
+    pub export_address_table: ExportAddressTable,
 }
 
 impl<'a> ExportData<'a> {
@@ -74,15 +74,14 @@ impl<'a> ExportData<'a> {
         let number_of_name_pointers = export_directory_table.number_of_name_pointers as usize;
         let address_table_entries = export_directory_table.address_table_entries as usize;
 
-        let export_name_pointer_table = utils::find_offset(export_directory_table.name_pointer_rva as usize, sections).map(|table_offset| {
+        let export_name_pointer_table = utils::find_offset(export_directory_table.name_pointer_rva as usize, sections).map_or(vec![], |table_offset| {
             let mut offset = table_offset;
             let mut table: ExportNamePointerTable = Vec::with_capacity(number_of_name_pointers);
 
             for _ in 0..number_of_name_pointers {
                 if let Ok(name_rva) = bytes.gread_with(&mut offset, scroll::LE) {
                     table.push(name_rva);
-                }
-                else {
+                } else {
                     break;
                 }
             }
@@ -90,15 +89,14 @@ impl<'a> ExportData<'a> {
             table
         });
 
-        let export_ordinal_table = utils::find_offset(export_directory_table.ordinal_table_rva as usize, sections).map(|table_offset| {
+        let export_ordinal_table = utils::find_offset(export_directory_table.ordinal_table_rva as usize, sections).map_or(vec![], |table_offset| {
             let mut offset = table_offset;
             let mut table: ExportOrdinalTable = Vec::with_capacity(number_of_name_pointers);
 
             for _ in 0..number_of_name_pointers {
                 if let Ok(name_ordinal) = bytes.gread_with(&mut offset, scroll::LE) {
                     table.push(name_ordinal);
-                }
-                else {
+                } else {
                     break;
                 }
             }
@@ -106,7 +104,7 @@ impl<'a> ExportData<'a> {
             table
         });
 
-        let export_address_table = utils::find_offset(export_directory_table.export_address_table_rva as usize, sections).map(|table_offset| {
+        let export_address_table = utils::find_offset(export_directory_table.export_address_table_rva as usize, sections).map_or(vec![], |table_offset| {
             let mut offset = table_offset;
             let mut table: ExportAddressTable = Vec::with_capacity(address_table_entries);
             let export_end = export_rva + size;
@@ -118,8 +116,7 @@ impl<'a> ExportData<'a> {
                     } else {
                         table.push(ExportAddressTableEntry::ExportRVA(func_rva));
                     }
-                }
-                else {
+                } else {
                     break;
                 }
             }
@@ -203,13 +200,13 @@ pub struct Export<'a> {
     pub name: Option<&'a str>,
     pub offset: usize,
     pub rva: usize,
-    // pub size: usize,
+    pub size: usize,
     pub reexport: Option<Reexport<'a>>,
 }
 
 #[derive(Debug, Copy, Clone)]
 struct ExportCtx<'a> {
-    pub ptr: Option<u32>,
+    pub ptr: u32,
     pub idx: usize,
     pub sections: &'a [section_table::SectionTable],
     pub addresses: &'a ExportAddressTable,
@@ -223,10 +220,7 @@ impl<'a, 'b> scroll::ctx::TryFromCtx<'a, ExportCtx<'b>> for Export<'a> {
     fn try_from_ctx(bytes: &'a [u8], ExportCtx { ptr, idx, sections, addresses, ordinals }: ExportCtx<'b>) -> Result<(Self, Self::Size), Self::Error> {
         use self::ExportAddressTableEntry::*;
 
-        let name = ptr.map_or(None, |ptr| {
-            let name_offset = utils::find_offset(ptr as usize, sections);
-            name_offset.and_then(|offset| bytes.pread::<&str>(offset).ok())
-        });
+        let name = utils::find_offset(ptr as usize, sections).map_or(None, |offset| bytes.pread::<&str>(offset).ok());
 
         if let Some(ordinal) = ordinals.get(idx) {
             if let Some(rva) = addresses.get(*ordinal as usize) {
@@ -234,22 +228,20 @@ impl<'a, 'b> scroll::ctx::TryFromCtx<'a, ExportCtx<'b>> for Export<'a> {
                     ExportRVA(rva) => {
                         let rva = rva as usize;
                         let offset = utils::find_offset_or(rva, sections, &format!("cannot map RVA ({:#x}) of export ordinal {} into offset", rva, ordinal))?;
-                        Ok((Export { name, offset, rva, reexport: None }, 0))
+                        Ok((Export { name, offset, rva, reexport: None, size: 0 }, 0))
                     },
 
                     ForwarderRVA(rva) => {
                         let rva = rva as usize;
                         let offset = utils::find_offset_or(rva, sections, &format!("cannot map RVA ({:#x}) of export ordinal {} into offset", rva, ordinal))?;
                         let reexport = Reexport::parse(bytes, offset)?;
-                        Ok((Export { name, offset, rva, reexport: Some(reexport) }, 0))
+                        Ok((Export { name, offset, rva, reexport: Some(reexport), size: 0 }, 0))
                     }
                 }
-            }
-            else {
+            } else {
                 Err(error::Error::Malformed(format!("cannot get RVA of export ordinal {}", ordinal)))
             }
-        }
-        else {
+        } else {
             Err(error::Error::Malformed(format!("cannot get ordinal of export name entry {}", idx)))
         }
     }
@@ -257,27 +249,15 @@ impl<'a, 'b> scroll::ctx::TryFromCtx<'a, ExportCtx<'b>> for Export<'a> {
 
 impl<'a> Export<'a> {
     pub fn parse(bytes: &'a [u8], export_data: &ExportData, sections: &[section_table::SectionTable]) -> error::Result<Vec<Export<'a>>> {
-        let number_of_name_pointers = export_data.export_directory_table.number_of_name_pointers;
+        let pointers = &export_data.export_name_pointer_table;
+        let addresses = &export_data.export_address_table;
+        let ordinals = &export_data.export_ordinal_table;
 
-        let mut addresses = &Vec::new();
-        if let Some(ref table) = export_data.export_address_table {
-            addresses = table;
-        }
-
-        let mut ordinals = &Vec::new();
-        if let Some(ref table) = export_data.export_ordinal_table {
-            ordinals = table;
-        }
-
-        let mut exports = Vec::with_capacity(number_of_name_pointers as usize);
-        for idx in 0..number_of_name_pointers {
-            let ptr = export_data.export_name_pointer_table.as_ref().map_or(None, |pointers| {
-                pointers.get(idx as usize).map(|v| *v)
-            });
-
-            if let Ok(export) = bytes.pread_with(0, ExportCtx { ptr: ptr, idx: idx as usize, sections: sections, addresses: addresses, ordinals: ordinals }) {
+        let mut exports = Vec::with_capacity(pointers.len());
+        for (idx, &ptr) in pointers.iter().enumerate() {
+            if let Ok(export) = bytes.pread_with(0, ExportCtx { ptr, idx, sections, addresses, ordinals }) {
                 exports.push(export);
-            }
+            }    
         }
 
         // TODO: sort + compute size

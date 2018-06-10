@@ -81,12 +81,13 @@ impl<'a> PE<'a> {
             is_64 = optional_header.container()? == container::Container::Big;
             debug!("entry {:#x} image_base {:#x} is_64: {}", entry, image_base, is_64);
             if let &Some(export_table) = optional_header.data_directories.get_export_table() {
-                let ed = export::ExportData::parse(bytes, &export_table, &sections)?;
-                debug!("export data {:#?}", ed);
-                exports = export::Export::parse(bytes, &ed, &sections)?;
-                name = Some(ed.name);
-                debug!("name: {}", ed.name);
-                export_data = Some(ed);
+                if let Ok(ed) = export::ExportData::parse(bytes, &export_table, &sections) {
+                    debug!("export data {:#?}", ed);
+                    exports = export::Export::parse(bytes, &ed, &sections)?;
+                    name = ed.name;
+                    debug!("name: {:#?}", name);
+                    export_data = Some(ed);
+                }
             }
             debug!("exports: {:#?}", exports);
             if let &Some(import_table) = optional_header.data_directories.get_import_table() {

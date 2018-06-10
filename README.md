@@ -87,5 +87,15 @@ In alphabetic order:
 - [@philipc](https://github.com/philipc)
 - [@rocallahan](https://github.com/rocallahan)
 - [@sanxiyn](https://github.com/sanxiyn)
+- [@tathanhdinh](https://github.com/tathanhdinh)
 - [@ticki](https://github.com/ticki)
 - [@willglynn](https://github.com/willglynn)
+
+## Contributing
+
+1. Please prefix commits with the affected binary component; the more specific the better, e.g., if you only modify relocations in the elf module, then do "elf.reloc: added new constants for Z80"
+2. Commit messages must explain their change, no generic "changed", or "fix"; if you push commits like this on a PR, be aware @m4b or someone will most likely squash them.
+3. If you are making a large change to a module, please raise an issue first and lets discuss; I don't want to waste your time if its not a good technical direction, or etc.
+4. If your PR is not getting attention, please respond to all relevant comments raised on the PR, and if still no response, ping @m4b, @philipc, or @willglyn in github and also feel free to email @m4b.
+5. Please add tests if you are adding a new feature. Feel free to add tests even if you are not, tests are awesome and easy in rust.
+6. Once cargo format is officially released, please format your _patch_ using the default settings.

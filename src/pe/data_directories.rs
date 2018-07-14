@@ -1,21 +1,16 @@
 use error;
-use scroll::{self, Pread};
+use core::mem;
 
-#[repr(C)]
-#[derive(Debug, PartialEq, Copy, Clone, Default)]
-#[derive(Pread, Pwrite, SizeWith)]
-pub struct DataDirectory {
-    pub virtual_address: u32,
-    pub size: u32,
-}
+use super::{utils::{self, CStructCtx}, section_table};
+use scroll::{ctx, LE, Pread};
 
 pub const SIZEOF_DATA_DIRECTORY: usize = 8;
 const NUM_DATA_DIRECTORIES: usize = 16;
 
-impl DataDirectory {
-    pub fn parse(bytes: &[u8], offset: &mut usize) -> error::Result<Self> {
-        let dd = bytes.gread_with(offset, scroll::LE)?;
-        Ok (dd)
+implement_ctx_cstruct! {
+    struct DataDirectory {
+        virtual_address: u32,
+        size: u32,
     }
 }
 
@@ -25,15 +20,17 @@ pub struct DataDirectories {
 }
 
 impl DataDirectories {
-    pub fn parse(bytes: &[u8], count: usize, offset: &mut usize) -> error::Result<Self> {
+    pub fn parse(bytes: &[u8], count: usize, offset: &mut usize, sections: &[section_table::SectionTable]) -> error::Result<Self> {
         let mut data_directories = [None; NUM_DATA_DIRECTORIES];
         if count > NUM_DATA_DIRECTORIES { return Err (error::Error::Malformed(format!("data directory count ({}) is greater than maximum number of data directories ({})", count, NUM_DATA_DIRECTORIES))) }
         for i in 0..count {
-            let dd = DataDirectory::parse(bytes, offset)?;
+            let dd = DataDirectory::parse(bytes, offset, sections)?;
             let dd = if dd.virtual_address == 0 && dd.size == 0 { None } else { Some (dd) };
             data_directories[i] = dd;
         }
-        Ok (DataDirectories { data_directories: data_directories })
+
+        Ok (DataDirectories { data_directories })
+
     }
     pub fn get_export_table(&self) -> &Option<DataDirectory> {
         let idx = 0;

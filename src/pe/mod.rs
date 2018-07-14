@@ -3,7 +3,10 @@
 
 // TODO: panics with unwrap on None for apisetschema.dll, fhuxgraphics.dll and some others
 
+use scroll::{self, Pread};
 use alloc::vec::Vec;
+
+#[macro_use] mod utils;
 
 pub mod header;
 pub mod optional_header;
@@ -13,10 +16,10 @@ pub mod data_directories;
 pub mod export;
 pub mod import;
 pub mod debug;
-mod utils;
 
 use error;
 use container;
+use core::mem;
 
 #[derive(Debug)]
 /// An analyzed PE32/PE32+ binary
@@ -54,16 +57,36 @@ pub struct PE<'a> {
 impl<'a> PE<'a> {
     /// Reads a PE binary from the underlying `bytes`
     pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
-        let header = header::Header::parse(bytes)?;
-        debug!("{:#?}", header);
-        let offset = &mut (header.dos_header.pe_pointer as usize + header::SIZEOF_COFF_HEADER + header.coff_header.size_of_optional_header as usize);
-        let nsections = header.coff_header.number_of_sections as usize;
+        let pe_pointer: u32 = bytes.pread_with(header::PE_POINTER_OFFSET as usize, scroll::LE)
+            .map_err(|_| error::Error::Malformed(format!("cannot parse PE header pointer (offset {:#x})", header::PE_POINTER_OFFSET)))?;
+
+        let size_of_optional_header: u16 = {
+            let size_of_optional_header_offset = pe_pointer as usize + offset_of!(header::CoffHeader, size_of_optional_header);
+            bytes.pread_with(size_of_optional_header_offset, scroll::LE)
+                .map_err(|_| error::Error::Malformed(format!("cannot parse COFF size of optional header (offset {:#x}", size_of_optional_header_offset)))?
+        };
+
+        let offset = &mut (pe_pointer as usize + header::SIZEOF_COFF_HEADER + size_of_optional_header as usize);
+
+        // let offset = &mut (header.dos_header.pe_pointer as usize + header::SIZEOF_COFF_HEADER + header.coff_header.size_of_optional_header as usize);
+
+        // let nsections = header.coff_header.number_of_sections as usize;
+        let nsections = {
+            let number_of_sections_offset = pe_pointer as usize + offset_of!(header::CoffHeader, number_of_sections);
+            let number_of_sections: u16 = bytes.pread_with(number_of_sections_offset, scroll::LE)
+                .map_err(|_| error::Error::Malformed(format!("cannot parse COFF number of sections (offset {:#x}", number_of_sections_offset)))?;
+            number_of_sections as usize
+        };
         let mut sections = Vec::with_capacity(nsections);
         for i in 0..nsections {
             let section = section_table::SectionTable::parse(bytes, offset)?;
             debug!("({}) {:#?}", i, section);
             sections.push(section);
         }
+
+        let header = header::Header::parse(bytes, &sections)?;
+        debug!("{:#?}", header);
+
         let is_lib = characteristic::is_dll(header.coff_header.characteristics);
         let mut entry = 0;
         let mut image_base = 0;

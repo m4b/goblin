@@ -270,7 +270,7 @@ mod tests {
     use super::*;
     use self::data_directories::*;
 
-    static CORKAMI_POCS_PE_EXPORTSDATA_EXE: [u8; 0x400] =
+    const CORKAMI_POCS_PE_EXPORTSDATA_EXE: [u8; 0x400] =
         [ 0x4d, 0x5a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
           0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
           0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -343,11 +343,12 @@ mod tests {
 
     #[test]
     fn parse_export_table() {
-        let data_dirs = DataDirectories::parse(&CORKAMI_POCS_PE_EXPORTSDATA_EXE[..], 16, &mut 0xb8).unwrap();
+        let sections = vec![];
+        let data_dirs = DataDirectories::parse(&CORKAMI_POCS_PE_EXPORTSDATA_EXE[..], 16, &mut 0xb8, &sections).unwrap();
         let export_table = data_dirs.get_export_table().unwrap();
 
-        assert_eq!(export_table.virtual_address, 0x10b0);
-        assert_eq!(export_table.size, 0x0);
+        assert_eq!({ export_table.virtual_address }, 0x10b0);
+        assert_eq!({ export_table.size }, 0x0);
     }
 
     #[test]

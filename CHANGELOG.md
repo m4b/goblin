@@ -5,10 +5,12 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, don't worry!
 
-## [Unreleased]
+## [0.0.16] - 2018-7-14
 ### Changed
  - BREAKING: pe.export: name is now optional to reflect realities of PE parsing, and add more robustness to parser. many thanks to @tathanhdinh! https://github.com/m4b/goblin/pull/88
+ - elf.note: treat alignment similar to other tools, e.g., readelf. Thanks @xcoldhandsx: https://github.com/m4b/goblin/pull/91
 ### Added
+ - elf: more inline annotations on various methods, thanks@amanieu: https://github.com/m4b/goblin/pull/87
 
 ## [0.0.15] - 2018-4-22
 ### Changed

@@ -16,7 +16,7 @@ Add to your `Cargo.toml`
 
 ```toml
 [dependencies]
-goblin = "0.0.16"
+goblin = "0.0.17"
 ```
 
 ### Features

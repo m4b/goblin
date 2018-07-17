@@ -102,7 +102,7 @@ mod alloc {
     pub use std::boxed;
     pub use std::string;
     pub use std::vec;
-    pub use std::collections::btree_map;
+    pub use std::collections;
 }
 
 /////////////////////////

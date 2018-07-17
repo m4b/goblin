@@ -12,7 +12,7 @@ use strtab;
 use error::{Result, Error};
 
 use core::usize;
-use alloc::btree_map::BTreeMap;
+use alloc::collections::btree_map::BTreeMap;
 use alloc::vec::Vec;
 
 pub const SIZEOF_MAGIC: usize = 8;

@@ -1,7 +1,7 @@
 [package]
 name = "goblin"
 version = "0.0.17"
-authors = ["m4b <m4b.github.io@gmail.com>", "seu <seu@panopticon.re>", "Will Glynn <will@willglynn.com>"]
+authors = ["m4b <m4b.github.io@gmail.com>", "seu <seu@panopticon.re>", "Will Glynn <will@willglynn.com>", "Philip Craig <philipjcraig@gmail.com>"]
 readme = "README.md"
 keywords = ["binary", "elf", "mach", "pe", "archive"]
 repository = "https://github.com/m4b/goblin"

@@ -2,9 +2,10 @@ use scroll::{self, Pread};
 use error;
 
 #[repr(C)]
-#[derive(Debug, PartialEq, Copy, Clone, Default)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub struct SectionTable {
     pub name: [u8; 8],
+    pub real_name: Option<String>,
     pub virtual_size: u32,
     pub virtual_address: u32,
     pub size_of_raw_data: u32,
@@ -19,12 +20,13 @@ pub struct SectionTable {
 pub const SIZEOF_SECTION_TABLE: usize = 8 * 5;
 
 impl SectionTable {
-    pub fn parse(bytes: &[u8], offset: &mut usize) -> error::Result<Self> {
+    pub fn parse(bytes: &[u8], offset: &mut usize, string_table_offset: usize) -> error::Result<Self> {
         let mut table = SectionTable::default();
         let mut name = [0u8; 8];
         for i in 0..8 {
             name[i] = bytes.gread_with(offset, scroll::LE)?;
         }
+
         table.name = name;
         table.virtual_size = bytes.gread_with(offset, scroll::LE)?;
         table.virtual_address = bytes.gread_with(offset, scroll::LE)?;
@@ -35,10 +37,25 @@ impl SectionTable {
         table.number_of_relocations = bytes.gread_with(offset, scroll::LE)?;
         table.number_of_linenumbers = bytes.gread_with(offset, scroll::LE)?;
         table.characteristics = bytes.gread_with(offset, scroll::LE)?;
+
+        // Based on https://github.com/llvm-mirror/llvm/blob/af7b1832a03ab6486c42a40d21695b2c03b2d8a3/lib/Object/COFFObjectFile.cpp#L1054
+        if name[0] == b'/' {
+            let idx: usize = if name[1] == b'/' {
+                // TODO: Base-64 encoding
+                panic!("At the disco")
+            } else {
+                name[1..].pread::<&str>(0)?.parse().unwrap()
+            };
+            table.real_name = Some(bytes.pread::<&str>(string_table_offset + idx)?.to_string());
+        }
         Ok(table)
     }
+
     pub fn name(&self) -> error::Result<&str> {
-        Ok(self.name.pread(0)?)
+        match self.real_name.as_ref() {
+            Some(s) => Ok(s.as_ref()),
+            None => Ok(self.name.pread(0)?)
+        }
     }
 }
 

@@ -59,8 +59,9 @@ impl<'a> PE<'a> {
         let offset = &mut (header.dos_header.pe_pointer as usize + header::SIZEOF_COFF_HEADER + header.coff_header.size_of_optional_header as usize);
         let nsections = header.coff_header.number_of_sections as usize;
         let mut sections = Vec::with_capacity(nsections);
+        let string_table_offset = header.coff_header.pointer_to_symbol_table + header.coff_header.number_of_symbol_table * 18;
         for i in 0..nsections {
-            let section = section_table::SectionTable::parse(bytes, offset)?;
+            let section = section_table::SectionTable::parse(bytes, offset, string_table_offset as usize)?;
             debug!("({}) {:#?}", i, section);
             sections.push(section);
         }

@@ -1,5 +1,5 @@
 use scroll::{self, Pread};
-use error;
+use error::{self, Error};
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Clone, Default)]
@@ -44,7 +44,9 @@ impl SectionTable {
                 // TODO: Base-64 encoding
                 panic!("At the disco")
             } else {
-                name[1..].pread::<&str>(0)?.parse().unwrap()
+                let name = name.pread::<&str>(1)?;
+                name.parse().map_err(|err|
+                    Error::Malformed(format!("Invalid indirect section name /{}: {}", name, err)))?
             };
             table.real_name = Some(bytes.pread::<&str>(string_table_offset + idx)?.to_string());
         }
@@ -53,7 +55,7 @@ impl SectionTable {
 
     pub fn name(&self) -> error::Result<&str> {
         match self.real_name.as_ref() {
-            Some(s) => Ok(s.as_ref()),
+            Some(s) => Ok(s),
             None => Ok(self.name.pread(0)?)
         }
     }

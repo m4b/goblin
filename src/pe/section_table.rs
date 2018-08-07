@@ -19,6 +19,27 @@ pub struct SectionTable {
 
 pub const SIZEOF_SECTION_TABLE: usize = 8 * 5;
 
+// Based on https://github.com/llvm-mirror/llvm/blob/af7b1832a03ab6486c42a40d21695b2c03b2d8a3/lib/Object/COFFObjectFile.cpp#L70
+// Decodes a string table entry in base 64 (//AAAAAA). Expects string without
+// prefixed slashes.
+fn base64_decode_string_entry(s: &str) -> Result<usize, ()> {
+    assert!(s.len() <= 6, "String too long, possible overflow.");
+
+    let mut val = 0;
+    for c in s.bytes() {
+        let v = match c {
+            b'A'..=b'Z' => c - b'A' + 00, // 00..=25
+            b'a'..=b'z' => c - b'a' + 26, // 26..=51
+            b'0'..=b'9' => c - b'0' + 52, // 52..=61
+            b'+'        => 62,            // 62
+            b'/'        => 63,            // 63
+            _           => return Err(())
+        };
+        val = val * 64 + v as usize;
+    }
+    Ok(val)
+}
+
 impl SectionTable {
     pub fn parse(bytes: &[u8], offset: &mut usize, string_table_offset: usize) -> error::Result<Self> {
         let mut table = SectionTable::default();
@@ -41,8 +62,9 @@ impl SectionTable {
         // Based on https://github.com/llvm-mirror/llvm/blob/af7b1832a03ab6486c42a40d21695b2c03b2d8a3/lib/Object/COFFObjectFile.cpp#L1054
         if name[0] == b'/' {
             let idx: usize = if name[1] == b'/' {
-                // TODO: Base-64 encoding
-                panic!("At the disco")
+                let b64idx = name.pread::<&str>(2)?;
+                base64_decode_string_entry(b64idx).map_err(|_|
+                    Error::Malformed(format!("Invalid indirect section name //{}: base64 decoding failed", b64idx)))?
             } else {
                 let name = name.pread::<&str>(1)?;
                 name.parse().map_err(|err|

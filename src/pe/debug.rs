@@ -12,8 +12,8 @@ pub struct DebugData<'a> {
 }
 
 impl<'a> DebugData<'a> {
-    pub fn parse(bytes: &'a [u8], dd: &data_directories::DataDirectory, sections: &[section_table::SectionTable]) -> error::Result<Self> {
-        let image_debug_directory = ImageDebugDirectory::parse(bytes, dd, sections)?;
+    pub fn parse(bytes: &'a [u8], dd: &data_directories::DataDirectory, sections: &[section_table::SectionTable], file_alignment: u32) -> error::Result<Self> {
+        let image_debug_directory = ImageDebugDirectory::parse(bytes, dd, sections, file_alignment)?;
         let codeview_pdb70_debug_info = CodeviewPDB70DebugInfo::parse(bytes, &image_debug_directory)?;
 
         Ok(DebugData{
@@ -54,9 +54,9 @@ pub const IMAGE_DEBUG_TYPE_FIXUP: u32 = 6;
 pub const IMAGE_DEBUG_TYPE_BORLAND: u32 = 9;
 
 impl ImageDebugDirectory {
-    fn parse(bytes: &[u8], dd: &data_directories::DataDirectory, sections: &[section_table::SectionTable]) -> error::Result<Self> {
+    fn parse(bytes: &[u8], dd: &data_directories::DataDirectory, sections: &[section_table::SectionTable], file_alignment: u32) -> error::Result<Self> {
         let rva = dd.virtual_address as usize;
-        let offset = utils::find_offset(rva, sections).ok_or(error::Error::Malformed(format!("Cannot map ImageDebugDirectory rva {:#x} into offset", rva)))?;;
+        let offset = utils::find_offset(rva, sections, file_alignment).ok_or(error::Error::Malformed(format!("Cannot map ImageDebugDirectory rva {:#x} into offset", rva)))?;;
         let idd: Self = bytes.pread_with(offset, scroll::LE)?;
         Ok (idd)
     }

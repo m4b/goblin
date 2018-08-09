@@ -64,8 +64,7 @@ pub enum SyntheticImportLookupTableEntry<'a> {
 pub type ImportLookupTable<'a> = Vec<SyntheticImportLookupTableEntry<'a>>;
 
 impl<'a> SyntheticImportLookupTableEntry<'a> {
-    pub fn parse<T: Bitfield<'a>>(bytes: &'a [u8], mut offset: usize, sections: &[section_table::SectionTable])
-                                                                      -> error::Result<ImportLookupTable<'a>> {
+    pub fn parse<T: Bitfield<'a>>(bytes: &'a [u8], mut offset: usize, sections: &[section_table::SectionTable], file_alignment: u32) -> error::Result<ImportLookupTable<'a>> {
         let le = scroll::LE;
         let offset = &mut offset;
         let mut table = Vec::new();
@@ -86,7 +85,7 @@ impl<'a> SyntheticImportLookupTableEntry<'a> {
                         let rva = bitfield.to_rva();
                         let hentry = {
                             debug!("searching for RVA {:#x}", rva);
-                            if let Some(offset) = utils::find_offset(rva as usize, sections) {
+                            if let Some(offset) = utils::find_offset(rva as usize, sections, file_alignment) {
                                 debug!("offset {:#x}", offset);
                                 HintNameTableEntry::parse(bytes, offset)?
                             } else {
@@ -142,15 +141,15 @@ pub struct SyntheticImportDirectoryEntry<'a> {
 }
 
 impl<'a> SyntheticImportDirectoryEntry<'a> {
-    pub fn parse<T: Bitfield<'a>>(bytes: &'a [u8], import_directory_entry: ImportDirectoryEntry, sections: &[section_table::SectionTable]) -> error::Result<SyntheticImportDirectoryEntry<'a>> {
+    pub fn parse<T: Bitfield<'a>>(bytes: &'a [u8], import_directory_entry: ImportDirectoryEntry, sections: &[section_table::SectionTable], file_alignment: u32) -> error::Result<SyntheticImportDirectoryEntry<'a>> {
         const LE: scroll::Endian = scroll::LE;
         let name_rva = import_directory_entry.name_rva;
-        let name = utils::try_name(bytes, name_rva as usize, sections)?;
+        let name = utils::try_name(bytes, name_rva as usize, sections, file_alignment)?;
         let import_lookup_table = {
             let import_lookup_table_rva = import_directory_entry.import_lookup_table_rva;
             debug!("Synthesizing lookup table imports for {} lib, with import lookup table rva: {:#x}", name, import_lookup_table_rva);
-            if let Some(import_lookup_table_offset) = utils::find_offset(import_lookup_table_rva as usize, sections) {
-                let import_lookup_table = SyntheticImportLookupTableEntry::parse::<T>(bytes, import_lookup_table_offset, sections)?;
+            if let Some(import_lookup_table_offset) = utils::find_offset(import_lookup_table_rva as usize, sections, file_alignment) {
+                let import_lookup_table = SyntheticImportLookupTableEntry::parse::<T>(bytes, import_lookup_table_offset, sections, file_alignment)?;
                 debug!("Successfully synthesized import lookup table entry: {:#?}", import_lookup_table);
                 Some(import_lookup_table)
             } else {
@@ -158,7 +157,7 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
             }
         };
 
-        let import_address_table_offset = &mut utils::find_offset(import_directory_entry.import_address_table_rva as usize, sections).ok_or(error::Error::Malformed(format!("Cannot map import_address_table_rva {:#x} into offset for {}", import_directory_entry.import_address_table_rva, name)))?;
+        let import_address_table_offset = &mut utils::find_offset(import_directory_entry.import_address_table_rva as usize, sections, file_alignment).ok_or(error::Error::Malformed(format!("Cannot map import_address_table_rva {:#x} into offset for {}", import_directory_entry.import_address_table_rva, name)))?;
         let mut import_address_table = Vec::new();
         loop {
             let import_address = bytes.gread_with::<T>(import_address_table_offset, LE)?.into();
@@ -180,10 +179,10 @@ pub struct ImportData<'a> {
 }
 
 impl<'a> ImportData<'a> {
-    pub fn parse<T: Bitfield<'a>>(bytes: &'a[u8], dd: &data_directories::DataDirectory, sections: &[section_table::SectionTable]) -> error::Result<ImportData<'a>> {
+    pub fn parse<T: Bitfield<'a>>(bytes: &'a[u8], dd: &data_directories::DataDirectory, sections: &[section_table::SectionTable], file_alignment: u32) -> error::Result<ImportData<'a>> {
         let import_directory_table_rva = dd.virtual_address as usize;
         debug!("import_directory_table_rva {:#x}", import_directory_table_rva);
-        let offset = &mut utils::find_offset(import_directory_table_rva, sections).ok_or(error::Error::Malformed(format!("Cannot create ImportData; cannot map import_directory_table_rva {:#x} into offset", import_directory_table_rva)))?;;
+        let offset = &mut utils::find_offset(import_directory_table_rva, sections, file_alignment).ok_or(error::Error::Malformed(format!("Cannot create ImportData; cannot map import_directory_table_rva {:#x} into offset", import_directory_table_rva)))?;;
         debug!("import data offset {:#x}", offset);
         let mut import_data = Vec::new();
         loop {
@@ -192,7 +191,7 @@ impl<'a> ImportData<'a> {
             if import_directory_entry.is_null() {
                 break;
             } else {
-                let entry = SyntheticImportDirectoryEntry::parse::<T>(bytes, import_directory_entry, sections)?;
+                let entry = SyntheticImportDirectoryEntry::parse::<T>(bytes, import_directory_entry, sections, file_alignment)?;
                 debug!("entry {:#?}", entry);
                 import_data.push(entry);
             }

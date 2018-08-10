@@ -11,11 +11,6 @@ documentation = "https://docs.rs/goblin"
 categories = ["parsing", "development-tools::debugging"]
 include = ["src/**/*", "Cargo.toml", "CHANGELOG.md", "LICENSE", "README.md", "etc/*", "examples/*", "tests/*", "fuzz/**/*"]
 
-[lib]
-
-[dev-dependencies]
-env_logger = "0.5"
-
 [dependencies]
 plain = "0.2.3"
 
@@ -41,14 +36,6 @@ mach64 = ["alloc", "endian_fd"]
 pe32 = ["alloc", "endian_fd"]
 pe64 = ["alloc", "endian_fd"]
 archive = ["alloc"]
-
-# [profile.dev]
-# opt-level = 0
-# debug = true
-# rpath = false
-# lto = false
-# debug-assertions = true
-# codegen-units = 4
 
 [badges.travis-ci]
 branch = "master"

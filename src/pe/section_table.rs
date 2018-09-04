@@ -1,10 +1,11 @@
 use scroll::{self, Pread};
-use error;
+use error::{self, Error};
 
 #[repr(C)]
-#[derive(Debug, PartialEq, Copy, Clone, Default)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub struct SectionTable {
     pub name: [u8; 8],
+    pub real_name: Option<String>,
     pub virtual_size: u32,
     pub virtual_address: u32,
     pub size_of_raw_data: u32,
@@ -18,13 +19,40 @@ pub struct SectionTable {
 
 pub const SIZEOF_SECTION_TABLE: usize = 8 * 5;
 
+// Based on https://github.com/llvm-mirror/llvm/blob/af7b1832a03ab6486c42a40d21695b2c03b2d8a3/lib/Object/COFFObjectFile.cpp#L70
+// Decodes a string table entry in base 64 (//AAAAAA). Expects string without
+// prefixed slashes.
+fn base64_decode_string_entry(s: &str) -> Result<usize, ()> {
+    assert!(s.len() <= 6, "String too long, possible overflow.");
+
+    let mut val = 0;
+    for c in s.bytes() {
+        let v = if b'A' <= c && c <= b'Z' {
+            c - b'A' + 00 // 00..=25
+        } else if b'a' <= c && c <= b'z' {
+            c - b'a' + 26 // 26..=51
+        } else if b'0' <= c && c <= b'9' {
+            c - b'0' + 52 // 52..=61
+        } else if c == b'+' {
+            62            // 62
+        } else if c == b'/' {
+            63            // 63
+        } else {
+            return Err(())
+        };
+        val = val * 64 + v as usize;
+    }
+    Ok(val)
+}
+
 impl SectionTable {
-    pub fn parse(bytes: &[u8], offset: &mut usize) -> error::Result<Self> {
+    pub fn parse(bytes: &[u8], offset: &mut usize, string_table_offset: usize) -> error::Result<Self> {
         let mut table = SectionTable::default();
         let mut name = [0u8; 8];
         for i in 0..8 {
             name[i] = bytes.gread_with(offset, scroll::LE)?;
         }
+
         table.name = name;
         table.virtual_size = bytes.gread_with(offset, scroll::LE)?;
         table.virtual_address = bytes.gread_with(offset, scroll::LE)?;
@@ -35,10 +63,28 @@ impl SectionTable {
         table.number_of_relocations = bytes.gread_with(offset, scroll::LE)?;
         table.number_of_linenumbers = bytes.gread_with(offset, scroll::LE)?;
         table.characteristics = bytes.gread_with(offset, scroll::LE)?;
+
+        // Based on https://github.com/llvm-mirror/llvm/blob/af7b1832a03ab6486c42a40d21695b2c03b2d8a3/lib/Object/COFFObjectFile.cpp#L1054
+        if name[0] == b'/' {
+            let idx: usize = if name[1] == b'/' {
+                let b64idx = name.pread::<&str>(2)?;
+                base64_decode_string_entry(b64idx).map_err(|_|
+                    Error::Malformed(format!("Invalid indirect section name //{}: base64 decoding failed", b64idx)))?
+            } else {
+                let name = name.pread::<&str>(1)?;
+                name.parse().map_err(|err|
+                    Error::Malformed(format!("Invalid indirect section name /{}: {}", name, err)))?
+            };
+            table.real_name = Some(bytes.pread::<&str>(string_table_offset + idx)?.to_string());
+        }
         Ok(table)
     }
+
     pub fn name(&self) -> error::Result<&str> {
-        Ok(self.name.pread(0)?)
+        match self.real_name.as_ref() {
+            Some(s) => Ok(s),
+            None => Ok(self.name.pread(0)?)
+        }
     }
 }
 

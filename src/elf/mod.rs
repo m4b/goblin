@@ -75,6 +75,7 @@ if_sylvan! {
     pub type Dyn = dyn::Dyn;
     pub type Dynamic = dyn::Dynamic;
     pub type Reloc = reloc::Reloc;
+    pub type RelocSection<'a> = reloc::RelocSection<'a>;
 
     pub type ProgramHeaders = Vec<ProgramHeader>;
     pub type SectionHeaders = Vec<SectionHeader>;
@@ -106,13 +107,13 @@ if_sylvan! {
         /// Contains dynamic linking information, with the _DYNAMIC array + a preprocessed DynamicInfo for that array
         pub dynamic: Option<Dynamic>,
         /// The dynamic relocation entries (strings, copy-data, etc.) with an addend
-        pub dynrelas: Vec<Reloc>,
+        pub dynrelas: RelocSection<'a>,
         /// The dynamic relocation entries without an addend
-        pub dynrels: Vec<Reloc>,
+        pub dynrels: RelocSection<'a>,
         /// The plt relocation entries (procedure linkage table). For 32-bit binaries these are usually Rel (no addend)
-        pub pltrelocs: Vec<Reloc>,
+        pub pltrelocs: RelocSection<'a>,
         /// Section relocations by section index (only present if this is a relocatable object file)
-        pub shdr_relocs: Vec<(ShdrIdx, Vec<Reloc>)>,
+        pub shdr_relocs: Vec<(ShdrIdx, RelocSection<'a>)>,
         /// The binary's soname, if it has one
         pub soname: Option<&'a str>,
         /// The binary's program interpreter (e.g., dynamic linker), if it has one
@@ -279,9 +280,9 @@ if_sylvan! {
             let mut soname = None;
             let mut libraries = vec![];
             let mut dynsyms = Symtab::default();
-            let mut dynrelas = vec![];
-            let mut dynrels = vec![];
-            let mut pltrelocs = vec![];
+            let mut dynrelas = RelocSection::default();
+            let mut dynrels = RelocSection::default();
+            let mut pltrelocs = RelocSection::default();
             let mut dynstrtab = Strtab::default();
             let dynamic = Dynamic::parse(bytes, &program_headers, bias, ctx)?;
             if let Some(ref dynamic) = dynamic {
@@ -301,10 +302,10 @@ if_sylvan! {
                 let num_syms = if dyn_info.syment == 0 { 0 } else { if dyn_info.strtab <= dyn_info.symtab { 0 } else { (dyn_info.strtab - dyn_info.symtab) / dyn_info.syment }};
                 dynsyms = Symtab::parse(bytes, dyn_info.symtab, num_syms, ctx)?;
                 // parse the dynamic relocations
-                dynrelas = Reloc::parse(bytes, dyn_info.rela, dyn_info.relasz, true, ctx)?;
-                dynrels = Reloc::parse(bytes, dyn_info.rel, dyn_info.relsz, false, ctx)?;
+                dynrelas = RelocSection::parse(bytes, dyn_info.rela, dyn_info.relasz, true, ctx)?;
+                dynrels = RelocSection::parse(bytes, dyn_info.rel, dyn_info.relsz, false, ctx)?;
                 let is_rela = dyn_info.pltrel as u64 == dyn::DT_RELA;
-                pltrelocs = Reloc::parse(bytes, dyn_info.jmprel, dyn_info.pltrelsz, is_rela, ctx)?;
+                pltrelocs = RelocSection::parse(bytes, dyn_info.jmprel, dyn_info.pltrelsz, is_rela, ctx)?;
             }
 
             // iterate through shdrs again iff we're an ET_REL
@@ -314,12 +315,12 @@ if_sylvan! {
                     for (idx, section) in section_headers.iter().enumerate() {
                         if section.sh_type == section_header::SHT_REL {
                             section.check_size(bytes.len())?;
-                            let sh_relocs = Reloc::parse(bytes, section.sh_offset as usize, section.sh_size as usize, false, ctx)?;
+                            let sh_relocs = RelocSection::parse(bytes, section.sh_offset as usize, section.sh_size as usize, false, ctx)?;
                             relocs.push((idx, sh_relocs));
                         }
                         if section.sh_type == section_header::SHT_RELA {
                             section.check_size(bytes.len())?;
-                            let sh_relocs = Reloc::parse(bytes, section.sh_offset as usize, section.sh_size as usize, true, ctx)?;
+                            let sh_relocs = RelocSection::parse(bytes, section.sh_offset as usize, section.sh_size as usize, true, ctx)?;
                             relocs.push((idx, sh_relocs));
                         }
                     }

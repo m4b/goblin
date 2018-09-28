@@ -254,6 +254,7 @@ pub mod reloc64 {
 /////////////////////////////
 if_alloc! {
     use scroll::{ctx, Pread};
+    use scroll::ctx::SizeWith;
     use core::fmt;
     use core::result;
     use container::{Ctx, Container};
@@ -277,18 +278,6 @@ if_alloc! {
         pub fn size(is_rela: bool, ctx: Ctx) -> usize {
             use scroll::ctx::SizeWith;
             Reloc::size_with(&(is_rela, ctx))
-        }
-        #[cfg(feature = "endian_fd")]
-        pub fn parse(bytes: &[u8], mut offset: usize, filesz: usize, is_rela: bool, ctx: Ctx) -> ::error::Result<Vec<Reloc>> {
-            use scroll::Pread;
-            let count = filesz / Reloc::size(is_rela, ctx);
-            let mut relocs = Vec::with_capacity(count);
-            let offset = &mut offset;
-            for _ in 0..count {
-                let reloc = bytes.gread_with::<Reloc>(offset, (is_rela, ctx))?;
-                relocs.push(reloc);
-            }
-            Ok(relocs)
         }
     }
 
@@ -388,6 +377,84 @@ if_alloc! {
                     self.r_type,
                     self.r_sym,
                 )
+            }
+        }
+    }
+
+    #[derive(Default)]
+    pub struct RelocSection<'a> {
+        bytes: &'a [u8],
+        count: usize,
+        ctx: RelocCtx,
+        start: usize,
+        end: usize,
+    }
+
+    impl<'a> fmt::Debug for RelocSection<'a> {
+        fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+            let len = self.bytes.len();
+            fmt.debug_struct("RelocSection")
+                .field("bytes", &len)
+                .field("range", &format!("{:#x}..{:#x}", self.start, self.end))
+                .field("count", &self.count)
+                .field("Relocations", &self.to_vec())
+                .finish()
+        }
+    }
+
+    impl<'a> RelocSection<'a> {
+        #[cfg(feature = "endian_fd")]
+        pub fn parse(bytes: &'a [u8], offset: usize, filesz: usize, is_rela: bool, ctx: Ctx) -> ::error::Result<RelocSection<'a>> {
+            // TODO: better error message when too large (see symtab implementation)
+            let bytes = bytes.pread_with(offset, filesz)?;
+
+            Ok(RelocSection {
+                bytes: bytes,
+                count: filesz / Reloc::size(is_rela, ctx),
+                ctx: (is_rela, ctx),
+                start: offset,
+                end: offset + filesz,
+            })
+        }
+
+        /// Try to parse a single relocation from the binary, at `index`.
+        #[inline]
+        pub fn get(&self, index: usize) -> Option<Reloc> {
+            if index >= self.count {
+                None
+            } else {
+                Some(self.bytes.pread_with(index * Reloc::size_with(&self.ctx), self.ctx).unwrap())
+            }
+        }
+
+        /// The number of relocations in the section.
+        pub fn len(&self) -> usize {
+            self.count
+        }
+
+        /// Iterate over all relocations.
+        pub fn iter(&self) -> RelocIterator<'a> {
+            self.into_iter()
+        }
+
+        /// Parse all relocations into a vector.
+        pub fn to_vec(&self) -> Vec<Reloc> {
+            self.iter().collect()
+        }
+    }
+
+    impl<'a, 'b> IntoIterator for &'b RelocSection<'a> {
+        type Item = <RelocIterator<'a> as Iterator>::Item;
+        type IntoIter = RelocIterator<'a>;
+
+        #[inline]
+        fn into_iter(self) -> Self::IntoIter {
+            RelocIterator {
+                bytes: self.bytes,
+                offset: 0,
+                index: 0,
+                count: self.count,
+                ctx: self.ctx,
             }
         }
     }

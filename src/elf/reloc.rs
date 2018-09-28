@@ -253,9 +253,9 @@ pub mod reloc64 {
 // Generic Reloc
 /////////////////////////////
 if_alloc! {
+    use scroll::{ctx, Pread};
     use core::fmt;
     use core::result;
-    use scroll::ctx;
     use container::{Ctx, Container};
     #[cfg(feature = "endian_fd")]
     use alloc::vec::Vec;
@@ -389,6 +389,35 @@ if_alloc! {
                     self.r_sym,
                 )
             }
+        }
+    }
+
+    pub struct RelocIterator<'a> {
+        bytes: &'a [u8],
+        offset: usize,
+        index: usize,
+        count: usize,
+        ctx: RelocCtx,
+    }
+
+    impl<'a> Iterator for RelocIterator<'a> {
+        type Item = Reloc;
+
+        #[inline]
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.index >= self.count {
+                None
+            } else {
+                self.index += 1;
+                Some(self.bytes.gread_with(&mut self.offset, self.ctx).unwrap())
+            }
+        }
+    }
+
+    impl<'a> ExactSizeIterator for RelocIterator<'a> {
+        #[inline]
+        fn len(&self) -> usize {
+            self.count - self.index
         }
     }
 } // end if_alloc

@@ -325,6 +325,7 @@ pub mod cputype {
     pub const CPU_SUBTYPE_ARM_V8: CpuSubType = 13;
     pub const CPU_SUBTYPE_ARM64_ALL: CpuSubType = 0;
     pub const CPU_SUBTYPE_ARM64_V8: CpuSubType = 1;
+    pub const CPU_SUBTYPE_ARM64_E: CpuSubType = 2;
 
     macro_rules! cpu_flag_mapping {
         (
@@ -415,6 +416,7 @@ pub mod cputype {
         ("armv7m", CPU_TYPE_ARM, CPU_SUBTYPE_ARM_V7M),
         ("armv7em", CPU_TYPE_ARM, CPU_SUBTYPE_ARM_V7EM),
         ("arm64v8", CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64_V8),
+        ("arm64e", CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64_E),
     }
 }
 

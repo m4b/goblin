@@ -79,7 +79,7 @@ In alphabetic order:
 - [@jan-auer](https://github.com/jan-auer)
 - [@jdub](https://github.com/jdub)
 - [@jrmuizel](https://github.com/jrmuizel)
-  [@kjempelodott](https://github.com/kjempelodott)
+- [@kjempelodott](https://github.com/kjempelodott)
 - [@le-jzr](https://github.com/le-jzr)
 - [@lion128](https://github.com/lion128)
 - [@llogiq](https://github.com/llogiq)

@@ -75,6 +75,7 @@ In alphabetic order:
 
 - [@amanieu](https://github.com/amanieu)
 - [@flanfly](https://github.com/flanfly)
+- [@ibabushkin](https://github.com/ibabushkin)
 - [@jan-auer](https://github.com/jan-auer)
 - [@jdub](https://github.com/jdub)
 - [@jrmuizel](https://github.com/jrmuizel)

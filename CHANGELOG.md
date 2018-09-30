@@ -5,6 +5,15 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, don't worry!
 
+## Unreleased
+### Changed
+ - BREAKING: updated required compiler to 1.20 (due to scroll 1.20 requirement)
+ - BREAKING: elf: add lazy relocation iterators: Thanks @ibabushkin https://github.com/m4b/goblin/pull/102
+### Added
+ - mach: add arm64e constants: Thanks @mitsuhiko https://github.com/m4b/goblin/pull/103
+ - PE: calculate read bytes using alignment: Thanks @tathanhdinh https://github.com/m4b/goblin/pull/101
+ - PE: get proper names for PE sections: Thanks @roblabla https://github.com/m4b/goblin/pull/100
+
 ## [0.0.17] - 2018-7-16
 ### Changed
  - BREAKING: updated required compiler to 1.19 (technically only required for tests, but assume this is required for building as well)

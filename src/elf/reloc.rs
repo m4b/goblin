@@ -382,6 +382,7 @@ if_alloc! {
     }
 
     #[derive(Default)]
+    /// An ELF section containing relocations, allowing lazy iteration over symbols.
     pub struct RelocSection<'a> {
         bytes: &'a [u8],
         count: usize,
@@ -404,6 +405,7 @@ if_alloc! {
 
     impl<'a> RelocSection<'a> {
         #[cfg(feature = "endian_fd")]
+        /// Parse a REL or RELA section of size `filesz` from `offset`.
         pub fn parse(bytes: &'a [u8], offset: usize, filesz: usize, is_rela: bool, ctx: Ctx) -> ::error::Result<RelocSection<'a>> {
             // TODO: better error message when too large (see symtab implementation)
             let bytes = bytes.pread_with(offset, filesz)?;

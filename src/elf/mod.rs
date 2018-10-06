@@ -125,8 +125,6 @@ if_sylvan! {
         pub is_lib: bool,
         /// The binaries entry point address, if it has one
         pub entry: u64,
-        /// The bias used to overflow virtual memory addresses into physical byte offsets into the binary
-        pub bias: u64,
         /// Whether the binary is little endian or not
         pub little_endian: bool,
         ctx: Ctx,
@@ -220,27 +218,6 @@ if_sylvan! {
 
             let program_headers = ProgramHeader::parse(bytes, header.e_phoff as usize, header.e_phnum as usize, ctx)?;
 
-            let mut bias: usize = 0;
-            for ph in &program_headers {
-                if ph.p_type == program_header::PT_LOAD {
-                    // NB this _only_ works on the first load address, and the GOT values (usually at base + 2000) will be incorrect binary offsets...
-                    // this is an overflow hack that allows us to use virtual memory addresses
-                    // as though they're in the file by generating a fake load bias which is then
-                    // used to overflow the values in the dynamic array, and in a few other places
-                    // (see Dyn::DynamicInfo), to generate actual file offsets; you may have to
-                    // marinate a bit on why this works. i am unsure whether it works in every
-                    // conceivable case. i learned this trick from reading too much dynamic linker
-                    // C code (a whole other class of C code) and having to deal with broken older
-                    // kernels on VMs. enjoi
-                    bias = match container {
-                        Container::Little => (::core::u32::MAX - (ph.p_vaddr as u32)).wrapping_add(1) as usize,
-                        Container::Big    => (::core::u64::MAX - ph.p_vaddr).wrapping_add(1) as usize,
-                    };
-                    // we must grab only the first one, otherwise the bias will be incorrect
-                    break;
-                }
-            }
-
             let mut interpreter = None;
             for ph in &program_headers {
                 if ph.p_type == program_header::PT_INTERP && ph.p_filesz != 0 {
@@ -284,7 +261,7 @@ if_sylvan! {
             let mut dynrels = RelocSection::default();
             let mut pltrelocs = RelocSection::default();
             let mut dynstrtab = Strtab::default();
-            let dynamic = Dynamic::parse(bytes, &program_headers, bias, ctx)?;
+            let dynamic = Dynamic::parse(bytes, &program_headers, ctx)?;
             if let Some(ref dynamic) = dynamic {
                 let dyn_info = &dynamic.info;
                 dynstrtab = Strtab::parse(bytes,
@@ -347,7 +324,6 @@ if_sylvan! {
                 is_64: is_64,
                 is_lib: is_lib,
                 entry: entry as u64,
-                bias: bias as u64,
                 little_endian: is_lsb,
                 ctx,
             })
@@ -376,7 +352,6 @@ mod tests {
                 assert!(binary.is_64);
                 assert!(!binary.is_lib);
                 assert_eq!(binary.entry, 0);
-                assert_eq!(binary.bias, 0);
                 assert!(binary.syms.get(1000).is_none());
                 assert!(binary.syms.get(5).is_some());
                 let syms = binary.syms.to_vec();
@@ -408,7 +383,6 @@ mod tests {
                 assert!(!binary.is_64);
                 assert!(!binary.is_lib);
                 assert_eq!(binary.entry, 0);
-                assert_eq!(binary.bias, 0);
                 assert!(binary.syms.get(1000).is_none());
                 assert!(binary.syms.get(5).is_some());
                 let syms = binary.syms.to_vec();

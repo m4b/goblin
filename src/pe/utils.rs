@@ -4,7 +4,7 @@ use error;
 
 use super::section_table;
 
-use std::cmp;
+use core::cmp;
 
 pub fn is_in_range (rva: usize, r1: usize, r2: usize) -> bool {
     r1 <= rva && rva < r2

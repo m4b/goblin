@@ -92,7 +92,6 @@ fn parse_self() {
     match goblin::Object::parse(&bytes).expect("parse object") {
         goblin::Object::Elf(elf) => {
             assert!(elf.entry == 0);
-            assert!(elf.bias == 0);
         }
         goblin::Object::Mach(goblin::mach::Mach::Binary(macho)) => {
             assert_eq!(macho.header.filetype, goblin::mach::header::MH_OBJECT);

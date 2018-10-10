@@ -1,3 +1,4 @@
+use alloc::string::{String, ToString};
 use scroll::{self, Pread};
 use error::{self, Error};
 

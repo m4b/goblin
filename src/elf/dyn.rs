@@ -277,7 +277,6 @@ if_alloc! {
     use core::result;
     use container::{Ctx, Container};
     use strtab::Strtab;
-    use self::dyn32::{DynamicInfo};
     use alloc::vec::Vec;
 
     #[derive(Default, PartialEq, Clone)]
@@ -362,7 +361,7 @@ if_alloc! {
     impl Dynamic {
         #[cfg(feature = "endian_fd")]
         /// Returns a vector of dynamic entries from the underlying byte `bytes`, with `endianness`, using the provided `phdrs`
-        pub fn parse(bytes: &[u8], phdrs: &[::elf::program_header::ProgramHeader], bias: usize, ctx: Ctx) -> ::error::Result<Option<Self>> {
+        pub fn parse(bytes: &[u8], phdrs: &[::elf::program_header::ProgramHeader], ctx: Ctx) -> ::error::Result<Option<Self>> {
             use scroll::ctx::SizeWith;
             use scroll::Pread;
             use elf::program_header;
@@ -381,8 +380,7 @@ if_alloc! {
                     }
                     let mut info = DynamicInfo::default();
                     for dyn in &dyns {
-                        let dyn: dyn32::Dyn = dyn.clone().into();
-                        info.update(bias, &dyn);
+                        info.update(phdrs, dyn);
                     }
                     let count = dyns.len();
                     return Ok(Some(Dynamic { dyns: dyns, info: info, count: count }));
@@ -463,36 +461,6 @@ macro_rules! elf_dyn_std_impl {
                 }
             }
 
-            impl fmt::Debug for DynamicInfo {
-                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                    let gnu_hash = if let Some(addr) = self.gnu_hash { addr } else { 0 };
-                    let hash = if let Some(addr) = self.hash { addr } else { 0 };
-                    let pltgot = if let Some(addr) = self.pltgot { addr } else { 0 };
-                    write!(f, "rela: 0x{:x} relasz: {} relaent: {} relacount: {} gnu_hash: 0x{:x} hash: 0x{:x} strtab: 0x{:x} strsz: {} symtab: 0x{:x} syment: {} pltgot: 0x{:x} pltrelsz: {} pltrel: {} jmprel: 0x{:x} verneed: 0x{:x} verneednum: {} versym: 0x{:x} init: 0x{:x} fini: 0x{:x} needed_count: {}",
-                           self.rela,
-                           self.relasz,
-                           self.relaent,
-                           self.relacount,
-                           gnu_hash,
-                           hash,
-                           self.strtab,
-                           self.strsz,
-                           self.symtab,
-                           self.syment,
-                           pltgot,
-                           self.pltrelsz,
-                           self.pltrel,
-                           self.jmprel,
-                           self.verneed,
-                           self.verneednum,
-                           self.versym,
-                           self.init,
-                           self.fini,
-                           self.needed_count,
-                    )
-                }
-            }
-
             /// Returns a vector of dynamic entries from the given fd and program headers
             #[cfg(feature = "std")]
             pub fn from_fd(mut fd: &File, phdrs: &[$phdr]) -> Result<Option<Vec<Dyn>>> {
@@ -547,6 +515,23 @@ macro_rules! elf_dyn_std_impl {
                 needed
             }
         }
+    };
+}
+
+macro_rules! elf_dynamic_info_std_impl {
+    ($size:ident, $phdr:ty) => {
+        /// Convert a virtual memory address to a file offset
+        fn vm_to_offset(phdrs: &[$phdr], address: $size) -> Option<$size> {
+            for ph in phdrs {
+                if address >= ph.p_vaddr {
+                    let offset = address - ph.p_vaddr;
+                    if offset < ph.p_memsz {
+                        return ph.p_offset.checked_add(offset );
+                    }
+                }
+            }
+            None
+        }
 
         /// Important dynamic linking info generated via a single pass through the `_DYNAMIC` array
         #[derive(Default)]
@@ -587,34 +572,34 @@ macro_rules! elf_dyn_std_impl {
 
         impl DynamicInfo {
             #[inline]
-            pub fn update(&mut self, bias: usize, dyn: &Dyn) {
+            pub fn update(&mut self, phdrs: &[$phdr], dyn: &Dyn) {
                 match dyn.d_tag as u64 {
-                    DT_RELA => self.rela = dyn.d_val.wrapping_add(bias as _) as usize, // .rela.dyn
+                    DT_RELA => self.rela = vm_to_offset(phdrs, dyn.d_val).unwrap_or(0) as usize, // .rela.dyn
                     DT_RELASZ => self.relasz = dyn.d_val as usize,
                     DT_RELAENT => self.relaent = dyn.d_val as _,
                     DT_RELACOUNT => self.relacount = dyn.d_val as usize,
-                    DT_REL => self.rel = dyn.d_val.wrapping_add(bias as _) as usize, // .rel.dyn
+                    DT_REL => self.rel = vm_to_offset(phdrs, dyn.d_val).unwrap_or(0) as usize, // .rel.dyn
                     DT_RELSZ => self.relsz = dyn.d_val as usize,
                     DT_RELENT => self.relent = dyn.d_val as _,
                     DT_RELCOUNT => self.relcount = dyn.d_val as usize,
-                    DT_GNU_HASH => self.gnu_hash = Some(dyn.d_val.wrapping_add(bias as _)),
-                    DT_HASH => self.hash = Some(dyn.d_val.wrapping_add(bias as _)) as _,
-                    DT_STRTAB => self.strtab = dyn.d_val.wrapping_add(bias as _) as usize,
+                    DT_GNU_HASH => self.gnu_hash = vm_to_offset(phdrs, dyn.d_val),
+                    DT_HASH => self.hash = vm_to_offset(phdrs, dyn.d_val),
+                    DT_STRTAB => self.strtab = vm_to_offset(phdrs, dyn.d_val).unwrap_or(0) as usize,
                     DT_STRSZ => self.strsz = dyn.d_val as usize,
-                    DT_SYMTAB => self.symtab = dyn.d_val.wrapping_add(bias as _) as usize,
+                    DT_SYMTAB => self.symtab = vm_to_offset(phdrs, dyn.d_val).unwrap_or(0) as usize,
                     DT_SYMENT => self.syment = dyn.d_val as usize,
-                    DT_PLTGOT => self.pltgot = Some(dyn.d_val.wrapping_add(bias as _)) as _,
+                    DT_PLTGOT => self.pltgot = vm_to_offset(phdrs, dyn.d_val),
                     DT_PLTRELSZ => self.pltrelsz = dyn.d_val as usize,
                     DT_PLTREL => self.pltrel = dyn.d_val as _,
-                    DT_JMPREL => self.jmprel = dyn.d_val.wrapping_add(bias as _) as usize, // .rela.plt
-                    DT_VERNEED => self.verneed = dyn.d_val.wrapping_add(bias as _) as _,
+                    DT_JMPREL => self.jmprel = vm_to_offset(phdrs, dyn.d_val).unwrap_or(0) as usize, // .rela.plt
+                    DT_VERNEED => self.verneed = vm_to_offset(phdrs, dyn.d_val).unwrap_or(0),
                     DT_VERNEEDNUM => self.verneednum = dyn.d_val as _,
-                    DT_VERSYM => self.versym = dyn.d_val.wrapping_add(bias as _) as _,
-                    DT_INIT => self.init = dyn.d_val.wrapping_add(bias as _) as _,
-                    DT_FINI => self.fini = dyn.d_val.wrapping_add(bias as _) as _,
-                    DT_INIT_ARRAY => self.init_array = dyn.d_val.wrapping_add(bias as _) as _,
+                    DT_VERSYM => self.versym = vm_to_offset(phdrs, dyn.d_val).unwrap_or(0),
+                    DT_INIT => self.init = vm_to_offset(phdrs, dyn.d_val).unwrap_or(0),
+                    DT_FINI => self.fini = vm_to_offset(phdrs, dyn.d_val).unwrap_or(0),
+                    DT_INIT_ARRAY => self.init_array = vm_to_offset(phdrs, dyn.d_val).unwrap_or(0),
                     DT_INIT_ARRAYSZ => self.init_arraysz = dyn.d_val as _,
-                    DT_FINI_ARRAY => self.fini_array = dyn.d_val.wrapping_add(bias as _) as _,
+                    DT_FINI_ARRAY => self.fini_array = vm_to_offset(phdrs, dyn.d_val).unwrap_or(0),
                     DT_FINI_ARRAYSZ => self.fini_arraysz = dyn.d_val as _,
                     DT_NEEDED => self.needed_count += 1,
                     DT_FLAGS => self.flags = dyn.d_val as _,
@@ -624,17 +609,52 @@ macro_rules! elf_dyn_std_impl {
                     _ => (),
                 }
             }
-            pub fn new(dynamic: &[Dyn], bias: usize) -> DynamicInfo {
+            pub fn new(dynamic: &[Dyn], phdrs: &[$phdr]) -> DynamicInfo {
                 let mut info = DynamicInfo::default();
                 for dyn in dynamic {
-                    info.update(bias, &dyn);
+                    info.update(phdrs, &dyn);
                 }
                 info
             }
-        } // end if_std
+        }
+
+        if_alloc! {
+            impl fmt::Debug for DynamicInfo {
+                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    let gnu_hash = if let Some(addr) = self.gnu_hash { addr } else { 0 };
+                    let hash = if let Some(addr) = self.hash { addr } else { 0 };
+                    let pltgot = if let Some(addr) = self.pltgot { addr } else { 0 };
+                    write!(f, "rela: 0x{:x} relasz: {} relaent: {} relacount: {} gnu_hash: 0x{:x} hash: 0x{:x} strtab: 0x{:x} strsz: {} symtab: 0x{:x} syment: {} pltgot: 0x{:x} pltrelsz: {} pltrel: {} jmprel: 0x{:x} verneed: 0x{:x} verneednum: {} versym: 0x{:x} init: 0x{:x} fini: 0x{:x} needed_count: {}",
+                           self.rela,
+                           self.relasz,
+                           self.relaent,
+                           self.relacount,
+                           gnu_hash,
+                           hash,
+                           self.strtab,
+                           self.strsz,
+                           self.symtab,
+                           self.syment,
+                           pltgot,
+                           self.pltrelsz,
+                           self.pltrel,
+                           self.jmprel,
+                           self.verneed,
+                           self.verneednum,
+                           self.versym,
+                           self.init,
+                           self.fini,
+                           self.needed_count,
+                    )
+                }
+            }
+        }
     };
 }
 
+if_alloc! {
+    elf_dynamic_info_std_impl!(u64, ::elf::program_header::ProgramHeader);
+}
 
 pub mod dyn32 {
     pub use elf::dyn::*;
@@ -644,9 +664,8 @@ pub mod dyn32 {
     pub const SIZEOF_DYN: usize = 8;
 
     elf_dyn_std_impl!(u32, ::elf32::program_header::ProgramHeader);
-
+    elf_dynamic_info_std_impl!(u32, ::elf::program_header::program_header32::ProgramHeader);
 }
-
 
 pub mod dyn64 {
     pub use elf::dyn::*;
@@ -656,4 +675,5 @@ pub mod dyn64 {
     pub const SIZEOF_DYN: usize = 16;
 
     elf_dyn_std_impl!(u64, ::elf64::program_header::ProgramHeader);
+    elf_dynamic_info_std_impl!(u64, ::elf::program_header::program_header64::ProgramHeader);
 }

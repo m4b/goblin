@@ -141,7 +141,7 @@ impl SegmentCommand64 {
 /// target pathname (the name of the library as found for execution), and the
 /// minor version number.  The address of where the headers are loaded is in
 /// header_addr. (THIS IS OBSOLETE and no longer supported).
-#[repr(packed)]
+#[repr(C)]
 #[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct Fvmlib {
     /// library's target pathname
@@ -191,7 +191,7 @@ pub const SIZEOF_FVMLIB_COMMAND: usize = 20;
 /// An object that uses a dynamically linked shared library also contains a
 /// dylib_command (cmd == LC_LOAD_DYLIB, LC_LOAD_WEAK_DYLIB, or
 /// LC_REEXPORT_DYLIB) for each library it uses.
-#[repr(packed)]
+#[repr(C)]
 #[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct Dylib {
     /// library's path name

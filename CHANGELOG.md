@@ -5,11 +5,14 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, don't worry!
 
-## Unreleased
+## [0.0.18] - 2018-10-14
 ### Changed
  - BREAKING: updated required compiler to 1.20 (due to scroll 1.20 requirement)
+ - BREAKING: elf: removed bias field, as it was misleading/useless/incorrect
  - BREAKING: elf: add lazy relocation iterators: Thanks @ibabushkin https://github.com/m4b/goblin/pull/102
 ### Added
+ - elf: use gnu/sysv hash table to compute sizeof dynsyms more accurately: again _huge_ thanks to @philipc https://github.com/m4b/goblin/pull/109
+ - elf: handle multiple load biases: _huge_ thanks @philipc: https://github.com/m4b/goblin/pull/107
  - mach: add arm64e constants: Thanks @mitsuhiko https://github.com/m4b/goblin/pull/103
  - PE: calculate read bytes using alignment: Thanks @tathanhdinh https://github.com/m4b/goblin/pull/101
  - PE: get proper names for PE sections: Thanks @roblabla https://github.com/m4b/goblin/pull/100

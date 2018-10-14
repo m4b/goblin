@@ -276,7 +276,13 @@ if_sylvan! {
                 if dyn_info.needed_count > 0 {
                     libraries = dynamic.get_libraries(&dynstrtab);
                 }
-                let num_syms = if dyn_info.syment == 0 { 0 } else { if dyn_info.strtab <= dyn_info.symtab { 0 } else { (dyn_info.strtab - dyn_info.symtab) / dyn_info.syment }};
+                let num_syms = if let Some(gnu_hash) = dyn_info.gnu_hash {
+                    gnu_hash_len(bytes, gnu_hash as usize, ctx)?
+                } else if let Some(hash) = dyn_info.hash {
+                    hash_len(bytes, hash as usize, header.e_machine, ctx)?
+                } else {
+                    0
+                };
                 dynsyms = Symtab::parse(bytes, dyn_info.symtab, num_syms, ctx)?;
                 // parse the dynamic relocations
                 dynrelas = RelocSection::parse(bytes, dyn_info.rela, dyn_info.relasz, true, ctx)?;
@@ -337,6 +343,44 @@ if_sylvan! {
             let elf = Elf::parse(src)?;
             Ok((elf, src.len()))
         }
+    }
+
+    fn gnu_hash_len(bytes: &[u8], offset: usize, ctx: Ctx) -> error::Result<usize> {
+        let buckets_num = bytes.pread_with::<u32>(offset, ctx.le)? as usize;
+        let min_chain = bytes.pread_with::<u32>(offset + 4, ctx.le)? as usize;
+        let bloom_size = bytes.pread_with::<u32>(offset + 8, ctx.le)? as usize;
+        // Find the last bucket.
+        let buckets_offset = offset + 16 + bloom_size * if ctx.container.is_big() { 8 } else { 4 };
+        let mut max_chain = 0;
+        for bucket in 0..buckets_num {
+            let chain = bytes.pread_with::<u32>(buckets_offset + bucket * 4, ctx.le)? as usize;
+            if max_chain < chain {
+                max_chain = chain;
+            }
+        }
+        if max_chain < min_chain {
+            return Ok(0);
+        }
+        // Find the last chain within the bucket.
+        let mut chain_offset = buckets_offset + buckets_num * 4 + (max_chain - min_chain) * 4;
+        loop {
+            let hash = bytes.pread_with::<u32>(chain_offset, ctx.le)?;
+            max_chain += 1;
+            chain_offset += 4;
+            if hash & 1 != 0 {
+                return Ok(max_chain);
+            }
+        }
+    }
+
+    fn hash_len(bytes: &[u8], offset: usize, machine: u16, ctx: Ctx) -> error::Result<usize> {
+        // Based on readelf code.
+        let nchain = if (machine == header::EM_FAKE_ALPHA || machine == header::EM_S390) && ctx.container.is_big() {
+            bytes.pread_with::<u64>(offset + 4, ctx.le)? as usize
+        } else {
+            bytes.pread_with::<u32>(offset + 4, ctx.le)? as usize
+        };
+        Ok(nchain)
     }
 }
 

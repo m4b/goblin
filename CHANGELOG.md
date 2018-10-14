@@ -10,6 +10,7 @@ I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, do
  - BREAKING: updated required compiler to 1.20 (due to scroll 1.20 requirement)
  - BREAKING: elf: removed bias field, as it was misleading/useless/incorrect
  - BREAKING: elf: add lazy relocation iterators: Thanks @ibabushkin https://github.com/m4b/goblin/pull/102
+ - BREAKING: mach: remove repr(packed) from dylib and fvmlib (this should not affect anyone): https://github.com/m4b/goblin/issues/105
 ### Added
  - elf: use gnu/sysv hash table to compute sizeof dynsyms more accurately: again _huge_ thanks to @philipc https://github.com/m4b/goblin/pull/109
  - elf: handle multiple load biases: _huge_ thanks @philipc: https://github.com/m4b/goblin/pull/107

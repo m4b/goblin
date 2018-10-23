@@ -66,6 +66,7 @@ if_sylvan! {
     use error;
     use container::{Container, Ctx};
     use alloc::vec::Vec;
+    use core::cmp;
 
     pub type Header = header::Header;
     pub type ProgramHeader = program_header::ProgramHeader;
@@ -276,19 +277,27 @@ if_sylvan! {
                 if dyn_info.needed_count > 0 {
                     libraries = dynamic.get_libraries(&dynstrtab);
                 }
-                let num_syms = if let Some(gnu_hash) = dyn_info.gnu_hash {
+                // parse the dynamic relocations
+                dynrelas = RelocSection::parse(bytes, dyn_info.rela, dyn_info.relasz, true, ctx)?;
+                dynrels = RelocSection::parse(bytes, dyn_info.rel, dyn_info.relsz, false, ctx)?;
+                let is_rela = dyn_info.pltrel as u64 == dyn::DT_RELA;
+                pltrelocs = RelocSection::parse(bytes, dyn_info.jmprel, dyn_info.pltrelsz, is_rela, ctx)?;
+
+                let mut num_syms = if let Some(gnu_hash) = dyn_info.gnu_hash {
                     gnu_hash_len(bytes, gnu_hash as usize, ctx)?
                 } else if let Some(hash) = dyn_info.hash {
                     hash_len(bytes, hash as usize, header.e_machine, ctx)?
                 } else {
                     0
                 };
+                let max_reloc_sym = dynrelas.iter()
+                    .chain(dynrels.iter())
+                    .chain(pltrelocs.iter())
+                    .fold(0, |num, reloc| cmp::max(num, reloc.r_sym));
+                if max_reloc_sym != 0 {
+                    num_syms = cmp::max(num_syms, max_reloc_sym + 1);
+                }
                 dynsyms = Symtab::parse(bytes, dyn_info.symtab, num_syms, ctx)?;
-                // parse the dynamic relocations
-                dynrelas = RelocSection::parse(bytes, dyn_info.rela, dyn_info.relasz, true, ctx)?;
-                dynrels = RelocSection::parse(bytes, dyn_info.rel, dyn_info.relsz, false, ctx)?;
-                let is_rela = dyn_info.pltrel as u64 == dyn::DT_RELA;
-                pltrelocs = RelocSection::parse(bytes, dyn_info.jmprel, dyn_info.pltrelsz, is_rela, ctx)?;
             }
 
             // iterate through shdrs again iff we're an ET_REL
@@ -349,6 +358,11 @@ if_sylvan! {
         let buckets_num = bytes.pread_with::<u32>(offset, ctx.le)? as usize;
         let min_chain = bytes.pread_with::<u32>(offset + 4, ctx.le)? as usize;
         let bloom_size = bytes.pread_with::<u32>(offset + 8, ctx.le)? as usize;
+        // We could handle min_chain==0 if we really had to, but it shouldn't happen.
+        if buckets_num == 0 || min_chain == 0 || bloom_size == 0 {
+            return Err(error::Error::Malformed(format!("Invalid DT_GNU_HASH: buckets_num={} min_chain={} bloom_size={}",
+                                                       buckets_num, min_chain, bloom_size)));
+        }
         // Find the last bucket.
         let buckets_offset = offset + 16 + bloom_size * if ctx.container.is_big() { 8 } else { 4 };
         let mut max_chain = 0;

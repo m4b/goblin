@@ -290,14 +290,12 @@ if_sylvan! {
                 } else {
                     0
                 };
-                if num_syms == 0 {
-                    let max_reloc_sym = dynrelas.iter()
-                        .chain(dynrels.iter())
-                        .chain(pltrelocs.iter())
-                        .fold(0, |num, reloc| cmp::max(num, reloc.r_sym));
-                    if max_reloc_sym != 0 {
-                        num_syms = max_reloc_sym + 1;
-                    }
+                let max_reloc_sym = dynrelas.iter()
+                    .chain(dynrels.iter())
+                    .chain(pltrelocs.iter())
+                    .fold(0, |num, reloc| cmp::max(num, reloc.r_sym));
+                if max_reloc_sym != 0 {
+                    num_syms = cmp::max(num_syms, max_reloc_sym + 1);
                 }
                 dynsyms = Symtab::parse(bytes, dyn_info.symtab, num_syms, ctx)?;
             }

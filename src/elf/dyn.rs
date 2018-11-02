@@ -279,7 +279,7 @@ if_alloc! {
     use strtab::Strtab;
     use alloc::vec::Vec;
 
-    #[derive(Default, PartialEq, Clone)]
+    #[derive(Default, PartialEq, Clone, Copy)]
     pub struct Dyn {
         pub d_tag: u64,
         pub d_val: u64,
@@ -303,7 +303,6 @@ if_alloc! {
     }
 
     impl ctx::SizeWith<Ctx> for Dyn {
-        type Units = usize;
         fn size_with(&Ctx { container, .. }: &Ctx) -> usize {
             match container {
                 Container::Little => {
@@ -318,8 +317,7 @@ if_alloc! {
 
     impl<'a> ctx::TryFromCtx<'a, Ctx> for Dyn {
         type Error = ::error::Error;
-        type Size = usize;
-        fn try_from_ctx(bytes: &'a [u8], Ctx { container, le}: Ctx) -> result::Result<(Self, Self::Size), Self::Error> {
+        fn try_from_ctx(bytes: &'a [u8], Ctx { container, le}: Ctx) -> result::Result<(Self, usize), Self::Error> {
             use scroll::Pread;
             let dyn = match container {
                 Container::Little => {
@@ -335,17 +333,16 @@ if_alloc! {
 
     impl ctx::TryIntoCtx<Ctx> for Dyn {
         type Error = ::error::Error;
-        type Size = usize;
-        fn try_into_ctx(self, bytes: &mut [u8], Ctx { container, le}: Ctx) -> result::Result<Self::Size, Self::Error> {
+        fn try_into_ctx(&self, bytes: &mut [u8], Ctx { container, le}: Ctx) -> result::Result<usize, Self::Error> {
             use scroll::Pwrite;
             match container {
                 Container::Little => {
-                    let dyn: dyn32::Dyn = self.into();
-                    Ok(bytes.pwrite_with(dyn, 0, le)?)
+                    let dyn: dyn32::Dyn = (*self).into();
+                    Ok(bytes.pwrite_with(&dyn, 0, le)?)
                 },
                 Container::Big => {
-                    let dyn: dyn64::Dyn = self.into();
-                    Ok(bytes.pwrite_with(dyn, 0, le)?)
+                    let dyn: dyn64::Dyn = (*self).into();
+                    Ok(bytes.pwrite_with(&dyn, 0, le)?)
                 }
             }
         }

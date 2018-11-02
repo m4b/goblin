@@ -280,7 +280,7 @@ if_alloc! {
     use error::Result;
     use alloc::vec::Vec;
 
-    #[derive(Default, PartialEq, Clone)]
+    #[derive(Default, PartialEq, Clone, Copy)]
     /// A unified Sym definition - convertable to and from 32-bit and 64-bit variants
     pub struct Sym {
         pub st_name:     usize,
@@ -352,7 +352,6 @@ if_alloc! {
     }
 
     impl ctx::SizeWith<Ctx> for Sym {
-        type Units = usize;
         #[inline]
         fn size_with(&Ctx {container, .. }: &Ctx) -> usize {
             match container {
@@ -368,9 +367,8 @@ if_alloc! {
 
     impl<'a> ctx::TryFromCtx<'a, Ctx> for Sym {
         type Error = ::error::Error;
-        type Size = usize;
         #[inline]
-        fn try_from_ctx(bytes: &'a [u8], Ctx { container, le}: Ctx) -> result::Result<(Self, Self::Size), Self::Error> {
+        fn try_from_ctx(bytes: &'a [u8], Ctx { container, le}: Ctx) -> result::Result<(Self, usize), Self::Error> {
             use scroll::Pread;
             let sym = match container {
                 Container::Little => {
@@ -386,18 +384,17 @@ if_alloc! {
 
     impl ctx::TryIntoCtx<Ctx> for Sym {
         type Error = ::error::Error;
-        type Size = usize;
         #[inline]
-        fn try_into_ctx(self, bytes: &mut [u8], Ctx {container, le}: Ctx) -> result::Result<Self::Size, Self::Error> {
+        fn try_into_ctx(&self, bytes: &mut [u8], Ctx {container, le}: Ctx) -> result::Result<usize, Self::Error> {
             use scroll::Pwrite;
             match container {
                 Container::Little => {
-                    let sym: sym32::Sym = self.into();
-                    Ok(bytes.pwrite_with(sym, 0, le)?)
+                    let sym: sym32::Sym = (*self).into();
+                    Ok(bytes.pwrite_with(&sym, 0, le)?)
                 },
                 Container::Big => {
-                    let sym: sym64::Sym = self.into();
-                    Ok(bytes.pwrite_with(sym, 0, le)?)
+                    let sym: sym64::Sym = (*self).into();
+                    Ok(bytes.pwrite_with(&sym, 0, le)?)
                 }
             }
         }
@@ -405,16 +402,16 @@ if_alloc! {
 
     impl ctx::IntoCtx<Ctx> for Sym {
         #[inline]
-        fn into_ctx(self, bytes: &mut [u8], Ctx {container, le}: Ctx) {
+        fn into_ctx(&self, bytes: &mut [u8], Ctx {container, le}: Ctx) {
             use scroll::Pwrite;
             match container {
                 Container::Little => {
-                    let sym: sym32::Sym = self.into();
-                    bytes.pwrite_with(sym, 0, le).unwrap();
+                    let sym: sym32::Sym = (*self).into();
+                    bytes.pwrite_with(&sym, 0, le).unwrap();
                 },
                 Container::Big => {
-                    let sym: sym64::Sym = self.into();
-                    bytes.pwrite_with(sym, 0, le).unwrap();
+                    let sym: sym64::Sym = (*self).into();
+                    bytes.pwrite_with(&sym, 0, le).unwrap();
                 }
             }
         }

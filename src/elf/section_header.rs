@@ -372,7 +372,7 @@ if_alloc! {
     #[cfg(feature = "endian_fd")]
     use alloc::vec::Vec;
 
-    #[derive(Default, PartialEq, Clone)]
+    #[derive(Default, PartialEq, Clone, Copy)]
     /// A unified SectionHeader - convertable to and from 32-bit and 64-bit variants
     pub struct SectionHeader {
         /// Section name (string tbl index)
@@ -482,8 +482,7 @@ if_alloc! {
     }
 
     impl ctx::SizeWith<Ctx> for SectionHeader {
-        type Units = usize;
-        fn size_with( &Ctx { container, .. }: &Ctx) -> Self::Units {
+        fn size_with( &Ctx { container, .. }: &Ctx) -> usize {
             match container {
                 Container::Little => {
                     section_header32::SIZEOF_SHDR
@@ -497,8 +496,7 @@ if_alloc! {
 
     impl<'a> ctx::TryFromCtx<'a, Ctx> for SectionHeader {
         type Error = ::error::Error;
-        type Size = usize;
-        fn try_from_ctx(bytes: &'a [u8], Ctx {container, le}: Ctx) -> result::Result<(Self, Self::Size), Self::Error> {
+        fn try_from_ctx(bytes: &'a [u8], Ctx {container, le}: Ctx) -> result::Result<(Self, usize), Self::Error> {
             use scroll::Pread;
             let res = match container {
                 Container::Little => {
@@ -514,32 +512,31 @@ if_alloc! {
 
     impl ctx::TryIntoCtx<Ctx> for SectionHeader {
         type Error = ::error::Error;
-        type Size = usize;
-        fn try_into_ctx(self, bytes: &mut [u8], Ctx {container, le}: Ctx) -> result::Result<Self::Size, Self::Error> {
+        fn try_into_ctx(&self, bytes: &mut [u8], Ctx {container, le}: Ctx) -> result::Result<usize, Self::Error> {
             use scroll::Pwrite;
             match container {
                 Container::Little => {
-                    let shdr: section_header32::SectionHeader = self.into();
-                    Ok(bytes.pwrite_with(shdr, 0, le)?)
+                    let shdr: section_header32::SectionHeader = (*self).into();
+                    Ok(bytes.pwrite_with(&shdr, 0, le)?)
                 },
                 Container::Big => {
-                    let shdr: section_header64::SectionHeader = self.into();
-                    Ok(bytes.pwrite_with(shdr, 0, le)?)
+                    let shdr: section_header64::SectionHeader = (*self).into();
+                    Ok(bytes.pwrite_with(&shdr, 0, le)?)
                 }
             }
         }
     }
     impl ctx::IntoCtx<Ctx> for SectionHeader {
-        fn into_ctx(self, bytes: &mut [u8], Ctx {container, le}: Ctx) {
+        fn into_ctx(&self, bytes: &mut [u8], Ctx {container, le}: Ctx) {
             use scroll::Pwrite;
             match container {
                 Container::Little => {
-                    let shdr: section_header32::SectionHeader = self.into();
-                    bytes.pwrite_with(shdr, 0, le).unwrap();
+                    let shdr: section_header32::SectionHeader = (*self).into();
+                    bytes.pwrite_with(&shdr, 0, le).unwrap();
                 },
                 Container::Big => {
-                    let shdr: section_header64::SectionHeader = self.into();
-                    bytes.pwrite_with(shdr, 0, le).unwrap();
+                    let shdr: section_header64::SectionHeader = (*self).into();
+                    bytes.pwrite_with(&shdr, 0, le).unwrap();
                 }
             }
         }

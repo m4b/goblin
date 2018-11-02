@@ -496,8 +496,7 @@ impl ThreadCommand {
 
 impl<'a> ctx::TryFromCtx<'a, Endian> for ThreadCommand {
     type Error = ::error::Error;
-    type Size = usize;
-    fn try_from_ctx(bytes: &'a [u8], le: Endian) -> error::Result<(Self, Self::Size)> {
+    fn try_from_ctx(bytes: &'a [u8], le: Endian) -> error::Result<(Self, usize)> {
         use scroll::{Pread};
         let lc = bytes.pread_with::<LoadCommandHeader>(0, le)?;
 
@@ -1311,8 +1310,7 @@ pub enum CommandVariant {
 
 impl<'a> ctx::TryFromCtx<'a, Endian> for CommandVariant {
     type Error = ::error::Error;
-    type Size = usize;
-    fn try_from_ctx(bytes: &'a [u8], le: Endian) -> error::Result<(Self, Self::Size)> {
+    fn try_from_ctx(bytes: &'a [u8], le: Endian) -> error::Result<(Self, usize)> {
         use scroll::{Pread};
         use self::CommandVariant::*;
         let lc = bytes.pread_with::<LoadCommandHeader>(0, le)?;

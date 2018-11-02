@@ -266,7 +266,6 @@ if_alloc! {
     }
 
     impl ctx::SizeWith<::container::Ctx> for Header {
-        type Units = usize;
         fn size_with(ctx: &::container::Ctx) -> usize {
             match ctx.container {
                 Container::Little => {
@@ -281,8 +280,7 @@ if_alloc! {
 
     impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Header {
         type Error = ::error::Error;
-        type Size = usize;
-        fn try_from_ctx(bytes: &'a [u8], _ctx: scroll::Endian) -> error::Result<(Self, Self::Size)> {
+        fn try_from_ctx(bytes: &'a [u8], _ctx: scroll::Endian) -> error::Result<(Self, usize)> {
             use scroll::Pread;
             if bytes.len() < SIZEOF_IDENT {
                 return Err(error::Error::Malformed("Too small".to_string()));
@@ -310,28 +308,27 @@ if_alloc! {
     // TODO: i think we should remove this forcing of the information in the header, it causes too many conflicts
     impl ctx::TryIntoCtx<scroll::Endian> for Header {
         type Error = ::error::Error;
-        type Size = usize;
-        fn try_into_ctx(self, bytes: &mut [u8], _ctx: scroll::Endian) -> Result<Self::Size, Self::Error> {
+        fn try_into_ctx(&self, bytes: &mut [u8], _ctx: scroll::Endian) -> Result<usize, Self::Error> {
             use scroll::Pwrite;
             match self.container()? {
                 Container::Little => {
-                    bytes.pwrite(header32::Header::from(self), 0)
+                    bytes.pwrite(&header32::Header::from(*self), 0)
                 },
                 Container::Big => {
-                    bytes.pwrite(header64::Header::from(self), 0)
+                    bytes.pwrite(&header64::Header::from(*self), 0)
                 }
             }
         }
     }
     impl ctx::IntoCtx<::container::Ctx> for Header {
-        fn into_ctx(self, bytes: &mut [u8], ctx: ::container::Ctx) -> () {
+        fn into_ctx(&self, bytes: &mut [u8], ctx: ::container::Ctx) -> () {
             use scroll::Pwrite;
             match ctx.container {
                 Container::Little => {
-                    bytes.pwrite_with(header32::Header::from(self), 0, ctx.le).unwrap()
+                    bytes.pwrite_with(&header32::Header::from(*self), 0, ctx.le).unwrap()
                 },
                 Container::Big => {
-                    bytes.pwrite_with(header64::Header::from(self), 0, ctx.le).unwrap()
+                    bytes.pwrite_with(&header64::Header::from(*self), 0, ctx.le).unwrap()
                 }
             };
         }
@@ -400,8 +397,7 @@ macro_rules! elf_header_std_impl {
 
             impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Header {
                 type Error = ::error::Error;
-                type Size = usize;
-                fn try_from_ctx(bytes: &'a [u8], _: scroll::Endian) -> result::Result<(Self, Self::Size), Self::Error> {
+                fn try_from_ctx(bytes: &'a [u8], _: scroll::Endian) -> result::Result<(Self, usize), Self::Error> {
                     let mut elf_header = Header::default();
                     let offset = &mut 0;
                     bytes.gread_inout(offset, &mut elf_header.e_ident)?;
@@ -430,9 +426,8 @@ macro_rules! elf_header_std_impl {
 
             impl ctx::TryIntoCtx<scroll::Endian> for Header {
                 type Error = ::error::Error;
-                type Size = usize;
                 /// a Pwrite impl for Header: **note** we use the endianness value in the header, and not a parameter
-                fn try_into_ctx(self, bytes: &mut [u8], _endianness: scroll::Endian) -> result::Result<Self::Size, Self::Error> {
+                fn try_into_ctx(&self, bytes: &mut [u8], _endianness: scroll::Endian) -> result::Result<usize, Self::Error> {
                     use scroll::{Pwrite};
                     let offset = &mut 0;
                     let endianness =
@@ -442,21 +437,21 @@ macro_rules! elf_header_std_impl {
                             d => return Err(Error::Malformed(format!("invalid ELF DATA type {:x}", d)).into()),
                         };
                     for i in 0..self.e_ident.len() {
-                        bytes.gwrite(self.e_ident[i], offset)?;
+                        bytes.gwrite(&self.e_ident[i], offset)?;
                     }
-                    bytes.gwrite_with(self.e_type      , offset, endianness)?;
-                    bytes.gwrite_with(self.e_machine   , offset, endianness)?;
-                    bytes.gwrite_with(self.e_version   , offset, endianness)?;
-                    bytes.gwrite_with(self.e_entry     , offset, endianness)?;
-                    bytes.gwrite_with(self.e_phoff     , offset, endianness)?;
-                    bytes.gwrite_with(self.e_shoff     , offset, endianness)?;
-                    bytes.gwrite_with(self.e_flags     , offset, endianness)?;
-                    bytes.gwrite_with(self.e_ehsize    , offset, endianness)?;
-                    bytes.gwrite_with(self.e_phentsize , offset, endianness)?;
-                    bytes.gwrite_with(self.e_phnum     , offset, endianness)?;
-                    bytes.gwrite_with(self.e_shentsize , offset, endianness)?;
-                    bytes.gwrite_with(self.e_shnum     , offset, endianness)?;
-                    bytes.gwrite_with(self.e_shstrndx  , offset, endianness)?;
+                    bytes.gwrite_with(&self.e_type      , offset, endianness)?;
+                    bytes.gwrite_with(&self.e_machine   , offset, endianness)?;
+                    bytes.gwrite_with(&self.e_version   , offset, endianness)?;
+                    bytes.gwrite_with(&self.e_entry     , offset, endianness)?;
+                    bytes.gwrite_with(&self.e_phoff     , offset, endianness)?;
+                    bytes.gwrite_with(&self.e_shoff     , offset, endianness)?;
+                    bytes.gwrite_with(&self.e_flags     , offset, endianness)?;
+                    bytes.gwrite_with(&self.e_ehsize    , offset, endianness)?;
+                    bytes.gwrite_with(&self.e_phentsize , offset, endianness)?;
+                    bytes.gwrite_with(&self.e_phnum     , offset, endianness)?;
+                    bytes.gwrite_with(&self.e_shentsize , offset, endianness)?;
+                    bytes.gwrite_with(&self.e_shnum     , offset, endianness)?;
+                    bytes.gwrite_with(&self.e_shstrndx  , offset, endianness)?;
                     Ok(SIZEOF_EHDR)
                 }
             }
@@ -533,7 +528,7 @@ macro_rules! elf_header_test {
                 assert_eq!(header.e_type, ET_REL);
                 println!("header: {:?}", &header);
                 let mut bytes = [0u8; SIZEOF_EHDR];
-                bytes.pwrite(header, 0).unwrap();
+                bytes.pwrite(&header, 0).unwrap();
                 let header2: Header = bytes.pread(0).unwrap();
                 assert_eq!(header, header2);
             }
@@ -550,14 +545,14 @@ macro_rules! elf_header_test {
                 println!("header: {:?}", &header);
                 let mut bytes = [0u8; SIZEOF_EHDR];
                 let header_ = Header::from(header.clone());
-                bytes.pwrite(header_, 0).unwrap();
+                bytes.pwrite(&header_, 0).unwrap();
                 let header2: Header = bytes.pread(0).unwrap();
                 assert_eq!(header, header2);
                 let header = ElfHeader::new(Ctx::from(container));
                 println!("header: {:?}", &header);
 
                 let mut bytes = vec![0; 100];
-                bytes.pwrite(header, 0).unwrap();
+                bytes.pwrite(&header, 0).unwrap();
             }
         }
     }

@@ -145,9 +145,8 @@ pub enum Reexport<'a> {
 
 impl<'a> scroll::ctx::TryFromCtx<'a, scroll::Endian> for Reexport<'a> {
     type Error = ::error::Error;
-    type Size = usize;
     #[inline]
-    fn try_from_ctx(bytes: &'a [u8], _ctx: scroll::Endian) -> Result<(Self, Self::Size), Self::Error> {
+    fn try_from_ctx(bytes: &'a [u8], _ctx: scroll::Endian) -> Result<(Self, usize), Self::Error> {
         use scroll::{Pread};
         let reexport = bytes.pread::<&str>(0)?;
         let reexport_len = reexport.len();
@@ -216,9 +215,8 @@ struct ExportCtx<'a> {
 
 impl<'a, 'b> scroll::ctx::TryFromCtx<'a, ExportCtx<'b>> for Export<'a> {
     type Error = error::Error;
-    type Size = usize;
     #[inline]
-    fn try_from_ctx(bytes: &'a [u8], ExportCtx { ptr, idx, sections, file_alignment, addresses, ordinals }: ExportCtx<'b>) -> Result<(Self, Self::Size), Self::Error> {
+    fn try_from_ctx(bytes: &'a [u8], ExportCtx { ptr, idx, sections, file_alignment, addresses, ordinals }: ExportCtx<'b>) -> Result<(Self, usize), Self::Error> {
         use self::ExportAddressTableEntry::*;
 
         let name = utils::find_offset(ptr as usize, sections, file_alignment).map_or(None, |offset| bytes.pread::<&str>(offset).ok());

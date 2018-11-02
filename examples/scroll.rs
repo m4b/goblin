@@ -18,7 +18,7 @@ fn run () -> error::Result<()> {
     println!("header: {:?}", &header);
     // now lets write the header into some bytes
     let mut bytes = [0u8; elf64::header::SIZEOF_EHDR];
-    bytes.pwrite(header, 0)?;
+    bytes.pwrite(&header, 0)?;
     // read it back out
     let header2: elf64::header::Header = bytes.pread(0)?;
     // they're the same

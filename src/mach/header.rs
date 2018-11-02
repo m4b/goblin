@@ -340,7 +340,6 @@ impl Header {
 }
 
 impl ctx::SizeWith<container::Ctx> for Header {
-    type Units = usize;
     fn size_with(container: &container::Ctx) -> usize {
         match container.container {
             Container::Little => {
@@ -354,7 +353,6 @@ impl ctx::SizeWith<container::Ctx> for Header {
 }
 
 impl ctx::SizeWith<Container> for Header {
-    type Units = usize;
     fn size_with(container: &Container) -> usize {
         match container {
             &Container::Little => {
@@ -369,8 +367,7 @@ impl ctx::SizeWith<Container> for Header {
 
 impl<'a> ctx::TryFromCtx<'a, container::Ctx> for Header {
     type Error = ::error::Error;
-    type Size = usize;
-    fn try_from_ctx(bytes: &'a [u8], container::Ctx { le, container }: container::Ctx) -> error::Result<(Self, Self::Size)> {
+    fn try_from_ctx(bytes: &'a [u8], container::Ctx { le, container }: container::Ctx) -> error::Result<(Self, usize)> {
         let size = bytes.len();
         if size < SIZEOF_HEADER_32 || size < SIZEOF_HEADER_64 {
             let error = error::Error::Malformed(format!("bytes size is smaller than a Mach-o header"));
@@ -392,14 +389,13 @@ impl<'a> ctx::TryFromCtx<'a, container::Ctx> for Header {
 
 impl ctx::TryIntoCtx<container::Ctx> for Header {
     type Error = ::error::Error;
-    type Size = usize;
-    fn try_into_ctx(self, bytes: &mut [u8], ctx: container::Ctx) -> error::Result<Self::Size> {
+    fn try_into_ctx(&self, bytes: &mut [u8], ctx: container::Ctx) -> error::Result<usize> {
         match ctx.container {
             Container::Little => {
-                bytes.pwrite_with(Header32::from(self), 0, ctx.le)?;
+                bytes.pwrite_with(&Header32::from(*self), 0, ctx.le)?;
             },
             Container::Big => {
-                bytes.pwrite_with(Header64::from(self), 0, ctx.le)?;
+                bytes.pwrite_with(&Header64::from(*self), 0, ctx.le)?;
             }
         };
         Ok(Header::size_with(&ctx))
@@ -407,7 +403,7 @@ impl ctx::TryIntoCtx<container::Ctx> for Header {
 }
 
 impl ctx::IntoCtx<container::Ctx> for Header {
-    fn into_ctx(self, bytes: &mut [u8], ctx: container::Ctx) {
+    fn into_ctx(&self, bytes: &mut [u8], ctx: container::Ctx) {
         bytes.pwrite_with(self, 0, ctx).unwrap();
     }
 }

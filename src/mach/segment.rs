@@ -36,7 +36,7 @@ impl<'a> Iterator for RelocationIterator<'a> {
 }
 
 /// Generalized 32/64 bit Section
-#[derive(Default)]
+#[derive(Default, Copy, Clone)]
 pub struct Section {
     /// name of this section
     pub sectname:  [u8; 16],
@@ -168,8 +168,7 @@ impl From<Section64> for Section {
 
 impl<'a> ctx::TryFromCtx<'a, container::Ctx> for Section {
     type Error = ::error::Error;
-    type Size = usize;
-    fn try_from_ctx(bytes: &'a [u8], ctx: container::Ctx) -> Result<(Self, Self::Size), Self::Error> {
+    fn try_from_ctx(bytes: &'a [u8], ctx: container::Ctx) -> Result<(Self, usize), Self::Error> {
         match ctx.container {
             container::Container::Little => {
                 let section = Section::from(bytes.pread_with::<Section32>(0, ctx.le)?);
@@ -184,7 +183,6 @@ impl<'a> ctx::TryFromCtx<'a, container::Ctx> for Section {
 }
 
 impl ctx::SizeWith<container::Ctx> for Section {
-    type Units = usize;
     fn size_with(ctx: &container::Ctx) -> usize {
         match ctx.container {
             container::Container::Little => SIZEOF_SECTION_32,
@@ -195,19 +193,18 @@ impl ctx::SizeWith<container::Ctx> for Section {
 
 impl ctx::TryIntoCtx<container::Ctx> for Section {
     type Error = ::error::Error;
-    type Size = usize;
-    fn try_into_ctx(self, bytes: &mut [u8], ctx: container::Ctx) -> Result<Self::Size, Self::Error> {
+    fn try_into_ctx(&self, bytes: &mut [u8], ctx: container::Ctx) -> Result<usize, Self::Error> {
         if ctx.is_big () {
-            bytes.pwrite_with::<Section64>(self.into(), 0, ctx.le)?;
+            bytes.pwrite_with::<Section64>(&(*self).into(), 0, ctx.le)?;
         } else {
-            bytes.pwrite_with::<Section32>(self.into(), 0, ctx.le)?;
+            bytes.pwrite_with::<Section32>(&(*self).into(), 0, ctx.le)?;
         }
         Ok(Self::size_with(&ctx))
     }
 }
 
 impl ctx::IntoCtx<container::Ctx> for Section {
-    fn into_ctx(self, bytes: &mut [u8], ctx: container::Ctx) {
+    fn into_ctx(&self, bytes: &mut [u8], ctx: container::Ctx) {
         bytes.pwrite_with(self, 0, ctx).unwrap();
     }
 }
@@ -276,6 +273,7 @@ impl<'a, 'b> IntoIterator for &'b Segment<'a> {
 }
 
 /// Generalized 32/64 bit Segment Command
+#[derive(Copy,Clone)]
 pub struct Segment<'a> {
     pub cmd:      u32,
     pub cmdsize:  u32,
@@ -353,7 +351,6 @@ impl<'a> fmt::Debug for Segment<'a> {
 }
 
 impl<'a> ctx::SizeWith<container::Ctx> for Segment<'a> {
-    type Units = usize;
     fn size_with(ctx: &container::Ctx) -> usize {
         match ctx.container {
             container::Container::Little => SIZEOF_SEGMENT_COMMAND_32,
@@ -364,16 +361,15 @@ impl<'a> ctx::SizeWith<container::Ctx> for Segment<'a> {
 
 impl<'a> ctx::TryIntoCtx<container::Ctx> for Segment<'a> {
     type Error = ::error::Error;
-    type Size = usize;
-    fn try_into_ctx(self, bytes: &mut [u8], ctx: container::Ctx) -> Result<Self::Size, Self::Error> {
+    fn try_into_ctx(&self, bytes: &mut [u8], ctx: container::Ctx) -> Result<usize, Self::Error> {
         let segment_size = Self::size_with(&ctx);
         // should be able to write the section data inline after this, but not working at the moment
         //let section_size = bytes.pwrite(data, segment_size)?;
         //debug!("Segment size: {} raw section data size: {}", segment_size, data.len());
         if ctx.is_big () {
-            bytes.pwrite_with::<SegmentCommand64>(self.into(), 0, ctx.le)?;
+            bytes.pwrite_with::<SegmentCommand64>(&(*self).into(), 0, ctx.le)?;
         } else {
-            bytes.pwrite_with::<SegmentCommand32>(self.into(), 0, ctx.le)?;
+            bytes.pwrite_with::<SegmentCommand32>(&(*self).into(), 0, ctx.le)?;
         }
         //debug!("Section size: {}", section_size);
         Ok(segment_size)
@@ -381,7 +377,7 @@ impl<'a> ctx::TryIntoCtx<container::Ctx> for Segment<'a> {
 }
 
 impl<'a> ctx::IntoCtx<container::Ctx> for Segment<'a> {
-    fn into_ctx(self, bytes: &mut [u8], ctx: container::Ctx) {
+    fn into_ctx(&self, bytes: &mut [u8], ctx: container::Ctx) {
         bytes.pwrite_with(self, 0, ctx).unwrap();
     }
 }

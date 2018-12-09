@@ -91,7 +91,7 @@ impl DataDirectories {
         let idx = 13;
         unsafe { self.data_directories.get_unchecked(idx) }
     }
-    pub fn get_clr_runtime_header(&self) ->      &Option<DataDirectory> {
+    pub fn get_cli_header(&self) -> &Option<DataDirectory> {
         let idx = 14;
         unsafe { self.data_directories.get_unchecked(idx) }
     }

@@ -71,7 +71,7 @@ fn main() -> Result<(), Error> {
     let file_alignment = optional_header.windows_fields.file_alignment;
     let cli_header = optional_header
         .data_directories
-        .get_clr_runtime_header()
+        .get_cli_header()
         .ok_or_else(|| err_msg("No CLI header"))?;
     let sections = &pe.sections;
 

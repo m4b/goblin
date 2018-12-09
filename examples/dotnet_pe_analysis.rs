@@ -1,8 +1,4 @@
-/// Demonstrates the magical powers of scroll + goblin
-/// Goblin implements `TryFromCtx` for the header type
-/// which means downstream crates/clients can just "parse" headers out of
-/// arbitrary buffers, without learning new crate specific function names
-/// I.e., all you need are Types + Pread = Happiness
+/// Demonstrates how to read additional metadata (i.e. .Net runtime ones) from PE context
 
 extern crate scroll;
 extern crate goblin;
@@ -41,7 +37,7 @@ struct MetadataRoot<'a> {
 impl<'a> TryFromCtx<'a, Endian> for MetadataRoot<'a> {
     type Error = scroll::Error;
     type Size = usize;
-    
+
     fn try_from_ctx(src: &'a [u8], endian: Endian) -> Result<(Self, Self::Size), Self::Error> {
         let offset = &mut 0;
         let signature = src.gread_with(offset, endian)?;

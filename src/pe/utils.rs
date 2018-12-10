@@ -1,4 +1,4 @@
-use scroll::{Pread};
+use scroll::{self, Pread};
 use alloc::string::ToString;
 use error;
 

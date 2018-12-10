@@ -70,7 +70,7 @@ fn main() {
     let file_alignment = optional_header.windows_fields.file_alignment;
     let cli_header = optional_header
         .data_directories
-        .get_cli_header()
+        .get_clr_runtime_header()
         .expect("No CLI header");
     let sections = &pe.sections;
 

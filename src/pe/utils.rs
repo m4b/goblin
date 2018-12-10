@@ -5,6 +5,7 @@ use error;
 use super::section_table;
 
 use core::cmp;
+use core::fmt::{Debug, Display, Formatter, Result as FmtResult};
 use pe::data_directories::DataDirectory;
 
 pub fn is_in_range (rva: usize, r1: usize, r2: usize) -> bool {
@@ -76,8 +77,8 @@ pub fn try_name<'a>(bytes: &'a [u8], rva: usize, sections: &[section_table::Sect
     }
 }
 
-pub fn get_data<'a, T, E: core::fmt::Debug + From<scroll::Error>>(bytes: &'a [u8], sections: &[section_table::SectionTable], directory: &DataDirectory, file_alignment: u32) -> Result<T, DataDirectoryConversionError<E>>
-    where T: scroll::ctx::TryFromCtx<'a, scroll::Endian, Size = usize, Error = E>  {
+pub fn get_data<'a, T>(bytes: &'a [u8], sections: &[section_table::SectionTable], directory: &DataDirectory, file_alignment: u32) -> Result<T, DataDirectoryConversionError>
+    where T: scroll::ctx::TryFromCtx<'a, scroll::Endian, Size = usize, Error = scroll::Error>  {
     let rva = directory.virtual_address as usize;
     let offset = find_offset(rva, sections, file_alignment)
         .ok_or(DataDirectoryConversionError::MissingOffset(directory.virtual_address))?;
@@ -86,7 +87,13 @@ pub fn get_data<'a, T, E: core::fmt::Debug + From<scroll::Error>>(bytes: &'a [u8
 }
 
 #[derive(Debug)]
-pub enum DataDirectoryConversionError<T: core::fmt::Debug> {
+pub enum DataDirectoryConversionError {
     MissingOffset(u32),
-    ReadError(T)
+    ReadError(scroll::Error)
+}
+
+impl Display for DataDirectoryConversionError {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        Debug::fmt(self, f)
+    }
 }

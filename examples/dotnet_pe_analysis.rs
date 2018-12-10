@@ -2,9 +2,7 @@
 
 extern crate scroll;
 extern crate goblin;
-extern crate failure;
 
-use failure::{bail, err_msg, Error};
 use goblin::container::Endian;
 use goblin::pe::data_directories::DataDirectory;
 use goblin::pe::PE;
@@ -60,30 +58,28 @@ impl<'a> TryFromCtx<'a, Endian> for MetadataRoot<'a> {
     }
 }
 
-fn main() -> Result<(), Error> {
+fn main() {
     let file = include_bytes!("../assets/dotnet_executable_example.dll");
     let file = &file[..];
-    let pe = PE::parse(file)?;
+    let pe = PE::parse(file).unwrap();
     if pe.header.coff_header.machine != 0x14c {
-        bail!("Is not a .Net executable");
+        panic!("Is not a .Net executable");
     }
-    let optional_header = pe.header.optional_header.ok_or_else(|| err_msg("No optional header"))?;
+    let optional_header = pe.header.optional_header.expect("No optional header");
     let file_alignment = optional_header.windows_fields.file_alignment;
     let cli_header = optional_header
         .data_directories
         .get_cli_header()
-        .ok_or_else(|| err_msg("No CLI header"))?;
+        .expect("No CLI header");
     let sections = &pe.sections;
 
     let rva = cli_header.virtual_address as usize;
-    let offset = find_offset(rva, sections, file_alignment).ok_or_else(|| err_msg("Cannot map rva into offset"))?;
-    let cli_header_value: CliHeader = file.pread_with(offset, scroll::LE)?;
+    let offset = find_offset(rva, sections, file_alignment).expect("Cannot map rva into offset");
+    let cli_header_value: CliHeader = file.pread_with(offset, scroll::LE).unwrap();
 
     println!("{:#?}", cli_header_value);
     let rva = cli_header_value.metadata.virtual_address as usize;
-    let offset = find_offset(rva, sections, file_alignment).ok_or_else(|| err_msg("Cannot map rva into offset"))?;
-    let root: MetadataRoot = file.pread_with(offset, scroll::LE)?;
+    let offset = find_offset(rva, sections, file_alignment).expect("Cannot map rva into offset");
+    let root: MetadataRoot = file.pread_with(offset, scroll::LE).unwrap();
     println!("{:#?}", root);
-
-    Ok(())
 }

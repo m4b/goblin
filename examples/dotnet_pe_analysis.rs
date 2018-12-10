@@ -9,7 +9,7 @@ use goblin::pe::data_directories::DataDirectory;
 use goblin::pe::PE;
 use scroll::ctx::TryFromCtx;
 use scroll::Pread;
-use goblin::pe::utils::find_offset;
+use goblin::pe::utils::get_data;
 
 #[repr(C)]
 #[derive(Debug, Pread)]
@@ -74,13 +74,8 @@ fn main() {
         .expect("No CLI header");
     let sections = &pe.sections;
 
-    let rva = cli_header.virtual_address as usize;
-    let offset = find_offset(rva, sections, file_alignment).expect("Cannot map rva into offset");
-    let cli_header_value: CliHeader = file.pread_with(offset, scroll::LE).unwrap();
-
+    let cli_header_value: CliHeader = get_data(file, sections, &cli_header, file_alignment).unwrap();
     println!("{:#?}", cli_header_value);
-    let rva = cli_header_value.metadata.virtual_address as usize;
-    let offset = find_offset(rva, sections, file_alignment).expect("Cannot map rva into offset");
-    let root: MetadataRoot = file.pread_with(offset, scroll::LE).unwrap();
-    println!("{:#?}", root);
+    let metadata_root: MetadataRoot = get_data(file, sections, &cli_header_value.metadata, file_alignment).unwrap();
+    println!("{:#?}", metadata_root);
 }

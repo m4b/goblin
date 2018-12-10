@@ -5,6 +5,7 @@ use error;
 use super::section_table;
 
 use core::cmp;
+use pe::data_directories::DataDirectory;
 
 pub fn is_in_range (rva: usize, r1: usize, r2: usize) -> bool {
     r1 <= rva && rva < r2
@@ -74,3 +75,26 @@ pub fn try_name<'a>(bytes: &'a [u8], rva: usize, sections: &[section_table::Sect
         }
     }
 }
+
+pub fn get_data<'a, T>(bytes: &'a [u8], sections: &[section_table::SectionTable], directory: &DataDirectory, file_alignment: u32) -> Result<T, DataDirectoryConversionError>
+    where T: scroll::ctx::TryFromCtx<'a, scroll::Endian, Size = usize, Error = scroll::Error>  {
+    let rva = directory.virtual_address as usize;
+    let offset = find_offset(rva, sections, file_alignment)
+        .ok_or(DataDirectoryConversionError::MissingOffset(directory.virtual_address))?;
+    let result: T = bytes.pread_with(offset, scroll::LE).map_err(DataDirectoryConversionError::ReadError)?;
+    Ok(result)
+}
+
+#[derive(Debug)]
+pub enum DataDirectoryConversionError {
+    MissingOffset(u32),
+    ReadError(scroll::Error)
+}
+
+impl std::fmt::Display for DataDirectoryConversionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self, f)
+    }
+}
+
+impl std::error::Error for DataDirectoryConversionError {}

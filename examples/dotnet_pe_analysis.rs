@@ -1,5 +1,6 @@
 /// Demonstrates how to read additional metadata (i.e. .Net runtime ones) from PE context
 
+#[macro_use]
 extern crate scroll;
 extern crate goblin;
 

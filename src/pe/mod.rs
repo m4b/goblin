@@ -13,7 +13,7 @@ pub mod data_directories;
 pub mod export;
 pub mod import;
 pub mod debug;
-mod utils;
+pub mod utils;
 
 use error;
 use container;

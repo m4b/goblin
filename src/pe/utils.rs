@@ -1,10 +1,11 @@
-use scroll::{Pread};
+use scroll::{self, Pread};
 use alloc::string::ToString;
 use error;
 
 use super::section_table;
 
 use core::cmp;
+use pe::data_directories::DataDirectory;
 
 pub fn is_in_range (rva: usize, r1: usize, r2: usize) -> bool {
     r1 <= rva && rva < r2
@@ -73,4 +74,13 @@ pub fn try_name<'a>(bytes: &'a [u8], rva: usize, sections: &[section_table::Sect
             Err(error::Error::Malformed(format!("Cannot find name from rva {:#x} in sections: {:?}", rva, sections)))
         }
     }
+}
+
+pub fn get_data<'a, T>(bytes: &'a [u8], sections: &[section_table::SectionTable], directory: &DataDirectory, file_alignment: u32) -> error::Result<T>
+    where T: scroll::ctx::TryFromCtx<'a, scroll::Endian, Size = usize, Error = scroll::Error>  {
+    let rva = directory.virtual_address as usize;
+    let offset = find_offset(rva, sections, file_alignment)
+        .ok_or_else(||error::Error::Malformed(directory.virtual_address.to_string()))?;
+    let result: T = bytes.pread_with(offset, scroll::LE)?;
+    Ok(result)
 }

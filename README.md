@@ -86,6 +86,7 @@ In alphabetic order:
 - [@mitsuhiko](https://github.com/mitsuhiko)
 - [@mre](https://github.com/mre)
 - [@philipc](https://github.com/philipc)
+- [@Pzixel](https://github.com/Pzixel)
 - [@rocallahan](https://github.com/rocallahan)
 - [@sanxiyn](https://github.com/sanxiyn)
 - [@tathanhdinh](https://github.com/tathanhdinh)

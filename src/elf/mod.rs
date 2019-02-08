@@ -300,25 +300,20 @@ if_sylvan! {
                 dynsyms = Symtab::parse(bytes, dyn_info.symtab, num_syms, ctx)?;
             }
 
-            // iterate through shdrs again iff we're an ET_REL
-            let shdr_relocs = {
-                let mut relocs = vec![];
-                if header.e_type == header::ET_REL {
-                    for (idx, section) in section_headers.iter().enumerate() {
-                        if section.sh_type == section_header::SHT_REL {
-                            section.check_size(bytes.len())?;
-                            let sh_relocs = RelocSection::parse(bytes, section.sh_offset as usize, section.sh_size as usize, false, ctx)?;
-                            relocs.push((idx, sh_relocs));
-                        }
-                        if section.sh_type == section_header::SHT_RELA {
-                            section.check_size(bytes.len())?;
-                            let sh_relocs = RelocSection::parse(bytes, section.sh_offset as usize, section.sh_size as usize, true, ctx)?;
-                            relocs.push((idx, sh_relocs));
-                        }
-                    }
+            let mut shdr_relocs = vec![];
+            for (idx, section) in section_headers.iter().enumerate() {
+                if section.sh_type == section_header::SHT_REL {
+                    section.check_size(bytes.len())?;
+                    let sh_relocs = RelocSection::parse(bytes, section.sh_offset as usize, section.sh_size as usize, false, ctx)?;
+                    shdr_relocs.push((idx, sh_relocs));
                 }
-                relocs
-            };
+                if section.sh_type == section_header::SHT_RELA {
+                    section.check_size(bytes.len())?;
+                    let sh_relocs = RelocSection::parse(bytes, section.sh_offset as usize, section.sh_size as usize, true, ctx)?;
+                    shdr_relocs.push((idx, sh_relocs));
+                }
+            }
+
             Ok(Elf {
                 header: header,
                 program_headers: program_headers,

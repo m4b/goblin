@@ -46,9 +46,31 @@ pub const STT_LOPROC: u8 = 13;
 /// End of processor-specific.
 pub const STT_HIPROC: u8 = 15;
 
+/// === Sym visibility ===
+/// Default: Visibility is specified by the symbol's binding type
+pub const STV_DEFAULT: u8 = 0;
+/// Internal: use of this attribute is currently reserved.
+pub const STV_INTERNAL: u8 = 1;
+/// Hidden: Not visible to other components, necessarily protected. Binding scope becomes local
+/// when the object is included in an executable or shared object.
+pub const STV_HIDDEN: u8 = 2;
+/// Protected: Symbol defined in current component is visible in other components, but cannot be preempted.
+/// Any reference from within the defining component must be resolved to the definition in that
+/// component.
+pub const STV_PROTECTED: u8 = 3;
+/// Exported: ensures a symbol remains global, cannot be demoted or eliminated by any other symbol
+/// visibility technique.
+pub const STV_EXPORTED: u8 = 4;
+/// Singleton: ensures a symbol remains global, and that a single instance of the definition is
+/// bound to by all references within a process. Cannot be demoted or eliminated.
+pub const STV_SINGLETON: u8 = 5;
+/// Eliminate: extends the hidden attribute. Not written in any symbol table of a dynamic
+/// executable or shared object.
+pub const STV_ELIMINATE: u8 = 6;
+
 /// Get the ST bind.
 ///
-/// This is the first four bits of the byte.
+/// This is the first four bits of the "info" byte.
 #[inline]
 pub fn st_bind(info: u8) -> u8 {
     info >> 4
@@ -56,10 +78,18 @@ pub fn st_bind(info: u8) -> u8 {
 
 /// Get the ST type.
 ///
-/// This is the last four bits of the byte.
+/// This is the last four bits of the "info" byte.
 #[inline]
 pub fn st_type(info: u8) -> u8 {
     info & 0xf
+}
+
+/// Get the ST visibility.
+///
+/// This is the last three bits of the "other" byte.
+#[inline]
+pub fn st_visibility(other: u8) -> u8 {
+    other & 0x7
 }
 
 /// Is this information defining an import?
@@ -104,6 +134,22 @@ pub fn type_to_str(typ: u8) -> &'static str {
         _ => "UNKNOWN_STT",
     }
 }
+
+/// Get the string for some visibility
+#[inline]
+pub fn visibility_to_str(typ: u8) -> &'static str {
+    match typ {
+        STV_DEFAULT => "DEFAULT",
+        STV_INTERNAL => "INTERNAL",
+        STV_HIDDEN => "HIDDEN",
+        STV_PROTECTED => "PROTECTED",
+        STV_EXPORTED => "EXPORTED",
+        STV_SINGLETON => "SINGLETON",
+        STV_ELIMINATE => "ELIMINATE",
+        _ => "UNKNOWN_STV",
+    }
+}
+
 
 macro_rules! elf_sym_std_impl {
     ($size:ty) => {
@@ -177,12 +223,13 @@ macro_rules! elf_sym_std_impl {
                 fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                     let bind = st_bind(self.st_info);
                     let typ = st_type(self.st_info);
+                    let vis = st_visibility(self.st_other);
                     write!(f,
-                           "st_name: {} {} {} st_other: {} st_shndx: {} st_value: {:x} st_size: {}",
+                           "st_name: {} {} {} {} st_shndx: {} st_value: {:x} st_size: {}",
                            self.st_name,
                            bind_to_str(bind),
                            type_to_str(typ),
-                           self.st_other,
+                           visibility_to_str(vis),
                            self.st_shndx,
                            self.st_value,
                            self.st_size)
@@ -310,17 +357,24 @@ if_alloc! {
         }
         /// Get the ST bind.
         ///
-        /// This is the first four bits of the byte.
+        /// This is the first four bits of the "info" byte.
         #[inline]
         pub fn st_bind(&self) -> u8 {
             self.st_info >> 4
         }
         /// Get the ST type.
         ///
-        /// This is the last four bits of the byte.
+        /// This is the last four bits of the "info" byte.
         #[inline]
         pub fn st_type(&self) -> u8 {
-            self.st_info & 0xf
+            st_type(self.st_info)
+        }
+        /// Get the ST visibility.
+        ///
+        /// This is the last three bits of the "other" byte.
+        #[inline]
+        pub fn st_visibility(&self) -> u8 {
+            st_visibility(self.st_other)
         }
         #[cfg(feature = "endian_fd")]
         /// Parse `count` vector of ELF symbols from `offset`
@@ -339,12 +393,13 @@ if_alloc! {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             let bind = self.st_bind();
             let typ = self.st_type();
+            let vis = self.st_visibility();
             write!(f,
-                   "st_name: {} {} {} st_other: {} st_shndx: {} st_value: {:x} st_size: {}",
+                   "st_name: {} {} {} {} st_shndx: {} st_value: {:x} st_size: {}",
                    self.st_name,
                    bind_to_str(bind),
                    type_to_str(typ),
-                   self.st_other,
+                   visibility_to_str(vis),
                    self.st_shndx,
                    self.st_value,
                    self.st_size)

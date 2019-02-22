@@ -5,6 +5,10 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, don't worry!
 
+## [0.0.21] - 2019-2-21
+### Added
+- elf: add symbol visibility. thanks @pchickey: https://github.com/m4b/goblin/pull/119
+
 ## [0.0.20] - 2019-2-10
 ### Added
 - elf: parse section header relocs even when not an object file. thanks @Techno-Coder: https://github.com/m4b/goblin/pull/118

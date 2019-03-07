@@ -13,6 +13,7 @@
 //!       let entry = binary.entry;
 //!       for ph in binary.program_headers {
 //!         if ph.p_type == goblin::elf::program_header::PT_LOAD {
+//!           // TODO: you should validate p_filesz before allocating.
 //!           let mut _buf = vec![0u8; ph.p_filesz as usize];
 //!           // read responsibly
 //!          }

@@ -367,11 +367,17 @@ if_alloc! {
             use elf::program_header;
             for phdr in phdrs {
                 if phdr.p_type == program_header::PT_DYNAMIC {
+                    let offset = phdr.p_offset as usize;
                     let filesz = phdr.p_filesz as usize;
+                    // Ensure offset and filesz are valid.
+                    let bytes = bytes
+                        .pread_with::<&[u8]>(offset, filesz)
+                        .map_err(|_| ::error::Error::Malformed(format!("Invalid PT_DYNAMIC size (offset {:#x}, filesz {:#x})",
+                                                               offset, filesz)))?;
                     let size = Dyn::size_with(&ctx);
                     let count = filesz / size;
                     let mut dyns = Vec::with_capacity(count);
-                    let mut offset = phdr.p_offset as usize;
+                    let mut offset = 0;
                     for _ in 0..count {
                         let dyn = bytes.gread_with::<Dyn>(&mut offset, ctx)?;
                         let tag = dyn.d_tag;
@@ -466,6 +472,7 @@ macro_rules! elf_dyn_std_impl {
             pub fn from_fd(mut fd: &File, phdrs: &[$phdr]) -> Result<Option<Vec<Dyn>>> {
                 for phdr in phdrs {
                     if phdr.p_type == PT_DYNAMIC {
+                        // FIXME: validate filesz before allocating
                         let filesz = phdr.p_filesz as usize;
                         let dync = filesz / SIZEOF_DYN;
                         let mut dyns = vec![Dyn::default(); dync];

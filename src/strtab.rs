@@ -14,6 +14,7 @@ if_alloc! {
 /// A common string table format which is indexed by byte offsets (and not
 /// member index). Constructed using [`parse`](#method.parse)
 /// with your choice of delimiter. Please be careful.
+#[derive(Clone)]
 pub struct Strtab<'a> {
     bytes: &'a[u8],
     delim: ctx::StrCtx,

@@ -147,11 +147,17 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
         let name = utils::try_name(bytes, name_rva as usize, sections, file_alignment)?;
         let import_lookup_table = {
             let import_lookup_table_rva = import_directory_entry.import_lookup_table_rva;
-            debug!("Synthesizing lookup table imports for {} lib, with import lookup table rva: {:#x}", name, import_lookup_table_rva);
+            let import_address_table_rva = import_directory_entry.import_address_table_rva;
             if let Some(import_lookup_table_offset) = utils::find_offset(import_lookup_table_rva as usize, sections, file_alignment) {
+                debug!("Synthesizing lookup table imports for {} lib, with import lookup table rva: {:#x}", name, import_lookup_table_rva);
                 let import_lookup_table = SyntheticImportLookupTableEntry::parse::<T>(bytes, import_lookup_table_offset, sections, file_alignment)?;
-                debug!("Successfully synthesized import lookup table entry: {:#?}", import_lookup_table);
+                debug!("Successfully synthesized import lookup table entry from lookup table: {:#?}", import_lookup_table);
                 Some(import_lookup_table)
+            } else if let Some(import_address_table_offset) = utils::find_offset(import_address_table_rva as usize, sections, file_alignment) {
+                debug!("Synthesizing lookup table imports for {} lib, with import address table rva: {:#x}", name, import_lookup_table_rva);
+                let import_address_table  = SyntheticImportLookupTableEntry::parse::<T>(bytes, import_address_table_offset, sections, file_alignment)?;
+                debug!("Successfully synthesized import lookup table entry from IAT: {:#?}", import_address_table);
+                Some(import_address_table)
             } else {
                 None
             }

@@ -469,6 +469,18 @@ if_alloc! {
         ctx: RelocCtx,
     }
 
+    impl<'a> fmt::Debug for RelocIterator<'a> {
+        fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+            fmt.debug_struct("RelocIterator")
+                .field("bytes", &"<... redacted ...>")
+                .field("offset", &self.offset)
+                .field("index", &self.index)
+                .field("count", &self.count)
+                .field("ctx", &self.ctx)
+                .finish()
+        }
+    }
+
     impl<'a> Iterator for RelocIterator<'a> {
         type Item = Reloc;
 

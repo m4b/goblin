@@ -35,19 +35,18 @@ macro_rules! elf_section_header {
 
         impl ::core::fmt::Debug for SectionHeader {
             fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-                write!(f,
-                       "sh_name: {} sh_type {} sh_flags: 0x{:x} sh_addr: 0x{:x} sh_offset: 0x{:x} \
-                        sh_size: 0x{:x} sh_link: 0x{:x} sh_info: 0x{:x} sh_addralign 0x{:x} sh_entsize 0x{:x}",
-                       self.sh_name,
-                       sht_to_str(self.sh_type as u32),
-                       self.sh_flags,
-                       self.sh_addr,
-                       self.sh_offset,
-                       self.sh_size,
-                       self.sh_link,
-                       self.sh_info,
-                       self.sh_addralign,
-                       self.sh_entsize)
+                f.debug_struct("SectionHeader")
+                    .field("sh_name", &self.sh_name)
+                    .field("sh_type", &sht_to_str(self.sh_type))
+                    .field("sh_flags", &format_args!("0x{:x}", self.sh_flags))
+                    .field("sh_addr", &format_args!("0x{:x}", self.sh_addr))
+                    .field("sh_offset", &format_args!("0x{:x}", self.sh_offset))
+                    .field("sh_size", &format_args!("0x{:x}", self.sh_size))
+                    .field("sh_link", &format_args!("0x{:x}", self.sh_link))
+                    .field("sh_info", &format_args!("0x{:x}", self.sh_info))
+                    .field("sh_addralign", &format_args!("0x{:x}", self.sh_addralign))
+                    .field("sh_entsize", &format_args!("0x{:x}", self.sh_entsize))
+                    .finish()
             }
         }
     }
@@ -465,19 +464,18 @@ if_alloc! {
 
     impl fmt::Debug for SectionHeader {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f,
-                   "sh_name: {} sh_type {} sh_flags: 0x{:x} sh_addr: 0x{:x} sh_offset: 0x{:x} \
-                    sh_size: 0x{:x} sh_link: 0x{:x} sh_info: 0x{:x} sh_addralign 0x{:x} sh_entsize 0x{:x}",
-                   self.sh_name,
-                   sht_to_str(self.sh_type as u32),
-                   self.sh_flags,
-                   self.sh_addr,
-                   self.sh_offset,
-                   self.sh_size,
-                   self.sh_link,
-                   self.sh_info,
-                   self.sh_addralign,
-                   self.sh_entsize)
+            f.debug_struct("SectionHeader")
+                .field("sh_name", &self.sh_name)
+                .field("sh_type", &sht_to_str(self.sh_type))
+                .field("sh_flags", &format_args!("0x{:x}", self.sh_flags))
+                .field("sh_addr", &format_args!("0x{:x}", self.sh_addr))
+                .field("sh_offset", &format_args!("0x{:x}", self.sh_offset))
+                .field("sh_size", &format_args!("0x{:x}", self.sh_size))
+                .field("sh_link", &format_args!("0x{:x}", self.sh_link))
+                .field("sh_info", &format_args!("0x{:x}", self.sh_info))
+                .field("sh_addralign", &format_args!("0x{:x}", self.sh_addralign))
+                .field("sh_entsize", &format_args!("0x{:x}", self.sh_entsize))
+                .finish()
         }
     }
 

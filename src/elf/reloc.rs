@@ -79,12 +79,13 @@ macro_rules! elf_reloc {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 let sym = r_sym(self.r_info);
                 let typ = r_type(self.r_info);
-                write!(f,
-                       "r_offset: {:x} r_typ: {} r_sym: {} r_addend: {:x}",
-                       self.r_offset,
-                       typ,
-                       sym,
-                       self.r_addend)
+                f.debug_struct("Rel")
+                    .field("r_offset", &format_args!("{:x}", self.r_offset))
+                    .field("r_info", &self.r_info)
+                    .field("r_addend", &self.r_addend)
+                    .field("r_typ", &typ)
+                    .field("r_sym", &sym)
+                    .finish()
             }
         }
         impl fmt::Debug for Rel {

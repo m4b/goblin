@@ -79,7 +79,7 @@ macro_rules! elf_reloc {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 let sym = r_sym(self.r_info);
                 let typ = r_type(self.r_info);
-                f.debug_struct("Rel")
+                f.debug_struct("Rela")
                     .field("r_offset", &format_args!("{:x}", self.r_offset))
                     .field("r_info", &self.r_info)
                     .field("r_addend", &self.r_addend)
@@ -92,7 +92,6 @@ macro_rules! elf_reloc {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 let sym = r_sym(self.r_info);
                 let typ = r_type(self.r_info);
-
                 f.debug_struct("Rel")
                     .field("r_offset", &format_args!("{:x}", self.r_offset))
                     .field("r_info", &self.r_info)

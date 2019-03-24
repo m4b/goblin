@@ -295,10 +295,10 @@ if_alloc! {
 
     impl fmt::Debug for Dyn {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f,
-                   "d_tag: {} d_val: 0x{:x}",
-                   tag_to_str(self.d_tag as u64),
-                   self.d_val)
+            f.debug_struct("Dyn")
+                .field("d_tag", &tag_to_str(self.d_tag))
+                .field("d_val", &format_args!("0x{:x}", self.d_val))
+                .finish()
         }
     }
 
@@ -460,10 +460,10 @@ macro_rules! elf_dyn_std_impl {
 
             impl fmt::Debug for Dyn {
                 fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                    write!(f,
-                           "d_tag: {} d_val: 0x{:x}",
-                           tag_to_str(self.d_tag as u64),
-                           self.d_val)
+                    f.debug_struct("Dyn")
+                        .field("d_tag", &tag_to_str(u64::from(self.d_tag)))
+                        .field("d_val", &format_args!("0x{:x}", self.d_val))
+                        .finish()
                 }
             }
 
@@ -631,28 +631,28 @@ macro_rules! elf_dynamic_info_std_impl {
                     let gnu_hash = if let Some(addr) = self.gnu_hash { addr } else { 0 };
                     let hash = if let Some(addr) = self.hash { addr } else { 0 };
                     let pltgot = if let Some(addr) = self.pltgot { addr } else { 0 };
-                    write!(f, "rela: 0x{:x} relasz: {} relaent: {} relacount: {} gnu_hash: 0x{:x} hash: 0x{:x} strtab: 0x{:x} strsz: {} symtab: 0x{:x} syment: {} pltgot: 0x{:x} pltrelsz: {} pltrel: {} jmprel: 0x{:x} verneed: 0x{:x} verneednum: {} versym: 0x{:x} init: 0x{:x} fini: 0x{:x} needed_count: {}",
-                           self.rela,
-                           self.relasz,
-                           self.relaent,
-                           self.relacount,
-                           gnu_hash,
-                           hash,
-                           self.strtab,
-                           self.strsz,
-                           self.symtab,
-                           self.syment,
-                           pltgot,
-                           self.pltrelsz,
-                           self.pltrel,
-                           self.jmprel,
-                           self.verneed,
-                           self.verneednum,
-                           self.versym,
-                           self.init,
-                           self.fini,
-                           self.needed_count,
-                    )
+                    f.debug_struct("DynamicInfo")
+                        .field("rela", &format_args!("0x{:x}", self.rela))
+                        .field("relasz", &self.relasz)
+                        .field("relaent", &self.relaent)
+                        .field("relacount", &self.relacount)
+                        .field("gnu_hash", &format_args!("0x{:x}", gnu_hash))
+                        .field("hash", &format_args!("0x{:x}", hash))
+                        .field("strtab", &format_args!("0x{:x}", self.strtab))
+                        .field("strsz", &self.strsz)
+                        .field("symtab", &format_args!("0x{:x}", self.symtab))
+                        .field("syment", &self.syment)
+                        .field("pltgot", &format_args!("0x{:x}", pltgot))
+                        .field("pltrelsz", &self.pltrelsz)
+                        .field("pltrel", &self.pltrel)
+                        .field("jmprel", &format_args!("0x{:x}", self.jmprel))
+                        .field("verneed", &format_args!("0x{:x}", self.verneed))
+                        .field("verneednum", &self.verneednum)
+                        .field("versym", &format_args!("0x{:x}", self.versym))
+                        .field("init", &format_args!("0x{:x}", self.init))
+                        .field("fini", &format_args!("0x{:x}", self.fini))
+                        .field("needed_count", &self.needed_count)
+                        .finish()
                 }
             }
         }

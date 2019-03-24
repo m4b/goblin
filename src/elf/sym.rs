@@ -224,15 +224,14 @@ macro_rules! elf_sym_std_impl {
                     let bind = st_bind(self.st_info);
                     let typ = st_type(self.st_info);
                     let vis = st_visibility(self.st_other);
-                    write!(f,
-                           "st_name: {} {} {} {} st_shndx: {} st_value: {:x} st_size: {}",
-                           self.st_name,
-                           bind_to_str(bind),
-                           type_to_str(typ),
-                           visibility_to_str(vis),
-                           self.st_shndx,
-                           self.st_value,
-                           self.st_size)
+                    f.debug_struct("Sym")
+                        .field("st_name", &format_args!("{} {} {} {}", self.st_name, bind_to_str(bind), type_to_str(typ), visibility_to_str(vis)))
+                        .field("st_value", &format_args!("{:x}", self.st_value))
+                        .field("st_size", &self.st_size)
+                        .field("st_info", &self.st_info)
+                        .field("st_other", &self.st_other)
+                        .field("st_shndx", &self.st_shndx)
+                        .finish()
                 }
             }
 
@@ -394,15 +393,14 @@ if_alloc! {
             let bind = self.st_bind();
             let typ = self.st_type();
             let vis = self.st_visibility();
-            write!(f,
-                   "st_name: {} {} {} {} st_shndx: {} st_value: {:x} st_size: {}",
-                   self.st_name,
-                   bind_to_str(bind),
-                   type_to_str(typ),
-                   visibility_to_str(vis),
-                   self.st_shndx,
-                   self.st_value,
-                   self.st_size)
+            f.debug_struct("Sym")
+                .field("st_name", &format_args!("{} {} {} {}", self.st_name, bind_to_str(bind), type_to_str(typ), visibility_to_str(vis)))
+                .field("st_info", &self.st_info)
+                .field("st_other", &self.st_other)
+                .field("st_shndx", &self.st_shndx)
+                .field("st_value", &format_args!("{:x}", self.st_value))
+                .field("st_size", &self.st_size)
+                .finish()
         }
     }
 

@@ -28,7 +28,10 @@ pub const SIZEOF_FAT_HEADER: usize = 8;
 
 impl fmt::Debug for FatHeader {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "0x{:x} nfat_arch: {}\n", self.magic, self.nfat_arch)
+        f.debug_struct("FatHeader")
+            .field("magic", &format_args!("0x{:x}", self.magic))
+            .field("nfat_arch", &self.nfat_arch)
+            .finish()
     }
 }
 

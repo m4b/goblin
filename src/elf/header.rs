@@ -51,24 +51,22 @@ macro_rules! elf_header {
         }
         impl fmt::Debug for Header {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                write!(f,
-                       "e_ident: {:?} e_type: {} e_machine: 0x{:x} e_version: 0x{:x} e_entry: 0x{:x} \
-                        e_phoff: 0x{:x} e_shoff: 0x{:x} e_flags: {:x} e_ehsize: {} e_phentsize: {} \
-                        e_phnum: {} e_shentsize: {} e_shnum: {} e_shstrndx: {}",
-                       self.e_ident,
-                       et_to_str(self.e_type),
-                       self.e_machine,
-                       self.e_version,
-                       self.e_entry,
-                       self.e_phoff,
-                       self.e_shoff,
-                       self.e_flags,
-                       self.e_ehsize,
-                       self.e_phentsize,
-                       self.e_phnum,
-                       self.e_shentsize,
-                       self.e_shnum,
-                       self.e_shstrndx)
+                f.debug_struct("Header")
+                    .field("e_ident", &format_args!("{:?}", self.e_ident))
+                    .field("e_type", &et_to_str(self.e_type))
+                    .field("e_machine", &format_args!("0x{:x}", self.e_machine))
+                    .field("e_version", &format_args!("0x{:x}", self.e_version))
+                    .field("e_entry", &format_args!("0x{:x}", self.e_entry))
+                    .field("e_phoff", &format_args!("0x{:x}", self.e_phoff))
+                    .field("e_shoff", &format_args!("0x{:x}", self.e_shoff))
+                    .field("e_flags", &format_args!("{:x}", self.e_flags))
+                    .field("e_ehsize", &self.e_ehsize)
+                    .field("e_phentsize", &self.e_phentsize)
+                    .field("e_phnum", &self.e_phnum)
+                    .field("e_shentsize", &self.e_shentsize)
+                    .field("e_shnum", &self.e_shnum)
+                    .field("e_shstrndx", &self.e_shstrndx)
+                    .finish()
             }
         }
     }
@@ -244,24 +242,22 @@ if_alloc! {
 
     impl fmt::Debug for Header {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f,
-                   "e_ident: {:?} e_type: {} e_machine: 0x{:x} e_version: 0x{:x} e_entry: 0x{:x} \
-                    e_phoff: 0x{:x} e_shoff: 0x{:x} e_flags: {:x} e_ehsize: {} e_phentsize: {} \
-                    e_phnum: {} e_shentsize: {} e_shnum: {} e_shstrndx: {}",
-                   self.e_ident,
-                   et_to_str(self.e_type),
-                   self.e_machine,
-                   self.e_version,
-                   self.e_entry,
-                   self.e_phoff,
-                   self.e_shoff,
-                   self.e_flags,
-                   self.e_ehsize,
-                   self.e_phentsize,
-                   self.e_phnum,
-                   self.e_shentsize,
-                   self.e_shnum,
-                   self.e_shstrndx)
+            f.debug_struct("Header")
+               .field("e_ident", &format_args!("{:?}", self.e_ident))
+               .field("e_type", &et_to_str(self.e_type))
+               .field("e_machine", &format_args!("0x{:x}", self.e_machine))
+               .field("e_version", &format_args!("0x{:x}", self.e_version))
+               .field("e_entry", &format_args!("0x{:x}", self.e_entry))
+               .field("e_phoff", &format_args!("0x{:x}", self.e_phoff))
+               .field("e_shoff", &format_args!("0x{:x}", self.e_shoff))
+               .field("e_flags", &format_args!("{:x}", self.e_flags))
+               .field("e_ehsize", &self.e_ehsize)
+               .field("e_phentsize", &self.e_phentsize)
+               .field("e_phnum", &self.e_phnum)
+               .field("e_shentsize", &self.e_shentsize)
+               .field("e_shnum", &self.e_shnum)
+               .field("e_shstrndx", &self.e_shstrndx)
+               .finish()
         }
     }
 

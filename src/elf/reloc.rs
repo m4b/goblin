@@ -362,22 +362,12 @@ if_alloc! {
 
     impl fmt::Debug for Reloc {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            if let Some(addend) = self.r_addend {
-                write!(f,
-                    "r_offset: {:x} r_typ: {} r_sym: {} r_addend: {:x}",
-                    self.r_offset,
-                    self.r_type,
-                    self.r_sym,
-                    addend,
-                )
-            } else {
-                write!(f,
-                    "r_offset: {:x} r_typ: {} r_sym: {}",
-                    self.r_offset,
-                    self.r_type,
-                    self.r_sym,
-                )
-            }
+            f.debug_struct("Reloc")
+                .field("r_offset", &format_args!("{:x}", self.r_offset))
+                .field("r_addend", &format_args!("{:x}", self.r_addend.unwrap_or(0)))
+                .field("r_sym", &self.r_sym)
+                .field("r_type", &self.r_type)
+                .finish()
         }
     }
 

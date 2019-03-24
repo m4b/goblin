@@ -82,7 +82,7 @@ macro_rules! elf_reloc {
                 f.debug_struct("Rela")
                     .field("r_offset", &format_args!("{:x}", self.r_offset))
                     .field("r_info", &self.r_info)
-                    .field("r_addend", &self.r_addend)
+                    .field("r_addend", &format_args!("{:x}", self.r_addend))
                     .field("r_typ", &typ)
                     .field("r_sym", &sym)
                     .finish()

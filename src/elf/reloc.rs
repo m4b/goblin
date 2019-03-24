@@ -93,7 +93,7 @@ macro_rules! elf_reloc {
                 let typ = r_type(self.r_info);
 
                 f.debug_struct("Rel")
-                    .field("r_offset", &self.r_offset)
+                    .field("r_offset", &format_args!("{:x}", self.r_offset))
                     .field("r_info", &self.r_info)
                     .field("r_typ", &typ)
                     .field("r_sym", &sym)

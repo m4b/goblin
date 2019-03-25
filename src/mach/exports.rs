@@ -255,7 +255,7 @@ impl<'a> Debug for ExportTrie<'a> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("ExportTrie")
             .field("data", &"<... redacted ...>")
-            .field("location", &format_args!("{:#x?}", self.location))
+            .field("location", &format_args!("{:#x}..{:#x}", self.location.start, self.location.end))
             .finish()
     }
 }

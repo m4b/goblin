@@ -120,8 +120,8 @@ impl<'a> Debug for BindInterpreter<'a> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("BindInterpreter")
             .field("data", &"<... redacted ...>")
-            .field("location", &format_args!("{:#x?}", self.location))
-            .field("lazy_location", &format_args!("{:#x?}", self.lazy_location))
+            .field("location", &format_args!("{:#x}..{:#x}", self.location.start, self.location.end))
+            .field("lazy_location", &format_args!("{:#x}..{:#x}", self.lazy_location.start, self.lazy_location.end))
             .finish()
     }
 }

@@ -2,7 +2,7 @@
 
 // table of tuples:
 // <seg-index, seg-offset, type, symbol-library-ordinal, symbol-name, addend>
-// symbol flags are undocumented 
+// symbol flags are undocumented
 
 use core::ops::Range;
 use core::fmt::{self, Debug};
@@ -118,10 +118,11 @@ pub struct BindInterpreter<'a> {
 
 impl<'a> Debug for BindInterpreter<'a> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(fmt, "BindInterpreter {{")?;
-        writeln!(fmt, "  Location: {:#x}..{:#x}", self.location.start, self.location.end)?;
-        writeln!(fmt, "  Lazy Location: {:#x}..{:#x}", self.lazy_location.start, self.lazy_location.end)?;
-        writeln!(fmt, "}}")
+        fmt.debug_struct("BindInterpreter")
+            .field("data", &"<... redacted ...>")
+            .field("location", &format_args!("{:#x?}", self.location))
+            .field("lazy_location", &format_args!("{:#x?}", self.lazy_location))
+            .finish()
     }
 }
 
@@ -213,7 +214,7 @@ impl<'a> BindInterpreter<'a> {
                 // record the record by placing its value into our list
                 BIND_OPCODE_DO_BIND => {
                     // from dyld:
-                    //      if ( address >= segmentEndAddress ) 
+                    //      if ( address >= segmentEndAddress )
 	            // throwBadBindingAddress(address, segmentEndAddress, segmentIndex, start, end, p);
 	            // (this->*handler)(context, address, type, symbolName, symboFlags, addend, libraryOrdinal, "", &last);
 	            // address += sizeof(intptr_t);
@@ -223,7 +224,7 @@ impl<'a> BindInterpreter<'a> {
                 },
                 BIND_OPCODE_DO_BIND_ADD_ADDR_ULEB => {
                     // dyld:
-	            // if ( address >= segmentEndAddress ) 
+	            // if ( address >= segmentEndAddress )
 	            // throwBadBindingAddress(address, segmentEndAddress, segmentIndex, start, end, p);
 	            // (this->*handler)(context, address, type, symbolName, symboFlags, addend, libraryOrdinal, "", &last);
 	            // address += read_uleb128(p, end) + sizeof(intptr_t);
@@ -234,8 +235,8 @@ impl<'a> BindInterpreter<'a> {
                     bind_info.seg_offset = seg_offset;
                 },
                 BIND_OPCODE_DO_BIND_ADD_ADDR_IMM_SCALED => {
-                    // dyld:				
-                    // if ( address >= segmentEndAddress ) 
+                    // dyld:
+                    // if ( address >= segmentEndAddress )
 	            // throwBadBindingAddress(address, segmentEndAddress, segmentIndex, start, end, p);
 	            // (this->*handler)(context, address, type, symbolName, symboFlags, addend, libraryOrdinal, "", &last);
 	            // address += immediate*sizeof(intptr_t) + sizeof(intptr_t);
@@ -252,7 +253,7 @@ impl<'a> BindInterpreter<'a> {
                     // count = read_uleb128(p, end);
 	            // skip = read_uleb128(p, end);
 	            // for (uint32_t i=0; i < count; ++i) {
-	            // if ( address >= segmentEndAddress ) 
+	            // if ( address >= segmentEndAddress )
 	            // throwBadBindingAddress(address, segmentEndAddress, segmentIndex, start, end, p);
 	            // (this->*handler)(context, address, type, symbolName, symboFlags, addend, libraryOrdinal, "", &last);
 	            // address += skip + sizeof(intptr_t);
@@ -270,7 +271,7 @@ impl<'a> BindInterpreter<'a> {
                 _ => {
                 }
             }
-        }        
+        }
         Ok(())
     }
 }

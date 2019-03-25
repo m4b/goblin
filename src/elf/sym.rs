@@ -225,11 +225,11 @@ macro_rules! elf_sym_std_impl {
                     let typ = st_type(self.st_info);
                     let vis = st_visibility(self.st_other);
                     f.debug_struct("Sym")
-                        .field("st_name", &format_args!("{} {} {} {}", self.st_name, bind_to_str(bind), type_to_str(typ), visibility_to_str(vis)))
+                        .field("st_name", &self.st_name)
                         .field("st_value", &format_args!("{:x}", self.st_value))
                         .field("st_size", &self.st_size)
-                        .field("st_info", &self.st_info)
-                        .field("st_other", &self.st_other)
+                        .field("st_info", &format_args!("{:x} {} {}", self.st_info, bind_to_str(bind), type_to_str(typ)))
+                        .field("st_other", &format_args!("{} {}", self.st_other, visibility_to_str(vis)))
                         .field("st_shndx", &self.st_shndx)
                         .finish()
                 }
@@ -394,9 +394,9 @@ if_alloc! {
             let typ = self.st_type();
             let vis = self.st_visibility();
             f.debug_struct("Sym")
-                .field("st_name", &format_args!("{} {} {} {}", self.st_name, bind_to_str(bind), type_to_str(typ), visibility_to_str(vis)))
-                .field("st_info", &self.st_info)
-                .field("st_other", &self.st_other)
+                .field("st_name", &self.st_name)
+                .field("st_info", &format_args!("{:x} {} {}", self.st_info, bind_to_str(bind), type_to_str(typ)))
+                .field("st_other", &format_args!("{} {}", self.st_other, visibility_to_str(vis)))
                 .field("st_shndx", &self.st_shndx)
                 .field("st_value", &format_args!("{:x}", self.st_value))
                 .field("st_size", &self.st_size)

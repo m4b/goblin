@@ -112,13 +112,13 @@ pub const SIZEOF_NLIST_32: usize = 12;
 
 impl Debug for Nlist32 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "strx: {:04} type: {:#02x} sect: {:#x} desc: {:#03x} value: {:#x}",
-               self.n_strx,
-               self.n_type,
-               self.n_sect,
-               self.n_desc,
-               self.n_value,
-        )
+        fmt.debug_struct("Nlist32")
+           .field("n_strx", &format_args!("{:04}", self.n_strx))
+           .field("n_type", &format_args!("{:#02x}", self.n_type))
+           .field("n_sect", &format_args!("{:#x}", self.n_sect))
+           .field("n_desc", &format_args!("{:#03x}", self.n_desc))
+           .field("n_value", &format_args!("{:#x}", self.n_value))
+           .finish()
     }
 }
 

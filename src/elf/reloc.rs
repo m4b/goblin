@@ -81,7 +81,7 @@ macro_rules! elf_reloc {
                 let typ = r_type(self.r_info);
                 f.debug_struct("Rela")
                     .field("r_offset", &format_args!("{:x}", self.r_offset))
-                    .field("r_info", &self.r_info)
+                    .field("r_info", &format_args!("{:x}", self.r_info))
                     .field("r_addend", &format_args!("{:x}", self.r_addend))
                     .field("r_typ", &typ)
                     .field("r_sym", &sym)
@@ -94,7 +94,7 @@ macro_rules! elf_reloc {
                 let typ = r_type(self.r_info);
                 f.debug_struct("Rel")
                     .field("r_offset", &format_args!("{:x}", self.r_offset))
-                    .field("r_info", &self.r_info)
+                    .field("r_info", &format_args!("{:x}", self.r_info))
                     .field("r_typ", &typ)
                     .field("r_sym", &sym)
                     .finish()

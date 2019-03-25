@@ -405,18 +405,11 @@ impl<'a> Symbols<'a> {
 
 impl<'a> Debug for Symbols<'a> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(fmt, "Data: {} start: {:#?}, nsyms: {} strtab: {:#x}", self.data.len(), self.start, self.nsyms, self.strtab)?;
-        writeln!(fmt, "Symbols: {{")?;
-        for (i, res) in self.iter().enumerate() {
-            match res {
-                Ok((name, nlist)) => {
-                    writeln!(fmt, "{: >10x} {} sect: {:#x} type: {:#02x} desc: {:#03x}", nlist.n_value, name, nlist.n_sect, nlist.n_type, nlist.n_desc)?;
-                },
-                Err(error) => {
-                    writeln!(fmt, "  Bad symbol, index: {}, sym: {:?}", i, error)?;
-                }
-            }
-        }
-        writeln!(fmt, "}}")
+        fmt.debug_struct("Symbols")
+           .field("data", &self.data.len())
+           .field("start", &format_args!("{:#?}", self.start))
+           .field("nsyms", &self.nsyms)
+           .field("strtab", &format_args!("{:#x}", self.strtab))
+           .finish()
     }
 }

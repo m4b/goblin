@@ -6,11 +6,11 @@ macro_rules! elf_compression_header {
 
         impl ::core::fmt::Debug for CompressionHeader {
             fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-                write!(f,
-                       "ch_type: {} ch_size: 0x{} ch_addralign: 0x{:x}",
-                       self.ch_type,
-                       self.ch_size,
-                       self.ch_addralign)
+                f.debug_struct("CompressionHeader")
+                    .field("ch_type", &self.ch_type)
+                    .field("ch_size", &format_args!("0x{:x}", self.ch_size))
+                    .field("ch_addralign", &format_args!("0x{:x}", self.ch_addralign))
+                    .finish()
             }
         }
     }
@@ -201,11 +201,11 @@ if_alloc! {
 
     impl fmt::Debug for CompressionHeader {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f,
-                   "ch_type: {} ch_size: 0x{} ch_addralign: 0x{:x}",
-                   self.ch_type,
-                   self.ch_size,
-                   self.ch_addralign)
+            f.debug_struct("CompressionHeader")
+                .field("ch_type", &self.ch_type)
+                .field("ch_size", &format_args!("0x{:x}", self.ch_size))
+                .field("ch_addralign", &format_args!("0x{:x}", self.ch_addralign))
+                .finish()
         }
     }
 

@@ -79,7 +79,10 @@ impl<'a> Strtab<'a> {
 
 impl<'a> fmt::Debug for Strtab<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "delim: {:?} {:?}", self.delim, str::from_utf8(self.bytes))
+        f.debug_struct("Strtab")
+            .field("delim", &self.delim)
+            .field("bytes", &str::from_utf8(self.bytes))
+            .finish()
     }
 }
 

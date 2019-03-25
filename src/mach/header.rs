@@ -247,16 +247,16 @@ pub struct Header {
 
 impl fmt::Debug for Header {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,
-               "0x{:x} {} 0x{:x} {} {} {} 0x{:x} 0x{:x}",
-               self.magic,
-               self.cputype(),
-               self.cpusubtype(),
-               filetype_to_str(self.filetype),
-               self.ncmds,
-               self.sizeofcmds,
-               self.flags,
-               self.reserved)
+        f.debug_struct("Header")
+            .field("magic", &format_args!("0x{:x}", self.magic))
+            .field("cputype", &self.cputype())
+            .field("cpusubtype", &format_args!("0x{:x}", self.cpusubtype()))
+            .field("filetype", &filetype_to_str(self.filetype))
+            .field("ncmds", &self.ncmds)
+            .field("sizeofcmds", &self.sizeofcmds)
+            .field("flags", &format_args!("0x{:x}", self.flags))
+            .field("reserved", &format_args!("0x{:x}", self.reserved))
+            .finish()
     }
 }
 

@@ -163,17 +163,16 @@ if_alloc! {
 
     impl fmt::Debug for ProgramHeader {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f,
-                   "p_type: {} p_flags 0x{:x} p_offset: 0x{:x} p_vaddr: 0x{:x} p_paddr: 0x{:x} \
-                    p_filesz: 0x{:x} p_memsz: 0x{:x} p_align: {}",
-                   pt_to_str(self.p_type),
-                   self.p_flags,
-                   self.p_offset,
-                   self.p_vaddr,
-                   self.p_paddr,
-                   self.p_filesz,
-                   self.p_memsz,
-                   self.p_align)
+            f.debug_struct("ProgramHeader")
+                .field("p_type", &pt_to_str(self.p_type))
+                .field("p_flags", &format_args!("0x{:x}", self.p_flags))
+                .field("p_offset", &format_args!("0x{:x}", self.p_offset))
+                .field("p_vaddr", &format_args!("0x{:x}", self.p_vaddr))
+                .field("p_paddr", &format_args!("0x{:x}", self.p_paddr))
+                .field("p_filesz", &format_args!("0x{:x}", self.p_filesz))
+                .field("p_memsz", &format_args!("0x{:x}", self.p_memsz))
+                .field("p_align", &self.p_align)
+                .finish()
         }
     }
 
@@ -287,17 +286,16 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
 
         impl fmt::Debug for ProgramHeader {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                write!(f,
-                       "p_type: {} p_flags 0x{:x} p_offset: 0x{:x} p_vaddr: 0x{:x} p_paddr: 0x{:x} \
-                        p_filesz: 0x{:x} p_memsz: 0x{:x} p_align: {}",
-                       pt_to_str(self.p_type),
-                       self.p_flags,
-                       self.p_offset,
-                       self.p_vaddr,
-                       self.p_paddr,
-                       self.p_filesz,
-                       self.p_memsz,
-                       self.p_align)
+                f.debug_struct("ProgramHeader")
+                    .field("p_type", &pt_to_str(self.p_type))
+                    .field("p_flags", &format_args!("0x{:x}", self.p_flags))
+                    .field("p_offset", &format_args!("0x{:x}", self.p_offset))
+                    .field("p_vaddr", &format_args!("0x{:x}", self.p_vaddr))
+                    .field("p_paddr", &format_args!("0x{:x}", self.p_paddr))
+                    .field("p_filesz", &format_args!("0x{:x}", self.p_filesz))
+                    .field("p_memsz", &format_args!("0x{:x}", self.p_memsz))
+                    .field("p_align", &self.p_align)
+                    .finish()
             }
         }
 

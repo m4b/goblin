@@ -112,13 +112,13 @@ pub const SIZEOF_NLIST_32: usize = 12;
 
 impl Debug for Nlist32 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "strx: {:04} type: {:#02x} sect: {:#x} desc: {:#03x} value: {:#x}",
-               self.n_strx,
-               self.n_type,
-               self.n_sect,
-               self.n_desc,
-               self.n_value,
-        )
+        fmt.debug_struct("Nlist32")
+           .field("n_strx", &format_args!("{:04}", self.n_strx))
+           .field("n_type", &format_args!("{:#02x}", self.n_type))
+           .field("n_sect", &format_args!("{:#x}", self.n_sect))
+           .field("n_desc", &format_args!("{:#03x}", self.n_desc))
+           .field("n_value", &format_args!("{:#x}", self.n_value))
+           .finish()
     }
 }
 
@@ -141,13 +141,13 @@ pub const SIZEOF_NLIST_64: usize = 16;
 
 impl Debug for Nlist64 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "strx: {:04} type: {:#02x} sect: {:#x} desc: {:#03x} value: {:#x}",
-               self.n_strx,
-               self.n_type,
-               self.n_sect,
-               self.n_desc,
-               self.n_value,
-        )
+        fmt.debug_struct("Nlist64")
+           .field("n_strx", &format_args!("{:04}", self.n_strx))
+           .field("n_type", &format_args!("{:#02x}", self.n_type))
+           .field("n_sect", &format_args!("{:#x}", self.n_sect))
+           .field("n_desc", &format_args!("{:#03x}", self.n_desc))
+           .field("n_value", &format_args!("{:#x}", self.n_value))
+           .finish()
     }
 }
 
@@ -405,16 +405,22 @@ impl<'a> Symbols<'a> {
 
 impl<'a> Debug for Symbols<'a> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(fmt, "Data: {} start: {:#?}, nsyms: {} strtab: {:#x}", self.data.len(), self.start, self.nsyms, self.strtab)?;
-        writeln!(fmt, "Symbols: {{")?;
+        fmt.debug_struct("Symbols")
+            .field("data", &self.data.len())
+            .field("start", &format_args!("{:#?}", self.start))
+            .field("nsyms", &self.nsyms)
+            .field("strtab", &format_args!("{:#x}", self.strtab))
+            .finish()?;
+
+        writeln!(fmt, "Symbol List {{")?;
         for (i, res) in self.iter().enumerate() {
             match res {
-                Ok((name, nlist)) => {
-                    writeln!(fmt, "{: >10x} {} sect: {:#x} type: {:#02x} desc: {:#03x}", nlist.n_value, name, nlist.n_sect, nlist.n_type, nlist.n_desc)?;
-                },
-                Err(error) => {
-                    writeln!(fmt, "  Bad symbol, index: {}, sym: {:?}", i, error)?;
-                }
+                Ok((name, nlist)) => writeln!(
+                    fmt,
+                    "{: >10x} {} sect: {:#x} type: {:#02x} desc: {:#03x}",
+                    nlist.n_value, name, nlist.n_sect, nlist.n_type, nlist.n_desc
+                )?,
+                Err(error) => writeln!(fmt, "  Bad symbol, index: {}, sym: {:?}", i, error)?,
             }
         }
         writeln!(fmt, "}}")

@@ -4,7 +4,7 @@
 
 // TODO:
 // (1) Weak of regular_symbol_info type probably needs to be added ?
-// (3) /usr/lib/libstdc++.6.0.9.dylib has flag 0xc at many offsets... they're weak 
+// (3) /usr/lib/libstdc++.6.0.9.dylib has flag 0xc at many offsets... they're weak
 
 use core::ops::Range;
 use scroll::{self, Pread, Uleb128};
@@ -253,9 +253,10 @@ impl<'a> ExportTrie<'a> {
 
 impl<'a> Debug for ExportTrie<'a> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(fmt, "ExportTrie {{")?;
-        writeln!(fmt, "  Location: {:#x}..{:#x}", self.location.start, self.location.end)?;
-        writeln!(fmt, "}}")
+        fmt.debug_struct("ExportTrie")
+            .field("data", &"<... redacted ...>")
+            .field("location", &format_args!("{:#x}..{:#x}", self.location.start, self.location.end))
+            .finish()
     }
 }
 

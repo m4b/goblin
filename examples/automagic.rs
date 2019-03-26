@@ -13,7 +13,7 @@ pub use goblin::elf64 as elf;
 pub use goblin::elf32 as elf;
 
 #[cfg(any(target_pointer_width = "64", target_pointer_width = "32"))]
-use elf::{header, sym};
+use crate::elf::{header, sym};
 
 #[cfg(any(target_pointer_width = "64", target_pointer_width = "32"))]
 fn main() {

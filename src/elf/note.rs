@@ -58,10 +58,10 @@ pub struct Nhdr64 {
 }
 
 if_alloc! {
-    use error;
-    use container;
+    use crate::error;
+    use crate::container;
     use scroll::{ctx, Pread};
-    use alloc::vec::Vec;
+    use crate::alloc::vec::Vec;
 
     /// An iterator over ELF binary notes in a note section or segment
     pub struct NoteDataIterator<'a> {

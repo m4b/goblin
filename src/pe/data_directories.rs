@@ -1,4 +1,4 @@
-use error;
+use crate::error;
 use scroll::{self, Pread};
 
 #[repr(C)]

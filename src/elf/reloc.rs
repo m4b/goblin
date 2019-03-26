@@ -106,12 +106,12 @@ macro_rules! elf_reloc {
 macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
 
     if_alloc! {
-            use elf::reloc::Reloc;
+            use crate::elf::reloc::Reloc;
 
             use core::slice;
 
             if_std! {
-                use error::Result;
+                use crate::error::Result;
 
                 use std::fs::File;
                 use std::io::{Read, Seek};
@@ -198,7 +198,7 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
 
 pub mod reloc32 {
 
-    pub use elf::reloc::*;
+    pub use crate::elf::reloc::*;
 
     elf_reloc!(u32, i32);
 
@@ -225,7 +225,7 @@ pub mod reloc32 {
 
 
 pub mod reloc64 {
-    pub use elf::reloc::*;
+    pub use crate::elf::reloc::*;
 
     elf_reloc!(u64, i64);
 
@@ -258,9 +258,9 @@ if_alloc! {
     use scroll::ctx::SizeWith;
     use core::fmt;
     use core::result;
-    use container::{Ctx, Container};
+    use crate::container::{Ctx, Container};
     #[cfg(feature = "endian_fd")]
-    use alloc::vec::Vec;
+    use crate::alloc::vec::Vec;
 
     #[derive(Clone, Copy, PartialEq, Default)]
     /// A unified ELF relocation structure
@@ -299,7 +299,7 @@ if_alloc! {
     }
 
     impl<'a> ctx::TryFromCtx<'a, RelocCtx> for Reloc {
-        type Error = ::error::Error;
+        type Error = crate::error::Error;
         type Size = usize;
         fn try_from_ctx(bytes: &'a [u8], (is_rela, Ctx { container, le }): RelocCtx) -> result::Result<(Self, Self::Size), Self::Error> {
             use scroll::Pread;
@@ -324,7 +324,7 @@ if_alloc! {
     }
 
     impl ctx::TryIntoCtx<RelocCtx> for Reloc {
-        type Error = ::error::Error;
+        type Error = crate::error::Error;
         type Size = usize;
         // TODO: I think this is a bad idea
         /// Writes the relocation into `bytes`
@@ -397,7 +397,7 @@ if_alloc! {
     impl<'a> RelocSection<'a> {
         #[cfg(feature = "endian_fd")]
         /// Parse a REL or RELA section of size `filesz` from `offset`.
-        pub fn parse(bytes: &'a [u8], offset: usize, filesz: usize, is_rela: bool, ctx: Ctx) -> ::error::Result<RelocSection<'a>> {
+        pub fn parse(bytes: &'a [u8], offset: usize, filesz: usize, is_rela: bool, ctx: Ctx) -> crate::error::Result<RelocSection<'a>> {
             // TODO: better error message when too large (see symtab implementation)
             let bytes = bytes.pread_with(offset, filesz)?;
 

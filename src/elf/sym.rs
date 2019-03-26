@@ -164,13 +164,13 @@ macro_rules! elf_sym_std_impl {
         }
 
         if_alloc! {
-            use elf::sym::Sym as ElfSym;
+            use crate::elf::sym::Sym as ElfSym;
 
             use core::fmt;
             use core::slice;
 
             if_std! {
-                use error::Result;
+                use crate::error::Result;
 
                 use std::fs::File;
                 use std::io::{Read, Seek};
@@ -244,9 +244,9 @@ macro_rules! elf_sym_std_impl {
             pub fn from_fd(fd: &mut File, offset: usize, count: usize) -> Result<Vec<Sym>> {
                 // TODO: AFAIK this shouldn't work, since i pass in a byte size...
                 let mut syms = vec![Sym::default(); count];
-                try!(fd.seek(Start(offset as u64)));
+                r#try!(fd.seek(Start(offset as u64)));
                 unsafe {
-                    try!(fd.read(plain::as_mut_bytes(&mut *syms)));
+                    r#try!(fd.read(plain::as_mut_bytes(&mut *syms)));
                 }
                 syms.dedup();
                 Ok(syms)
@@ -256,7 +256,7 @@ macro_rules! elf_sym_std_impl {
 }
 
 pub mod sym32 {
-    pub use elf::sym::*;
+    pub use crate::elf::sym::*;
 
     #[repr(C)]
     #[derive(Clone, Copy, PartialEq, Default)]
@@ -287,7 +287,7 @@ pub mod sym32 {
 }
 
 pub mod sym64 {
-    pub use elf::sym::*;
+    pub use crate::elf::sym::*;
 
     #[repr(C)]
     #[derive(Clone, Copy, PartialEq, Default)]
@@ -322,9 +322,9 @@ if_alloc! {
     use scroll::ctx::SizeWith;
     use core::fmt::{self, Debug};
     use core::result;
-    use container::{Ctx, Container};
-    use error::Result;
-    use alloc::vec::Vec;
+    use crate::container::{Ctx, Container};
+    use crate::error::Result;
+    use crate::alloc::vec::Vec;
 
     #[derive(Default, PartialEq, Clone)]
     /// A unified Sym definition - convertable to and from 32-bit and 64-bit variants
@@ -420,7 +420,7 @@ if_alloc! {
     }
 
     impl<'a> ctx::TryFromCtx<'a, Ctx> for Sym {
-        type Error = ::error::Error;
+        type Error = crate::error::Error;
         type Size = usize;
         #[inline]
         fn try_from_ctx(bytes: &'a [u8], Ctx { container, le}: Ctx) -> result::Result<(Self, Self::Size), Self::Error> {
@@ -438,7 +438,7 @@ if_alloc! {
     }
 
     impl ctx::TryIntoCtx<Ctx> for Sym {
-        type Error = ::error::Error;
+        type Error = crate::error::Error;
         type Size = usize;
         #[inline]
         fn try_into_ctx(self, bytes: &mut [u8], Ctx {container, le}: Ctx) -> result::Result<Self::Size, Self::Error> {
@@ -500,7 +500,7 @@ if_alloc! {
         pub fn parse(bytes: &'a [u8], offset: usize, count: usize, ctx: Ctx) -> Result<Symtab<'a>> {
             let size = count
                 .checked_mul(Sym::size_with(&ctx))
-                .ok_or(::error::Error::Malformed(format!("Too many ELF symbols (offset {:#x}, count {})",
+                .ok_or(crate::error::Error::Malformed(format!("Too many ELF symbols (offset {:#x}, count {})",
                                                  offset, count)))?;
             // TODO: make this a better error message when too large
             let bytes = bytes.pread_with(offset, size)?;

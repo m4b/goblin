@@ -1,6 +1,6 @@
-use error;
+use crate::error;
 
-use pe::optional_header;
+use crate::pe::optional_header;
 use scroll::{self, Pread};
 
 /// DOS header present in all PE binaries

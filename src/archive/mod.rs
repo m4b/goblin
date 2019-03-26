@@ -8,12 +8,12 @@
 
 use scroll::{self, Pread};
 
-use strtab;
-use error::{Result, Error};
+use crate::strtab;
+use crate::error::{Result, Error};
 
 use core::usize;
-use alloc::collections::btree_map::BTreeMap;
-use alloc::vec::Vec;
+use crate::alloc::collections::btree_map::BTreeMap;
+use crate::alloc::vec::Vec;
 
 pub const SIZEOF_MAGIC: usize = 8;
 /// The magic number of a Unix Archive

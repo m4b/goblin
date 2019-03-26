@@ -138,11 +138,11 @@ pub fn et_to_str(et: u16) -> &'static str {
 }
 
 if_alloc! {
-    use error::{self};
+    use crate::error::{self};
     use scroll::{self, ctx, Endian};
     use core::fmt;
-    use container::{Ctx, Container};
-    use alloc::string::ToString;
+    use crate::container::{Ctx, Container};
+    use crate::alloc::string::ToString;
 
     #[derive(Copy, Clone, PartialEq)]
     /// An ELF header
@@ -172,7 +172,7 @@ if_alloc! {
         }
         /// Returns the container type this header specifies
         pub fn container(&self) -> error::Result<Container> {
-            use error::Error;
+            use crate::error::Error;
             match self.e_ident[EI_CLASS] {
                 ELFCLASS32 => { Ok(Container::Little) },
                 ELFCLASS64 => { Ok(Container::Big) },
@@ -181,7 +181,7 @@ if_alloc! {
         }
         /// Returns the byte order this header specifies
         pub fn endianness(&self) -> error::Result<scroll::Endian> {
-            use error::Error;
+            use crate::error::Error;
             match self.e_ident[EI_DATA] {
                 ELFDATA2LSB => { Ok(scroll::LE) },
                 ELFDATA2MSB => { Ok(scroll::BE) },
@@ -189,8 +189,8 @@ if_alloc! {
             }
         }
         pub fn new(ctx: Ctx) -> Self {
-            use elf32;
-            use elf64;
+            use crate::elf32;
+            use crate::elf64;
             let (typ, ehsize, phentsize, shentsize) = match ctx.container {
                 Container::Little => {
                     (ELFCLASS32, header32::SIZEOF_EHDR,
@@ -261,9 +261,9 @@ if_alloc! {
         }
     }
 
-    impl ctx::SizeWith<::container::Ctx> for Header {
+    impl ctx::SizeWith<crate::container::Ctx> for Header {
         type Units = usize;
-        fn size_with(ctx: &::container::Ctx) -> usize {
+        fn size_with(ctx: &crate::container::Ctx) -> usize {
             match ctx.container {
                 Container::Little => {
                     header32::SIZEOF_EHDR
@@ -276,7 +276,7 @@ if_alloc! {
     }
 
     impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Header {
-        type Error = ::error::Error;
+        type Error = crate::error::Error;
         type Size = usize;
         fn try_from_ctx(bytes: &'a [u8], _ctx: scroll::Endian) -> error::Result<(Self, Self::Size)> {
             use scroll::Pread;
@@ -305,7 +305,7 @@ if_alloc! {
 
     // TODO: i think we should remove this forcing of the information in the header, it causes too many conflicts
     impl ctx::TryIntoCtx<scroll::Endian> for Header {
-        type Error = ::error::Error;
+        type Error = crate::error::Error;
         type Size = usize;
         fn try_into_ctx(self, bytes: &mut [u8], _ctx: scroll::Endian) -> Result<Self::Size, Self::Error> {
             use scroll::Pwrite;
@@ -319,8 +319,8 @@ if_alloc! {
             }
         }
     }
-    impl ctx::IntoCtx<::container::Ctx> for Header {
-        fn into_ctx(self, bytes: &mut [u8], ctx: ::container::Ctx) -> () {
+    impl ctx::IntoCtx<crate::container::Ctx> for Header {
+        fn into_ctx(self, bytes: &mut [u8], ctx: crate::container::Ctx) -> () {
             use scroll::Pwrite;
             match ctx.container {
                 Container::Little => {
@@ -338,10 +338,10 @@ macro_rules! elf_header_std_impl {
     ($size:expr, $width:ty) => {
 
         if_alloc! {
-            use elf::header::Header as ElfHeader;
-            use error::Error;
+            use crate::elf::header::Header as ElfHeader;
+            use crate::error::Error;
             #[cfg(any(feature = "std", feature = "endian_fd"))]
-            use error::Result;
+            use crate::error::Result;
 
             use scroll::{self, ctx, Pread};
 
@@ -395,7 +395,7 @@ macro_rules! elf_header_std_impl {
             }
 
             impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Header {
-                type Error = ::error::Error;
+                type Error = crate::error::Error;
                 type Size = usize;
                 fn try_from_ctx(bytes: &'a [u8], _: scroll::Endian) -> result::Result<(Self, Self::Size), Self::Error> {
                     let mut elf_header = Header::default();
@@ -425,7 +425,7 @@ macro_rules! elf_header_std_impl {
             }
 
             impl ctx::TryIntoCtx<scroll::Endian> for Header {
-                type Error = ::error::Error;
+                type Error = crate::error::Error;
                 type Size = usize;
                 /// a Pwrite impl for Header: **note** we use the endianness value in the header, and not a parameter
                 fn try_into_ctx(self, bytes: &mut [u8], _endianness: scroll::Endian) -> result::Result<Self::Size, Self::Error> {
@@ -509,10 +509,10 @@ macro_rules! elf_header_test {
         #[cfg(test)]
         mod test {
             use scroll::{Pwrite, Pread};
-            use elf::header::Header as ElfHeader;
+            use crate::elf::header::Header as ElfHeader;
             use super::*;
-            use container::{Ctx, Container};
-            use alloc::vec::Vec;
+            use crate::container::{Ctx, Container};
+            use crate::alloc::vec::Vec;
             #[test]
             fn size_of() {
                 assert_eq!(::std::mem::size_of::<Header>(), SIZEOF_EHDR);

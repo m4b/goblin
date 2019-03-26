@@ -1,6 +1,6 @@
-use alloc::string::{String, ToString};
+use crate::alloc::string::{String, ToString};
 use scroll::{self, Pread};
-use error::{self, Error};
+use crate::error::{self, Error};
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Clone, Default)]

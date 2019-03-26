@@ -1,12 +1,12 @@
 //! The Mach-o, mostly zero-copy, binary format parser and raw struct definitions
 use core::fmt;
-use alloc::vec::Vec;
+use crate::alloc::vec::Vec;
 
 use scroll::{self, Pread, BE};
 use scroll::ctx::SizeWith;
 
-use error;
-use container;
+use crate::error;
+use crate::container;
 
 pub mod header;
 pub mod constants;
@@ -28,8 +28,8 @@ pub fn peek(bytes: &[u8], offset: usize) -> error::Result<u32> {
 
 /// Parses a magic number, and an accompanying mach-o binary parsing context, according to the magic number.
 pub fn parse_magic_and_ctx(bytes: &[u8], offset: usize) -> error::Result<(u32, Option<container::Ctx>)> {
-    use mach::header::*;
-    use container::Container;
+    use crate::mach::header::*;
+    use crate::container::Container;
     let magic = bytes.pread_with::<u32>(offset, BE)?;
     let ctx = match magic {
         MH_CIGAM_64 | MH_CIGAM | MH_MAGIC_64 | MH_MAGIC => {

@@ -1,9 +1,9 @@
 use scroll::{self, Pread};
-use error;
+use crate::error;
 
-use pe::section_table;
-use pe::utils;
-use pe::data_directories;
+use crate::pe::section_table;
+use crate::pe::utils;
+use crate::pe::data_directories;
 
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub struct DebugData<'a> {

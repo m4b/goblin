@@ -49,7 +49,7 @@ pub mod section_header;
 pub mod compression_header;
 #[macro_use]
 pub mod sym;
-pub mod dyn;
+pub mod r#dyn;
 #[macro_use]
 pub mod reloc;
 pub mod note;
@@ -63,10 +63,10 @@ macro_rules! if_sylvan {
 
 if_sylvan! {
     use scroll::{self, ctx, Pread, Endian};
-    use strtab::Strtab;
-    use error;
-    use container::{Container, Ctx};
-    use alloc::vec::Vec;
+    use crate::strtab::Strtab;
+    use crate::error;
+    use crate::container::{Container, Ctx};
+    use crate::alloc::vec::Vec;
     use core::cmp;
 
     pub type Header = header::Header;
@@ -74,8 +74,8 @@ if_sylvan! {
     pub type SectionHeader = section_header::SectionHeader;
     pub type Symtab<'a> = sym::Symtab<'a>;
     pub type Sym = sym::Sym;
-    pub type Dyn = dyn::Dyn;
-    pub type Dynamic = dyn::Dynamic;
+    pub type Dyn = r#dyn::Dyn;
+    pub type Dynamic = r#dyn::Dynamic;
     pub type Reloc = reloc::Reloc;
     pub type RelocSection<'a> = reloc::RelocSection<'a>;
 
@@ -281,7 +281,7 @@ if_sylvan! {
                 // parse the dynamic relocations
                 dynrelas = RelocSection::parse(bytes, dyn_info.rela, dyn_info.relasz, true, ctx)?;
                 dynrels = RelocSection::parse(bytes, dyn_info.rel, dyn_info.relsz, false, ctx)?;
-                let is_rela = dyn_info.pltrel as u64 == dyn::DT_RELA;
+                let is_rela = dyn_info.pltrel as u64 == r#dyn::DT_RELA;
                 pltrelocs = RelocSection::parse(bytes, dyn_info.jmprel, dyn_info.pltrelsz, is_rela, ctx)?;
 
                 let mut num_syms = if let Some(gnu_hash) = dyn_info.gnu_hash {
@@ -338,7 +338,7 @@ if_sylvan! {
     }
 
     impl<'a> ctx::TryFromCtx<'a, (usize, Endian)> for Elf<'a> {
-        type Error = ::error::Error;
+        type Error = crate::error::Error;
         type Size = usize;
         fn try_from_ctx(src: &'a [u8], (_, _): (usize, Endian)) -> Result<(Elf<'a>, Self::Size), Self::Error> {
             let elf = Elf::parse(src)?;

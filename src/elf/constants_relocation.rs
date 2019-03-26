@@ -796,7 +796,7 @@ pub const R_MIPS_NUM: u32 = 128;
 
 #[inline]
 pub fn r_to_str(typ: u32, machine: u16) -> &'static str {
-    use elf::header::*;
+    use crate::elf::header::*;
     match machine {
         // x86
         EM_386 => { match typ {

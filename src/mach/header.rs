@@ -5,9 +5,9 @@ use scroll::{ctx, Pwrite, Pread};
 use scroll::ctx::SizeWith;
 use plain::{self, Plain};
 
-use mach::constants::cputype::{CpuType, CpuSubType, CPU_SUBTYPE_MASK};
-use error;
-use container::{self, Container};
+use crate::mach::constants::cputype::{CpuType, CpuSubType, CPU_SUBTYPE_MASK};
+use crate::error;
+use crate::container::{self, Container};
 
 // Constants for the flags field of the mach_header
 /// the object file has no undefined references
@@ -368,7 +368,7 @@ impl ctx::SizeWith<Container> for Header {
 }
 
 impl<'a> ctx::TryFromCtx<'a, container::Ctx> for Header {
-    type Error = ::error::Error;
+    type Error = crate::error::Error;
     type Size = usize;
     fn try_from_ctx(bytes: &'a [u8], container::Ctx { le, container }: container::Ctx) -> error::Result<(Self, Self::Size)> {
         let size = bytes.len();
@@ -391,7 +391,7 @@ impl<'a> ctx::TryFromCtx<'a, container::Ctx> for Header {
 }
 
 impl ctx::TryIntoCtx<container::Ctx> for Header {
-    type Error = ::error::Error;
+    type Error = crate::error::Error;
     type Size = usize;
     fn try_into_ctx(self, bytes: &mut [u8], ctx: container::Ctx) -> error::Result<Self::Size> {
         match ctx.container {
@@ -419,10 +419,10 @@ mod tests {
 
     #[test]
     fn test_parse_armv7_header() {
-        use mach::constants::cputype::CPU_TYPE_ARM;
+        use crate::mach::constants::cputype::CPU_TYPE_ARM;
         const CPU_SUBTYPE_ARM_V7: u32 = 9;
         use super::Header;
-        use container::{Ctx, Container, Endian};
+        use crate::container::{Ctx, Container, Endian};
         use scroll::{Pread};
         let bytes = b"\xce\xfa\xed\xfe\x0c\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\x06\x00\x00\x00\x8c\r\x00\x00\x00\x00\x00\x00\x1b\x00\x00\x00\x18\x00\x00\x00\xe0\xf7B\xbb\x1c\xf50w\xa6\xf7u\xa3\xba(";
         let header: Header = bytes.pread_with(0, Ctx::new(Container::Little, Endian::Little)).unwrap();

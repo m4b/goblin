@@ -1,11 +1,11 @@
 use scroll::{self, Pread};
-use alloc::string::ToString;
-use error;
+use crate::alloc::string::ToString;
+use crate::error;
 
 use super::section_table;
 
 use core::cmp;
-use pe::data_directories::DataDirectory;
+use crate::pe::data_directories::DataDirectory;
 
 pub fn is_in_range (rva: usize, r1: usize, r2: usize) -> bool {
     r1 <= rva && rva < r2

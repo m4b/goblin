@@ -93,7 +93,7 @@ fn iter_symbols() {
 
 #[test]
 fn relocations() {
-    use relocation::*;
+    use crate::relocation::*;
     let reloc = RelocationInfo {
         r_address: 0,
         r_info: 0xe000009

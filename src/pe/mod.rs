@@ -3,7 +3,7 @@
 
 // TODO: panics with unwrap on None for apisetschema.dll, fhuxgraphics.dll and some others
 
-use alloc::vec::Vec;
+use crate::alloc::vec::Vec;
 
 pub mod header;
 pub mod optional_header;
@@ -15,8 +15,8 @@ pub mod import;
 pub mod debug;
 pub mod utils;
 
-use error;
-use container;
+use crate::error;
+use crate::container;
 
 /// Size of a single symbol in the COFF Symbol Table.
 const COFF_SYMBOL_SIZE: u32 = 18;

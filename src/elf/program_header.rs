@@ -80,8 +80,8 @@ if_alloc! {
     use scroll::ctx;
     use core::result;
     use core::ops::Range;
-    use container::{Ctx, Container};
-    use alloc::vec::Vec;
+    use crate::container::{Ctx, Container};
+    use crate::alloc::vec::Vec;
 
     #[derive(Default, PartialEq, Clone)]
     /// A unified ProgramHeader - convertable to and from 32-bit and 64-bit variants
@@ -150,7 +150,7 @@ if_alloc! {
             self.p_flags & PF_W != 0
         }
         #[cfg(feature = "endian_fd")]
-        pub fn parse(bytes: &[u8], mut offset: usize, count: usize, ctx: Ctx) -> ::error::Result<Vec<ProgramHeader>> {
+        pub fn parse(bytes: &[u8], mut offset: usize, count: usize, ctx: Ctx) -> crate::error::Result<Vec<ProgramHeader>> {
             use scroll::Pread;
             let mut program_headers = Vec::with_capacity(count);
             for _ in 0..count {
@@ -191,7 +191,7 @@ if_alloc! {
     }
 
     impl<'a> ctx::TryFromCtx<'a, Ctx> for ProgramHeader {
-        type Error = ::error::Error;
+        type Error = crate::error::Error;
         type Size = usize;
         fn try_from_ctx(bytes: &'a [u8], Ctx { container, le}: Ctx) -> result::Result<(Self, Self::Size), Self::Error> {
             use scroll::Pread;
@@ -208,7 +208,7 @@ if_alloc! {
     }
 
     impl ctx::TryIntoCtx<Ctx> for ProgramHeader {
-        type Error = ::error::Error;
+        type Error = crate::error::Error;
         type Size = usize;
         fn try_into_ctx(self, bytes: &mut [u8], Ctx {container, le}: Ctx) -> result::Result<Self::Size, Self::Error> {
             use scroll::Pwrite;
@@ -239,9 +239,9 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
 
     if_alloc! {
 
-        use elf::program_header::ProgramHeader as ElfProgramHeader;
+        use crate::elf::program_header::ProgramHeader as ElfProgramHeader;
         #[cfg(any(feature = "std", feature = "endian_fd"))]
-        use error::Result;
+        use crate::error::Result;
 
         use core::slice;
         use core::fmt;
@@ -324,9 +324,9 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
             #[cfg(feature = "std")]
             pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> Result<Vec<ProgramHeader>> {
                 let mut phdrs = vec![ProgramHeader::default(); count];
-                try!(fd.seek(Start(offset)));
+                r#try!(fd.seek(Start(offset)));
                 unsafe {
-                    try!(fd.read(plain::as_mut_bytes(&mut *phdrs)));
+                    r#try!(fd.read(plain::as_mut_bytes(&mut *phdrs)));
                 }
                 Ok(phdrs)
             }
@@ -336,7 +336,7 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
 
 
 pub mod program_header32 {
-    pub use elf::program_header::*;
+    pub use crate::elf::program_header::*;
 
     #[repr(C)]
     #[derive(Copy, Clone, PartialEq, Default)]
@@ -372,7 +372,7 @@ pub mod program_header32 {
 
 
 pub mod program_header64 {
-    pub use elf::program_header::*;
+    pub use crate::elf::program_header::*;
 
     #[repr(C)]
     #[derive(Copy, Clone, PartialEq, Default)]

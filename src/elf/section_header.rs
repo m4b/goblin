@@ -267,13 +267,13 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
     }
 
     if_alloc! {
-        use elf::section_header::SectionHeader as ElfSectionHeader;
+        use crate::elf::section_header::SectionHeader as ElfSectionHeader;
 
         use plain::Plain;
-        use alloc::vec::Vec;
+        use crate::alloc::vec::Vec;
 
         if_std! {
-            use error::Result;
+            use crate::error::Result;
 
             use std::fs::File;
             use std::io::{Read, Seek};
@@ -323,9 +323,9 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
             #[cfg(feature = "std")]
             pub fn from_fd(fd: &mut File, offset: u64, shnum: usize) -> Result<Vec<SectionHeader>> {
                 let mut shdrs = vec![SectionHeader::default(); shnum];
-                try!(fd.seek(Start(offset)));
+                r#try!(fd.seek(Start(offset)));
                 unsafe {
-                    try!(fd.read(plain::as_mut_bytes(&mut *shdrs)));
+                    r#try!(fd.read(plain::as_mut_bytes(&mut *shdrs)));
                 }
                 Ok(shdrs)
             }
@@ -335,7 +335,7 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
 
 
 pub mod section_header32 {
-    pub use elf::section_header::*;
+    pub use crate::elf::section_header::*;
 
     elf_section_header!(u32);
 
@@ -347,7 +347,7 @@ pub mod section_header32 {
 
 pub mod section_header64 {
 
-    pub use elf::section_header::*;
+    pub use crate::elf::section_header::*;
 
     elf_section_header!(u64);
 
@@ -361,15 +361,15 @@ pub mod section_header64 {
 ///////////////////////////////
 
 if_alloc! {
-    use error;
+    use crate::error;
     use core::fmt;
     use core::result;
     use core::ops::Range;
     use scroll::ctx;
-    use container::{Container, Ctx};
+    use crate::container::{Container, Ctx};
 
     #[cfg(feature = "endian_fd")]
-    use alloc::vec::Vec;
+    use crate::alloc::vec::Vec;
 
     #[derive(Default, PartialEq, Clone)]
     /// A unified SectionHeader - convertable to and from 32-bit and 64-bit variants
@@ -494,7 +494,7 @@ if_alloc! {
     }
 
     impl<'a> ctx::TryFromCtx<'a, Ctx> for SectionHeader {
-        type Error = ::error::Error;
+        type Error = crate::error::Error;
         type Size = usize;
         fn try_from_ctx(bytes: &'a [u8], Ctx {container, le}: Ctx) -> result::Result<(Self, Self::Size), Self::Error> {
             use scroll::Pread;
@@ -511,7 +511,7 @@ if_alloc! {
     }
 
     impl ctx::TryIntoCtx<Ctx> for SectionHeader {
-        type Error = ::error::Error;
+        type Error = crate::error::Error;
         type Size = usize;
         fn try_into_ctx(self, bytes: &mut [u8], Ctx {container, le}: Ctx) -> result::Result<Self::Size, Self::Error> {
             use scroll::Pwrite;

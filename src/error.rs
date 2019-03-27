@@ -3,7 +3,7 @@
 
 use scroll;
 use core::result;
-use core::fmt::{self, Display};
+use core::fmt;
 use crate::alloc::string::String;
 #[cfg(feature = "std")]
 use std::{error, io};
@@ -23,28 +23,26 @@ pub enum Error {
 }
 
 impl Error {
+    #[deprecated(since = "0.0.22", note = "Please use the to_string() method instead")]
     pub fn description(&self) -> &str {
         match *self {
             #[cfg(feature = "std")]
-            Error::IO(_) => { "IO error" }
-            Error::Scroll(_) => { "Scroll error" }
-            Error::BadMagic(_) => { "Invalid magic number" }
-            Error::Malformed(_) => { "Entity is malformed in some way" }
+            Error::IO(_) => "IO error",
+            Error::Scroll(_) => "Scroll error",
+            Error::BadMagic(_) => "Invalid magic number",
+            Error::Malformed(_) => "Entity is malformed in some way",
         }
     }
 }
 
 #[cfg(feature = "std")]
 impl error::Error for Error {
-    fn description(&self) -> &str {
-        Error::description(self)
-    }
-    fn cause(&self) -> Option<&error::Error> {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match *self {
-            Error::IO(ref io) => { io.cause() }
-            Error::Scroll(ref scroll) => { scroll.cause() }
-            Error::BadMagic(_) => { None }
-            Error::Malformed(_) => { None }
+            Error::IO(ref io) => io.source(),
+            Error::Scroll(ref scroll) => scroll.source(),
+            Error::BadMagic(_) => None,
+            Error::Malformed(_) => None,
         }
     }
 }
@@ -62,14 +60,14 @@ impl From<scroll::Error> for Error {
     }
 }
 
-impl Display for Error {
+impl fmt::Display for Error {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             #[cfg(feature = "std")]
-            Error::IO(ref err) => { write!(fmt, "{}", err) },
-            Error::Scroll(ref err) => { write!(fmt, "{}", err) },
-            Error::BadMagic(magic) => { write! (fmt, "Invalid magic number: 0x{:x}", magic) },
-            Error::Malformed(ref msg) => { write! (fmt, "Malformed entity: {}", msg) },
+            Error::IO(ref err) => write!(fmt, "{}", err),
+            Error::Scroll(ref err) => write!(fmt, "{}", err),
+            Error::BadMagic(magic) => write!(fmt, "Invalid magic number: 0x{:x}", magic),
+            Error::Malformed(ref msg) => write!(fmt, "Malformed entity: {}", msg),
         }
     }
 }

@@ -162,6 +162,7 @@ pub mod compression_header64 {
 ///////////////////////////////
 
 if_alloc! {
+    #[cfg(feature = "endian_fd")]
     use crate::error;
     use core::fmt;
     use core::result;

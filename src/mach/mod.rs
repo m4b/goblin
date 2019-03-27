@@ -2,6 +2,8 @@
 use core::fmt;
 use crate::alloc::vec::Vec;
 
+use log::debug;
+
 use scroll::{self, Pread, BE};
 use scroll::ctx::SizeWith;
 

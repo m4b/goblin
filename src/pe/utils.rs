@@ -7,6 +7,8 @@ use super::section_table;
 use core::cmp;
 use crate::pe::data_directories::DataDirectory;
 
+use log::debug;
+
 pub fn is_in_range (rva: usize, r1: usize, r2: usize) -> bool {
     r1 <= rva && rva < r2
 }

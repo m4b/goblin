@@ -1,5 +1,8 @@
 // Defined note types for GNU systems.
 
+#[cfg(feature = "log")]
+use log::debug;
+
 // ABI information.  The descriptor consists of words:
 //    word 0: OS descriptor
 //    word 1: major version of the ABI

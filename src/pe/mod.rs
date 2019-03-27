@@ -18,6 +18,8 @@ pub mod utils;
 use crate::error;
 use crate::container;
 
+use log::debug;
+
 /// Size of a single symbol in the COFF Symbol Table.
 const COFF_SYMBOL_SIZE: u32 = 18;
 

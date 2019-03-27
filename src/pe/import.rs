@@ -10,6 +10,7 @@ use crate::pe::section_table;
 use crate::pe::utils;
 use crate::pe::data_directories;
 
+use log::{debug, warn};
 
 pub const IMPORT_BY_ORDINAL_32: u32 = 0x8000_0000;
 pub const IMPORT_BY_ORDINAL_64: u64 = 0x8000_0000_0000_0000;

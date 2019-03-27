@@ -1,6 +1,8 @@
 use scroll::{self, Pread};
 use crate::alloc::vec::Vec;
 
+use log::debug;
+
 use crate::error;
 
 use crate::pe::utils;
@@ -258,7 +260,7 @@ impl<'a> Export<'a> {
         for (idx, &ptr) in pointers.iter().enumerate() {
             if let Ok(export) = bytes.pread_with(0, ExportCtx { ptr, idx, sections, file_alignment, addresses, ordinals }) {
                 exports.push(export);
-            }    
+            }
         }
 
         // TODO: sort + compute size

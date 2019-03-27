@@ -1,7 +1,7 @@
 use crate::error;
 
 use crate::pe::optional_header;
-use scroll::{self, Pread};
+use scroll::Pread;
 
 /// DOS header present in all PE binaries
 #[repr(C)]

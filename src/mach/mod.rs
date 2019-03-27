@@ -4,7 +4,7 @@ use crate::alloc::vec::Vec;
 
 use log::debug;
 
-use scroll::{self, Pread, BE};
+use scroll::{Pread, BE};
 use scroll::ctx::SizeWith;
 
 use crate::error;

@@ -81,6 +81,8 @@ macro_rules! elf_compression_header_std_impl { ($size:ty) => {
     } // end if_alloc
 };}
 
+#[cfg(feature = "alloc")]
+use scroll::{Pread, Pwrite, SizeWith};
 
 pub mod compression_header32 {
     pub use crate::elf::compression_header::*;

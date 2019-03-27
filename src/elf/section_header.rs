@@ -1,5 +1,7 @@
 macro_rules! elf_section_header {
     ($size:ident) => {
+        #[cfg(feature = "alloc")]
+        use scroll::{Pread, Pwrite, SizeWith};
         #[repr(C)]
         #[derive(Copy, Clone, Eq, PartialEq, Default)]
         #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]

@@ -2,8 +2,9 @@
 //!
 //! Symbols are essentially a type, offset, and the symbol name
 
-use scroll::{ctx, Pread, Pwrite};
+use scroll::ctx;
 use scroll::ctx::SizeWith;
+use scroll::{Pread, Pwrite, SizeWith, IOread, IOwrite};
 use crate::error;
 use crate::container::{self, Container};
 use crate::mach::load_command;

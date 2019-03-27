@@ -6,7 +6,7 @@
 //! names in the archive with a / as a sigil for the end of the name, and uses a special symbol
 //! index for looking up symbols faster.
 
-use scroll::{self, Pread};
+use scroll::{Pread, Pwrite, SizeWith};
 
 use crate::strtab;
 use crate::error::{Result, Error};

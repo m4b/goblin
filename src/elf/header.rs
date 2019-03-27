@@ -138,8 +138,8 @@ pub fn et_to_str(et: u16) -> &'static str {
 }
 
 if_alloc! {
-    use crate::error::{self};
-    use scroll::{self, ctx, Endian};
+    use crate::error;
+    use scroll::{ctx, Endian};
     use core::fmt;
     use crate::container::{Ctx, Container};
     use crate::alloc::string::ToString;
@@ -343,7 +343,7 @@ macro_rules! elf_header_std_impl {
             #[cfg(any(feature = "std", feature = "endian_fd"))]
             use crate::error::Result;
 
-            use scroll::{self, ctx, Pread};
+            use scroll::{ctx, Pread};
 
             use core::result;
 

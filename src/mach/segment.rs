@@ -1,4 +1,4 @@
-use scroll::{self, Pread, Pwrite};
+use scroll::{Pread, Pwrite};
 use scroll::ctx::{self, SizeWith};
 
 use log::{debug, warn};

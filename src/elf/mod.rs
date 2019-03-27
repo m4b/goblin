@@ -62,7 +62,7 @@ macro_rules! if_sylvan {
 }
 
 if_sylvan! {
-    use scroll::{self, ctx, Pread, Endian};
+    use scroll::{ctx, Pread, Endian};
     use crate::strtab::Strtab;
     use crate::error;
     use crate::container::{Container, Ctx};

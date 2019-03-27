@@ -7,7 +7,7 @@ if_std! {
     use std::io::{self, Read};
 }
 
-use scroll::{self, Pread};
+use scroll::{Pread, Pwrite, SizeWith};
 use crate::mach::constants::cputype::{CpuType, CpuSubType, CPU_SUBTYPE_MASK, CPU_ARCH_ABI64};
 use crate::error;
 

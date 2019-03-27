@@ -5,7 +5,7 @@ use core::ops::Index;
 use core::slice;
 use core::str;
 use core::fmt;
-use scroll::{self, ctx, Pread};
+use scroll::{ctx, Pread};
 if_alloc! {
     use crate::error;
     use crate::alloc::vec::Vec;

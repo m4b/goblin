@@ -1,4 +1,4 @@
-use scroll::{self, Pread};
+use scroll::{Pread, Pwrite};
 use crate::alloc::vec::Vec;
 
 use log::debug;

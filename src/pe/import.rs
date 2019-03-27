@@ -2,7 +2,7 @@ use crate::alloc::borrow::Cow;
 use crate::alloc::vec::Vec;
 use core::fmt::{LowerHex, Debug};
 
-use scroll::{self, Pread};
+use scroll::{Pread, Pwrite, SizeWith};
 use scroll::ctx::TryFromCtx;
 use crate::error;
 

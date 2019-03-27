@@ -1,6 +1,8 @@
 
 macro_rules! elf_dyn {
     ($size:ty) => {
+        #[cfg(feature = "alloc")]
+        use scroll::{Pread, Pwrite, SizeWith};
         #[repr(C)]
         #[derive(Copy, Clone, PartialEq, Default)]
         #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]

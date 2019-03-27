@@ -334,6 +334,8 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
     } // end if_alloc
 };}
 
+#[cfg(feature = "alloc")]
+use scroll::{Pread, Pwrite, SizeWith};
 
 pub mod program_header32 {
     pub use crate::elf::program_header::*;

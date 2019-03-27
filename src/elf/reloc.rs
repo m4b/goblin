@@ -49,6 +49,8 @@ include!("constants_relocation.rs");
 macro_rules! elf_reloc {
     ($size:ident, $isize:ty) => {
         use core::fmt;
+        #[cfg(feature = "alloc")]
+        use scroll::{Pread, Pwrite, SizeWith};
         #[repr(C)]
         #[derive(Clone, Copy, PartialEq, Default)]
         #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]

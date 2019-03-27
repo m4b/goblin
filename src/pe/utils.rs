@@ -1,4 +1,4 @@
-use scroll::{self, Pread};
+use scroll::Pread;
 use crate::alloc::string::ToString;
 use crate::error;
 

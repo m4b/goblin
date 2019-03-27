@@ -1,9 +1,10 @@
 //! A header contains minimal architecture information, the binary kind, the number of load commands, as well as an endianness hint
 
 use core::fmt;
-use scroll::{ctx, Pwrite, Pread};
+use scroll::ctx;
+use scroll::{Pread, Pwrite, SizeWith};
 use scroll::ctx::SizeWith;
-use plain::{self, Plain};
+use plain::Plain;
 
 use crate::mach::constants::cputype::{CpuType, CpuSubType, CPU_SUBTYPE_MASK};
 use crate::error;

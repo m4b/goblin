@@ -2,6 +2,8 @@
 
 #[cfg(feature = "log")]
 use log::debug;
+#[cfg(feature = "alloc")]
+use scroll::{Pread, Pwrite, IOread, IOwrite, SizeWith};
 
 // ABI information.  The descriptor consists of words:
 //    word 0: OS descriptor
@@ -63,7 +65,7 @@ pub struct Nhdr64 {
 if_alloc! {
     use crate::error;
     use crate::container;
-    use scroll::{ctx, Pread};
+    use scroll::ctx;
     use crate::alloc::vec::Vec;
 
     /// An iterator over ELF binary notes in a note section or segment

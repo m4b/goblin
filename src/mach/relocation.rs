@@ -24,6 +24,7 @@
 // absolute symbols which need no further relocation.
 use core::fmt;
 use crate::mach;
+use scroll::{Pread, Pwrite, IOwrite, SizeWith, IOread};
 
 // TODO: armv7 relocations are scattered, must and r_address with 0x8000_0000 to check if its scattered or not
 #[derive(Copy, Clone, Pread, Pwrite, IOwrite, SizeWith, IOread)]

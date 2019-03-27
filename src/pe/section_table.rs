@@ -1,5 +1,5 @@
 use crate::alloc::string::{String, ToString};
-use scroll::{self, Pread};
+use scroll::Pread;
 use crate::error::{self, Error};
 
 #[repr(C)]

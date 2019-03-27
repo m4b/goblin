@@ -2,7 +2,8 @@
 
 use crate::error;
 use core::fmt::{self, Display};
-use scroll::{self, ctx, Endian, Pread};
+use scroll::{ctx, Endian};
+use scroll::{Pread, Pwrite, IOread, IOwrite, SizeWith};
 
 ///////////////////////////////////////
 // Load Commands from mach-o/loader.h

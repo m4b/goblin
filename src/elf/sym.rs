@@ -255,6 +255,9 @@ macro_rules! elf_sym_std_impl {
     };
 }
 
+#[cfg(feature = "alloc")]
+use scroll::{Pread, Pwrite, SizeWith};
+
 pub mod sym32 {
     pub use crate::elf::sym::*;
 
@@ -318,7 +321,7 @@ pub mod sym64 {
 }
 
 if_alloc! {
-    use scroll::{ctx, Pread};
+    use scroll::ctx;
     use scroll::ctx::SizeWith;
     use core::fmt::{self, Debug};
     use core::result;

@@ -1,5 +1,5 @@
 use crate::error;
-use scroll::{self, Pread};
+use scroll::{Pread, Pwrite, SizeWith};
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default)]

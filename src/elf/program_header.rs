@@ -324,9 +324,9 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
             #[cfg(feature = "std")]
             pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> Result<Vec<ProgramHeader>> {
                 let mut phdrs = vec![ProgramHeader::default(); count];
-                r#try!(fd.seek(Start(offset)));
+                fd.seek(Start(offset))?;
                 unsafe {
-                    r#try!(fd.read(plain::as_mut_bytes(&mut *phdrs)));
+                    fd.read(plain::as_mut_bytes(&mut *phdrs))?;
                 }
                 Ok(phdrs)
             }

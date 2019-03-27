@@ -71,9 +71,9 @@ macro_rules! elf_compression_header_std_impl { ($size:ty) => {
             #[cfg(feature = "std")]
             pub fn from_fd(fd: &mut File, offset: u64) -> Result<CompressionHeader> {
                 let mut chdr = CompressionHeader::default();
-                r#try!(fd.seek(Start(offset)));
+                fd.seek(Start(offset))?;
                 unsafe {
-                    r#try!(fd.read(plain::as_mut_bytes(&mut chdr)));
+                    fd.read(plain::as_mut_bytes(&mut chdr))?;
                 }
                 Ok(chdr)
             }

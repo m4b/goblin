@@ -478,9 +478,9 @@ macro_rules! elf_dyn_std_impl {
                         let filesz = phdr.p_filesz as usize;
                         let dync = filesz / SIZEOF_DYN;
                         let mut dyns = vec![Dyn::default(); dync];
-                        r#try!(fd.seek(Start(phdr.p_offset as u64)));
+                        fd.seek(Start(phdr.p_offset as u64))?;
                         unsafe {
-                            r#try!(fd.read(plain::as_mut_bytes(&mut *dyns)));
+                            fd.read(plain::as_mut_bytes(&mut *dyns))?;
                         }
                         dyns.dedup();
                         return Ok(Some(dyns));

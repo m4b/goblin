@@ -1,5 +1,3 @@
-extern crate goblin;
-
 use goblin::mach::*;
 
 #[test]

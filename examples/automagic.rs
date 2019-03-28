@@ -1,5 +1,3 @@
-extern crate goblin;
-
 use std::default::Default;
 
 // demonstrates "automagical" elf32/64 switches via cfg on arch and pub use hacks.

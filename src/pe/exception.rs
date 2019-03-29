@@ -436,7 +436,6 @@ impl<'a> TryFromCtx<'a, UnwindOpContext> for UnwindCode {
 /// An iterator over unwind codes for a function or part of a function, returned from
 /// [`UnwindInfo`].
 ///
-/// [`UnwindCode`]: struct.UnwindCode.html
 /// [`UnwindInfo`]: struct.UnwindInfo.html
 #[derive(Clone, Debug)]
 pub struct UnwindCodeIterator<'a> {

@@ -1,5 +1,3 @@
-extern crate goblin;
-
 use goblin::error;
 use std::path::Path;
 use std::env;

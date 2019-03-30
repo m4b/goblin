@@ -6,14 +6,14 @@
 //! names in the archive with a / as a sigil for the end of the name, and uses a special symbol
 //! index for looking up symbols faster.
 
-use scroll::{self, Pread};
+use scroll::{Pread, Pwrite, SizeWith};
 
-use strtab;
-use error::{Result, Error};
+use crate::strtab;
+use crate::error::{Result, Error};
 
 use core::usize;
-use alloc::collections::btree_map::BTreeMap;
-use alloc::vec::Vec;
+use crate::alloc::collections::btree_map::BTreeMap;
+use crate::alloc::vec::Vec;
 
 pub const SIZEOF_MAGIC: usize = 8;
 /// The magic number of a Unix Archive

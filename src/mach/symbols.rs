@@ -2,11 +2,12 @@
 //!
 //! Symbols are essentially a type, offset, and the symbol name
 
-use scroll::{ctx, Pread, Pwrite};
+use scroll::ctx;
 use scroll::ctx::SizeWith;
-use error;
-use container::{self, Container};
-use mach::load_command;
+use scroll::{Pread, Pwrite, SizeWith, IOread, IOwrite};
+use crate::error;
+use crate::container::{self, Container};
+use crate::mach::load_command;
 use core::fmt::{self, Debug};
 
 // The n_type field really contains four fields which are used via the following masks.
@@ -191,7 +192,7 @@ impl Nlist {
 impl ctx::SizeWith<container::Ctx> for Nlist {
     type Units = usize;
     fn size_with(ctx: &container::Ctx) -> usize {
-        use container::Container;
+        use crate::container::Container;
         match ctx.container {
             Container::Little => {
                 SIZEOF_NLIST_32
@@ -252,9 +253,9 @@ impl From<Nlist> for Nlist64 {
 }
 
 impl<'a> ctx::TryFromCtx<'a, container::Ctx> for Nlist {
-    type Error = ::error::Error;
+    type Error = crate::error::Error;
     type Size = usize;
-    fn try_from_ctx(bytes: &'a [u8], container::Ctx { container, le }: container::Ctx) -> ::error::Result<(Self, Self::Size)> {
+    fn try_from_ctx(bytes: &'a [u8], container::Ctx { container, le }: container::Ctx) -> crate::error::Result<(Self, Self::Size)> {
         let nlist = match container {
             Container::Little => {
                 (bytes.pread_with::<Nlist32>(0, le)?.into(), SIZEOF_NLIST_32)
@@ -268,7 +269,7 @@ impl<'a> ctx::TryFromCtx<'a, container::Ctx> for Nlist {
 }
 
 impl ctx::TryIntoCtx<container::Ctx> for Nlist {
-    type Error = ::error::Error;
+    type Error = crate::error::Error;
     type Size = usize;
 
     fn try_into_ctx(self, bytes: &mut [u8], container::Ctx { container, le }: container::Ctx) -> Result<Self::Size, Self::Error> {
@@ -298,11 +299,11 @@ pub struct SymbolsCtx {
 }
 
 impl<'a, T: ?Sized> ctx::TryFromCtx<'a, SymbolsCtx, T> for Symbols<'a> where T: AsRef<[u8]> {
-    type Error = ::error::Error;
+    type Error = crate::error::Error;
     type Size = usize;
     fn try_from_ctx(bytes: &'a T, SymbolsCtx {
         nsyms, strtab, ctx
-    }: SymbolsCtx) -> ::error::Result<(Self, Self::Size)> {
+    }: SymbolsCtx) -> crate::error::Result<(Self, Self::Size)> {
         let data = bytes.as_ref();
         Ok ((Symbols {
             data: data,
@@ -396,7 +397,7 @@ impl<'a> Symbols<'a> {
     }
 
     /// Parses a single Nlist symbol from the binary, with its accompanying name
-    pub fn get(&self, index: usize) -> ::error::Result<(&'a str, Nlist)> {
+    pub fn get(&self, index: usize) -> crate::error::Result<(&'a str, Nlist)> {
         let sym: Nlist = self.data.pread_with(self.start + (index * Nlist::size_with(&self.ctx)), self.ctx)?;
         let name = self.data.pread(self.strtab + sym.n_strx)?;
         Ok((name, sym))

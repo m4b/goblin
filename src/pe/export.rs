@@ -1,11 +1,13 @@
-use scroll::{self, Pread};
-use alloc::vec::Vec;
+use scroll::{Pread, Pwrite};
+use crate::alloc::vec::Vec;
 
-use error;
+use log::debug;
 
-use pe::utils;
-use pe::section_table;
-use pe::data_directories;
+use crate::error;
+
+use crate::pe::utils;
+use crate::pe::section_table;
+use crate::pe::data_directories;
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
@@ -144,7 +146,7 @@ pub enum Reexport<'a> {
 }
 
 impl<'a> scroll::ctx::TryFromCtx<'a, scroll::Endian> for Reexport<'a> {
-    type Error = ::error::Error;
+    type Error = crate::error::Error;
     type Size = usize;
     #[inline]
     fn try_from_ctx(bytes: &'a [u8], _ctx: scroll::Endian) -> Result<(Self, Self::Size), Self::Error> {
@@ -189,7 +191,7 @@ impl<'a> scroll::ctx::TryFromCtx<'a, scroll::Endian> for Reexport<'a> {
 }
 
 impl<'a> Reexport<'a> {
-    pub fn parse(bytes: &'a [u8], offset: usize) -> ::error::Result<Reexport<'a>> {
+    pub fn parse(bytes: &'a [u8], offset: usize) -> crate::error::Result<Reexport<'a>> {
         bytes.pread(offset)
     }
 }
@@ -258,7 +260,7 @@ impl<'a> Export<'a> {
         for (idx, &ptr) in pointers.iter().enumerate() {
             if let Ok(export) = bytes.pread_with(0, ExportCtx { ptr, idx, sections, file_alignment, addresses, ordinals }) {
                 exports.push(export);
-            }    
+            }
         }
 
         // TODO: sort + compute size

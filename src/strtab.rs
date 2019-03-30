@@ -5,10 +5,10 @@ use core::ops::Index;
 use core::slice;
 use core::str;
 use core::fmt;
-use scroll::{self, ctx, Pread};
+use scroll::{ctx, Pread};
 if_alloc! {
-    use error;
-    use alloc::vec::Vec;
+    use crate::error;
+    use crate::alloc::vec::Vec;
 }
 
 /// A common string table format which is indexed by byte offsets (and not

@@ -39,12 +39,12 @@ macro_rules! elf_compression_header_std_impl { ($size:ty) => {
     }
 
     if_alloc! {
-        use elf::compression_header::CompressionHeader as ElfCompressionHeader;
+        use crate::elf::compression_header::CompressionHeader as ElfCompressionHeader;
 
         use plain::Plain;
 
         if_std! {
-            use error::Result;
+            use crate::error::Result;
 
             use std::fs::File;
             use std::io::{Read, Seek};
@@ -71,9 +71,9 @@ macro_rules! elf_compression_header_std_impl { ($size:ty) => {
             #[cfg(feature = "std")]
             pub fn from_fd(fd: &mut File, offset: u64) -> Result<CompressionHeader> {
                 let mut chdr = CompressionHeader::default();
-                try!(fd.seek(Start(offset)));
+                r#try!(fd.seek(Start(offset)));
                 unsafe {
-                    try!(fd.read(plain::as_mut_bytes(&mut chdr)));
+                    r#try!(fd.read(plain::as_mut_bytes(&mut chdr)));
                 }
                 Ok(chdr)
             }
@@ -81,9 +81,11 @@ macro_rules! elf_compression_header_std_impl { ($size:ty) => {
     } // end if_alloc
 };}
 
+#[cfg(feature = "alloc")]
+use scroll::{Pread, Pwrite, SizeWith};
 
 pub mod compression_header32 {
-    pub use elf::compression_header::*;
+    pub use crate::elf::compression_header::*;
 
     #[repr(C)]
     #[derive(Copy, Clone, Eq, PartialEq, Default)]
@@ -119,7 +121,7 @@ pub mod compression_header32 {
 
 
 pub mod compression_header64 {
-    pub use elf::compression_header::*;
+    pub use crate::elf::compression_header::*;
 
     #[repr(C)]
     #[derive(Copy, Clone, Eq, PartialEq, Default)]
@@ -160,11 +162,11 @@ pub mod compression_header64 {
 ///////////////////////////////
 
 if_alloc! {
-    use error;
+    use crate::error;
     use core::fmt;
     use core::result;
     use scroll::ctx;
-    use container::{Container, Ctx};
+    use crate::container::{Container, Ctx};
 
     #[derive(Default, PartialEq, Clone)]
     /// A unified CompressionHeader - convertable to and from 32-bit and 64-bit variants
@@ -224,7 +226,7 @@ if_alloc! {
     }
 
     impl<'a> ctx::TryFromCtx<'a, Ctx> for CompressionHeader {
-        type Error = ::error::Error;
+        type Error = crate::error::Error;
         type Size = usize;
         fn try_from_ctx(bytes: &'a [u8], Ctx {container, le}: Ctx) -> result::Result<(Self, Self::Size), Self::Error> {
             use scroll::Pread;
@@ -241,7 +243,7 @@ if_alloc! {
     }
 
     impl ctx::TryIntoCtx<Ctx> for CompressionHeader {
-        type Error = ::error::Error;
+        type Error = crate::error::Error;
         type Size = usize;
         fn try_into_ctx(self, bytes: &mut [u8], Ctx {container, le}: Ctx) -> result::Result<Self::Size, Self::Error> {
             use scroll::Pwrite;

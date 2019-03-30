@@ -1,9 +1,10 @@
-use container;
-use error;
+use crate::container;
+use crate::error;
 
-use pe::data_directories;
+use crate::pe::data_directories;
 
-use scroll::{ctx, Endian, LE, Pread};
+use scroll::{ctx, Endian, LE};
+use scroll::{Pread, Pwrite, SizeWith};
 
 /// standard COFF fields
 #[repr(C)]
@@ -261,7 +262,7 @@ impl OptionalHeader {
 }
 
 impl<'a> ctx::TryFromCtx<'a, Endian> for OptionalHeader {
-    type Error = ::error::Error;
+    type Error = crate::error::Error;
     type Size = usize;
     fn try_from_ctx(bytes: &'a [u8], _: Endian) -> error::Result<(Self, Self::Size)> {
         let magic = bytes.pread_with::<u16>(0, LE)?;
@@ -282,7 +283,7 @@ impl<'a> ctx::TryFromCtx<'a, Endian> for OptionalHeader {
         let data_directories = data_directories::DataDirectories::parse(&bytes, windows_fields.number_of_rva_and_sizes as usize, offset)?;
         Ok ((OptionalHeader {
             standard_fields: standard_fields,
-            windows_fields: windows_fields, 
+            windows_fields: windows_fields,
             data_directories: data_directories,
         }, 0)) // TODO: FIXME
     }

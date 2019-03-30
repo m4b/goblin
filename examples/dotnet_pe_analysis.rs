@@ -1,15 +1,11 @@
 /// Demonstrates how to read additional metadata (i.e. .Net runtime ones) from PE context
 
-#[macro_use]
-extern crate scroll;
-extern crate goblin;
-
 use goblin::container::Endian;
 use goblin::pe::data_directories::DataDirectory;
 use goblin::pe::PE;
+use goblin::pe::utils::get_data;
 use scroll::ctx::TryFromCtx;
 use scroll::Pread;
-use goblin::pe::utils::get_data;
 
 #[repr(C)]
 #[derive(Debug, Pread)]

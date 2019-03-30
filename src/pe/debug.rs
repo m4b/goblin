@@ -1,9 +1,9 @@
-use scroll::{self, Pread};
-use error;
+use scroll::{Pread, Pwrite, SizeWith};
+use crate::error;
 
-use pe::section_table;
-use pe::utils;
-use pe::data_directories;
+use crate::pe::section_table;
+use crate::pe::utils;
+use crate::pe::data_directories;
 
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub struct DebugData<'a> {
@@ -21,7 +21,7 @@ impl<'a> DebugData<'a> {
             codeview_pdb70_debug_info: codeview_pdb70_debug_info
         })
     }
-    
+
     /// Return this executable's debugging GUID, suitable for matching against a PDB file.
     pub fn guid(&self) -> Option<[u8; 16]> {
         self.codeview_pdb70_debug_info

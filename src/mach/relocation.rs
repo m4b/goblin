@@ -23,7 +23,8 @@
 // by the link-editor.  The value R_ABS is used for relocation entries for
 // absolute symbols which need no further relocation.
 use core::fmt;
-use mach;
+use crate::mach;
+use scroll::{Pread, Pwrite, IOwrite, SizeWith, IOread};
 
 // TODO: armv7 relocations are scattered, must and r_address with 0x8000_0000 to check if its scattered or not
 #[derive(Copy, Clone, Pread, Pwrite, IOwrite, SizeWith, IOread)]
@@ -164,7 +165,7 @@ pub const ARM64_RELOC_TLVP_LOAD_PAGEOFF12: RelocType = 9;
 pub const ARM64_RELOC_ADDEND: RelocType = 10;
 
 pub fn reloc_to_str(reloc: RelocType, cputype: mach::cputype::CpuType) -> &'static str {
-    use mach::constants::cputype::*;
+    use crate::mach::constants::cputype::*;
     match cputype {
         CPU_TYPE_ARM64 => {
             match reloc {

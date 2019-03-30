@@ -1,15 +1,16 @@
-use alloc::borrow::Cow;
-use alloc::vec::Vec;
+use crate::alloc::borrow::Cow;
+use crate::alloc::vec::Vec;
 use core::fmt::{LowerHex, Debug};
 
-use scroll::{self, Pread};
+use scroll::{Pread, Pwrite, SizeWith};
 use scroll::ctx::TryFromCtx;
-use error;
+use crate::error;
 
-use pe::section_table;
-use pe::utils;
-use pe::data_directories;
+use crate::pe::section_table;
+use crate::pe::utils;
+use crate::pe::data_directories;
 
+use log::{debug, warn};
 
 pub const IMPORT_BY_ORDINAL_32: u32 = 0x8000_0000;
 pub const IMPORT_BY_ORDINAL_64: u64 = 0x8000_0000_0000_0000;

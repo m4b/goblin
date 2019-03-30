@@ -1,16 +1,18 @@
-use scroll::{self, Pread, Pwrite};
+use scroll::{Pread, Pwrite};
 use scroll::ctx::{self, SizeWith};
+
+use log::{debug, warn};
 
 use core::fmt;
 use core::ops::{Deref, DerefMut};
-use alloc::boxed::Box;
-use alloc::vec::Vec;
+use crate::alloc::boxed::Box;
+use crate::alloc::vec::Vec;
 
-use container;
-use error;
+use crate::container;
+use crate::error;
 
-use mach::relocation::RelocationInfo;
-use mach::load_command::{Section32, Section64, SegmentCommand32, SegmentCommand64, SIZEOF_SECTION_32, SIZEOF_SECTION_64, SIZEOF_SEGMENT_COMMAND_32, SIZEOF_SEGMENT_COMMAND_64, LC_SEGMENT, LC_SEGMENT_64};
+use crate::mach::relocation::RelocationInfo;
+use crate::mach::load_command::{Section32, Section64, SegmentCommand32, SegmentCommand64, SIZEOF_SECTION_32, SIZEOF_SECTION_64, SIZEOF_SEGMENT_COMMAND_32, SIZEOF_SEGMENT_COMMAND_64, LC_SEGMENT, LC_SEGMENT_64};
 
 pub struct RelocationIterator<'a> {
     data: &'a [u8],
@@ -167,7 +169,7 @@ impl From<Section64> for Section {
 }
 
 impl<'a> ctx::TryFromCtx<'a, container::Ctx> for Section {
-    type Error = ::error::Error;
+    type Error = crate::error::Error;
     type Size = usize;
     fn try_from_ctx(bytes: &'a [u8], ctx: container::Ctx) -> Result<(Self, Self::Size), Self::Error> {
         match ctx.container {
@@ -194,7 +196,7 @@ impl ctx::SizeWith<container::Ctx> for Section {
 }
 
 impl ctx::TryIntoCtx<container::Ctx> for Section {
-    type Error = ::error::Error;
+    type Error = crate::error::Error;
     type Size = usize;
     fn try_into_ctx(self, bytes: &mut [u8], ctx: container::Ctx) -> Result<Self::Size, Self::Error> {
         if ctx.is_big () {
@@ -363,7 +365,7 @@ impl<'a> ctx::SizeWith<container::Ctx> for Segment<'a> {
 }
 
 impl<'a> ctx::TryIntoCtx<container::Ctx> for Segment<'a> {
-    type Error = ::error::Error;
+    type Error = crate::error::Error;
     type Size = usize;
     fn try_into_ctx(self, bytes: &mut [u8], ctx: container::Ctx) -> Result<Self::Size, Self::Error> {
         let segment_size = Self::size_with(&ctx);

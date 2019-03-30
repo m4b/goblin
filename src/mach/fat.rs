@@ -7,9 +7,9 @@ if_std! {
     use std::io::{self, Read};
 }
 
-use scroll::{self, Pread};
-use mach::constants::cputype::{CpuType, CpuSubType, CPU_SUBTYPE_MASK, CPU_ARCH_ABI64};
-use error;
+use scroll::{Pread, Pwrite, SizeWith};
+use crate::mach::constants::cputype::{CpuType, CpuSubType, CPU_SUBTYPE_MASK, CPU_ARCH_ABI64};
+use crate::error;
 
 pub const FAT_MAGIC: u32 = 0xcafebabe;
 pub const FAT_CIGAM: u32 = 0xbebafeca;
@@ -51,7 +51,7 @@ impl FatHeader {
     #[cfg(feature = "std")]
     pub fn from_fd(fd: &mut File) -> io::Result<FatHeader> {
         let mut header = [0; SIZEOF_FAT_HEADER];
-        try!(fd.read(&mut header));
+        r#try!(fd.read(&mut header));
         Ok(FatHeader::from_bytes(&header))
     }
 

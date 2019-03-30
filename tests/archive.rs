@@ -1,5 +1,3 @@
-extern crate scroll;
-extern crate goblin;
 use goblin::archive::*;
 use scroll::Pread;
 use std::path::Path;

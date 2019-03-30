@@ -7,12 +7,12 @@
 // (3) /usr/lib/libstdc++.6.0.9.dylib has flag 0xc at many offsets... they're weak
 
 use core::ops::Range;
-use scroll::{self, Pread, Uleb128};
-use error;
+use scroll::{Pread, Uleb128};
+use crate::error;
 use core::fmt::{self, Debug};
-use mach::load_command;
-use alloc::vec::Vec;
-use alloc::string::String;
+use crate::mach::load_command;
+use crate::alloc::vec::Vec;
+use crate::alloc::string::String;
 
 type Flag = u64;
 

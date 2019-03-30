@@ -81,14 +81,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(all(feature = "alloc", not(feature = "std")), feature(alloc))]
 
-extern crate plain;
-#[cfg_attr(feature = "alloc", macro_use)]
-extern crate scroll;
-
-#[cfg(feature = "log")]
-#[macro_use]
-extern crate log;
-
 #[cfg(feature = "std")]
 extern crate core;
 
@@ -244,7 +236,7 @@ if_everything! {
     /// Peeks at `bytes`, and returns a `Hint`
     pub fn peek_bytes(bytes: &[u8; 16]) -> error::Result<Hint> {
         use scroll::{Pread, LE, BE};
-        use mach::{fat, header};
+        use crate::mach::{fat, header};
         if &bytes[0..elf::header::SELFMAG] == elf::header::ELFMAG {
             let class = bytes[elf::header::EI_CLASS];
             let is_lsb = bytes[elf::header::EI_DATA] == elf::header::ELFDATA2LSB;
@@ -335,13 +327,13 @@ pub mod elf;
 #[cfg(feature = "elf32")]
 /// The ELF 32-bit struct definitions and associated values, re-exported for easy "type-punning"
 pub mod elf32 {
-    pub use elf::header::header32 as header;
-    pub use elf::program_header::program_header32 as program_header;
-    pub use elf::section_header::section_header32 as section_header;
-    pub use elf::dyn::dyn32 as dyn;
-    pub use elf::sym::sym32 as sym;
-    pub use elf::reloc::reloc32 as reloc;
-    pub use elf::note::Nhdr32 as Note;
+    pub use crate::elf::header::header32 as header;
+    pub use crate::elf::program_header::program_header32 as program_header;
+    pub use crate::elf::section_header::section_header32 as section_header;
+    pub use crate::elf::r#dyn::dyn32 as r#dyn;
+    pub use crate::elf::sym::sym32 as sym;
+    pub use crate::elf::reloc::reloc32 as reloc;
+    pub use crate::elf::note::Nhdr32 as Note;
 
     pub mod gnu_hash {
         elf_gnu_hash_impl!(u32);
@@ -351,13 +343,13 @@ pub mod elf32 {
 #[cfg(feature = "elf64")]
 /// The ELF 64-bit struct definitions and associated values, re-exported for easy "type-punning"
 pub mod elf64 {
-    pub use elf::header::header64 as header;
-    pub use elf::program_header::program_header64 as program_header;
-    pub use elf::section_header::section_header64 as section_header;
-    pub use elf::dyn::dyn64 as dyn;
-    pub use elf::sym::sym64 as sym;
-    pub use elf::reloc::reloc64 as reloc;
-    pub use elf::note::Nhdr64 as Note;
+    pub use crate::elf::header::header64 as header;
+    pub use crate::elf::program_header::program_header64 as program_header;
+    pub use crate::elf::section_header::section_header64 as section_header;
+    pub use crate::elf::r#dyn::dyn64 as r#dyn;
+    pub use crate::elf::sym::sym64 as sym;
+    pub use crate::elf::reloc::reloc64 as reloc;
+    pub use crate::elf::note::Nhdr64 as Note;
 
     pub mod gnu_hash {
         elf_gnu_hash_impl!(u64);

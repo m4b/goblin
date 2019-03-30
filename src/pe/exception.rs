@@ -75,9 +75,11 @@ const UWOP_SET_FPREG: u8 = 3;
 const UWOP_SAVE_NONVOL: u8 = 4;
 /// info == register number, offset in next 2 slots
 const UWOP_SAVE_NONVOL_FAR: u8 = 5;
-/// info == XMM reg number, offset in next slot
+/// changes the structure of unwind codes to `struct Epilogue`.
+/// (was UWOP_SAVE_XMM in version 1, but deprecated and removed)
 const UWOP_EPILOG: u8 = 6;
-/// info == XMM reg number, offset in next 2 slots
+/// reserved
+/// (was UWOP_SAVE_XMM_FAR in version 1, but deprecated and removed)
 const UWOP_SPARE_CODE: u8 = 7;
 /// info == XMM reg number, offset in next slot
 const UWOP_SAVE_XMM128: u8 = 8;

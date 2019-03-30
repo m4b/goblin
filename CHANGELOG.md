@@ -5,6 +5,21 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, don't worry!
 
+## [Unreleased]
+### Added
+- Beautify debugging by using `debug_struct` in `Debug` implementation of many structs.
+
+### Changed
+- Bump lowest Rust version to 1.31.1 and transition project to Rust 2018 edition.
+- BREAKING: Rename module `goblin::elf::dyn` to `goblin::elf::dynamic` due to `dyn`
+  become a keyword in Rust 2018 edition.
+
+### Deprecated
+- `goblin::error::Error::description` would be deprecated. Use `to_string()` method instead.
+
+### Fixed
+- elf: handle some invalid sizes #121
+
 ## [0.0.21] - 2019-2-21
 ### Added
 - elf: add symbol visibility. thanks @pchickey: https://github.com/m4b/goblin/pull/119

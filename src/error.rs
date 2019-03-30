@@ -39,8 +39,8 @@ impl Error {
 impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match *self {
-            Error::IO(ref io) => io.source(),
-            Error::Scroll(ref scroll) => scroll.source(),
+            Error::IO(ref io) => Some(io),
+            Error::Scroll(ref scroll) => Some(scroll),
             Error::BadMagic(_) => None,
             Error::Malformed(_) => None,
         }

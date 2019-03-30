@@ -330,7 +330,7 @@ pub mod elf32 {
     pub use crate::elf::header::header32 as header;
     pub use crate::elf::program_header::program_header32 as program_header;
     pub use crate::elf::section_header::section_header32 as section_header;
-    pub use crate::elf::r#dyn::dyn32 as r#dyn;
+    pub use crate::elf::dynamic::dyn32 as dynamic;
     pub use crate::elf::sym::sym32 as sym;
     pub use crate::elf::reloc::reloc32 as reloc;
     pub use crate::elf::note::Nhdr32 as Note;
@@ -346,7 +346,7 @@ pub mod elf64 {
     pub use crate::elf::header::header64 as header;
     pub use crate::elf::program_header::program_header64 as program_header;
     pub use crate::elf::section_header::section_header64 as section_header;
-    pub use crate::elf::r#dyn::dyn64 as r#dyn;
+    pub use crate::elf::dynamic::dyn64 as dynamic;
     pub use crate::elf::sym::sym64 as sym;
     pub use crate::elf::reloc::reloc64 as reloc;
     pub use crate::elf::note::Nhdr64 as Note;

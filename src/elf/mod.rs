@@ -49,7 +49,7 @@ pub mod section_header;
 pub mod compression_header;
 #[macro_use]
 pub mod sym;
-pub mod r#dyn;
+pub mod dynamic;
 #[macro_use]
 pub mod reloc;
 pub mod note;
@@ -74,8 +74,8 @@ if_sylvan! {
     pub type SectionHeader = section_header::SectionHeader;
     pub type Symtab<'a> = sym::Symtab<'a>;
     pub type Sym = sym::Sym;
-    pub type Dyn = r#dyn::Dyn;
-    pub type Dynamic = r#dyn::Dynamic;
+    pub type Dyn = dynamic::Dyn;
+    pub type Dynamic = dynamic::Dynamic;
     pub type Reloc = reloc::Reloc;
     pub type RelocSection<'a> = reloc::RelocSection<'a>;
 
@@ -281,7 +281,7 @@ if_sylvan! {
                 // parse the dynamic relocations
                 dynrelas = RelocSection::parse(bytes, dyn_info.rela, dyn_info.relasz, true, ctx)?;
                 dynrels = RelocSection::parse(bytes, dyn_info.rel, dyn_info.relsz, false, ctx)?;
-                let is_rela = dyn_info.pltrel as u64 == r#dyn::DT_RELA;
+                let is_rela = dyn_info.pltrel as u64 == dynamic::DT_RELA;
                 pltrelocs = RelocSection::parse(bytes, dyn_info.jmprel, dyn_info.pltrelsz, is_rela, ctx)?;
 
                 let mut num_syms = if let Some(gnu_hash) = dyn_info.gnu_hash {

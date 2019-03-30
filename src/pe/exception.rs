@@ -44,13 +44,13 @@ use core::fmt;
 use core::iter::FusedIterator;
 
 use scroll::ctx::TryFromCtx;
-use scroll::{self, Pread};
+use scroll::{self, Pread, Pwrite};
 
-use error;
+use crate::error;
 
-use pe::data_directories;
-use pe::section_table;
-use pe::utils;
+use crate::pe::data_directories;
+use crate::pe::section_table;
+use crate::pe::utils;
 
 /// The function has an exception handler that should be called when looking for functions that need
 /// to examine exceptions.
@@ -126,7 +126,7 @@ pub struct RuntimeFunctionIterator<'a> {
     data: &'a [u8],
 }
 
-impl<'a> Iterator for RuntimeFunctionIterator<'a> {
+impl Iterator for RuntimeFunctionIterator<'_> {
     type Item = error::Result<RuntimeFunction>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -152,8 +152,8 @@ impl<'a> Iterator for RuntimeFunctionIterator<'a> {
     }
 }
 
-impl<'a> FusedIterator for RuntimeFunctionIterator<'a> {}
-impl<'a> ExactSizeIterator for RuntimeFunctionIterator<'a> {}
+impl FusedIterator for RuntimeFunctionIterator<'_> {}
+impl ExactSizeIterator for RuntimeFunctionIterator<'_> {}
 
 /// An x64 register used during unwinding.
 ///
@@ -444,7 +444,7 @@ pub struct UnwindCodeIterator<'a> {
     context: UnwindOpContext,
 }
 
-impl<'a> Iterator for UnwindCodeIterator<'a> {
+impl Iterator for UnwindCodeIterator<'_> {
     type Item = error::Result<UnwindCode>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -463,7 +463,7 @@ impl<'a> Iterator for UnwindCodeIterator<'a> {
     }
 }
 
-impl<'a> FusedIterator for UnwindCodeIterator<'a> {}
+impl FusedIterator for UnwindCodeIterator<'_> {}
 
 /// A language-specific handler that is called as part of the search for an exception handler or as
 /// part of an unwind.
@@ -485,7 +485,7 @@ pub enum UnwindHandler<'a> {
 /// For unwinding, this link shall be followed until the root unwind info record has been resolved.
 ///
 /// [`unwind_codes`]: struct.UnwindInfo.html#method.unwind_codes
-/// [chained unwind handler]: struct.UnwindInfo.html#method.unwind_codes
+/// [chained unwind handler]: struct.UnwindInfo.html#structfield.chained_info
 #[derive(Clone)]
 pub struct UnwindInfo<'a> {
     /// Version of this unwind info.
@@ -618,7 +618,7 @@ impl<'a> UnwindInfo<'a> {
     }
 }
 
-impl<'a> fmt::Debug for UnwindInfo<'a> {
+impl fmt::Debug for UnwindInfo<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let count_of_codes = self.code_bytes.len() / UNWIND_CODE_SIZE;
 
@@ -634,7 +634,7 @@ impl<'a> fmt::Debug for UnwindInfo<'a> {
     }
 }
 
-impl<'a, 'b> IntoIterator for &'b UnwindInfo<'a> {
+impl<'a> IntoIterator for &'_ UnwindInfo<'a> {
     type Item = error::Result<UnwindCode>;
     type IntoIter = UnwindCodeIterator<'a>;
 
@@ -757,7 +757,7 @@ impl<'a> ExceptionData<'a> {
         &self,
         mut function: RuntimeFunction,
         sections: &[section_table::SectionTable],
-    ) -> error::Result<UnwindInfo> {
+    ) -> error::Result<UnwindInfo<'a>> {
         while function.unwind_info_address % 2 != 0 {
             let rva = (function.unwind_info_address & !1) as usize;
             function = self.get_function_at(rva, sections)?;
@@ -792,7 +792,7 @@ impl<'a> ExceptionData<'a> {
     }
 }
 
-impl<'a> fmt::Debug for ExceptionData<'a> {
+impl fmt::Debug for ExceptionData<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("ExceptionData")
             .field("file_alignment", &self.file_alignment)
@@ -803,7 +803,7 @@ impl<'a> fmt::Debug for ExceptionData<'a> {
     }
 }
 
-impl<'a, 'b> IntoIterator for &'b ExceptionData<'a> {
+impl<'a> IntoIterator for &'_ ExceptionData<'a> {
     type Item = error::Result<RuntimeFunction>;
     type IntoIter = RuntimeFunctionIterator<'a>;
 

@@ -772,7 +772,7 @@ impl<'a> ExceptionData<'a> {
     ) -> error::Result<UnwindInfo<'a>> {
         while function.unwind_info_address % 2 != 0 {
             let rva = (function.unwind_info_address & !1) as usize;
-            function = self.get_function_at(rva, sections)?;
+            function = self.get_function_by_rva(rva, sections)?;
         }
 
         let rva = function.unwind_info_address as usize;
@@ -783,7 +783,7 @@ impl<'a> ExceptionData<'a> {
         UnwindInfo::parse(self.bytes, offset)
     }
 
-    fn get_function_at(
+    fn get_function_by_rva(
         &self,
         rva: usize,
         sections: &[section_table::SectionTable],

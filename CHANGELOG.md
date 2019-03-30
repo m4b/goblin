@@ -14,8 +14,8 @@ I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, do
 - BREAKING: Rename module `goblin::elf::dyn` to `goblin::elf::dynamic` due to `dyn`
   become a keyword in Rust 2018 edition.
 
-### Deprecated
-- `goblin::error::Error::description` would be deprecated. Use `to_string()` method instead.
+### Removed
+- `goblin::error::Error::description` would be removed. Use `to_string()` method instead.
 
 ### Fixed
 - elf: handle some invalid sizes #121

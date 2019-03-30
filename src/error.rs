@@ -22,19 +22,6 @@ pub enum Error {
     IO(io::Error),
 }
 
-impl Error {
-    #[deprecated(since = "0.0.22", note = "Please use the to_string() method instead")]
-    pub fn description(&self) -> &str {
-        match *self {
-            #[cfg(feature = "std")]
-            Error::IO(_) => "IO error",
-            Error::Scroll(_) => "Scroll error",
-            Error::BadMagic(_) => "Invalid magic number",
-            Error::Malformed(_) => "Entity is malformed in some way",
-        }
-    }
-}
-
 #[cfg(feature = "std")]
 impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {

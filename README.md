@@ -74,10 +74,10 @@ Here are some things you could do with this crate (or help to implement so they 
 [cargo-sym]: https://github.com/m4b/cargo-sym
 [bingrep]: https://github.com/m4b/bingrep
 [faerie]: https://github.com/m4b/faerie
-[dryad]: http://github.com/m4b/dryad
+[dryad]: https://github.com/m4b/dryad
 [scroll]: https://github.com/m4b/scroll
 [redox-os]: https://github.com/redox-os/redox
-[bin2json]: http://github.com/m4b/bin2json
+[bin2json]: https://github.com/m4b/bin2json
 
 ### Cfgs
 

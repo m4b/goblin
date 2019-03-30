@@ -417,7 +417,17 @@ impl<'a> TryFromCtx<'a, UnwindOpContext> for UnwindCode {
                 let offset = bytes.gread_with::<u32>(&mut read, scroll::LE)?;
                 UnwindOperation::SaveXMM128(register, StackFrameOffset::with_ctx(offset, ctx))
             }
-            self::UWOP_PUSH_MACHFRAME => UnwindOperation::PushMachineFrame(operation_info == 1),
+            self::UWOP_PUSH_MACHFRAME => {
+                let is_error = match operation_info {
+                    0 => false,
+                    1 => true,
+                    i => {
+                        let msg = format!("invalid op info ({}) for UWOP_PUSH_MACHFRAME", i);
+                        return Err(error::Error::Malformed(msg));
+                    }
+                };
+                UnwindOperation::PushMachineFrame(is_error)
+            }
             op => {
                 let msg = format!("unknown unwind op code ({})", op);
                 return Err(error::Error::Malformed(msg));

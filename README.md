@@ -109,6 +109,7 @@ In alphabetic order:
 - [@le-jzr]
 - [@lion128]
 - [@llogiq]
+- [@lzutao]
 - [@mitsuhiko]
 - [@mre]
 - [@pchickey]
@@ -149,6 +150,7 @@ In alphabetic order:
 [@xcoldhandsx]: https://github.com/xcoldhandsx
 [@panopticon]: https://github.com/das-labor/panopticon
 [@falcon]: https://github.com/endeav0r/falcon
+[@lzutao]: https://github.com/endeav0r/lzutao
 
 ## Contributing
 

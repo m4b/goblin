@@ -53,8 +53,8 @@ Goblin primarily supports the following important use cases:
    convenience allocations, extra methods, etc. This is for clients who can allocate and want to
    read binaries off disk.
 
-1. `Endian_fd`. A truly terrible name :laughing: this is for binary analysis like in [@panopticon]
-   or [@falcon] which needs to read binaries of foreign endianness, _or_ as a basis for
+1. `Endian_fd`. A truly terrible name :laughing: this is for binary analysis like in [panopticon]
+   or [falcon] which needs to read binaries of foreign endianness, _or_ as a basis for
    constructing cross platform foreign architecture binutils, e.g. [cargo-sym] and [bingrep] are
    simple examples of this, but the sky is the limit.
 
@@ -63,7 +63,7 @@ Here are some things you could do with this crate (or help to implement so they 
 1. Write a compiler and use it to [generate binaries][faerie] (all the raw C structs have
    [`Pwrite`][scroll] derived).
 1. Write a binary analysis tool which loads, parses, and analyzes various binary formats, e.g.,
-   [@panopticon] or [@falcon].
+   [panopticon] or [falcon].
 1. Write a [semi-functioning dynamic linker][dryad].
 1. Write a [kernel][redox-os] and load binaries using `no_std` cfg. I.e., it is essentially just
    struct and const defs (like a C header) - no fd, no output, no std.
@@ -78,6 +78,8 @@ Here are some things you could do with this crate (or help to implement so they 
 [scroll]: https://github.com/m4b/scroll
 [redox-os]: https://github.com/redox-os/redox
 [bin2json]: https://github.com/m4b/bin2json
+[panopticon]: https://github.com/das-labor/panopticon
+[falcon]: https://github.com/endeav0r/falcon
 
 ### Cfgs
 
@@ -148,9 +150,7 @@ In alphabetic order:
 [@ticki]: https://github.com/ticki
 [@willglynn]: https://github.com/willglynn
 [@xcoldhandsx]: https://github.com/xcoldhandsx
-[@panopticon]: https://github.com/das-labor/panopticon
-[@falcon]: https://github.com/endeav0r/falcon
-[@lzutao]: https://github.com/endeav0r/lzutao
+[@lzutao]: https://github.com/lzutao
 
 ## Contributing
 

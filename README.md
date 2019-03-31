@@ -46,14 +46,14 @@ Goblin primarily supports the following important use cases:
 
 1. Core, std-free `#[repr(C)]` structs, tiny compile time, 32/64 (or both) at your leisure.
 
-2. Type punning. Define a function once on a type, but have it work on 32 or 64-bit variants -
+1. Type punning. Define a function once on a type, but have it work on 32 or 64-bit variants -
    without really changing anything, and no macros! See `examples/automagic.rs` for a basic example.
 
-3. `std` mode. This throws in read and write impls via `Pread` and `Pwrite`, reading from file,
+1. `std` mode. This throws in read and write impls via `Pread` and `Pwrite`, reading from file,
    convenience allocations, extra methods, etc. This is for clients who can allocate and want to
    read binaries off disk.
 
-4. `Endian_fd`. A truly terrible name :laughing: this is for binary analysis like in [@panopticon]
+1. `Endian_fd`. A truly terrible name :laughing: this is for binary analysis like in [@panopticon]
    or [@falcon] which needs to read binaries of foreign endianness, _or_ as a basis for
    constructing cross platform foreign architecture binutils, e.g. [cargo-sym] and [bingrep] are
    simple examples of this, but the sky is the limit.
@@ -62,12 +62,12 @@ Here are some things you could do with this crate (or help to implement so they 
 
 1. Write a compiler and use it to [generate binaries][faerie] (all the raw C structs have
    [`Pwrite`][scroll] derived).
-2. Write a binary analysis tool which loads, parses, and analyzes various binary formats, e.g.,
+1. Write a binary analysis tool which loads, parses, and analyzes various binary formats, e.g.,
    [@panopticon] or [@falcon].
-3. Write a [semi-functioning dynamic linker][dryad].
-4. Write a [kernel][redox-os] and load binaries using `no_std` cfg. I.e., it is essentially just
+1. Write a [semi-functioning dynamic linker][dryad].
+1. Write a [kernel][redox-os] and load binaries using `no_std` cfg. I.e., it is essentially just
    struct and const defs (like a C header) - no fd, no output, no std.
-5. Write a [bin2json] tool, because why shouldn't binary formats be in JSON?
+1. Write a [bin2json] tool, because why shouldn't binary formats be in JSON?
 
 <!-- Related projects  -->
 
@@ -154,13 +154,13 @@ In alphabetic order:
 
 1. Please prefix commits with the affected binary component; the more specific the better, e.g.,
    if you only modify relocations in the elf module, then do "elf.reloc: added new constants for Z80"
-2. Commit messages must explain their change, no generic "changed", or "fix"; if you push commits
+1. Commit messages must explain their change, no generic "changed", or "fix"; if you push commits
    like this on a PR, be aware [@m4b] or someone will most likely squash them.
-3. If you are making a large change to a module, please raise an issue first and lets discuss;
+1. If you are making a large change to a module, please raise an issue first and lets discuss;
    I don't want to waste your time if its not a good technical direction, or etc.
-4. If your PR is not getting attention, please respond to all relevant comments raised on the PR,
+1. If your PR is not getting attention, please respond to all relevant comments raised on the PR,
    and if still no response, ping [@m4b], [@philipc], or [@willglynn] in github and also feel free
    to email [@m4b].
-5. Please add tests if you are adding a new feature. Feel free to add tests even if you are not,
+1. Please add tests if you are adding a new feature. Feel free to add tests even if you are not,
    tests are awesome and easy in rust.
-6. Once cargo format is officially released, please format your _patch_ using the default settings.
+1. Once cargo format is officially released, please format your _patch_ using the default settings.

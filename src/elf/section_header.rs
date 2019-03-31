@@ -325,9 +325,9 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
             #[cfg(feature = "std")]
             pub fn from_fd(fd: &mut File, offset: u64, shnum: usize) -> Result<Vec<SectionHeader>> {
                 let mut shdrs = vec![SectionHeader::default(); shnum];
-                r#try!(fd.seek(Start(offset)));
+                fd.seek(Start(offset))?;
                 unsafe {
-                    r#try!(fd.read(plain::as_mut_bytes(&mut *shdrs)));
+                    fd.read(plain::as_mut_bytes(&mut *shdrs))?;
                 }
                 Ok(shdrs)
             }

@@ -71,7 +71,7 @@ impl MemberHeader {
         Ok(self.identifier.pread_with::<&str>(0, ::scroll::ctx::StrCtx::Length(SIZEOF_FILE_IDENTIFER))?)
     }
     pub fn size(&self) -> Result<usize> {
-        match usize::from_str_radix(self.file_size.pread_with::<&str>(0, ::scroll::ctx::StrCtx::Length(self.file_size.len()))?.trim_right(), 10) {
+        match usize::from_str_radix(self.file_size.pread_with::<&str>(0, ::scroll::ctx::StrCtx::Length(self.file_size.len()))?.trim_end(), 10) {
             Ok(file_size) => Ok(file_size),
             Err(err) => Err(Error::Malformed(format!("{:?} Bad file_size in header: {:?}", err, self)))
         }
@@ -117,7 +117,7 @@ impl<'a> Member<'a> {
             header.size -= len;
 
             // the name may have trailing NULs which we don't really want to keep
-            Some(name.trim_right_matches('\0'))
+            Some(name.trim_end_matches('\0'))
         } else {
             None
         };
@@ -142,7 +142,7 @@ impl<'a> Member<'a> {
         use core::str::FromStr;
 
         if name.len() > 3 && &name[0..3] == "#1/" {
-            let trimmed_name = &name[3..].trim_right_matches(' ');
+            let trimmed_name = &name[3..].trim_end_matches(' ');
             if let Ok(len) = usize::from_str(trimmed_name) {
                 Some(len)
             } else {
@@ -160,7 +160,7 @@ impl<'a> Member<'a> {
         } else if let Some(ref sysv_name) = self.sysv_name {
             sysv_name
         } else {
-            self.header.name.trim_right_matches(' ').trim_right_matches('/')
+            self.header.name.trim_end_matches(' ').trim_end_matches('/')
         }
     }
 
@@ -303,7 +303,7 @@ impl<'a> NameIndex<'a> {
     }
 
     pub fn get(&self, name: &str) -> Result<&'a str> {
-        let idx = name.trim_left_matches('/').trim_right();
+        let idx = name.trim_start_matches('/').trim_end();
         match usize::from_str_radix(idx, 10) {
             Ok(idx) => {
                 let name = match self.strtab.get(idx+1) {
@@ -312,7 +312,7 @@ impl<'a> NameIndex<'a> {
                 }?;
 
                 if name != "" {
-                    Ok(name.trim_right_matches('/'))
+                    Ok(name.trim_end_matches('/'))
                 }  else {
                     return Err(Error::Malformed(format!("Could not find {:?} in index", name).into()));
                 }

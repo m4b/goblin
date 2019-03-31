@@ -244,9 +244,9 @@ macro_rules! elf_sym_std_impl {
             pub fn from_fd(fd: &mut File, offset: usize, count: usize) -> Result<Vec<Sym>> {
                 // TODO: AFAIK this shouldn't work, since i pass in a byte size...
                 let mut syms = vec![Sym::default(); count];
-                r#try!(fd.seek(Start(offset as u64)));
+                fd.seek(Start(offset as u64))?;
                 unsafe {
-                    r#try!(fd.read(plain::as_mut_bytes(&mut *syms)));
+                    fd.read(plain::as_mut_bytes(&mut *syms))?;
                 }
                 syms.dedup();
                 Ok(syms)

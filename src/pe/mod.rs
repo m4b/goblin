@@ -130,21 +130,21 @@ impl<'a> PE<'a> {
             }
         }
         Ok( PE {
-            header: header,
-            sections: sections,
+            header,
+            sections,
             size: 0,
-            name: name,
-            is_lib: is_lib,
-            is_64: is_64,
-            entry: entry,
-            image_base: image_base,
-            export_data: export_data,
-            import_data: import_data,
-            exports: exports,
-            imports: imports,
-            libraries: libraries,
-            debug_data: debug_data,
-            exception_data: exception_data,
+            name,
+            is_lib,
+            is_64,
+            entry,
+            image_base,
+            export_data,
+            import_data,
+            exports,
+            imports,
+            libraries,
+            debug_data,
+            exception_data,
         })
     }
 }

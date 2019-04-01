@@ -58,15 +58,15 @@ macro_rules! elf_gnu_hash_impl {
                 let hashvalues = slice::from_raw_parts(hashvalues_ptr, total_dynsyms - symindex);
                 let bloomwords = slice::from_raw_parts(bloomwords_ptr, maskwords);
                 GnuHash {
-                    nbuckets: nbuckets,
-                    symindex: symindex,
-                    shift2: shift2,
+                    nbuckets,
+                    symindex,
+                    shift2,
                     maskbits: mem::size_of::<usize>() as u32,
-                    bloomwords: bloomwords,
-                    hashvalues: hashvalues,
-                    buckets: buckets,
+                    bloomwords,
+                    hashvalues,
+                    buckets,
                     maskwords_bitmask: ((maskwords as i32) - 1) as u32,
-                    symtab: symtab,
+                    symtab,
                 }
             }
 

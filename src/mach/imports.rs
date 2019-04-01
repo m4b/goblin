@@ -97,9 +97,9 @@ impl<'a> Import<'a> {
             name: bi.symbol_name,
             dylib: libs[bi.symbol_library_ordinal as usize],
             is_lazy: bi.is_lazy,
-            offset: offset,
-            size: size,
-            address: address,
+            offset,
+            size,
+            address,
             addend: bi.addend,
             is_weak: bi.is_weak(),
             start_of_sequence_offset: start_of_sequence_offset as u64
@@ -137,8 +137,8 @@ impl<'a> BindInterpreter<'a> {
         let lazy_location = get_pos(command.lazy_bind_off, command.lazy_bind_size);
         BindInterpreter {
             data: bytes.as_ref(),
-            location: location,
-            lazy_location: lazy_location,
+            location,
+            lazy_location,
         }
     }
     /// Return the imports in this binary

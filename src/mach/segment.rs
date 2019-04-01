@@ -74,10 +74,10 @@ impl Section {
         let offset = self.reloff as usize;
         debug!("Relocations for {} starting at offset: {:#x}", self.name().unwrap_or("BAD_SECTION_NAME"), offset);
         RelocationIterator {
-            offset: offset,
+            offset,
             nrelocs: self.nreloc as usize,
             count: 0,
-            data: data,
+            data,
             ctx: ctx.le,
         }
     }
@@ -407,7 +407,7 @@ impl<'a> Segment<'a> {
             data:     sections,
             offset:   0,
             raw_data: &[],
-            ctx:      ctx,
+            ctx,
         }
     }
     /// Get the name of this segment
@@ -437,10 +437,10 @@ impl<'a> Segment<'a> {
             initprot: segment.initprot,
             nsects:   segment.nsects,
             flags:    segment.flags,
-            data:     data,
-            offset:   offset,
+            data,
+            offset,
             raw_data: bytes,
-            ctx:      ctx,
+            ctx,
         })
     }
     /// Convert the raw C 64-bit segment command to a generalized version
@@ -458,10 +458,10 @@ impl<'a> Segment<'a> {
             initprot: segment.initprot,
             nsects:   segment.nsects,
             flags:    segment.flags,
-            offset:   offset,
-            data:     data,
+            offset,
+            data,
             raw_data: bytes,
-            ctx:      ctx,
+            ctx,
         })
     }
 }
@@ -499,7 +499,7 @@ impl<'a> Segments<'a> {
     pub fn new(ctx: container::Ctx) -> Self {
         Segments {
             segments: Vec::new(),
-            ctx: ctx,
+            ctx,
         }
     }
     /// Get every section from every segment

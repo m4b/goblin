@@ -42,8 +42,8 @@ impl FatHeader {
         let magic = bytes.gread_with(&mut offset, scroll::BE).unwrap();
         let nfat_arch = bytes.gread_with(&mut offset, scroll::BE).unwrap();
         FatHeader {
-            magic: magic,
-            nfat_arch: nfat_arch,
+            magic,
+            nfat_arch,
         }
     }
 

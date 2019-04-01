@@ -52,7 +52,7 @@ impl<'a> HintNameTableEntry<'a> {
         let offset = &mut offset;
         let hint = bytes.gread_with(offset, scroll::LE)?;
         let name = bytes.pread::<&'a str>(*offset)?;
-        Ok(HintNameTableEntry { hint: hint, name: name })
+        Ok(HintNameTableEntry { hint, name })
     }
 }
 
@@ -171,10 +171,10 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
             if import_address == 0 { break } else { import_address_table.push(import_address); }
         }
         Ok(SyntheticImportDirectoryEntry {
-            import_directory_entry: import_directory_entry,
-            name: name,
-            import_lookup_table: import_lookup_table,
-            import_address_table: import_address_table
+            import_directory_entry,
+            name,
+            import_lookup_table,
+            import_address_table
         })
     }
 }
@@ -204,7 +204,7 @@ impl<'a> ImportData<'a> {
             }
         }
         debug!("finished ImportData");
-        Ok(ImportData { import_data: import_data})
+        Ok(ImportData { import_data})
     }
 }
 
@@ -245,9 +245,9 @@ impl<'a> Import<'a> {
                         };
                     let import =
                         Import {
-                            name: name,
-                            ordinal: ordinal, dll: dll,
-                            size: T::size_of(), offset: offset, rva: rva as usize
+                            name,
+                            ordinal, dll,
+                            size: T::size_of(), offset, rva: rva as usize
                         };
                     imports.push(import);
                 }

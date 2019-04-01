@@ -22,7 +22,7 @@ impl DosHeader {
             .map_err(|_| error::Error::Malformed(format!("cannot parse DOS signature (offset {:#x})", 0)))?;
         let pe_pointer = bytes.pread_with(PE_POINTER_OFFSET as usize, scroll::LE)
             .map_err(|_| error::Error::Malformed(format!("cannot parse PE header pointer (offset {:#x})", PE_POINTER_OFFSET)))?;
-        Ok (DosHeader { signature: signature, pe_pointer: pe_pointer })
+        Ok (DosHeader { signature, pe_pointer })
     }
 }
 
@@ -88,7 +88,7 @@ impl Header {
                 Some (bytes.pread::<optional_header::OptionalHeader>(offset)?)
             }
         else { None };
-        Ok( Header { dos_header: dos_header, coff_header: coff_header, optional_header: optional_header })
+        Ok( Header { dos_header, coff_header, optional_header })
     }
 }
 

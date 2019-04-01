@@ -174,7 +174,7 @@ pub mod container {
         }
         /// Create a new binary container context
         pub fn new (container: Container, le: scroll::Endian) -> Self {
-            Ctx { container: container, le: le }
+            Ctx { container, le }
         }
         /// Return a dubious pointer/address byte size for the container
         pub fn size(&self) -> usize {
@@ -188,13 +188,13 @@ pub mod container {
 
     impl From<Container> for Ctx {
         fn from(container: Container) -> Self {
-            Ctx { container: container, le: scroll::Endian::default() }
+            Ctx { container, le: scroll::Endian::default() }
         }
     }
 
     impl From<scroll::Endian> for Ctx {
         fn from(le: scroll::Endian) -> Self {
-            Ctx { container: CONTAINER, le: le }
+            Ctx { container: CONTAINER, le }
         }
     }
 

@@ -84,7 +84,7 @@ impl<'a> ExportInfo<'a> {
             let address = bytes.pread::<Uleb128>(offset)?;
             Ok(Regular {
                 address: address.into(),
-                flags:   flags
+                flags
             })
         };
         let reexport = |mut offset| -> error::Result<ExportInfo<'a>> {
@@ -97,9 +97,9 @@ impl<'a> ExportInfo<'a> {
             let lib = libs[lib_ordinal as usize];
             let lib_symbol_name = if lib_symbol_name == "" { None } else { Some (lib_symbol_name)};
             Ok(Reexport {
-                lib: lib,
-                lib_symbol_name: lib_symbol_name,
-                flags: flags
+                lib,
+                lib_symbol_name,
+                flags
             })
         };
         match SymbolKind::new(flags) {
@@ -111,9 +111,9 @@ impl<'a> ExportInfo<'a> {
                     offset += stub_offset.size();
                     let resolver_offset = bytes.pread::<Uleb128>(offset)?;
                     Ok(Stub {
-                        stub_offset: stub_offset,
-                        resolver_offset: resolver_offset,
-                        flags: flags
+                        stub_offset,
+                        resolver_offset,
+                        flags
                     })
                     // else if (flags = kEXPORT_SYMBOL_FLAGS_WEAK_DEFINITION) then (*0x40 unused*)
                 } else {
@@ -156,7 +156,7 @@ impl<'a> Export<'a> {
             ExportInfo::Regular { address, .. } => address,
             _ => 0x0,
         };
-        Export { name: name, info: info, size: 0, offset: offset }
+        Export { name, info, size: 0, offset }
     }
 }
 

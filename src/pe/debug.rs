@@ -17,8 +17,8 @@ impl<'a> DebugData<'a> {
         let codeview_pdb70_debug_info = CodeviewPDB70DebugInfo::parse(bytes, &image_debug_directory)?;
 
         Ok(DebugData{
-            image_debug_directory: image_debug_directory,
-            codeview_pdb70_debug_info: codeview_pdb70_debug_info
+            image_debug_directory,
+            codeview_pdb70_debug_info
         })
     }
 
@@ -111,10 +111,10 @@ impl<'a> CodeviewPDB70DebugInfo<'a> {
         let filename = &bytes[offset..offset + filename_length];
 
         Ok(Some(CodeviewPDB70DebugInfo{
-            codeview_signature: codeview_signature,
-            signature: signature,
-            age: age,
-            filename: filename,
+            codeview_signature,
+            signature,
+            age,
+            filename,
         }))
     }
 }

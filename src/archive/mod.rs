@@ -101,7 +101,7 @@ impl<'a> Member<'a> {
         let header_offset = *offset;
         let name = buffer.pread_with::<&str>(*offset, ::scroll::ctx::StrCtx::Length(SIZEOF_FILE_IDENTIFER))?;
         let archive_header = buffer.gread::<MemberHeader>(offset)?;
-        let mut header = Header { name: name, size: archive_header.size()? };
+        let mut header = Header { name, size: archive_header.size()? };
 
         // skip newline padding if we're on an uneven byte boundary
         if *offset & 1 == 1 {
@@ -123,10 +123,10 @@ impl<'a> Member<'a> {
         };
 
         Ok(Member {
-            header: header,
+            header,
             header_offset: header_offset as u64,
             offset: *offset as u64,
-            bsd_name: bsd_name,
+            bsd_name,
             sysv_name: None,
         })
     }
@@ -298,7 +298,7 @@ impl<'a> NameIndex<'a> {
         // precious time was lost when refactoring because strtab::parse doesn't update the mutable seek...
         *offset += hacked_size - 2;
         Ok (NameIndex {
-            strtab: strtab
+            strtab
         })
     }
 
@@ -409,11 +409,11 @@ impl<'a> Archive<'a> {
         }
 
         let archive = Archive {
-            index: index,
-            member_array: member_array,
-            sysv_name_index: sysv_name_index,
-            members: members,
-            symbol_index: symbol_index,
+            index,
+            member_array,
+            sysv_name_index,
+            members,
+            symbol_index,
         };
 
         Ok(archive)

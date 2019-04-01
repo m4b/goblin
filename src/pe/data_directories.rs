@@ -33,7 +33,7 @@ impl DataDirectories {
             let dd = if dd.virtual_address == 0 && dd.size == 0 { None } else { Some (dd) };
             data_directories[i] = dd;
         }
-        Ok (DataDirectories { data_directories: data_directories })
+        Ok (DataDirectories { data_directories })
     }
     pub fn get_export_table(&self) -> &Option<DataDirectory> {
         let idx = 0;

@@ -527,9 +527,9 @@ impl<'a> ctx::TryFromCtx<'a, Endian> for ThreadCommand {
         Ok((ThreadCommand{
             cmd: lc.cmd,
             cmdsize: lc.cmdsize,
-            flavor: flavor,
-            count: count,
-            thread_state: thread_state,
+            flavor,
+            count,
+            thread_state,
         }, lc.cmdsize as _))
     }
 }

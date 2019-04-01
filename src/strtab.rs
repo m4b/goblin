@@ -27,7 +27,7 @@ fn get_str(offset: usize, bytes: &[u8], delim: ctx::StrCtx) -> scroll::Result<&s
 impl<'a> Strtab<'a> {
     /// Construct a new strtab with `bytes` as the backing string table, using `delim` as the delimiter between entries
     pub fn new (bytes: &'a [u8], delim: u8) -> Self {
-        Strtab { delim: ctx::StrCtx::Delimiter(delim), bytes: bytes }
+        Strtab { delim: ctx::StrCtx::Delimiter(delim), bytes }
     }
     /// Construct a strtab from a `ptr`, and a `size`, using `delim` as the delimiter
     pub unsafe fn from_raw(ptr: *const u8, size: usize, delim: u8) -> Strtab<'a> {

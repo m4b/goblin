@@ -129,11 +129,11 @@ impl<'a> ExportData<'a> {
         let name = utils::find_offset(export_directory_table.name_rva as usize, sections, file_alignment).and_then(|offset| bytes.pread(offset).ok());
 
         Ok(ExportData {
-            name: name,
-            export_directory_table: export_directory_table,
-            export_name_pointer_table: export_name_pointer_table,
-            export_ordinal_table: export_ordinal_table,
-            export_address_table: export_address_table,
+            name,
+            export_directory_table,
+            export_name_pointer_table,
+            export_ordinal_table,
+            export_address_table,
         })
     }
 }
@@ -179,7 +179,7 @@ impl<'a> scroll::ctx::TryFromCtx<'a, scroll::Endian> for Reexport<'a> {
                         _ => {
                             let export = rest.pread_with::<&str>(1, ::scroll::ctx::StrCtx::Length(len))?;
                             // FIXME: return size
-                            return Ok((Reexport::DLLName { export: export, lib: dll }, 0))
+                            return Ok((Reexport::DLLName { export, lib: dll }, 0))
                         }
                     }
                 },

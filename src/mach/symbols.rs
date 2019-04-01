@@ -306,11 +306,11 @@ impl<'a, T: ?Sized> ctx::TryFromCtx<'a, SymbolsCtx, T> for Symbols<'a> where T: 
     }: SymbolsCtx) -> crate::error::Result<(Self, Self::Size)> {
         let data = bytes.as_ref();
         Ok ((Symbols {
-            data: data,
+            data,
             start: 0,
-            nsyms: nsyms,
-            strtab: strtab,
-            ctx: ctx,
+            nsyms,
+            strtab,
+            ctx,
         }, data.len()))
     }
 }
@@ -373,16 +373,16 @@ impl<'a> Symbols<'a> {
         let nsyms = count;
         Ok (Symbols {
             data: bytes,
-            start: start,
-            nsyms: nsyms,
-            strtab: strtab,
+            start,
+            nsyms,
+            strtab,
             ctx: container::Ctx::default(),
         })
     }
     pub fn parse(bytes: &'a [u8], symtab: &load_command::SymtabCommand, ctx: container::Ctx) -> error::Result<Symbols<'a>> {
         // we need to normalize the strtab offset before we receive the truncated bytes in pread_with
         let strtab = symtab.stroff - symtab.symoff;
-        Ok(bytes.pread_with(symtab.symoff as usize, SymbolsCtx { nsyms: symtab.nsyms as usize, strtab: strtab as usize, ctx: ctx })?)
+        Ok(bytes.pread_with(symtab.symoff as usize, SymbolsCtx { nsyms: symtab.nsyms as usize, strtab: strtab as usize, ctx })?)
     }
 
     pub fn iter(&self) -> SymbolIterator<'a> {

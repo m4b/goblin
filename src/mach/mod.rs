@@ -225,19 +225,19 @@ impl<'a> MachO<'a> {
         };
 
         Ok(MachO {
-            header: header,
+            header,
             load_commands: cmds,
-            segments: segments,
-            symbols: symbols,
-            libs: libs,
-            export_trie: export_trie,
-            bind_interpreter: bind_interpreter,
-            entry: entry,
-            old_style_entry: old_style_entry,
-            name: name,
-            ctx: ctx,
-            is_64: is_64,
-            little_endian: little_endian,
+            segments,
+            symbols,
+            libs,
+            export_trie,
+            bind_interpreter,
+            entry,
+            old_style_entry,
+            name,
+            ctx,
+            is_64,
+            little_endian,
             data: bytes,
         })
     }

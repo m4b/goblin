@@ -286,7 +286,7 @@ if_alloc! {
             let ident: &[u8] = &bytes[..SIZEOF_IDENT];
             if &ident[0..SELFMAG] != ELFMAG {
                 let magic: u64 = ident.pread_with(0, scroll::LE)?;
-                return Err(error::Error::BadMagic(magic).into());
+                return Err(error::Error::BadMagic(magic));
             }
             let class = ident[EI_CLASS];
             match class {
@@ -297,7 +297,7 @@ if_alloc! {
                     Ok((Header::from(bytes.pread::<header64::Header>(0)?), header64::SIZEOF_EHDR))
                 },
                 _ => {
-                    Err(error::Error::Malformed(format!("invalid ELF class {:x}", class)).into())
+                    Err(error::Error::Malformed(format!("invalid ELF class {:x}", class)))
                 }
             }
         }

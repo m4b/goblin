@@ -314,11 +314,11 @@ impl<'a> NameIndex<'a> {
                 if name != "" {
                     Ok(name.trim_end_matches('/'))
                 }  else {
-                    return Err(Error::Malformed(format!("Could not find {:?} in index", name).into()));
+                    return Err(Error::Malformed(format!("Could not find {:?} in index", name)));
                 }
             },
             Err (_) => {
-                return Err(Error::Malformed(format!("Bad name index {:?} in index", name).into()));
+                return Err(Error::Malformed(format!("Bad name index {:?} in index", name)));
             }
         }
     }
@@ -348,7 +348,7 @@ impl<'a> Archive<'a> {
         buffer.gread_inout(offset, &mut magic)?;
         if &magic != MAGIC {
             use scroll::Pread;
-            return Err(Error::BadMagic(magic.pread(0)?).into());
+            return Err(Error::BadMagic(magic.pread(0)?));
         }
         let mut member_array = Vec::new();
         let mut index = Index::default();
@@ -434,7 +434,7 @@ impl<'a> Archive<'a> {
             let bytes = buffer.pread_with(member.offset as usize, member.size())?;
             Ok(bytes)
         } else {
-            Err(Error::Malformed(format!("Cannot extract member {:?}", member).into()))
+            Err(Error::Malformed(format!("Cannot extract member {:?}", member)))
         }
     }
 

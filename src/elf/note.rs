@@ -85,7 +85,7 @@ if_alloc! {
                 debug!("NoteIterator - {:#x}", self.offset);
                 match self.data.gread_with(&mut self.offset, self.ctx) {
                     Ok(res) => Some(Ok(res)),
-                    Err(e) => Some(Err(e.into()))
+                    Err(e) => Some(Err(e))
                 }
             }
         }

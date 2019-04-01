@@ -338,10 +338,10 @@ impl<'a> Iterator for SymbolIterator<'a> {
                         Ok(name) => {
                             Some(Ok((name, symbol)))
                         },
-                        Err(e) => return Some(Err(e.into()))
+                        Err(e) => Some(Err(e.into()))
                     }
                 },
-                Err(e) => return Some(Err(e))
+                Err(e) => Some(Err(e))
             }
         }
     }

@@ -314,11 +314,11 @@ impl<'a> NameIndex<'a> {
                 if name != "" {
                     Ok(name.trim_end_matches('/'))
                 }  else {
-                    return Err(Error::Malformed(format!("Could not find {:?} in index", name)));
+                    Err(Error::Malformed(format!("Could not find {:?} in index", name)))
                 }
             },
             Err (_) => {
-                return Err(Error::Malformed(format!("Bad name index {:?} in index", name)));
+                Err(Error::Malformed(format!("Bad name index {:?} in index", name)))
             }
         }
     }

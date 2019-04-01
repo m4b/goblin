@@ -13,6 +13,7 @@ pub mod data_directories;
 pub mod export;
 pub mod import;
 pub mod debug;
+pub mod exception;
 pub mod utils;
 
 use crate::error;
@@ -53,7 +54,9 @@ pub struct PE<'a> {
     /// The list of libraries which this binary imports symbols from
     pub libraries: Vec<&'a str>,
     /// Debug information, if any, contained in the PE header
-    pub debug_data: Option<debug::DebugData<'a>>
+    pub debug_data: Option<debug::DebugData<'a>>,
+    /// Exception handling and stack unwind information, if any, contained in the PE header
+    pub exception_data: Option<exception::ExceptionData<'a>>,
 }
 
 impl<'a> PE<'a> {
@@ -81,6 +84,7 @@ impl<'a> PE<'a> {
         let mut import_data = None;
         let mut libraries = vec![];
         let mut debug_data = None;
+        let mut exception_data = None;
         let mut is_64 = false;
         if let Some(optional_header) = header.optional_header {
             entry = optional_header.standard_fields.address_of_entry_point as usize;
@@ -119,6 +123,11 @@ impl<'a> PE<'a> {
             if let &Some(debug_table) = optional_header.data_directories.get_debug_table() {
                 debug_data = Some(debug::DebugData::parse(bytes, &debug_table, &sections, file_alignment)?);
             }
+
+            debug!("exception data: {:#?}", exception_data);
+            if let &Some(exception_table) = optional_header.data_directories.get_exception_table() {
+                exception_data = Some(exception::ExceptionData::parse(bytes, exception_table, &sections, file_alignment)?);
+            }
         }
         Ok( PE {
             header: header,
@@ -135,6 +144,7 @@ impl<'a> PE<'a> {
             imports: imports,
             libraries: libraries,
             debug_data: debug_data,
+            exception_data: exception_data,
         })
     }
 }

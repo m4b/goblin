@@ -320,7 +320,7 @@ if_alloc! {
         }
     }
     impl ctx::IntoCtx<crate::container::Ctx> for Header {
-        fn into_ctx(self, bytes: &mut [u8], ctx: crate::container::Ctx) -> () {
+        fn into_ctx(self, bytes: &mut [u8], ctx: crate::container::Ctx) {
             use scroll::Pwrite;
             match ctx.container {
                 Container::Little => {

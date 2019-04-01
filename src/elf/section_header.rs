@@ -287,14 +287,14 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
                 ElfSectionHeader {
                     sh_name: sh.sh_name as usize,
                     sh_type: sh.sh_type,
-                    sh_flags: sh.sh_flags   as u64,
-                    sh_addr: sh.sh_addr     as u64,
-                    sh_offset: sh.sh_offset as u64,
-                    sh_size: sh.sh_size     as u64,
+                    sh_flags: u64::from(sh.sh_flags),
+                    sh_addr: u64::from(sh.sh_addr),
+                    sh_offset: u64::from(sh.sh_offset),
+                    sh_size: u64::from(sh.sh_size),
                     sh_link: sh.sh_link,
                     sh_info: sh.sh_info,
-                    sh_addralign: sh.sh_addralign as u64,
-                    sh_entsize: sh.sh_entsize as u64,
+                    sh_addralign: u64::from(sh.sh_addralign),
+                    sh_entsize: u64::from(sh.sh_entsize),
                 }
             }
         }
@@ -409,7 +409,7 @@ if_alloc! {
             SectionHeader {
                 sh_name: 0,
                 sh_type: SHT_PROGBITS,
-                sh_flags: SHF_ALLOC as u64,
+                sh_flags: u64::from(SHF_ALLOC),
                 sh_addr: 0,
                 sh_offset: 0,
                 sh_size: 0,

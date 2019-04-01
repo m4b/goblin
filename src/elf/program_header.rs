@@ -259,12 +259,12 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
                 ElfProgramHeader {
                     p_type   : ph.p_type,
                     p_flags  : ph.p_flags,
-                    p_offset : ph.p_offset as u64,
-                    p_vaddr  : ph.p_vaddr as u64,
-                    p_paddr  : ph.p_paddr as u64,
-                    p_filesz : ph.p_filesz as u64,
-                    p_memsz  : ph.p_memsz as u64,
-                    p_align  : ph.p_align as u64,
+                    p_offset : u64::from(ph.p_offset),
+                    p_vaddr  : u64::from(ph.p_vaddr),
+                    p_paddr  : u64::from(ph.p_paddr),
+                    p_filesz : u64::from(ph.p_filesz),
+                    p_memsz  : u64::from(ph.p_memsz),
+                    p_align  : u64::from(ph.p_align),
                 }
             }
         }

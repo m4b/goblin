@@ -138,7 +138,7 @@ impl<'a> MachO<'a> {
     /// Parses the Mach-o binary from `bytes` at `offset`
     pub fn parse(bytes: &'a [u8], mut offset: usize) -> error::Result<MachO<'a>> {
         let (magic, maybe_ctx) = parse_magic_and_ctx(bytes, offset)?;
-        let ctx = if let Some(ctx) = maybe_ctx { ctx } else { return Err(error::Error::BadMagic(magic as u64)) };
+        let ctx = if let Some(ctx) = maybe_ctx { ctx } else { return Err(error::Error::BadMagic(u64::from(magic))) };
         debug!("Ctx: {:?}", ctx);
         let offset = &mut offset;
         let header: header::Header = bytes.pread_with(*offset, ctx)?;

@@ -55,8 +55,8 @@ macro_rules! elf_compression_header_std_impl { ($size:ty) => {
             fn from(ch: CompressionHeader) -> Self {
                 ElfCompressionHeader {
                     ch_type: ch.ch_type,
-                    ch_size: ch.ch_size as u64,
-                    ch_addralign: ch.ch_addralign as u64,
+                    ch_size: u64::from(ch.ch_size),
+                    ch_addralign: u64::from(ch.ch_addralign),
                 }
             }
         }

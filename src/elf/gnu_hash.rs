@@ -28,7 +28,7 @@ macro_rules! elf_gnu_hash_impl {
             const HASH_SEED: u32 = 5381;
             let mut hash = HASH_SEED;
             for b in bytes {
-                hash = hash.wrapping_mul(32).wrapping_add(*b as u32).wrapping_add(hash);
+                hash = hash.wrapping_mul(32).wrapping_add(u32::from(*b)).wrapping_add(hash);
             }
             hash
         }

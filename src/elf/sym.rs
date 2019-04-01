@@ -199,8 +199,8 @@ macro_rules! elf_sym_std_impl {
                         st_info:     sym.st_info,
                         st_other:    sym.st_other,
                         st_shndx:    sym.st_shndx as usize,
-                        st_value:    sym.st_value as u64,
-                        st_size:     sym.st_size as u64,
+                        st_value:    u64::from(sym.st_value),
+                        st_size:     u64::from(sym.st_size),
                     }
                 }
             }

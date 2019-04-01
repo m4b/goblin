@@ -211,7 +211,7 @@ impl From<Nlist32> for Nlist {
             n_type: nlist.n_type,
             n_sect: nlist.n_sect as usize,
             n_desc: nlist.n_desc,
-            n_value: nlist.n_value as u64,
+            n_value: u64::from(nlist.n_value),
         }
     }
 }

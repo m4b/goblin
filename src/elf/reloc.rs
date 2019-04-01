@@ -123,8 +123,8 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
             impl From<Rela> for Reloc {
                 fn from(rela: Rela) -> Self {
                     Reloc {
-                        r_offset: rela.r_offset as u64,
-                        r_addend: Some(rela.r_addend as i64),
+                        r_offset: u64::from(rela.r_offset),
+                        r_addend: Some(i64::from(rela.r_addend)),
                         r_sym: r_sym(rela.r_info) as usize,
                         r_type: r_type(rela.r_info),
                     }
@@ -134,7 +134,7 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
             impl From<Rel> for Reloc {
                 fn from(rel: Rel) -> Self {
                     Reloc {
-                        r_offset: rel.r_offset as u64,
+                        r_offset: u64::from(rel.r_offset),
                         r_addend: None,
                         r_sym: r_sym(rel.r_info) as usize,
                         r_type: r_type(rel.r_info),
@@ -144,7 +144,7 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
 
             impl From<Reloc> for Rela {
                 fn from(rela: Reloc) -> Self {
-                    let r_info = r_info(rela.r_sym as $size, rela.r_type as $size);
+                    let r_info = r_info(rela.r_sym as $size, $size::from(rela.r_type));
                     Rela {
                         r_offset: rela.r_offset as $size,
                         r_info: r_info,
@@ -155,7 +155,7 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
 
             impl From<Reloc> for Rel {
                 fn from(rel: Reloc) -> Self {
-                    let r_info = r_info(rel.r_sym as $size, rel.r_type as $size);
+                    let r_info = r_info(rel.r_sym as $size, $size::from(rel.r_type));
                     Rel {
                         r_offset: rel.r_offset as $size,
                         r_info: r_info,

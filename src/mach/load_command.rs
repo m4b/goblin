@@ -419,7 +419,7 @@ impl ThreadCommand {
                 //   uint32_t gs;
                 // }
                 let eip: u32 = self.thread_state[10];
-                Ok(eip as u64)
+                Ok(u64::from(eip))
             },
             super::cputype::CPU_TYPE_X86_64 => {
                 // struct x86_thread_state64_t {
@@ -446,8 +446,8 @@ impl ThreadCommand {
                 //   uint64_t gs;
                 // }
                 let rip: u64 =
-                       (self.thread_state[32] as u64)
-                    | ((self.thread_state[33] as u64) << 32);
+                       (u64::from(self.thread_state[32]))
+                    | ((u64::from(self.thread_state[33])) << 32);
                 Ok(rip)
             }
             super::cputype::CPU_TYPE_ARM => {
@@ -459,7 +459,7 @@ impl ThreadCommand {
                 //   uint32_t cpsr;
                 // }
                 let pc: u32 = self.thread_state[15];
-                Ok(pc as u64)
+                Ok(u64::from(pc))
             }
             super::cputype::CPU_TYPE_ARM64 => {
                 // struct arm_thread_state64_t {
@@ -472,14 +472,14 @@ impl ThreadCommand {
                 //   uint32_t pad;
                 // }
                 let pc: u64 =
-                       (self.thread_state[64] as u64)
-                    | ((self.thread_state[65] as u64) << 32);
+                       (u64::from(self.thread_state[64]))
+                    | ((u64::from(self.thread_state[65])) << 32);
                 Ok(pc)
             }
             // https://github.com/m4b/goblin/issues/64
             // Probably a G4
             super::cputype::CPU_TYPE_POWERPC => {
-                Ok(self.thread_state[0] as u64)
+                Ok(u64::from(self.thread_state[0]))
             },
             // I think the G5 was the last motorola powerpc processor used by apple before switching to intel cpus.
             // unfortunately I don't have any binaries on hand to see what its thread state looks like :/

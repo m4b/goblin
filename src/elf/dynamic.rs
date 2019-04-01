@@ -454,8 +454,8 @@ macro_rules! elf_dyn_std_impl {
             impl From<Dyn> for ElfDyn {
                 fn from(dynamic: Dyn) -> Self {
                     ElfDyn {
-                        d_tag: dynamic.d_tag as u64,
-                        d_val: dynamic.d_val as u64,
+                        d_tag: u64::from(dynamic.d_tag),
+                        d_val: u64::from(dynamic.d_val),
                     }
                 }
             }
@@ -478,7 +478,7 @@ macro_rules! elf_dyn_std_impl {
                         let filesz = phdr.p_filesz as usize;
                         let dync = filesz / SIZEOF_DYN;
                         let mut dyns = vec![Dyn::default(); dync];
-                        fd.seek(Start(phdr.p_offset as u64))?;
+                        fd.seek(Start(u64::from(phdr.p_offset)))?;
                         unsafe {
                             fd.read(plain::as_mut_bytes(&mut *dyns))?;
                         }
@@ -493,7 +493,7 @@ macro_rules! elf_dyn_std_impl {
             pub unsafe fn from_raw<'a>(bias: usize, vaddr: usize) -> &'a [Dyn] {
                 let dynp = vaddr.wrapping_add(bias) as *const Dyn;
                 let mut idx = 0;
-                while (*dynp.offset(idx)).d_tag as u64 != DT_NULL {
+                while u64::from((*dynp.offset(idx)).d_tag) != DT_NULL {
                     idx += 1;
                 }
                 slice::from_raw_parts(dynp, idx as usize)
@@ -516,7 +516,7 @@ macro_rules! elf_dyn_std_impl {
             pub unsafe fn get_needed<'a>(dyns: &[Dyn], strtab: *const Strtab<'a>, count: usize) -> Vec<&'a str> {
                 let mut needed = Vec::with_capacity(count);
                 for dynamic in dyns {
-                    if dynamic.d_tag as u64 == DT_NEEDED {
+                    if u64::from(dynamic.d_tag) == DT_NEEDED {
                         let lib = &(*strtab)[dynamic.d_val as usize];
                         needed.push(lib);
                     }
@@ -582,7 +582,7 @@ macro_rules! elf_dynamic_info_std_impl {
         impl DynamicInfo {
             #[inline]
             pub fn update(&mut self, phdrs: &[$phdr], dynamic: &Dyn) {
-                match dynamic.d_tag as u64 {
+                match u64::from(dynamic.d_tag) {
                     DT_RELA => self.rela = vm_to_offset(phdrs, dynamic.d_val).unwrap_or(0) as usize, // .rela.dyn
                     DT_RELASZ => self.relasz = dynamic.d_val as usize,
                     DT_RELAENT => self.relaent = dynamic.d_val as _,

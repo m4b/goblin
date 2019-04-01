@@ -245,7 +245,7 @@ impl<'a> BindInterpreter<'a> {
                     imports.push(Import::new(&bind_info, libs, segments, start_of_sequence));
 	            let scale = opcode & BIND_IMMEDIATE_MASK;
                     let size = ctx.size() as u64;
-                    let seg_offset = bind_info.seg_offset.wrapping_add(scale as u64 * size).wrapping_add(size);
+                    let seg_offset = bind_info.seg_offset.wrapping_add(u64::from(scale) * size).wrapping_add(size);
                     bind_info.seg_offset = seg_offset;
                 },
                 BIND_OPCODE_DO_BIND_ULEB_TIMES_SKIPPING_ULEB => {

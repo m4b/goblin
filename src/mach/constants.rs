@@ -150,45 +150,45 @@ pub const S_ATTR_LOC_RELOC: u32 = 0x00000100;
 
 // The currently known segment names and the section names in those segments
 /// the pagezero segment which has no protections and catches NULL references for MH_EXECUTE files
-pub const SEG_PAGEZERO: &'static str = "__PAGEZERO";
+pub const SEG_PAGEZERO: &str = "__PAGEZERO";
 /// the tradition UNIX text segment
-pub const SEG_TEXT: &'static str = "__TEXT";
+pub const SEG_TEXT: &str = "__TEXT";
 /// the real text part of the text section no headers, and no padding
-pub const SECT_TEXT: &'static str = "__text";
+pub const SECT_TEXT: &str = "__text";
 /// the fvmlib initialization section
-pub const SECT_FVMLIB_INIT0: &'static str = "__fvmlib_init0";
+pub const SECT_FVMLIB_INIT0: &str = "__fvmlib_init0";
 /// the section following the fvmlib initialization section
-pub const SECT_FVMLIB_INIT1: &'static str = "__fvmlib_init1";
+pub const SECT_FVMLIB_INIT1: &str = "__fvmlib_init1";
 /// the tradition UNIX data segment
-pub const SEG_DATA: &'static str = "__DATA";
+pub const SEG_DATA: &str = "__DATA";
 /// the real initialized data section no padding, no bss overlap
-pub const SECT_DATA: &'static str = "__data";
+pub const SECT_DATA: &str = "__data";
 /// the real uninitialized data sectionno padding
-pub const SECT_BSS: &'static str = "__bss";
+pub const SECT_BSS: &str = "__bss";
 /// the section common symbols are allocated in by the link editor
-pub const SECT_COMMON: &'static str = "__common";
+pub const SECT_COMMON: &str = "__common";
 /// objective-C runtime segment
-pub const SEG_OBJC: &'static str = "__OBJC";
+pub const SEG_OBJC: &str = "__OBJC";
 /// symbol table
-pub const SECT_OBJC_SYMBOLS: &'static str = "__symbol_table";
+pub const SECT_OBJC_SYMBOLS: &str = "__symbol_table";
 /// module information
-pub const SECT_OBJC_MODULES: &'static str = "__module_info";
+pub const SECT_OBJC_MODULES: &str = "__module_info";
 /// string table
-pub const SECT_OBJC_STRINGS: &'static str = "__selector_strs";
+pub const SECT_OBJC_STRINGS: &str = "__selector_strs";
 /// string table
-pub const SECT_OBJC_REFS: &'static str = "__selector_refs";
+pub const SECT_OBJC_REFS: &str = "__selector_refs";
 /// the icon segment
-pub const SEG_ICON: &'static str = "__ICON";
+pub const SEG_ICON: &str = "__ICON";
 /// the icon headers
-pub const SECT_ICON_HEADER: &'static str = "__header";
+pub const SECT_ICON_HEADER: &str = "__header";
 /// the icons in tiff format
-pub const SECT_ICON_TIFF: &'static str = "__tiff";
+pub const SECT_ICON_TIFF: &str = "__tiff";
 /// the segment containing all structs created and maintained by the link editor.  Created with -seglinkedit option to ld(1) for MH_EXECUTE and FVMLIB file types only
-pub const SEG_LINKEDIT: &'static str = "__LINKEDIT";
+pub const SEG_LINKEDIT: &str = "__LINKEDIT";
 /// the unix stack segment
-pub const SEG_UNIXSTACK: &'static str = "__UNIXSTACK";
+pub const SEG_UNIXSTACK: &str = "__UNIXSTACK";
 /// the segment for the self (dyld) modifing code stubs that has read, write and execute permissions
-pub const SEG_IMPORT: &'static str = "__IMPORT";
+pub const SEG_IMPORT: &str = "__IMPORT";
 
 pub mod cputype {
 

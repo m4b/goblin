@@ -86,7 +86,7 @@ pub const ET_CORE: u16 = 4;
 pub const ET_NUM: u16 = 5;
 
 /// The ELF magic number.
-pub const ELFMAG: &'static [u8; 4] = b"\x7FELF";
+pub const ELFMAG: &[u8; 4] = b"\x7FELF";
 /// Sizeof ELF magic number.
 pub const SELFMAG: usize = 4;
 

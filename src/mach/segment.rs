@@ -257,7 +257,7 @@ impl<'a> Iterator for SectionIterator<'a> {
                         });
                     Some(Ok((section, data)))
                 },
-                Err(e) => Some(Err(e.into()))
+                Err(e) => Some(Err(e))
             }
         }
     }

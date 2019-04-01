@@ -344,7 +344,7 @@ impl<'a> MultiArch<'a> {
     /// Try to get the Mach-o binary at `index`
     pub fn get(&self, index: usize) -> error::Result<MachO<'a>> {
         if index >= self.narches {
-            return Err(error::Error::Malformed(format!("Requested the {}-th binary, but there are only {} architectures in this container", index, self.narches).into()))
+            return Err(error::Error::Malformed(format!("Requested the {}-th binary, but there are only {} architectures in this container", index, self.narches)))
         }
         let offset = (index * fat::SIZEOF_FAT_ARCH) + self.start;
         let arch = self.data.pread_with::<fat::FatArch>(offset, scroll::BE)?;

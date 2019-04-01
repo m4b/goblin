@@ -341,7 +341,7 @@ impl<'a> Iterator for SymbolIterator<'a> {
                         Err(e) => return Some(Err(e.into()))
                     }
                 },
-                Err(e) => return Some(Err(e.into()))
+                Err(e) => return Some(Err(e))
             }
         }
     }

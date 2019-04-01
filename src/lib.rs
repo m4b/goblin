@@ -264,7 +264,7 @@ if_everything! {
                     if let Some(ctx) = maybe_ctx {
                         Ok(Hint::Mach(HintData { is_lsb: ctx.le.is_little(), is_64: Some(ctx.container.is_big()) }))
                     } else {
-                        Err(error::Error::Malformed(format!("Correct mach magic {:#x} does not have a matching parsing context!", magic).into()))
+                        Err(error::Error::Malformed(format!("Correct mach magic {:#x} does not have a matching parsing context!", magic)))
                     }
                 },
                 // its something else

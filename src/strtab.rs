@@ -63,7 +63,7 @@ impl<'a> Strtab<'a> {
         if offset >= self.bytes.len() {
             None
         } else {
-            Some(get_str(offset, self.bytes, self.delim).map_err(|e| e.into()))
+            Some(get_str(offset, self.bytes, self.delim).map_err(core::convert::Into::into))
         }
     }
     /// Gets a str reference from the backing bytes starting at byte `offset`.

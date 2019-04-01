@@ -265,7 +265,7 @@ impl<'a> Iterator for FatArchIterator<'a> {
             None
         } else {
             let offset = (self.index * fat::SIZEOF_FAT_ARCH) + self.start;
-            let arch = self.data.pread_with::<fat::FatArch>(offset, scroll::BE).map_err(|e| e.into());
+            let arch = self.data.pread_with::<fat::FatArch>(offset, scroll::BE).map_err(core::convert::Into::into);
             self.index += 1;
             Some(arch)
         }

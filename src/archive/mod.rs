@@ -17,7 +17,7 @@ use crate::alloc::vec::Vec;
 
 pub const SIZEOF_MAGIC: usize = 8;
 /// The magic number of a Unix Archive
-pub const MAGIC: &'static [u8; SIZEOF_MAGIC] = b"!<arch>\x0A";
+pub const MAGIC: &[u8; SIZEOF_MAGIC] = b"!<arch>\x0A";
 
 const SIZEOF_FILE_IDENTIFER: usize = 16;
 const SIZEOF_FILE_SIZE: usize = 10;
@@ -186,12 +186,12 @@ pub struct Index<'a> {
 }
 
 /// SysV Archive Variant Symbol Lookup Table "Magic" Name
-const INDEX_NAME: &'static str = "/               ";
+const INDEX_NAME: &str = "/               ";
 /// SysV Archive Variant Extended Filename String Table Name
-const NAME_INDEX_NAME: &'static str = "//              ";
+const NAME_INDEX_NAME: &str = "//              ";
 /// BSD symbol definitions
-const BSD_SYMDEF_NAME: &'static str = "__.SYMDEF";
-const BSD_SYMDEF_SORTED_NAME: &'static str = "__.SYMDEF SORTED";
+const BSD_SYMDEF_NAME: &str = "__.SYMDEF";
+const BSD_SYMDEF_SORTED_NAME: &str = "__.SYMDEF SORTED";
 
 impl<'a> Index<'a> {
     /// Parses the given byte buffer into an Index. NB: the buffer must be the start of the index

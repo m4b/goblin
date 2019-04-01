@@ -73,7 +73,7 @@ macro_rules! elf_compression_header_std_impl { ($size:ty) => {
                 let mut chdr = CompressionHeader::default();
                 fd.seek(Start(offset))?;
                 unsafe {
-                    fd.read(plain::as_mut_bytes(&mut chdr))?;
+                    fd.read_exact(plain::as_mut_bytes(&mut chdr))?;
                 }
                 Ok(chdr)
             }

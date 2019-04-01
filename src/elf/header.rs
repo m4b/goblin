@@ -462,7 +462,7 @@ macro_rules! elf_header_std_impl {
                 #[cfg(feature = "std")]
                 pub fn from_fd(bytes: &mut File) -> Result<Header> {
                     let mut elf_header = [0; $size];
-                    bytes.read(&mut elf_header)?;
+                    bytes.read_exact(&mut elf_header)?;
                     Ok(*Header::from_bytes(&elf_header))
                 }
 

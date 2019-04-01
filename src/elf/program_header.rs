@@ -326,7 +326,7 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
                 let mut phdrs = vec![ProgramHeader::default(); count];
                 fd.seek(Start(offset))?;
                 unsafe {
-                    fd.read(plain::as_mut_bytes(&mut *phdrs))?;
+                    fd.read_exact(plain::as_mut_bytes(&mut *phdrs))?;
                 }
                 Ok(phdrs)
             }

@@ -327,7 +327,7 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
                 let mut shdrs = vec![SectionHeader::default(); shnum];
                 fd.seek(Start(offset))?;
                 unsafe {
-                    fd.read(plain::as_mut_bytes(&mut *shdrs))?;
+                    fd.read_exact(plain::as_mut_bytes(&mut *shdrs))?;
                 }
                 Ok(shdrs)
             }

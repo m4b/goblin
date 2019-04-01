@@ -51,7 +51,7 @@ impl FatHeader {
     #[cfg(feature = "std")]
     pub fn from_fd(fd: &mut File) -> io::Result<FatHeader> {
         let mut header = [0; SIZEOF_FAT_HEADER];
-        fd.read(&mut header)?;
+        fd.read_exact(&mut header)?;
         Ok(FatHeader::from_bytes(&header))
     }
 

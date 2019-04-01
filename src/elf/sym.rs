@@ -246,7 +246,7 @@ macro_rules! elf_sym_std_impl {
                 let mut syms = vec![Sym::default(); count];
                 fd.seek(Start(offset as u64))?;
                 unsafe {
-                    fd.read(plain::as_mut_bytes(&mut *syms))?;
+                    fd.read_exact(plain::as_mut_bytes(&mut *syms))?;
                 }
                 syms.dedup();
                 Ok(syms)

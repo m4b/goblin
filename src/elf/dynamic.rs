@@ -480,7 +480,7 @@ macro_rules! elf_dyn_std_impl {
                         let mut dyns = vec![Dyn::default(); dync];
                         fd.seek(Start(u64::from(phdr.p_offset)))?;
                         unsafe {
-                            fd.read(plain::as_mut_bytes(&mut *dyns))?;
+                            fd.read_exact(plain::as_mut_bytes(&mut *dyns))?;
                         }
                         dyns.dedup();
                         return Ok(Some(dyns));

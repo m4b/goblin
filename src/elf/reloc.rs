@@ -189,7 +189,7 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
                 let mut relocs = vec![Rela::default(); count];
                 fd.seek(Start(offset as u64))?;
                 unsafe {
-                    fd.read(plain::as_mut_bytes(&mut *relocs))?;
+                    fd.read_exact(plain::as_mut_bytes(&mut *relocs))?;
                 }
                 Ok(relocs)
             }

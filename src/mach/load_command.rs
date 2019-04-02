@@ -499,7 +499,6 @@ impl<'a> ctx::TryFromCtx<'a, Endian> for ThreadCommand {
     type Error = crate::error::Error;
     type Size = usize;
     fn try_from_ctx(bytes: &'a [u8], le: Endian) -> error::Result<(Self, Self::Size)> {
-        use scroll::{Pread};
         let lc = bytes.pread_with::<LoadCommandHeader>(0, le)?;
 
         // read the thread state flavor and length of the thread state
@@ -1315,7 +1314,6 @@ impl<'a> ctx::TryFromCtx<'a, Endian> for CommandVariant {
     type Error = crate::error::Error;
     type Size = usize;
     fn try_from_ctx(bytes: &'a [u8], le: Endian) -> error::Result<(Self, Self::Size)> {
-        use scroll::{Pread};
         use self::CommandVariant::*;
         let lc = bytes.pread_with::<LoadCommandHeader>(0, le)?;
         let size = lc.cmdsize as usize;

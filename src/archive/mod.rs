@@ -347,7 +347,6 @@ impl<'a> Archive<'a> {
         let offset = &mut 0usize;
         buffer.gread_inout(offset, &mut magic)?;
         if &magic != MAGIC {
-            use scroll::Pread;
             return Err(Error::BadMagic(magic.pread(0)?));
         }
         let mut member_array = Vec::new();

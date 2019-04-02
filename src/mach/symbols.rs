@@ -192,7 +192,6 @@ impl Nlist {
 impl ctx::SizeWith<container::Ctx> for Nlist {
     type Units = usize;
     fn size_with(ctx: &container::Ctx) -> usize {
-        use crate::container::Container;
         match ctx.container {
             Container::Little => {
                 SIZEOF_NLIST_32

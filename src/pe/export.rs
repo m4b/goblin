@@ -150,7 +150,6 @@ impl<'a> scroll::ctx::TryFromCtx<'a, scroll::Endian> for Reexport<'a> {
     type Size = usize;
     #[inline]
     fn try_from_ctx(bytes: &'a [u8], _ctx: scroll::Endian) -> Result<(Self, Self::Size), Self::Error> {
-        use scroll::{Pread};
         let reexport = bytes.pread::<&str>(0)?;
         let reexport_len = reexport.len();
         debug!("reexport: {}", &reexport);

@@ -607,8 +607,8 @@ pub struct SymtabCommand {
   pub strsize: u32,
 }
 
-impl SymtabCommand {
-    pub fn new() -> Self {
+impl Default for SymtabCommand {
+    fn default() -> Self {
         SymtabCommand {
             cmd: LC_SYMTAB,
             cmdsize: SIZEOF_SYMTAB_COMMAND as u32,
@@ -617,6 +617,12 @@ impl SymtabCommand {
             stroff: 0,
             strsize: 0,
         }
+    }
+}
+
+impl SymtabCommand {
+    pub fn new() -> Self {
+        Default::default()
     }
 }
 
@@ -703,8 +709,8 @@ pub struct DysymtabCommand {
     pub nlocrel:        u32,
 }
 
-impl DysymtabCommand {
-    pub fn new() -> Self {
+impl Default for DysymtabCommand {
+    fn default() -> Self {
         DysymtabCommand {
             cmd: LC_DYSYMTAB,
             cmdsize: SIZEOF_DYSYMTAB_COMMAND as u32,
@@ -727,6 +733,12 @@ impl DysymtabCommand {
             locreloff:      0,
             nlocrel:        0,
         }
+    }
+}
+
+impl DysymtabCommand {
+    pub fn new() -> Self {
+        Default::default()
     }
 }
 

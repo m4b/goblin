@@ -28,16 +28,16 @@ fn base64_decode_string_entry(s: &str) -> Result<usize, ()> {
 
     let mut val = 0;
     for c in s.bytes() {
-        let v = if b'A' <= c && c <= b'Z' {
-            c - b'A' + 00 // 00..=25
-        } else if b'a' <= c && c <= b'z' {
-            c - b'a' + 26 // 26..=51
-        } else if b'0' <= c && c <= b'9' {
-            c - b'0' + 52 // 52..=61
-        } else if c == b'+' {
-            62            // 62
-        } else if c == b'/' {
-            63            // 63
+        let v = if b'A' <= c && c <= b'Z' { // 00..=25
+            c - b'A'
+        } else if b'a' <= c && c <= b'z' { // 26..=51
+            c - b'a' + 26
+        } else if b'0' <= c && c <= b'9' { // 52..=61
+            c - b'0' + 52
+        } else if c == b'+' { // 62
+            62
+        } else if c == b'/' { // 63
+            63
         } else {
             return Err(())
         };

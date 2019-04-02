@@ -1,3 +1,5 @@
+/* Legal values for p_type (segment type).  */
+
 /// Program header table entry unused
 pub const PT_NULL: u32 = 0;
 /// Loadable program segment
@@ -41,12 +43,12 @@ pub const PT_ARM_EXIDX: u32 = 0x7000_0001;
 /// End of processor-specific
 pub const PT_HIPROC: u32 = 0x7fff_ffff;
 
-/// Segment is executable
-pub const PF_X: u32 = 1 << 0;
+/* Legal values for p_flags (segment flags).  */
 
+/// Segment is executable
+pub const PF_X: u32 = 1;
 /// Segment is writable
 pub const PF_W: u32 = 1 << 1;
-
 /// Segment is readable
 pub const PF_R: u32 = 1 << 2;
 

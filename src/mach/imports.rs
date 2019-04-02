@@ -142,13 +142,13 @@ impl<'a> BindInterpreter<'a> {
         }
     }
     /// Return the imports in this binary
-    pub fn imports(&self, libs: &[&'a str], segments: &[segment::Segment], ctx: &container::Ctx) -> error::Result<Vec<Import<'a>>>{
+    pub fn imports(&self, libs: &[&'a str], segments: &[segment::Segment], ctx: container::Ctx) -> error::Result<Vec<Import<'a>>>{
         let mut imports = Vec::new();
         self.run(false, libs, segments, ctx, &mut imports)?;
         self.run( true, libs, segments, ctx, &mut imports)?;
         Ok(imports)
     }
-    fn run(&self, is_lazy: bool, libs: &[&'a str], segments: &[segment::Segment], ctx: &container::Ctx, imports: &mut Vec<Import<'a>>) -> error::Result<()>{
+    fn run(&self, is_lazy: bool, libs: &[&'a str], segments: &[segment::Segment], ctx: container::Ctx, imports: &mut Vec<Import<'a>>) -> error::Result<()>{
         use crate::mach::bind_opcodes::*;
         let location = if is_lazy {
             &self.lazy_location

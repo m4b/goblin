@@ -42,41 +42,41 @@ pub const SIZEOF_RELOCATION_INFO: usize = 8;
 impl RelocationInfo {
     /// Symbol index if `r_extern` == 1 or section ordinal if `r_extern` == 0. In bits :24
     #[inline]
-    pub fn r_symbolnum(&self) -> usize {
+    pub fn r_symbolnum(self) -> usize {
         (self.r_info & 0x00ff_ffffu32) as usize
     }
     /// Was relocated pc relative already, 1 bit
     #[inline]
-    pub fn r_pcrel(&self) -> u8 {
+    pub fn r_pcrel(self) -> u8 {
         ((self.r_info & 0x0100_0000u32) >> 24) as u8
     }
     /// The length of the relocation, 0=byte, 1=word, 2=long, 3=quad, 2 bits
     #[inline]
-    pub fn r_length(&self) -> u8 {
+    pub fn r_length(self) -> u8 {
         ((self.r_info & 0x0600_0000u32) >> 25) as u8
     }
     /// Does not include value of sym referenced, 1 bit
     #[inline]
-    pub fn r_extern(&self) -> u8 {
+    pub fn r_extern(self) -> u8 {
         ((self.r_info & 0x0800_0000) >> 27) as u8
     }
     /// Ff not 0, machine specific relocation type, in bits :4
     #[inline]
-    pub fn r_type(&self) -> u8 {
+    pub fn r_type(self) -> u8 {
         ((self.r_info & 0xf000_0000) >> 28) as u8
     }
     /// If true, this relocation is for a symbol; if false,  or a section ordinal otherwise
     #[inline]
-    pub fn is_extern(&self) -> bool {
+    pub fn is_extern(self) -> bool {
         self.r_extern() == 1
     }
     /// If true, this is a PIC relocation
     #[inline]
-    pub fn is_pic(&self) -> bool {
+    pub fn is_pic(self) -> bool {
         self.r_pcrel() > 0
     }
     /// Returns a string representation of this relocation, given the machine `cputype`
-    pub fn to_str(&self, cputype: mach::cputype::CpuType) -> &'static str {
+    pub fn to_str(self, cputype: mach::cputype::CpuType) -> &'static str {
         reloc_to_str(self.r_type(), cputype)
     }
 }

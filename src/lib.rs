@@ -136,8 +136,8 @@ pub mod container {
 
     impl Container {
         /// Is this a 64-bit container or not?
-        pub fn is_big(&self) -> bool {
-            *self == Container::Big
+        pub fn is_big(self) -> bool {
+            self == Container::Big
         }
     }
 
@@ -165,11 +165,11 @@ pub mod container {
 
     impl Ctx {
         /// Whether this binary container context is "big" or not
-        pub fn is_big(&self) -> bool {
+        pub fn is_big(self) -> bool {
             self.container.is_big()
         }
         /// Whether this binary container context is little endian or not
-        pub fn is_little_endian(&self) -> bool {
+        pub fn is_little_endian(self) -> bool {
             self.le.is_little()
         }
         /// Create a new binary container context
@@ -177,7 +177,7 @@ pub mod container {
             Ctx { container, le }
         }
         /// Return a dubious pointer/address byte size for the container
-        pub fn size(&self) -> usize {
+        pub fn size(self) -> usize {
             match self.container {
                 // TODO: require pointer size initialization/setting or default to container size with these values, e.g., avr pointer width will be smaller iirc
                 Container::Little => 4,

@@ -183,9 +183,9 @@ if_alloc! {
     impl CompressionHeader {
         /// Return the size of the underlying compression header, given a `container`
         #[inline]
-        pub fn size(ctx: &Ctx) -> usize {
+        pub fn size(ctx: Ctx) -> usize {
             use scroll::ctx::SizeWith;
-            Self::size_with(ctx)
+            Self::size_with(&ctx)
         }
         pub fn new() -> Self {
             CompressionHeader {

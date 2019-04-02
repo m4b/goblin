@@ -130,7 +130,7 @@ impl<'a> MachO<'a> {
     /// Return the imported symbols in this binary that dyld knows about (if any)
     pub fn imports(&self) -> error::Result<Vec<imports::Import>> {
         if let Some(ref interpreter) = self.bind_interpreter {
-            interpreter.imports(self.libs.as_slice(), self.segments.as_slice(), &self.ctx)
+            interpreter.imports(self.libs.as_slice(), self.segments.as_slice(), self.ctx)
         } else {
             Ok(vec![])
         }

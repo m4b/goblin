@@ -93,7 +93,7 @@ impl<'a> PE<'a> {
             debug!("entry {:#x} image_base {:#x} is_64: {}", entry, image_base, is_64);
             let file_alignment = optional_header.windows_fields.file_alignment;
             if let &Some(export_table) = optional_header.data_directories.get_export_table() {
-                if let Ok(ed) = export::ExportData::parse(bytes, &export_table, &sections, file_alignment) {
+                if let Ok(ed) = export::ExportData::parse(bytes, export_table, &sections, file_alignment) {
                     debug!("export data {:#?}", ed);
                     exports = export::Export::parse(bytes, &ed, &sections, file_alignment)?;
                     name = ed.name;
@@ -104,9 +104,9 @@ impl<'a> PE<'a> {
             debug!("exports: {:#?}", exports);
             if let &Some(import_table) = optional_header.data_directories.get_import_table() {
                 let id = if is_64 {
-                    import::ImportData::parse::<u64>(bytes, &import_table, &sections, file_alignment)?
+                    import::ImportData::parse::<u64>(bytes, import_table, &sections, file_alignment)?
                 } else {
-                    import::ImportData::parse::<u32>(bytes, &import_table, &sections, file_alignment)?
+                    import::ImportData::parse::<u32>(bytes, import_table, &sections, file_alignment)?
                 };
                 debug!("import data {:#?}", id);
                 if is_64 {
@@ -121,7 +121,7 @@ impl<'a> PE<'a> {
             }
             debug!("imports: {:#?}", imports);
             if let &Some(debug_table) = optional_header.data_directories.get_debug_table() {
-                debug_data = Some(debug::DebugData::parse(bytes, &debug_table, &sections, file_alignment)?);
+                debug_data = Some(debug::DebugData::parse(bytes, debug_table, &sections, file_alignment)?);
             }
 
             debug!("exception data: {:#?}", exception_data);

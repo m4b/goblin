@@ -66,7 +66,7 @@ pub struct ExportData<'a> {
 }
 
 impl<'a> ExportData<'a> {
-    pub fn parse(bytes: &'a [u8], dd: &data_directories::DataDirectory, sections: &[section_table::SectionTable], file_alignment: u32) -> error::Result<ExportData<'a>> {
+    pub fn parse(bytes: &'a [u8], dd: data_directories::DataDirectory, sections: &[section_table::SectionTable], file_alignment: u32) -> error::Result<ExportData<'a>> {
         let export_rva = dd.virtual_address as usize;
         let size = dd.size as usize;
         debug!("export_rva {:#x} size {:#}", export_rva, size);

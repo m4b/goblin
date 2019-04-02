@@ -37,7 +37,7 @@ impl fmt::Debug for FatHeader {
 
 impl FatHeader {
     /// Reinterpret a `FatHeader` from `bytes`
-    pub fn from_bytes(bytes: &[u8; SIZEOF_FAT_HEADER]) -> FatHeader {
+    pub fn from_bytes(bytes: [u8; SIZEOF_FAT_HEADER]) -> FatHeader {
         let mut offset = 0;
         let magic = bytes.gread_with(&mut offset, scroll::BE).unwrap();
         let nfat_arch = bytes.gread_with(&mut offset, scroll::BE).unwrap();
@@ -52,7 +52,7 @@ impl FatHeader {
     pub fn from_fd(fd: &mut File) -> io::Result<FatHeader> {
         let mut header = [0; SIZEOF_FAT_HEADER];
         fd.read_exact(&mut header)?;
-        Ok(FatHeader::from_bytes(&header))
+        Ok(FatHeader::from_bytes(header))
     }
 
     /// Parse a mach-o fat header from the `bytes`

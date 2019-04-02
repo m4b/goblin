@@ -99,9 +99,9 @@ if_alloc! {
     impl ProgramHeader {
         /// Return the size of the underlying program header, given a `Ctx`
         #[inline]
-        pub fn size(ctx: &Ctx) -> usize {
+        pub fn size(ctx: Ctx) -> usize {
             use scroll::ctx::SizeWith;
-            Self::size_with(ctx)
+            Self::size_with(&ctx)
         }
         /// Create a new `PT_LOAD` ELF program header
         pub fn new() -> Self {

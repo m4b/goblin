@@ -503,8 +503,9 @@ if_alloc! {
         pub fn parse(bytes: &'a [u8], offset: usize, count: usize, ctx: Ctx) -> Result<Symtab<'a>> {
             let size = count
                 .checked_mul(Sym::size_with(&ctx))
-                .ok_or(crate::error::Error::Malformed(format!("Too many ELF symbols (offset {:#x}, count {})",
-                                                 offset, count)))?;
+                .ok_or_else(|| crate::error::Error::Malformed(
+                    format!("Too many ELF symbols (offset {:#x}, count {})", offset, count)
+                ))?;
             // TODO: make this a better error message when too large
             let bytes = bytes.pread_with(offset, size)?;
             Ok(Symtab { bytes, count, ctx, start: offset, end: offset+size })

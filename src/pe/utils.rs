@@ -64,7 +64,7 @@ pub fn find_offset (rva: usize, sections: &[section_table::SectionTable], file_a
 }
 
 pub fn find_offset_or (rva: usize, sections: &[section_table::SectionTable], file_alignment: u32, msg: &str) -> error::Result<usize> {
-    find_offset(rva, sections, file_alignment).ok_or(error::Error::Malformed(msg.to_string()))
+    find_offset(rva, sections, file_alignment).ok_or_else(|| error::Error::Malformed(msg.to_string()))
 }
 
 pub fn try_name<'a>(bytes: &'a [u8], rva: usize, sections: &[section_table::SectionTable], file_alignment: u32) -> error::Result<&'a str> {

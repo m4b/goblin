@@ -527,6 +527,12 @@ if_alloc! {
             self.count
         }
 
+        /// Returns true if table has no symbols.
+        #[inline]
+        pub fn is_empty(&self) -> bool {
+            self.count == 0
+        }
+
         /// Iterate over all symbols.
         #[inline]
         pub fn iter(&self) -> SymIterator<'a> {

@@ -423,8 +423,15 @@ if_alloc! {
         }
 
         /// The number of relocations in the section.
+        #[inline]
         pub fn len(&self) -> usize {
             self.count
+        }
+
+        /// Returns true if section has no relocations.
+        #[inline]
+        pub fn is_empty(&self) -> bool {
+            self.count == 0
         }
 
         /// Iterate over all relocations.

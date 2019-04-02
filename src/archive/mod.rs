@@ -294,7 +294,7 @@ impl<'a> NameIndex<'a> {
         // This is a total hack, because strtab returns "" if idx == 0, need to change
         // but previous behavior might rely on this, as ELF strtab's have "" at 0th index...
         let hacked_size = size + 1;
-        let strtab = strtab::Strtab::parse(buffer, *offset-1, hacked_size, '\n' as u8)?;
+        let strtab = strtab::Strtab::parse(buffer, *offset-1, hacked_size, b'\n')?;
         // precious time was lost when refactoring because strtab::parse doesn't update the mutable seek...
         *offset += hacked_size - 2;
         Ok (NameIndex {

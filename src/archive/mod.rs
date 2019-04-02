@@ -455,7 +455,7 @@ impl<'a> Archive<'a> {
 
     /// Get the list of member names in this archive
     pub fn members(&self) -> Vec<&'a str> {
-        self.members.keys().map(|s| *s).collect()
+        self.members.keys().cloned().collect()
     }
 
     /// Returns the member's name which contains the given `symbol`, if it is in the archive

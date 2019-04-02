@@ -245,7 +245,7 @@ impl<'a> ExportTrie<'a> {
         let start = command.export_off as usize;
         let end = (command.export_size + command.export_off) as usize;
         ExportTrie {
-            data: bytes.as_ref(),
+            data: bytes,
             location: start..end,
         }
     }

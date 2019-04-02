@@ -136,7 +136,7 @@ impl<'a> BindInterpreter<'a> {
         let location = get_pos(command.bind_off, command.bind_size);
         let lazy_location = get_pos(command.lazy_bind_off, command.lazy_bind_size);
         BindInterpreter {
-            data: bytes.as_ref(),
+            data: bytes,
             location,
             lazy_location,
         }

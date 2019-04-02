@@ -99,7 +99,7 @@ impl<'a> MachO<'a> {
     }
     /// Return an iterator over all the symbols in this binary
     pub fn symbols(&self) -> symbols::SymbolIterator<'a> {
-        if let &Some(ref symbols) = &self.symbols {
+        if let Some(ref symbols) = self.symbols {
             symbols.into_iter()
         } else {
             symbols::SymbolIterator::default()

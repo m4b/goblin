@@ -92,7 +92,7 @@ impl<'a> PE<'a> {
             is_64 = optional_header.container()? == container::Container::Big;
             debug!("entry {:#x} image_base {:#x} is_64: {}", entry, image_base, is_64);
             let file_alignment = optional_header.windows_fields.file_alignment;
-            if let &Some(export_table) = optional_header.data_directories.get_export_table() {
+            if let Some(export_table) = *optional_header.data_directories.get_export_table() {
                 if let Ok(ed) = export::ExportData::parse(bytes, export_table, &sections, file_alignment) {
                     debug!("export data {:#?}", ed);
                     exports = export::Export::parse(bytes, &ed, &sections, file_alignment)?;
@@ -102,7 +102,7 @@ impl<'a> PE<'a> {
                 }
             }
             debug!("exports: {:#?}", exports);
-            if let &Some(import_table) = optional_header.data_directories.get_import_table() {
+            if let Some(import_table) = *optional_header.data_directories.get_import_table() {
                 let id = if is_64 {
                     import::ImportData::parse::<u64>(bytes, import_table, &sections, file_alignment)?
                 } else {
@@ -120,12 +120,12 @@ impl<'a> PE<'a> {
                 import_data = Some(id);
             }
             debug!("imports: {:#?}", imports);
-            if let &Some(debug_table) = optional_header.data_directories.get_debug_table() {
+            if let Some(debug_table) = *optional_header.data_directories.get_debug_table() {
                 debug_data = Some(debug::DebugData::parse(bytes, debug_table, &sections, file_alignment)?);
             }
 
             debug!("exception data: {:#?}", exception_data);
-            if let &Some(exception_table) = optional_header.data_directories.get_exception_table() {
+            if let Some(exception_table) = *optional_header.data_directories.get_exception_table() {
                 exception_data = Some(exception::ExceptionData::parse(bytes, exception_table, &sections, file_alignment)?);
             }
         }

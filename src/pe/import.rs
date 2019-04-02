@@ -231,14 +231,14 @@ impl<'a> Import<'a> {
                     let offset = import_base + (i * T::size_of());
                     use self::SyntheticImportLookupTableEntry::*;
                     let (rva, name, ordinal) =
-                        match entry {
-                            &HintNameTableRVA ((rva, ref hint_entry)) => {
+                        match *entry {
+                            HintNameTableRVA ((rva, ref hint_entry)) => {
                                 // if hint_entry.name = "" && hint_entry.hint = 0 {
                                 //     println!("<PE.Import> warning hint/name table rva from {} without hint {:#x}", dll, rva);
                                 // }
                                 (rva, Cow::Borrowed(hint_entry.name), hint_entry.hint)
                             },
-                            &OrdinalNumber(ordinal) => {
+                            OrdinalNumber(ordinal) => {
                                 let name = format!("ORDINAL {}", ordinal);
                                 (0x0, Cow::Owned(name), ordinal)
                             },

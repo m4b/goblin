@@ -358,10 +358,10 @@ impl ctx::SizeWith<Container> for Header {
     type Units = usize;
     fn size_with(container: &Container) -> usize {
         match container {
-            &Container::Little => {
+            Container::Little => {
                 SIZEOF_HEADER_32
             },
-            &Container::Big => {
+            Container::Big => {
                 SIZEOF_HEADER_64
             },
         }

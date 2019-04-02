@@ -519,8 +519,8 @@ impl<'a> ctx::TryFromCtx<'a, Endian> for ThreadCommand {
 
         // read the thread state
         let mut thread_state: [u32; 70] = [ 0; 70 ];
-        for i in 0..count as usize {
-            thread_state[i] = thread_state_bytes.pread_with(i*4, le)?;
+        for (i, state) in thread_state.iter_mut().enumerate().take(count as usize) {
+            *state = thread_state_bytes.pread_with(i*4, le)?;
         }
 
         Ok((ThreadCommand{

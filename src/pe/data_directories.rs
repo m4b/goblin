@@ -28,10 +28,10 @@ impl DataDirectories {
     pub fn parse(bytes: &[u8], count: usize, offset: &mut usize) -> error::Result<Self> {
         let mut data_directories = [None; NUM_DATA_DIRECTORIES];
         if count > NUM_DATA_DIRECTORIES { return Err (error::Error::Malformed(format!("data directory count ({}) is greater than maximum number of data directories ({})", count, NUM_DATA_DIRECTORIES))) }
-        for i in 0..count {
+        for dir in data_directories.iter_mut().take(count) {
             let dd = DataDirectory::parse(bytes, offset)?;
             let dd = if dd.virtual_address == 0 && dd.size == 0 { None } else { Some (dd) };
-            data_directories[i] = dd;
+            *dir = dd;
         }
         Ok (DataDirectories { data_directories })
     }

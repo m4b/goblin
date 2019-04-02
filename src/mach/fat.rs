@@ -11,8 +11,8 @@ use scroll::{Pread, Pwrite, SizeWith};
 use crate::mach::constants::cputype::{CpuType, CpuSubType, CPU_SUBTYPE_MASK, CPU_ARCH_ABI64};
 use crate::error;
 
-pub const FAT_MAGIC: u32 = 0xcafebabe;
-pub const FAT_CIGAM: u32 = 0xbebafeca;
+pub const FAT_MAGIC: u32 = 0xcafe_babe;
+pub const FAT_CIGAM: u32 = 0xbeba_feca;
 
 #[repr(C)]
 #[derive(Clone, Copy, Default, Pread, Pwrite, SizeWith)]

@@ -241,7 +241,7 @@ pub mod reloc64 {
 
     #[inline(always)]
     pub fn r_type(info: u64) -> u32 {
-        (info & 0xffffffff) as u32
+        (info & 0xffff_ffff) as u32
     }
 
     #[inline(always)]

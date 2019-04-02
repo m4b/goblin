@@ -62,10 +62,10 @@ impl ImageDebugDirectory {
     }
 }
 
-pub const CODEVIEW_PDB70_MAGIC: u32 = 0x53445352;
-pub const CODEVIEW_PDB20_MAGIC: u32 = 0x3031424e;
-pub const CODEVIEW_CV50_MAGIC: u32 = 0x3131424e;
-pub const CODEVIEW_CV41_MAGIC: u32 = 0x3930424e;
+pub const CODEVIEW_PDB70_MAGIC: u32 = 0x5344_5352;
+pub const CODEVIEW_PDB20_MAGIC: u32 = 0x3031_424e;
+pub const CODEVIEW_CV50_MAGIC: u32 = 0x3131_424e;
+pub const CODEVIEW_CV41_MAGIC: u32 = 0x3930_424e;
 
 // http://llvm.org/doxygen/CVDebugRecord_8h_source.html
 #[repr(C)]

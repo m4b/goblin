@@ -58,23 +58,23 @@ pub const MH_ROOT_SAFE: u32 = 0x40000;
 pub const MH_SETUID_SAFE: u32 = 0x80000;
 /// When this bit is set on a dylib,  the static linker does not need to examine dependent dylibs to
 /// see if any are re-exported
-pub const MH_NO_REEXPORTED_DYLIBS: u32 = 0x100000;
+pub const MH_NO_REEXPORTED_DYLIBS: u32 = 0x0010_0000;
 /// When this bit is set, the OS will load the main executable at a random address.
 /// Only used in MH_EXECUTE filetypes.
-pub const MH_PIE: u32 = 0x200000;
+pub const MH_PIE: u32 = 0x0020_0000;
 /// Only for use on dylibs.  When linking against a dylib that has this bit set, the static linker
 /// will automatically not create a LC_LOAD_DYLIB load command to the dylib if no symbols are being
 /// referenced from the dylib.
-pub const MH_DEAD_STRIPPABLE_DYLIB: u32 = 0x400000;
+pub const MH_DEAD_STRIPPABLE_DYLIB: u32 = 0x0040_0000;
 /// Contains a section of type S_THREAD_LOCAL_VARIABLES
-pub const MH_HAS_TLV_DESCRIPTORS: u32 = 0x800000;
+pub const MH_HAS_TLV_DESCRIPTORS: u32 = 0x0080_0000;
 /// When this bit is set, the OS will run the main executable with a non-executable heap even on
 /// platforms (e.g. i386) that don't require it. Only used in MH_EXECUTE filetypes.
-pub const MH_NO_HEAP_EXECUTION: u32 = 0x1000000;
+pub const MH_NO_HEAP_EXECUTION: u32 = 0x0010_00000;
 
 // TODO: verify this number is correct, it was previously 0x02000000 which could indicate a typo/data entry error
 /// The code was linked for use in an application extension.
-pub const MH_APP_EXTENSION_SAFE: u32 = 0x2000000;
+pub const MH_APP_EXTENSION_SAFE: u32 = 0x0020_00000;
 
 #[inline(always)]
 pub fn flag_to_str(flag: u32) -> &'static str {
@@ -110,11 +110,11 @@ pub fn flag_to_str(flag: u32) -> &'static str {
 }
 
 /// Mach Header magic constant
-pub const MH_MAGIC: u32 = 0xfeedface;
-pub const MH_CIGAM: u32 = 0xcefaedfe;
+pub const MH_MAGIC: u32 = 0xfeed_face;
+pub const MH_CIGAM: u32 = 0xcefa_edfe;
 /// Mach Header magic constant for 64-bit
-pub const MH_MAGIC_64: u32 = 0xfeedfacf;
-pub const MH_CIGAM_64: u32 = 0xcffaedfe;
+pub const MH_MAGIC_64: u32 = 0xfeed_facf;
+pub const MH_CIGAM_64: u32 = 0xcffa_edfe;
 
 // Constants for the filetype field of the mach_header
 /// relocatable object file

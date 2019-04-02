@@ -1151,7 +1151,7 @@ pub struct DataInCodeEntry {
 // Constants, et. al
 ///////////////////////////////////////
 
-pub const LC_REQ_DYLD: u32 = 0x80000000;
+pub const LC_REQ_DYLD: u32 = 0x8000_0000;
 pub const LC_LOAD_WEAK_DYLIB: u32 = 0x18 | LC_REQ_DYLD;
 pub const LC_RPATH: u32 = 0x1c | LC_REQ_DYLD;
 pub const LC_REEXPORT_DYLIB: u32 = 0x1f | LC_REQ_DYLD;

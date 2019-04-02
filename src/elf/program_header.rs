@@ -17,29 +17,29 @@ pub const PT_TLS: u32 = 7;
 /// Number of defined types
 pub const PT_NUM: u32 = 8;
 /// Start of OS-specific
-pub const PT_LOOS: u32 = 0x60000000;
+pub const PT_LOOS: u32 = 0x6000_0000;
 /// GCC .eh_frame_hdr segment
-pub const PT_GNU_EH_FRAME: u32 = 0x6474e550;
+pub const PT_GNU_EH_FRAME: u32 = 0x6474_e550;
 /// Indicates stack executability
-pub const PT_GNU_STACK: u32 = 0x6474e551;
+pub const PT_GNU_STACK: u32 = 0x6474_e551;
 /// Read-only after relocation
-pub const PT_GNU_RELRO: u32 = 0x6474e552;
+pub const PT_GNU_RELRO: u32 = 0x6474_e552;
 /// Sun Specific segment
-pub const PT_LOSUNW: u32 = 0x6ffffffa;
+pub const PT_LOSUNW: u32 = 0x6fff_fffa;
 /// Sun Specific segment
-pub const PT_SUNWBSS: u32 = 0x6ffffffa;
+pub const PT_SUNWBSS: u32 = 0x6fff_fffa;
 /// Stack segment
-pub const PT_SUNWSTACK: u32 = 0x6ffffffb;
+pub const PT_SUNWSTACK: u32 = 0x6fff_fffb;
 /// End of OS-specific
-pub const PT_HISUNW: u32 = 0x6fffffff;
+pub const PT_HISUNW: u32 = 0x6fff_ffff;
 /// End of OS-specific
-pub const PT_HIOS: u32 = 0x6fffffff;
+pub const PT_HIOS: u32 = 0x6fff_ffff;
 /// Start of processor-specific
-pub const PT_LOPROC: u32 = 0x70000000;
+pub const PT_LOPROC: u32 = 0x7000_0000;
 /// ARM unwind segment
-pub const PT_ARM_EXIDX: u32 = 0x70000001;
+pub const PT_ARM_EXIDX: u32 = 0x7000_0001;
 /// End of processor-specific
-pub const PT_HIPROC: u32 = 0x7fffffff;
+pub const PT_HIPROC: u32 = 0x7fff_ffff;
 
 /// Segment is executable
 pub const PF_X: u32 = 1 << 0;

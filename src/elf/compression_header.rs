@@ -19,13 +19,13 @@ macro_rules! elf_compression_header {
 /// ZLIB/DEFLATE algorithm.
 pub const ELFCOMPRESS_ZLIB: u32 = 1;
 /// Start of OS-specific.
-pub const ELFCOMPRESS_LOOS: u32 = 0x60000000;
+pub const ELFCOMPRESS_LOOS: u32 = 0x6000_0000;
 /// End of OS-specific.
-pub const ELFCOMPRESS_HIOS: u32 = 0x6fffffff;
+pub const ELFCOMPRESS_HIOS: u32 = 0x6fff_ffff;
 /// Start of processor-specific.
-pub const ELFCOMPRESS_LOPROC: u32 = 0x70000000;
+pub const ELFCOMPRESS_LOPROC: u32 = 0x7000_0000;
 /// End of processor-specific.
-pub const ELFCOMPRESS_HIPROC: u32 = 0x7fffffff;
+pub const ELFCOMPRESS_HIPROC: u32 = 0x7fff_ffff;
 
 macro_rules! elf_compression_header_std_impl { ($size:ty) => {
 

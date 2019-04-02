@@ -44,7 +44,7 @@ pub struct CoffHeader {
 
 pub const SIZEOF_COFF_HEADER: usize = 24;
 /// PE\0\0, little endian
-pub const COFF_MAGIC: u32 = 0x00004550;
+pub const COFF_MAGIC: u32 = 0x0000_4550;
 pub const COFF_MACHINE_X86: u16 = 0x14c;
 pub const COFF_MACHINE_X86_64: u16 = 0x8664;
 

@@ -43,8 +43,8 @@ impl SymbolKind {
             _    => SymbolKind::UnknownSymbolKind(kind),
         }
     }
-    pub fn to_str(kind: SymbolKind) -> &'static str {
-        match kind {
+    pub fn to_str(&self) -> &'static str {
+        match self {
             SymbolKind::Regular => "Regular",
             SymbolKind::Absolute => "Absolute",
             SymbolKind::ThreadLocal => "Thread_LOCAL",

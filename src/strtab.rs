@@ -44,7 +44,7 @@ impl<'a> Strtab<'a> {
     }
     #[cfg(feature = "alloc")]
     /// Converts the string table to a vector, with the original `delim` used to separate the strings
-    pub fn to_vec(self) -> error::Result<Vec<&'a str>> {
+    pub fn to_vec(&self) -> error::Result<Vec<&'a str>> {
         let len = self.bytes.len();
         let mut strings = Vec::with_capacity(len);
         let mut i = 0;

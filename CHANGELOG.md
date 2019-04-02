@@ -13,6 +13,8 @@ I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, do
 - Bump lowest Rust version to 1.31.1 and transition project to Rust 2018 edition.
 - BREAKING: Rename module `goblin::elf::dyn` to `goblin::elf::dynamic` due to `dyn`
   become a keyword in Rust 2018 edition.
+- BREAKING: Rename `mach::exports::SymbolKind::to_str(kind: SymbolKind)` -> `to_str(&self)`.
+- BREAKING: Rename `strtab::Strtab::to_vec(self)` -> `to_vec(&self).`
 
 ### Removed
 - `goblin::error::Error::description` would be removed. Use `to_string()` method instead.

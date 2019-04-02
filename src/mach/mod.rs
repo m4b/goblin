@@ -380,6 +380,7 @@ impl<'a> fmt::Debug for MultiArch<'a> {
 }
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 /// Either a collection of multiple architectures, or a single mach-o binary
 pub enum Mach<'a> {
     /// A "fat" multi-architecture binary container

@@ -1258,6 +1258,7 @@ pub fn cmd_to_str(cmd: u32) -> &'static str {
 ///////////////////////////////////////////
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 /// The various load commands as a cast-free variant/enum
 pub enum CommandVariant {
     Segment32              (SegmentCommand32),

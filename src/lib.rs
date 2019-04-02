@@ -285,6 +285,7 @@ if_everything! {
     }
 
     #[derive(Debug)]
+    #[allow(clippy::large_enum_variant)]
     /// A parseable object that goblin understands
     pub enum Object<'a> {
         /// An ELF32/ELF64!

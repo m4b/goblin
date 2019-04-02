@@ -1367,7 +1367,7 @@ impl<'a> ctx::TryFromCtx<'a, Endian> for CommandVariant {
             LC_DYLIB_CODE_SIGN_DRS => {     let comm = bytes.pread_with::<LinkeditDataCommand>    (0, le)?;  Ok((DylibCodeSignDrs       (comm), size))},
             LC_LINKER_OPTION => {           let comm = bytes.pread_with::<LinkeditDataCommand>    (0, le)?;  Ok((LinkerOption           (comm), size))},
             LC_LINKER_OPTIMIZATION_HINT => {let comm = bytes.pread_with::<LinkeditDataCommand>    (0, le)?;  Ok((LinkerOptimizationHint (comm), size))},
-            _ =>                                                                                             Ok((Unimplemented          (lc.clone()), size)),
+            _ =>                                                                                             Ok((Unimplemented          (lc), size)),
         }
     }
 }

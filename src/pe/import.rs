@@ -236,7 +236,7 @@ impl<'a> Import<'a> {
                                 // if hint_entry.name = "" && hint_entry.hint = 0 {
                                 //     println!("<PE.Import> warning hint/name table rva from {} without hint {:#x}", dll, rva);
                                 // }
-                                (rva, Cow::Borrowed(hint_entry.name), hint_entry.hint.clone())
+                                (rva, Cow::Borrowed(hint_entry.name), hint_entry.hint)
                             },
                             &OrdinalNumber(ordinal) => {
                                 let name = format!("ORDINAL {}", ordinal);

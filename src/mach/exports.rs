@@ -199,23 +199,23 @@ impl<'a> ExportTrie<'a> {
 
     fn walk_trie(&self, libs: &[&'a str], current_symbol: String, start: usize, exports: &mut Vec<Export<'a>>) -> error::Result<()> {
         if start < self.location.end {
-            let offset = &mut start.clone();
-            let terminal_size = Uleb128::read(&self.data, offset)?;
+            let mut offset = start;
+            let terminal_size = Uleb128::read(&self.data, &mut offset)?;
             // let mut input = String::new();
             // ::std::io::stdin().read_line(&mut input).unwrap();
             // println!("@ {:#x} node: {:#x} current_symbol: {}", start, terminal_size, current_symbol);
             if terminal_size == 0 {
-                let nbranches = Uleb128::read(&self.data, offset)? as usize;
+                let nbranches = Uleb128::read(&self.data, &mut offset)? as usize;
                 //println!("\t@ {:#x} BRAN {}", *offset, nbranches);
-                let branches = self.walk_branches(nbranches, current_symbol, *offset)?;
+                let branches = self.walk_branches(nbranches, current_symbol, offset)?;
                 self.walk_nodes(libs, branches, exports)
             } else { // terminal node, but the tricky part is that they can have children...
-                let pos = *offset;
+                let pos = offset;
                 let children_start = &mut (pos + terminal_size as usize);
                 let nchildren = Uleb128::read(&self.data, children_start)? as usize;
-                let flags = Uleb128::read(&self.data, offset)?;
-                //println!("\t@ {:#x} TERM {} flags: {:#x}", *offset, nchildren, flags);
-                let info = ExportInfo::parse(&self.data, libs, flags, *offset)?;
+                let flags = Uleb128::read(&self.data, &mut offset)?;
+                //println!("\t@ {:#x} TERM {} flags: {:#x}", offset, nchildren, flags);
+                let info = ExportInfo::parse(&self.data, libs, flags, offset)?;
                 let export = Export::new(current_symbol.clone(), info);
                 //println!("\t{:?}", &export);
                 exports.push(export);
@@ -233,7 +233,7 @@ impl<'a> ExportTrie<'a> {
 
     /// Walk the export trie for symbols exported by this binary, using the provided `libs` to resolve re-exports
     pub fn exports(&self, libs: &[&'a str]) -> error::Result<Vec<Export<'a>>> {
-        let offset = self.location.start.clone();
+        let offset = self.location.start;
         let current_symbol = String::new();
         let mut exports = Vec::new();
         self.walk_trie(libs, current_symbol, offset, &mut exports)?;

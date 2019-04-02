@@ -156,25 +156,25 @@ impl<'a> BindInterpreter<'a> {
             &self.location
         };
         let mut bind_info = BindInformation::new(is_lazy);
-        let offset = &mut location.start.clone();
+        let mut offset = location.start;
         let mut start_of_sequence: usize = 0;
-        while *offset < location.end {
-            let opcode = self.data.gread::<i8>(offset)? as bind_opcodes::Opcode;
+        while offset < location.end {
+            let opcode = self.data.gread::<i8>(&mut offset)? as bind_opcodes::Opcode;
             // let mut input = String::new();
             // ::std::io::stdin().read_line(&mut input).unwrap();
-            // println!("opcode: {} ({:#x}) offset: {:#x}\n {:?}", opcode_to_str(opcode & BIND_OPCODE_MASK), opcode, *offset - location.start - 1, &bind_info);
+            // println!("opcode: {} ({:#x}) offset: {:#x}\n {:?}", opcode_to_str(opcode & BIND_OPCODE_MASK), opcode, offset - location.start - 1, &bind_info);
             match opcode & BIND_OPCODE_MASK {
                 // we do nothing, don't update our records, and add a new, fresh record
                 BIND_OPCODE_DONE => {
                     bind_info = BindInformation::new(is_lazy);
-                    start_of_sequence = *offset - location.start;
+                    start_of_sequence = offset - location.start;
                 },
                 BIND_OPCODE_SET_DYLIB_ORDINAL_IMM => {
 	            let symbol_library_ordinal = opcode & BIND_IMMEDIATE_MASK;
 	            bind_info.symbol_library_ordinal = symbol_library_ordinal;
                 },
                 BIND_OPCODE_SET_DYLIB_ORDINAL_ULEB => {
-	            let symbol_library_ordinal = Uleb128::read(&self.data, offset)?;
+	            let symbol_library_ordinal = Uleb128::read(&self.data, &mut offset)?;
 	            bind_info.symbol_library_ordinal = symbol_library_ordinal as u8;
                 },
                 BIND_OPCODE_SET_DYLIB_SPECIAL_IMM => {
@@ -185,8 +185,8 @@ impl<'a> BindInterpreter<'a> {
                 },
                 BIND_OPCODE_SET_SYMBOL_TRAILING_FLAGS_IMM => {
 	            let symbol_flags = opcode & BIND_IMMEDIATE_MASK;
-	            let symbol_name = self.data.pread::<&str>(*offset)?;
-                    *offset = *offset + symbol_name.len() + 1; // second time this \0 caused debug woes
+	            let symbol_name = self.data.pread::<&str>(offset)?;
+                    offset += symbol_name.len() + 1; // second time this \0 caused debug woes
 	            bind_info.symbol_name = symbol_name;
                     bind_info.symbol_flags = symbol_flags;
                 },
@@ -195,19 +195,19 @@ impl<'a> BindInterpreter<'a> {
 	            bind_info.bind_type = bind_type;
                 },
                 BIND_OPCODE_SET_ADDEND_SLEB => {
-                    let addend = Sleb128::read(&self.data, offset)?;
+                    let addend = Sleb128::read(&self.data, &mut offset)?;
                     bind_info.addend = addend;
                 },
                 BIND_OPCODE_SET_SEGMENT_AND_OFFSET_ULEB => {
 	            let seg_index = opcode & BIND_IMMEDIATE_MASK;
                     // dyld sets the address to the segActualLoadAddress(segIndex) + uleb128
                     // address = segActualLoadAddress(segmentIndex) + read_uleb128(p, end);
-	            let seg_offset = Uleb128::read(&self.data, offset)?;
+	            let seg_offset = Uleb128::read(&self.data, &mut offset)?;
 	            bind_info.seg_index = seg_index;
                     bind_info.seg_offset = seg_offset;
                 },
                 BIND_OPCODE_ADD_ADDR_ULEB => {
-	            let addr = Uleb128::read(&self.data, offset)?;
+	            let addr = Uleb128::read(&self.data, &mut offset)?;
 	            let seg_offset = bind_info.seg_offset.wrapping_add(addr);
 	            bind_info.seg_offset = seg_offset;
                 },
@@ -230,7 +230,7 @@ impl<'a> BindInterpreter<'a> {
 	            // address += read_uleb128(p, end) + sizeof(intptr_t);
                     // we bind the old record, then increment bind info address for the next guy, plus the ptr offset *)
                     imports.push(Import::new(&bind_info, libs, segments, start_of_sequence));
-                    let addr = Uleb128::read(&self.data, offset)?;
+                    let addr = Uleb128::read(&self.data, &mut offset)?;
                     let seg_offset = bind_info.seg_offset.wrapping_add(addr).wrapping_add(ctx.size() as u64);
                     bind_info.seg_offset = seg_offset;
                 },
@@ -259,8 +259,8 @@ impl<'a> BindInterpreter<'a> {
 	            // address += skip + sizeof(intptr_t);
 	            // }
 	            // break;
-                    let count = Uleb128::read(&self.data, offset)?;
-                    let skip =  Uleb128::read(&self.data, offset)?;
+                    let count = Uleb128::read(&self.data, &mut offset)?;
+                    let skip =  Uleb128::read(&self.data, &mut offset)?;
                     let skip_plus_size = skip + ctx.size() as u64;
                     for _i  in 0..count {
                         imports.push(Import::new(&bind_info, libs, segments, start_of_sequence));

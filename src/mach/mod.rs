@@ -394,8 +394,7 @@ impl<'a> Mach<'a> {
     pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
         let size = bytes.len();
         if size < 4 {
-            let error = error::Error::Malformed(
-                                       format!("size is smaller than a magical number"));
+            let error = error::Error::Malformed("size is smaller than a magical number".into());
             return Err(error);
         }
         let magic = peek(&bytes, 0)?;

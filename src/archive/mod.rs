@@ -402,9 +402,8 @@ impl<'a> Archive<'a> {
         // build the symbol index, translating symbol names into member indexes
         let mut symbol_index: BTreeMap<&str, usize> = BTreeMap::new();
         for (member_offset, name) in index.symbol_indexes.iter().zip(index.strtab.iter()) {
-            let name = name.clone();
             let member_index = member_index_by_offset[member_offset];
-            symbol_index.insert(name, member_index);
+            symbol_index.insert(&name, member_index);
         }
 
         let archive = Archive {

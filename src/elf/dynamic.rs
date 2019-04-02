@@ -398,14 +398,15 @@ if_alloc! {
         }
 
         pub fn get_libraries<'a>(&self, strtab: &Strtab<'a>) -> Vec<&'a str> {
+            use log::warn;
             let count = self.info.needed_count;
             let mut needed = Vec::with_capacity(count);
             for dynamic in &self.dyns {
                 if dynamic.d_tag as u64 == DT_NEEDED {
-                    match strtab.get(dynamic.d_val as usize) {
-                        Some(Ok(lib)) => needed.push(lib),
-                        // FIXME: warn! here
-                        _ => (),
+                    if let Some(Ok(lib)) = strtab.get(dynamic.d_val as usize) {
+                        needed.push(lib)
+                    } else {
+                        warn!("Entry #{} out of bounds", self.count)
                     }
                 }
             }

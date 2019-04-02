@@ -156,33 +156,25 @@ impl<'a> scroll::ctx::TryFromCtx<'a, scroll::Endian> for Reexport<'a> {
         for o in 0..reexport_len {
             let c: u8 = bytes.pread(o)?;
             debug!("reexport offset: {:#x} char: {:#x}", o, c);
-            match c {
-                // '.'
-                0x2e => {
-                    let i = o - 1;
-                    let dll: &'a str = bytes.pread_with(0, ::scroll::ctx::StrCtx::Length(i))?;
-                    debug!("dll: {:?}", &dll);
-                    let len = reexport_len - i - 1;
-                    let rest: &'a [u8] = bytes.pread_with(o, len)?;
-                    debug!("rest: {:?}", &rest);
-                    let len = rest.len() - 1;
-                    match rest[0] {
-                        // '#'
-                        0x23 => {
-                            // UNTESTED
-                            let ordinal = rest.pread_with::<&str>(1, ::scroll::ctx::StrCtx::Length(len))?;
-                            let ordinal = ordinal.parse::<u32>().map_err(|_e| error::Error::Malformed(format!("Cannot parse reexport ordinal from {} bytes", bytes.len())))?;
-                            // FIXME: return size
-                            return Ok((Reexport::DLLOrdinal { export: dll, ordinal: ordinal as usize }, 0))
-                        },
-                        _ => {
-                            let export = rest.pread_with::<&str>(1, ::scroll::ctx::StrCtx::Length(len))?;
-                            // FIXME: return size
-                            return Ok((Reexport::DLLName { export, lib: dll }, 0))
-                        }
-                    }
-                },
-                _ => {}
+            if c == b'.' {
+                let i = o - 1;
+                let dll: &'a str = bytes.pread_with(0, scroll::ctx::StrCtx::Length(i))?;
+                debug!("dll: {:?}", &dll);
+                let len = reexport_len - i - 1;
+                let rest: &'a [u8] = bytes.pread_with(o, len)?;
+                debug!("rest: {:?}", &rest);
+                let len = rest.len() - 1;
+                if rest[0] == b'#' {
+                    // UNTESTED
+                    let ordinal = rest.pread_with::<&str>(1, scroll::ctx::StrCtx::Length(len))?;
+                    let ordinal = ordinal.parse::<u32>().map_err(|_e| error::Error::Malformed(format!("Cannot parse reexport ordinal from {} bytes", bytes.len())))?;
+                    // FIXME: return size
+                    return Ok((Reexport::DLLOrdinal { export: dll, ordinal: ordinal as usize }, 0))
+                } else {
+                    let export = rest.pread_with::<&str>(1, scroll::ctx::StrCtx::Length(len))?;
+                    // FIXME: return size
+                    return Ok((Reexport::DLLName { export, lib: dll }, 0))
+                }
             }
         }
         Err(error::Error::Malformed(format!("Reexport {:#} is malformed", reexport)))

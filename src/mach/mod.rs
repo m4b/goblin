@@ -145,7 +145,7 @@ impl<'a> MachO<'a> {
         debug!("Mach-o header: {:?}", header);
         let little_endian = ctx.le.is_little();
         let is_64 = ctx.container.is_big();
-        *offset = *offset + header::Header::size_with(&ctx.container);
+        *offset += header::Header::size_with(&ctx.container);
         let ncmds = header.ncmds;
         let mut cmds: Vec<load_command::LoadCommand> = Vec::with_capacity(ncmds);
         let mut symbols = None;

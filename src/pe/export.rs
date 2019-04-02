@@ -214,7 +214,7 @@ impl<'a, 'b> scroll::ctx::TryFromCtx<'a, ExportCtx<'b>> for Export<'a> {
     fn try_from_ctx(bytes: &'a [u8], ExportCtx { ptr, idx, sections, file_alignment, addresses, ordinals }: ExportCtx<'b>) -> Result<(Self, Self::Size), Self::Error> {
         use self::ExportAddressTableEntry::*;
 
-        let name = utils::find_offset(ptr as usize, sections, file_alignment).map_or(None, |offset| bytes.pread::<&str>(offset).ok());
+        let name = utils::find_offset(ptr as usize, sections, file_alignment).and_then(|offset| bytes.pread::<&str>(offset).ok());
 
         if let Some(ordinal) = ordinals.get(idx) {
             if let Some(rva) = addresses.get(*ordinal as usize) {

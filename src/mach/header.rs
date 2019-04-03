@@ -70,11 +70,11 @@ pub const MH_DEAD_STRIPPABLE_DYLIB: u32 = 0x0040_0000;
 pub const MH_HAS_TLV_DESCRIPTORS: u32 = 0x0080_0000;
 /// When this bit is set, the OS will run the main executable with a non-executable heap even on
 /// platforms (e.g. i386) that don't require it. Only used in MH_EXECUTE filetypes.
-pub const MH_NO_HEAP_EXECUTION: u32 = 0x0010_00000;
+pub const MH_NO_HEAP_EXECUTION: u32 = 0x0100_0000;
 
 // TODO: verify this number is correct, it was previously 0x02000000 which could indicate a typo/data entry error
 /// The code was linked for use in an application extension.
-pub const MH_APP_EXTENSION_SAFE: u32 = 0x0020_00000;
+pub const MH_APP_EXTENSION_SAFE: u32 = 0x0200_0000;
 
 #[inline(always)]
 pub fn flag_to_str(flag: u32) -> &'static str {

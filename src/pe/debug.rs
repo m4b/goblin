@@ -104,9 +104,7 @@ impl<'a> CodeviewPDB70DebugInfo<'a> {
 
         // read the rest
         let mut signature: [u8; 16] = [0; 16];
-        for sig in signature.iter_mut() {
-            *sig = bytes.gread_with(&mut offset, scroll::LE)?;
-        }
+        signature.copy_from_slice(bytes.gread_with(&mut offset, 16)?);
         let age: u32 = bytes.gread_with(&mut offset, scroll::LE)?;
         let filename = &bytes[offset..offset + filename_length];
 

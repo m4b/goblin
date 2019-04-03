@@ -50,9 +50,7 @@ impl SectionTable {
     pub fn parse(bytes: &[u8], offset: &mut usize, string_table_offset: usize) -> error::Result<Self> {
         let mut table = SectionTable::default();
         let mut name = [0u8; 8];
-        for item in name.iter_mut() {
-            *item = bytes.gread_with(offset, scroll::LE)?;
-        }
+        name.copy_from_slice(bytes.gread_with(offset, 8)?);
 
         table.name = name;
         table.virtual_size = bytes.gread_with(offset, scroll::LE)?;

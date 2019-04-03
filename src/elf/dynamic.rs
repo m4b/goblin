@@ -406,7 +406,7 @@ if_alloc! {
                     if let Some(Ok(lib)) = strtab.get(dynamic.d_val as usize) {
                         needed.push(lib)
                     } else {
-                        warn!("Entry #{} out of bounds", self.count)
+                        warn!("Invalid DT_NEEDED {}", dynamic.d_val)
                     }
                 }
             }

@@ -676,7 +676,7 @@ impl<'a> ExceptionData<'a> {
 
         if size % RUNTIME_FUNCTION_SIZE != 0 {
             Err(scroll::Error::BadInput {
-                size: size,
+                size,
                 msg: "invalid exception directory table size",
             })?;
         }

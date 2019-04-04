@@ -199,8 +199,8 @@ macro_rules! elf_sym_std_impl {
                         st_info:     sym.st_info,
                         st_other:    sym.st_other,
                         st_shndx:    sym.st_shndx as usize,
-                        st_value:    sym.st_value as u64,
-                        st_size:     sym.st_size as u64,
+                        st_value:    u64::from(sym.st_value),
+                        st_size:     u64::from(sym.st_size),
                     }
                 }
             }
@@ -246,7 +246,7 @@ macro_rules! elf_sym_std_impl {
                 let mut syms = vec![Sym::default(); count];
                 fd.seek(Start(offset as u64))?;
                 unsafe {
-                    fd.read(plain::as_mut_bytes(&mut *syms))?;
+                    fd.read_exact(plain::as_mut_bytes(&mut *syms))?;
                 }
                 syms.dedup();
                 Ok(syms)
@@ -503,8 +503,9 @@ if_alloc! {
         pub fn parse(bytes: &'a [u8], offset: usize, count: usize, ctx: Ctx) -> Result<Symtab<'a>> {
             let size = count
                 .checked_mul(Sym::size_with(&ctx))
-                .ok_or(crate::error::Error::Malformed(format!("Too many ELF symbols (offset {:#x}, count {})",
-                                                 offset, count)))?;
+                .ok_or_else(|| crate::error::Error::Malformed(
+                    format!("Too many ELF symbols (offset {:#x}, count {})", offset, count)
+                ))?;
             // TODO: make this a better error message when too large
             let bytes = bytes.pread_with(offset, size)?;
             Ok(Symtab { bytes, count, ctx, start: offset, end: offset+size })
@@ -524,6 +525,12 @@ if_alloc! {
         #[inline]
         pub fn len(&self) -> usize {
             self.count
+        }
+
+        /// Returns true if table has no symbols.
+        #[inline]
+        pub fn is_empty(&self) -> bool {
+            self.count == 0
         }
 
         /// Iterate over all symbols.

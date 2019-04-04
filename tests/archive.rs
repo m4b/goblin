@@ -34,7 +34,7 @@ fn parse_file_header() {
 #[test]
 fn parse_archive() {
     let crt1a: Vec<u8> = include!("../etc/crt1a.rs");
-    const START: &'static str = "_start";
+    const START: &str = "_start";
     match Archive::parse(&crt1a) {
         Ok(archive) => {
             assert_eq!(archive.member_of_symbol(START), Some("crt1.o"));

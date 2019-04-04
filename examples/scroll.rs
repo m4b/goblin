@@ -8,7 +8,6 @@ use goblin::{error, elf64, elf};
 use scroll::{Pwrite, Pread};
 
 fn run () -> error::Result<()> {
-    use crate::Pread;
     let crt1: Vec<u8> = include!("../etc/crt1.rs");
     let header: elf64::header::Header = crt1.pread(0)?;
     assert_eq!(header.e_type, elf64::header::ET_REL);

@@ -212,7 +212,7 @@ if_sylvan! {
             if class != header::ELFCLASS64 && class != header::ELFCLASS32 {
                 return Err(error::Error::Malformed(format!("Unknown values in ELF ident header: class: {} endianness: {}",
                                                            class,
-                                                           header.e_ident[header::EI_DATA])).into());
+                                                           header.e_ident[header::EI_DATA])));
             }
             let is_64 = class == header::ELFCLASS64;
             let container = if is_64 { Container::Big } else { Container::Little };

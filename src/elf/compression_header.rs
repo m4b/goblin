@@ -19,13 +19,13 @@ macro_rules! elf_compression_header {
 /// ZLIB/DEFLATE algorithm.
 pub const ELFCOMPRESS_ZLIB: u32 = 1;
 /// Start of OS-specific.
-pub const ELFCOMPRESS_LOOS: u32 = 0x60000000;
+pub const ELFCOMPRESS_LOOS: u32 = 0x6000_0000;
 /// End of OS-specific.
-pub const ELFCOMPRESS_HIOS: u32 = 0x6fffffff;
+pub const ELFCOMPRESS_HIOS: u32 = 0x6fff_ffff;
 /// Start of processor-specific.
-pub const ELFCOMPRESS_LOPROC: u32 = 0x70000000;
+pub const ELFCOMPRESS_LOPROC: u32 = 0x7000_0000;
 /// End of processor-specific.
-pub const ELFCOMPRESS_HIPROC: u32 = 0x7fffffff;
+pub const ELFCOMPRESS_HIPROC: u32 = 0x7fff_ffff;
 
 macro_rules! elf_compression_header_std_impl { ($size:ty) => {
 
@@ -55,8 +55,8 @@ macro_rules! elf_compression_header_std_impl { ($size:ty) => {
             fn from(ch: CompressionHeader) -> Self {
                 ElfCompressionHeader {
                     ch_type: ch.ch_type,
-                    ch_size: ch.ch_size as u64,
-                    ch_addralign: ch.ch_addralign as u64,
+                    ch_size: u64::from(ch.ch_size),
+                    ch_addralign: u64::from(ch.ch_addralign),
                 }
             }
         }
@@ -73,7 +73,7 @@ macro_rules! elf_compression_header_std_impl { ($size:ty) => {
                 let mut chdr = CompressionHeader::default();
                 fd.seek(Start(offset))?;
                 unsafe {
-                    fd.read(plain::as_mut_bytes(&mut chdr))?;
+                    fd.read_exact(plain::as_mut_bytes(&mut chdr))?;
                 }
                 Ok(chdr)
             }
@@ -183,9 +183,9 @@ if_alloc! {
     impl CompressionHeader {
         /// Return the size of the underlying compression header, given a `container`
         #[inline]
-        pub fn size(ctx: &Ctx) -> usize {
+        pub fn size(ctx: Ctx) -> usize {
             use scroll::ctx::SizeWith;
-            Self::size_with(ctx)
+            Self::size_with(&ctx)
         }
         pub fn new() -> Self {
             CompressionHeader {

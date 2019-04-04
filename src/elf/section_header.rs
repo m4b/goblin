@@ -117,38 +117,38 @@ pub const SHT_SYMTAB_SHNDX: u32 = 18;
 /// Number of defined types.
 pub const SHT_NUM: u32 = 19;
 /// Start OS-specific.
-pub const SHT_LOOS: u32 = 0x60000000;
+pub const SHT_LOOS: u32 = 0x6000_0000;
 /// Object attributes.
-pub const SHT_GNU_ATTRIBUTES: u32 = 0x6ffffff5;
+pub const SHT_GNU_ATTRIBUTES: u32 = 0x6fff_fff5;
 /// GNU-style hash table.
-pub const SHT_GNU_HASH: u32 = 0x6ffffff6;
+pub const SHT_GNU_HASH: u32 = 0x6fff_fff6;
 /// Prelink library list.
-pub const SHT_GNU_LIBLIST: u32 = 0x6ffffff7;
+pub const SHT_GNU_LIBLIST: u32 = 0x6fff_fff7;
 /// Checksum for DSO content.
-pub const SHT_CHECKSUM: u32 = 0x6ffffff8;
+pub const SHT_CHECKSUM: u32 = 0x6fff_fff8;
 /// Sun-specific low bound.
-pub const SHT_LOSUNW: u32 = 0x6ffffffa;
-pub const SHT_SUNW_MOVE: u32 = 0x6ffffffa;
-pub const SHT_SUNW_COMDAT: u32 = 0x6ffffffb;
-pub const SHT_SUNW_SYMINFO: u32 = 0x6ffffffc;
+pub const SHT_LOSUNW: u32 = 0x6fff_fffa;
+pub const SHT_SUNW_MOVE: u32 = 0x6fff_fffa;
+pub const SHT_SUNW_COMDAT: u32 = 0x6fff_fffb;
+pub const SHT_SUNW_SYMINFO: u32 = 0x6fff_fffc;
 /// Version definition section.
-pub const SHT_GNU_VERDEF: u32 = 0x6ffffffd;
+pub const SHT_GNU_VERDEF: u32 = 0x6fff_fffd;
 /// Version needs section.
-pub const SHT_GNU_VERNEED: u32 = 0x6ffffffe;
+pub const SHT_GNU_VERNEED: u32 = 0x6fff_fffe;
 /// Version symbol table.
-pub const SHT_GNU_VERSYM: u32 = 0x6fffffff;
+pub const SHT_GNU_VERSYM: u32 = 0x6fff_ffff;
 /// Sun-specific high bound.
-pub const SHT_HISUNW: u32 = 0x6fffffff;
+pub const SHT_HISUNW: u32 = 0x6fff_ffff;
 /// End OS-specific type.
-pub const SHT_HIOS: u32 = 0x6fffffff;
+pub const SHT_HIOS: u32 = 0x6fff_ffff;
 /// Start of processor-specific.
-pub const SHT_LOPROC: u32 = 0x70000000;
+pub const SHT_LOPROC: u32 = 0x7000_0000;
 /// End of processor-specific.
-pub const SHT_HIPROC: u32 = 0x7fffffff;
+pub const SHT_HIPROC: u32 = 0x7fff_ffff;
 /// Start of application-specific.
-pub const SHT_LOUSER: u32 = 0x80000000;
+pub const SHT_LOUSER: u32 = 0x8000_0000;
 /// End of application-specific.
-pub const SHT_HIUSER: u32 = 0x8fffffff;
+pub const SHT_HIUSER: u32 = 0x8fff_ffff;
 
 // Legal values for sh_flags (section flags)
 /// Writable.
@@ -174,9 +174,9 @@ pub const SHF_TLS: u32 = 0x400;
 /// Section with compressed data.
 pub const SHF_COMPRESSED: u32 = 0x800;
 /// OS-specific..
-pub const SHF_MASKOS: u32 = 0x0ff00000;
+pub const SHF_MASKOS: u32 = 0x0ff0_0000;
 /// Processor-specific.
-pub const SHF_MASKPROC: u32 = 0xf0000000;
+pub const SHF_MASKPROC: u32 = 0xf000_0000;
 /// Special ordering requirement (Solaris).
 pub const SHF_ORDERED: u32 = 1 << 30;
 /// Number of "regular" section header flags
@@ -287,14 +287,14 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
                 ElfSectionHeader {
                     sh_name: sh.sh_name as usize,
                     sh_type: sh.sh_type,
-                    sh_flags: sh.sh_flags   as u64,
-                    sh_addr: sh.sh_addr     as u64,
-                    sh_offset: sh.sh_offset as u64,
-                    sh_size: sh.sh_size     as u64,
+                    sh_flags: u64::from(sh.sh_flags),
+                    sh_addr: u64::from(sh.sh_addr),
+                    sh_offset: u64::from(sh.sh_offset),
+                    sh_size: u64::from(sh.sh_size),
                     sh_link: sh.sh_link,
                     sh_info: sh.sh_info,
-                    sh_addralign: sh.sh_addralign as u64,
-                    sh_entsize: sh.sh_entsize as u64,
+                    sh_addralign: u64::from(sh.sh_addralign),
+                    sh_entsize: u64::from(sh.sh_entsize),
                 }
             }
         }
@@ -327,7 +327,7 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
                 let mut shdrs = vec![SectionHeader::default(); shnum];
                 fd.seek(Start(offset))?;
                 unsafe {
-                    fd.read(plain::as_mut_bytes(&mut *shdrs))?;
+                    fd.read_exact(plain::as_mut_bytes(&mut *shdrs))?;
                 }
                 Ok(shdrs)
             }
@@ -401,15 +401,15 @@ if_alloc! {
     impl SectionHeader {
         /// Return the size of the underlying program header, given a `container`
         #[inline]
-        pub fn size(ctx: &Ctx) -> usize {
+        pub fn size(ctx: Ctx) -> usize {
             use scroll::ctx::SizeWith;
-            Self::size_with(ctx)
+            Self::size_with(&ctx)
         }
         pub fn new() -> Self {
             SectionHeader {
                 sh_name: 0,
                 sh_type: SHT_PROGBITS,
-                sh_flags: SHF_ALLOC as u64,
+                sh_flags: u64::from(SHF_ALLOC),
                 sh_addr: 0,
                 sh_offset: 0,
                 sh_size: 0,

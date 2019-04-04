@@ -70,8 +70,8 @@ fn main() {
         .expect("No CLI header");
     let sections = &pe.sections;
 
-    let cli_header_value: CliHeader = get_data(file, sections, &cli_header, file_alignment).unwrap();
+    let cli_header_value: CliHeader = get_data(file, sections, cli_header, file_alignment).unwrap();
     println!("{:#?}", cli_header_value);
-    let metadata_root: MetadataRoot = get_data(file, sections, &cli_header_value.metadata, file_alignment).unwrap();
+    let metadata_root: MetadataRoot = get_data(file, sections, cli_header_value.metadata, file_alignment).unwrap();
     println!("{:#?}", metadata_root);
 }

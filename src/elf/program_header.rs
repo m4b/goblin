@@ -1,3 +1,5 @@
+/* Legal values for p_type (segment type).  */
+
 /// Program header table entry unused
 pub const PT_NULL: u32 = 0;
 /// Loadable program segment
@@ -17,36 +19,36 @@ pub const PT_TLS: u32 = 7;
 /// Number of defined types
 pub const PT_NUM: u32 = 8;
 /// Start of OS-specific
-pub const PT_LOOS: u32 = 0x60000000;
+pub const PT_LOOS: u32 = 0x6000_0000;
 /// GCC .eh_frame_hdr segment
-pub const PT_GNU_EH_FRAME: u32 = 0x6474e550;
+pub const PT_GNU_EH_FRAME: u32 = 0x6474_e550;
 /// Indicates stack executability
-pub const PT_GNU_STACK: u32 = 0x6474e551;
+pub const PT_GNU_STACK: u32 = 0x6474_e551;
 /// Read-only after relocation
-pub const PT_GNU_RELRO: u32 = 0x6474e552;
+pub const PT_GNU_RELRO: u32 = 0x6474_e552;
 /// Sun Specific segment
-pub const PT_LOSUNW: u32 = 0x6ffffffa;
+pub const PT_LOSUNW: u32 = 0x6fff_fffa;
 /// Sun Specific segment
-pub const PT_SUNWBSS: u32 = 0x6ffffffa;
+pub const PT_SUNWBSS: u32 = 0x6fff_fffa;
 /// Stack segment
-pub const PT_SUNWSTACK: u32 = 0x6ffffffb;
+pub const PT_SUNWSTACK: u32 = 0x6fff_fffb;
 /// End of OS-specific
-pub const PT_HISUNW: u32 = 0x6fffffff;
+pub const PT_HISUNW: u32 = 0x6fff_ffff;
 /// End of OS-specific
-pub const PT_HIOS: u32 = 0x6fffffff;
+pub const PT_HIOS: u32 = 0x6fff_ffff;
 /// Start of processor-specific
-pub const PT_LOPROC: u32 = 0x70000000;
+pub const PT_LOPROC: u32 = 0x7000_0000;
 /// ARM unwind segment
-pub const PT_ARM_EXIDX: u32 = 0x70000001;
+pub const PT_ARM_EXIDX: u32 = 0x7000_0001;
 /// End of processor-specific
-pub const PT_HIPROC: u32 = 0x7fffffff;
+pub const PT_HIPROC: u32 = 0x7fff_ffff;
+
+/* Legal values for p_flags (segment flags).  */
 
 /// Segment is executable
-pub const PF_X: u32 = 1 << 0;
-
+pub const PF_X: u32 = 1;
 /// Segment is writable
 pub const PF_W: u32 = 1 << 1;
-
 /// Segment is readable
 pub const PF_R: u32 = 1 << 2;
 
@@ -99,9 +101,9 @@ if_alloc! {
     impl ProgramHeader {
         /// Return the size of the underlying program header, given a `Ctx`
         #[inline]
-        pub fn size(ctx: &Ctx) -> usize {
+        pub fn size(ctx: Ctx) -> usize {
             use scroll::ctx::SizeWith;
-            Self::size_with(ctx)
+            Self::size_with(&ctx)
         }
         /// Create a new `PT_LOAD` ELF program header
         pub fn new() -> Self {
@@ -259,12 +261,12 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
                 ElfProgramHeader {
                     p_type   : ph.p_type,
                     p_flags  : ph.p_flags,
-                    p_offset : ph.p_offset as u64,
-                    p_vaddr  : ph.p_vaddr as u64,
-                    p_paddr  : ph.p_paddr as u64,
-                    p_filesz : ph.p_filesz as u64,
-                    p_memsz  : ph.p_memsz as u64,
-                    p_align  : ph.p_align as u64,
+                    p_offset : u64::from(ph.p_offset),
+                    p_vaddr  : u64::from(ph.p_vaddr),
+                    p_paddr  : u64::from(ph.p_paddr),
+                    p_filesz : u64::from(ph.p_filesz),
+                    p_memsz  : u64::from(ph.p_memsz),
+                    p_align  : u64::from(ph.p_align),
                 }
             }
         }
@@ -326,7 +328,7 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
                 let mut phdrs = vec![ProgramHeader::default(); count];
                 fd.seek(Start(offset))?;
                 unsafe {
-                    fd.read(plain::as_mut_bytes(&mut *phdrs))?;
+                    fd.read_exact(plain::as_mut_bytes(&mut *phdrs))?;
                 }
                 Ok(phdrs)
             }

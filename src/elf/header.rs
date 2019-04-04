@@ -86,7 +86,7 @@ pub const ET_CORE: u16 = 4;
 pub const ET_NUM: u16 = 5;
 
 /// The ELF magic number.
-pub const ELFMAG: &'static [u8; 4] = b"\x7FELF";
+pub const ELFMAG: &[u8; 4] = b"\x7FELF";
 /// Sizeof ELF magic number.
 pub const SELFMAG: usize = 4;
 
@@ -166,9 +166,9 @@ if_alloc! {
     impl Header {
         /// Return the size of the underlying program header, given a `container`
         #[inline]
-        pub fn size(ctx: &Ctx) -> usize {
+        pub fn size(ctx: Ctx) -> usize {
             use scroll::ctx::SizeWith;
-            Self::size_with(ctx)
+            Self::size_with(&ctx)
         }
         /// Returns the container type this header specifies
         pub fn container(&self) -> error::Result<Container> {
@@ -286,7 +286,7 @@ if_alloc! {
             let ident: &[u8] = &bytes[..SIZEOF_IDENT];
             if &ident[0..SELFMAG] != ELFMAG {
                 let magic: u64 = ident.pread_with(0, scroll::LE)?;
-                return Err(error::Error::BadMagic(magic).into());
+                return Err(error::Error::BadMagic(magic));
             }
             let class = ident[EI_CLASS];
             match class {
@@ -297,7 +297,7 @@ if_alloc! {
                     Ok((Header::from(bytes.pread::<header64::Header>(0)?), header64::SIZEOF_EHDR))
                 },
                 _ => {
-                    Err(error::Error::Malformed(format!("invalid ELF class {:x}", class)).into())
+                    Err(error::Error::Malformed(format!("invalid ELF class {:x}", class)))
                 }
             }
         }
@@ -320,7 +320,7 @@ if_alloc! {
         }
     }
     impl ctx::IntoCtx<crate::container::Ctx> for Header {
-        fn into_ctx(self, bytes: &mut [u8], ctx: crate::container::Ctx) -> () {
+        fn into_ctx(self, bytes: &mut [u8], ctx: crate::container::Ctx) {
             use scroll::Pwrite;
             match ctx.container {
                 Container::Little => {
@@ -380,9 +380,9 @@ macro_rules! elf_header_std_impl {
                         e_type: eh.e_type,
                         e_machine: eh.e_machine,
                         e_version: eh.e_version,
-                        e_entry: eh.e_entry as u64,
-                        e_phoff: eh.e_phoff as u64,
-                        e_shoff: eh.e_shoff as u64,
+                        e_entry: u64::from(eh.e_entry),
+                        e_phoff: u64::from(eh.e_phoff),
+                        e_shoff: u64::from(eh.e_shoff),
                         e_flags: eh.e_flags,
                         e_ehsize: eh.e_ehsize,
                         e_phentsize: eh.e_phentsize,
@@ -462,7 +462,7 @@ macro_rules! elf_header_std_impl {
                 #[cfg(feature = "std")]
                 pub fn from_fd(bytes: &mut File) -> Result<Header> {
                     let mut elf_header = [0; $size];
-                    bytes.read(&mut elf_header)?;
+                    bytes.read_exact(&mut elf_header)?;
                     Ok(*Header::from_bytes(&elf_header))
                 }
 

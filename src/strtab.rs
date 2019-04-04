@@ -27,7 +27,7 @@ fn get_str(offset: usize, bytes: &[u8], delim: ctx::StrCtx) -> scroll::Result<&s
 impl<'a> Strtab<'a> {
     /// Construct a new strtab with `bytes` as the backing string table, using `delim` as the delimiter between entries
     pub fn new (bytes: &'a [u8], delim: u8) -> Self {
-        Strtab { delim: ctx::StrCtx::Delimiter(delim), bytes: bytes }
+        Strtab { delim: ctx::StrCtx::Delimiter(delim), bytes }
     }
     /// Construct a strtab from a `ptr`, and a `size`, using `delim` as the delimiter
     pub unsafe fn from_raw(ptr: *const u8, size: usize, delim: u8) -> Strtab<'a> {
@@ -44,7 +44,7 @@ impl<'a> Strtab<'a> {
     }
     #[cfg(feature = "alloc")]
     /// Converts the string table to a vector, with the original `delim` used to separate the strings
-    pub fn to_vec(self) -> error::Result<Vec<&'a str>> {
+    pub fn to_vec(&self) -> error::Result<Vec<&'a str>> {
         let len = self.bytes.len();
         let mut strings = Vec::with_capacity(len);
         let mut i = 0;
@@ -63,7 +63,7 @@ impl<'a> Strtab<'a> {
         if offset >= self.bytes.len() {
             None
         } else {
-            Some(get_str(offset, self.bytes, self.delim).map_err(|e| e.into()))
+            Some(get_str(offset, self.bytes, self.delim).map_err(core::convert::Into::into))
         }
     }
     /// Gets a str reference from the backing bytes starting at byte `offset`.

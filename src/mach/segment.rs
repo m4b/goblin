@@ -74,10 +74,10 @@ impl Section {
         let offset = self.reloff as usize;
         debug!("Relocations for {} starting at offset: {:#x}", self.name().unwrap_or("BAD_SECTION_NAME"), offset);
         RelocationIterator {
-            offset: offset,
+            offset,
             nrelocs: self.nreloc as usize,
             count: 0,
-            data: data,
+            data,
             ctx: ctx.le,
         }
     }
@@ -141,8 +141,8 @@ impl From<Section32> for Section {
         Section {
             sectname: section.sectname,
             segname:  section.segname,
-            addr:     section.addr as u64,
-            size:     section.size as u64,
+            addr:     u64::from(section.addr),
+            size:     u64::from(section.size),
             offset:   section.offset,
             align:    section.align,
             reloff:   section.reloff,
@@ -257,7 +257,7 @@ impl<'a> Iterator for SectionIterator<'a> {
                         });
                     Some(Ok((section, data)))
                 },
-                Err(e) => Some(Err(e.into()))
+                Err(e) => Some(Err(e))
             }
         }
     }
@@ -407,7 +407,7 @@ impl<'a> Segment<'a> {
             data:     sections,
             offset:   0,
             raw_data: &[],
-            ctx:      ctx,
+            ctx,
         }
     }
     /// Get the name of this segment
@@ -429,18 +429,18 @@ impl<'a> Segment<'a> {
             cmd:      segment.cmd,
             cmdsize:  segment.cmdsize,
             segname:  segment.segname,
-            vmaddr:   segment.vmaddr   as u64,
-            vmsize:   segment.vmsize   as u64,
-            fileoff:  segment.fileoff  as u64,
-            filesize: segment.filesize as u64,
+            vmaddr:   u64::from(segment.vmaddr),
+            vmsize:   u64::from(segment.vmsize),
+            fileoff:  u64::from(segment.fileoff),
+            filesize: u64::from(segment.filesize),
             maxprot:  segment.maxprot,
             initprot: segment.initprot,
             nsects:   segment.nsects,
             flags:    segment.flags,
-            data:     data,
-            offset:   offset,
+            data,
+            offset,
             raw_data: bytes,
-            ctx:      ctx,
+            ctx,
         })
     }
     /// Convert the raw C 64-bit segment command to a generalized version
@@ -458,10 +458,10 @@ impl<'a> Segment<'a> {
             initprot: segment.initprot,
             nsects:   segment.nsects,
             flags:    segment.flags,
-            offset:   offset,
-            data:     data,
+            offset,
+            data,
             raw_data: bytes,
-            ctx:      ctx,
+            ctx,
         })
     }
 }
@@ -499,7 +499,7 @@ impl<'a> Segments<'a> {
     pub fn new(ctx: container::Ctx) -> Self {
         Segments {
             segments: Vec::new(),
-            ctx: ctx,
+            ctx,
         }
     }
     /// Get every section from every segment

@@ -52,7 +52,7 @@ impl<'a> HintNameTableEntry<'a> {
         let offset = &mut offset;
         let hint = bytes.gread_with(offset, scroll::LE)?;
         let name = bytes.pread::<&'a str>(*offset)?;
-        Ok(HintNameTableEntry { hint: hint, name: name })
+        Ok(HintNameTableEntry { hint, name })
     }
 }
 
@@ -164,17 +164,17 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
             }
         };
 
-        let import_address_table_offset = &mut utils::find_offset(import_directory_entry.import_address_table_rva as usize, sections, file_alignment).ok_or(error::Error::Malformed(format!("Cannot map import_address_table_rva {:#x} into offset for {}", import_directory_entry.import_address_table_rva, name)))?;
+        let import_address_table_offset = &mut utils::find_offset(import_directory_entry.import_address_table_rva as usize, sections, file_alignment).ok_or_else(|| error::Error::Malformed(format!("Cannot map import_address_table_rva {:#x} into offset for {}", import_directory_entry.import_address_table_rva, name)))?;
         let mut import_address_table = Vec::new();
         loop {
             let import_address = bytes.gread_with::<T>(import_address_table_offset, LE)?.into();
             if import_address == 0 { break } else { import_address_table.push(import_address); }
         }
         Ok(SyntheticImportDirectoryEntry {
-            import_directory_entry: import_directory_entry,
-            name: name,
-            import_lookup_table: import_lookup_table,
-            import_address_table: import_address_table
+            import_directory_entry,
+            name,
+            import_lookup_table,
+            import_address_table
         })
     }
 }
@@ -186,10 +186,10 @@ pub struct ImportData<'a> {
 }
 
 impl<'a> ImportData<'a> {
-    pub fn parse<T: Bitfield<'a>>(bytes: &'a[u8], dd: &data_directories::DataDirectory, sections: &[section_table::SectionTable], file_alignment: u32) -> error::Result<ImportData<'a>> {
+    pub fn parse<T: Bitfield<'a>>(bytes: &'a[u8], dd: data_directories::DataDirectory, sections: &[section_table::SectionTable], file_alignment: u32) -> error::Result<ImportData<'a>> {
         let import_directory_table_rva = dd.virtual_address as usize;
         debug!("import_directory_table_rva {:#x}", import_directory_table_rva);
-        let offset = &mut utils::find_offset(import_directory_table_rva, sections, file_alignment).ok_or(error::Error::Malformed(format!("Cannot create ImportData; cannot map import_directory_table_rva {:#x} into offset", import_directory_table_rva)))?;;
+        let offset = &mut utils::find_offset(import_directory_table_rva, sections, file_alignment).ok_or_else(|| error::Error::Malformed(format!("Cannot create ImportData; cannot map import_directory_table_rva {:#x} into offset", import_directory_table_rva)))?;;
         debug!("import data offset {:#x}", offset);
         let mut import_data = Vec::new();
         loop {
@@ -204,7 +204,7 @@ impl<'a> ImportData<'a> {
             }
         }
         debug!("finished ImportData");
-        Ok(ImportData { import_data: import_data})
+        Ok(ImportData { import_data})
     }
 }
 
@@ -231,23 +231,23 @@ impl<'a> Import<'a> {
                     let offset = import_base + (i * T::size_of());
                     use self::SyntheticImportLookupTableEntry::*;
                     let (rva, name, ordinal) =
-                        match entry {
-                            &HintNameTableRVA ((rva, ref hint_entry)) => {
+                        match *entry {
+                            HintNameTableRVA ((rva, ref hint_entry)) => {
                                 // if hint_entry.name = "" && hint_entry.hint = 0 {
                                 //     println!("<PE.Import> warning hint/name table rva from {} without hint {:#x}", dll, rva);
                                 // }
-                                (rva, Cow::Borrowed(hint_entry.name), hint_entry.hint.clone())
+                                (rva, Cow::Borrowed(hint_entry.name), hint_entry.hint)
                             },
-                            &OrdinalNumber(ordinal) => {
+                            OrdinalNumber(ordinal) => {
                                 let name = format!("ORDINAL {}", ordinal);
                                 (0x0, Cow::Owned(name), ordinal)
                             },
                         };
                     let import =
                         Import {
-                            name: name,
-                            ordinal: ordinal, dll: dll,
-                            size: T::size_of(), offset: offset, rva: rva as usize
+                            name,
+                            ordinal, dll,
+                            size: T::size_of(), offset, rva: rva as usize
                         };
                     imports.push(import);
                 }

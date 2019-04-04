@@ -11,8 +11,8 @@ use scroll::{Pread, Pwrite, SizeWith};
 use crate::mach::constants::cputype::{CpuType, CpuSubType, CPU_SUBTYPE_MASK, CPU_ARCH_ABI64};
 use crate::error;
 
-pub const FAT_MAGIC: u32 = 0xcafebabe;
-pub const FAT_CIGAM: u32 = 0xbebafeca;
+pub const FAT_MAGIC: u32 = 0xcafe_babe;
+pub const FAT_CIGAM: u32 = 0xbeba_feca;
 
 #[repr(C)]
 #[derive(Clone, Copy, Default, Pread, Pwrite, SizeWith)]
@@ -37,13 +37,13 @@ impl fmt::Debug for FatHeader {
 
 impl FatHeader {
     /// Reinterpret a `FatHeader` from `bytes`
-    pub fn from_bytes(bytes: &[u8; SIZEOF_FAT_HEADER]) -> FatHeader {
+    pub fn from_bytes(bytes: [u8; SIZEOF_FAT_HEADER]) -> FatHeader {
         let mut offset = 0;
         let magic = bytes.gread_with(&mut offset, scroll::BE).unwrap();
         let nfat_arch = bytes.gread_with(&mut offset, scroll::BE).unwrap();
         FatHeader {
-            magic: magic,
-            nfat_arch: nfat_arch,
+            magic,
+            nfat_arch,
         }
     }
 
@@ -51,8 +51,8 @@ impl FatHeader {
     #[cfg(feature = "std")]
     pub fn from_fd(fd: &mut File) -> io::Result<FatHeader> {
         let mut header = [0; SIZEOF_FAT_HEADER];
-        fd.read(&mut header)?;
-        Ok(FatHeader::from_bytes(&header))
+        fd.read_exact(&mut header)?;
+        Ok(FatHeader::from_bytes(header))
     }
 
     /// Parse a mach-o fat header from the `bytes`

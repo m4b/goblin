@@ -192,7 +192,6 @@ impl Nlist {
 impl ctx::SizeWith<container::Ctx> for Nlist {
     type Units = usize;
     fn size_with(ctx: &container::Ctx) -> usize {
-        use crate::container::Container;
         match ctx.container {
             Container::Little => {
                 SIZEOF_NLIST_32
@@ -211,7 +210,7 @@ impl From<Nlist32> for Nlist {
             n_type: nlist.n_type,
             n_sect: nlist.n_sect as usize,
             n_desc: nlist.n_desc,
-            n_value: nlist.n_value as u64,
+            n_value: u64::from(nlist.n_value),
         }
     }
 }
@@ -306,11 +305,11 @@ impl<'a, T: ?Sized> ctx::TryFromCtx<'a, SymbolsCtx, T> for Symbols<'a> where T: 
     }: SymbolsCtx) -> crate::error::Result<(Self, Self::Size)> {
         let data = bytes.as_ref();
         Ok ((Symbols {
-            data: data,
+            data,
             start: 0,
-            nsyms: nsyms,
-            strtab: strtab,
-            ctx: ctx,
+            nsyms,
+            strtab,
+            ctx,
         }, data.len()))
     }
 }
@@ -338,10 +337,10 @@ impl<'a> Iterator for SymbolIterator<'a> {
                         Ok(name) => {
                             Some(Ok((name, symbol)))
                         },
-                        Err(e) => return Some(Err(e.into()))
+                        Err(e) => Some(Err(e.into()))
                     }
                 },
-                Err(e) => return Some(Err(e.into()))
+                Err(e) => Some(Err(e))
             }
         }
     }
@@ -373,16 +372,16 @@ impl<'a> Symbols<'a> {
         let nsyms = count;
         Ok (Symbols {
             data: bytes,
-            start: start,
-            nsyms: nsyms,
-            strtab: strtab,
+            start,
+            nsyms,
+            strtab,
             ctx: container::Ctx::default(),
         })
     }
     pub fn parse(bytes: &'a [u8], symtab: &load_command::SymtabCommand, ctx: container::Ctx) -> error::Result<Symbols<'a>> {
         // we need to normalize the strtab offset before we receive the truncated bytes in pread_with
         let strtab = symtab.stroff - symtab.symoff;
-        Ok(bytes.pread_with(symtab.symoff as usize, SymbolsCtx { nsyms: symtab.nsyms as usize, strtab: strtab as usize, ctx: ctx })?)
+        Ok(bytes.pread_with(symtab.symoff as usize, SymbolsCtx { nsyms: symtab.nsyms as usize, strtab: strtab as usize, ctx })?)
     }
 
     pub fn iter(&self) -> SymbolIterator<'a> {

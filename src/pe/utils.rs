@@ -64,7 +64,7 @@ pub fn find_offset (rva: usize, sections: &[section_table::SectionTable], file_a
 }
 
 pub fn find_offset_or (rva: usize, sections: &[section_table::SectionTable], file_alignment: u32, msg: &str) -> error::Result<usize> {
-    find_offset(rva, sections, file_alignment).ok_or(error::Error::Malformed(msg.to_string()))
+    find_offset(rva, sections, file_alignment).ok_or_else(|| error::Error::Malformed(msg.to_string()))
 }
 
 pub fn try_name<'a>(bytes: &'a [u8], rva: usize, sections: &[section_table::SectionTable], file_alignment: u32) -> error::Result<&'a str> {
@@ -78,7 +78,7 @@ pub fn try_name<'a>(bytes: &'a [u8], rva: usize, sections: &[section_table::Sect
     }
 }
 
-pub fn get_data<'a, T>(bytes: &'a [u8], sections: &[section_table::SectionTable], directory: &DataDirectory, file_alignment: u32) -> error::Result<T>
+pub fn get_data<'a, T>(bytes: &'a [u8], sections: &[section_table::SectionTable], directory: DataDirectory, file_alignment: u32) -> error::Result<T>
     where T: scroll::ctx::TryFromCtx<'a, scroll::Endian, Size = usize, Error = scroll::Error>  {
     let rva = directory.virtual_address as usize;
     let offset = find_offset(rva, sections, file_alignment)

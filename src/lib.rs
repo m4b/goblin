@@ -136,8 +136,8 @@ pub mod container {
 
     impl Container {
         /// Is this a 64-bit container or not?
-        pub fn is_big(&self) -> bool {
-            *self == Container::Big
+        pub fn is_big(self) -> bool {
+            self == Container::Big
         }
     }
 
@@ -165,19 +165,19 @@ pub mod container {
 
     impl Ctx {
         /// Whether this binary container context is "big" or not
-        pub fn is_big(&self) -> bool {
+        pub fn is_big(self) -> bool {
             self.container.is_big()
         }
         /// Whether this binary container context is little endian or not
-        pub fn is_little_endian(&self) -> bool {
+        pub fn is_little_endian(self) -> bool {
             self.le.is_little()
         }
         /// Create a new binary container context
         pub fn new (container: Container, le: scroll::Endian) -> Self {
-            Ctx { container: container, le: le }
+            Ctx { container, le }
         }
         /// Return a dubious pointer/address byte size for the container
-        pub fn size(&self) -> usize {
+        pub fn size(self) -> usize {
             match self.container {
                 // TODO: require pointer size initialization/setting or default to container size with these values, e.g., avr pointer width will be smaller iirc
                 Container::Little => 4,
@@ -188,13 +188,13 @@ pub mod container {
 
     impl From<Container> for Ctx {
         fn from(container: Container) -> Self {
-            Ctx { container: container, le: scroll::Endian::default() }
+            Ctx { container, le: scroll::Endian::default() }
         }
     }
 
     impl From<scroll::Endian> for Ctx {
         fn from(le: scroll::Endian) -> Self {
-            Ctx { container: CONTAINER, le: le }
+            Ctx { container: CONTAINER, le }
         }
     }
 
@@ -264,7 +264,7 @@ if_everything! {
                     if let Some(ctx) = maybe_ctx {
                         Ok(Hint::Mach(HintData { is_lsb: ctx.le.is_little(), is_64: Some(ctx.container.is_big()) }))
                     } else {
-                        Err(error::Error::Malformed(format!("Correct mach magic {:#x} does not have a matching parsing context!", magic).into()))
+                        Err(error::Error::Malformed(format!("Correct mach magic {:#x} does not have a matching parsing context!", magic)))
                     }
                 },
                 // its something else
@@ -285,6 +285,7 @@ if_everything! {
     }
 
     #[derive(Debug)]
+    #[allow(clippy::large_enum_variant)]
     /// A parseable object that goblin understands
     pub enum Object<'a> {
         /// An ELF32/ELF64!

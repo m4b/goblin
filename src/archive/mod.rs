@@ -17,7 +17,7 @@ use crate::alloc::vec::Vec;
 
 pub const SIZEOF_MAGIC: usize = 8;
 /// The magic number of a Unix Archive
-pub const MAGIC: &'static [u8; SIZEOF_MAGIC] = b"!<arch>\x0A";
+pub const MAGIC: &[u8; SIZEOF_MAGIC] = b"!<arch>\x0A";
 
 const SIZEOF_FILE_IDENTIFER: usize = 16;
 const SIZEOF_FILE_SIZE: usize = 10;
@@ -101,7 +101,7 @@ impl<'a> Member<'a> {
         let header_offset = *offset;
         let name = buffer.pread_with::<&str>(*offset, ::scroll::ctx::StrCtx::Length(SIZEOF_FILE_IDENTIFER))?;
         let archive_header = buffer.gread::<MemberHeader>(offset)?;
-        let mut header = Header { name: name, size: archive_header.size()? };
+        let mut header = Header { name, size: archive_header.size()? };
 
         // skip newline padding if we're on an uneven byte boundary
         if *offset & 1 == 1 {
@@ -123,10 +123,10 @@ impl<'a> Member<'a> {
         };
 
         Ok(Member {
-            header: header,
+            header,
             header_offset: header_offset as u64,
             offset: *offset as u64,
-            bsd_name: bsd_name,
+            bsd_name,
             sysv_name: None,
         })
     }
@@ -186,12 +186,12 @@ pub struct Index<'a> {
 }
 
 /// SysV Archive Variant Symbol Lookup Table "Magic" Name
-const INDEX_NAME: &'static str = "/               ";
+const INDEX_NAME: &str = "/               ";
 /// SysV Archive Variant Extended Filename String Table Name
-const NAME_INDEX_NAME: &'static str = "//              ";
+const NAME_INDEX_NAME: &str = "//              ";
 /// BSD symbol definitions
-const BSD_SYMDEF_NAME: &'static str = "__.SYMDEF";
-const BSD_SYMDEF_SORTED_NAME: &'static str = "__.SYMDEF SORTED";
+const BSD_SYMDEF_NAME: &str = "__.SYMDEF";
+const BSD_SYMDEF_SORTED_NAME: &str = "__.SYMDEF SORTED";
 
 impl<'a> Index<'a> {
     /// Parses the given byte buffer into an Index. NB: the buffer must be the start of the index
@@ -294,11 +294,11 @@ impl<'a> NameIndex<'a> {
         // This is a total hack, because strtab returns "" if idx == 0, need to change
         // but previous behavior might rely on this, as ELF strtab's have "" at 0th index...
         let hacked_size = size + 1;
-        let strtab = strtab::Strtab::parse(buffer, *offset-1, hacked_size, '\n' as u8)?;
+        let strtab = strtab::Strtab::parse(buffer, *offset-1, hacked_size, b'\n')?;
         // precious time was lost when refactoring because strtab::parse doesn't update the mutable seek...
         *offset += hacked_size - 2;
         Ok (NameIndex {
-            strtab: strtab
+            strtab
         })
     }
 
@@ -314,11 +314,11 @@ impl<'a> NameIndex<'a> {
                 if name != "" {
                     Ok(name.trim_end_matches('/'))
                 }  else {
-                    return Err(Error::Malformed(format!("Could not find {:?} in index", name).into()));
+                    Err(Error::Malformed(format!("Could not find {:?} in index", name)))
                 }
             },
             Err (_) => {
-                return Err(Error::Malformed(format!("Bad name index {:?} in index", name).into()));
+                Err(Error::Malformed(format!("Bad name index {:?} in index", name)))
             }
         }
     }
@@ -347,8 +347,7 @@ impl<'a> Archive<'a> {
         let offset = &mut 0usize;
         buffer.gread_inout(offset, &mut magic)?;
         if &magic != MAGIC {
-            use scroll::Pread;
-            return Err(Error::BadMagic(magic.pread(0)?).into());
+            return Err(Error::BadMagic(magic.pread(0)?));
         }
         let mut member_array = Vec::new();
         let mut index = Index::default();
@@ -403,17 +402,16 @@ impl<'a> Archive<'a> {
         // build the symbol index, translating symbol names into member indexes
         let mut symbol_index: BTreeMap<&str, usize> = BTreeMap::new();
         for (member_offset, name) in index.symbol_indexes.iter().zip(index.strtab.iter()) {
-            let name = name.clone();
             let member_index = member_index_by_offset[member_offset];
-            symbol_index.insert(name, member_index);
+            symbol_index.insert(&name, member_index);
         }
 
         let archive = Archive {
-            index: index,
-            member_array: member_array,
-            sysv_name_index: sysv_name_index,
-            members: members,
-            symbol_index: symbol_index,
+            index,
+            member_array,
+            sysv_name_index,
+            members,
+            symbol_index,
         };
 
         Ok(archive)
@@ -434,7 +432,7 @@ impl<'a> Archive<'a> {
             let bytes = buffer.pread_with(member.offset as usize, member.size())?;
             Ok(bytes)
         } else {
-            Err(Error::Malformed(format!("Cannot extract member {:?}", member).into()))
+            Err(Error::Malformed(format!("Cannot extract member {:?}", member)))
         }
     }
 
@@ -457,7 +455,7 @@ impl<'a> Archive<'a> {
 
     /// Get the list of member names in this archive
     pub fn members(&self) -> Vec<&'a str> {
-        self.members.keys().map(|s| *s).collect()
+        self.members.keys().cloned().collect()
     }
 
     /// Returns the member's name which contains the given `symbol`, if it is in the archive

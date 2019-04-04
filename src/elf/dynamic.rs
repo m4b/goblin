@@ -96,13 +96,13 @@ pub const DT_PREINIT_ARRAYSZ: u64 = 33;
 /// Number used
 pub const DT_NUM: u64 = 34;
 /// Start of OS-specific
-pub const DT_LOOS: u64 = 0x6000000d;
+pub const DT_LOOS: u64 = 0x6000_000d;
 /// End of OS-specific
-pub const DT_HIOS: u64 = 0x6ffff000;
+pub const DT_HIOS: u64 = 0x6fff_f000;
 /// Start of processor-specific
-pub const DT_LOPROC: u64 = 0x70000000;
+pub const DT_LOPROC: u64 = 0x7000_0000;
 /// End of processor-specific
-pub const DT_HIPROC: u64 = 0x7fffffff;
+pub const DT_HIPROC: u64 = 0x7fff_ffff;
 // Most used by any processor
 // pub const DT_PROCNUM: u64 = DT_MIPS_NUM;
 
@@ -111,49 +111,49 @@ pub const DT_HIPROC: u64 = 0x7fffffff;
 ///
 /// If any adjustment is made to the ELF object after it has been
 /// built these entries will need to be adjusted.
-pub const DT_ADDRRNGLO: u64 = 0x6ffffe00;
+pub const DT_ADDRRNGLO: u64 = 0x6fff_fe00;
 /// GNU-style hash table
-pub const DT_GNU_HASH: u64 = 0x6ffffef5;
+pub const DT_GNU_HASH: u64 = 0x6fff_fef5;
 ///
-pub const DT_TLSDESC_PLT: u64 = 0x6ffffef6;
+pub const DT_TLSDESC_PLT: u64 = 0x6fff_fef6;
 ///
-pub const DT_TLSDESC_GOT: u64 = 0x6ffffef7;
+pub const DT_TLSDESC_GOT: u64 = 0x6fff_fef7;
 /// Start of conflict section
-pub const DT_GNU_CONFLICT: u64 = 0x6ffffef8;
+pub const DT_GNU_CONFLICT: u64 = 0x6fff_fef8;
 /// Library list
-pub const DT_GNU_LIBLIST: u64 = 0x6ffffef9;
+pub const DT_GNU_LIBLIST: u64 = 0x6fff_fef9;
 /// Configuration information
-pub const DT_CONFIG: u64 = 0x6ffffefa;
+pub const DT_CONFIG: u64 = 0x6fff_fefa;
 /// Dependency auditing
-pub const DT_DEPAUDIT: u64 = 0x6ffffefb;
+pub const DT_DEPAUDIT: u64 = 0x6fff_fefb;
 /// Object auditing
-pub const DT_AUDIT: u64 = 0x6ffffefc;
+pub const DT_AUDIT: u64 = 0x6fff_fefc;
 /// PLT padding
-pub const DT_PLTPAD: u64 = 0x6ffffefd;
+pub const DT_PLTPAD: u64 = 0x6fff_fefd;
 /// Move table
-pub const DT_MOVETAB: u64 = 0x6ffffefe;
+pub const DT_MOVETAB: u64 = 0x6fff_fefe;
 /// Syminfo table
-pub const DT_SYMINFO: u64 = 0x6ffffeff;
+pub const DT_SYMINFO: u64 = 0x6fff_feff;
 ///
-pub const DT_ADDRRNGHI: u64 = 0x6ffffeff;
+pub const DT_ADDRRNGHI: u64 = 0x6fff_feff;
 
 //DT_ADDRTAGIDX(tag)	(DT_ADDRRNGHI - (tag))	/* Reverse order! */
 pub const DT_ADDRNUM: u64 = 11;
 
 /// The versioning entry types. The next are defined as part of the GNU extension
-pub const DT_VERSYM: u64 = 0x6ffffff0;
-pub const DT_RELACOUNT: u64 = 0x6ffffff9;
-pub const DT_RELCOUNT: u64 = 0x6ffffffa;
+pub const DT_VERSYM: u64 = 0x6fff_fff0;
+pub const DT_RELACOUNT: u64 = 0x6fff_fff9;
+pub const DT_RELCOUNT: u64 = 0x6fff_fffa;
 /// State flags, see DF_1_* below
-pub const DT_FLAGS_1: u64 = 0x6ffffffb;
+pub const DT_FLAGS_1: u64 = 0x6fff_fffb;
 /// Address of version definition table
-pub const DT_VERDEF: u64 = 0x6ffffffc;
+pub const DT_VERDEF: u64 = 0x6fff_fffc;
 /// Number of version definitions
-pub const DT_VERDEFNUM: u64 = 0x6ffffffd;
+pub const DT_VERDEFNUM: u64 = 0x6fff_fffd;
 /// Address of table with needed versions
-pub const DT_VERNEED: u64 = 0x6ffffffe;
+pub const DT_VERNEED: u64 = 0x6fff_fffe;
 /// Number of needed versions
-pub const DT_VERNEEDNUM: u64 = 0x6fffffff;
+pub const DT_VERNEEDNUM: u64 = 0x6fff_ffff;
 
 /// Converts a tag to its string representation.
 #[inline]
@@ -212,66 +212,66 @@ pub fn tag_to_str(tag: u64) -> &'static str {
 
 // Values of `d_un.d_val` in the DT_FLAGS entry
 /// Object may use DF_ORIGIN.
-pub const DF_ORIGIN: u64 = 0x00000001;
+pub const DF_ORIGIN: u64 = 0x0000_0001;
 /// Symbol resolutions starts here.
-pub const DF_SYMBOLIC: u64 = 0x00000002;
+pub const DF_SYMBOLIC: u64 = 0x0000_0002;
 /// Object contains text relocations.
-pub const DF_TEXTREL: u64 = 0x00000004;
+pub const DF_TEXTREL: u64 = 0x0000_0004;
 /// No lazy binding for this object.
-pub const DF_BIND_NOW: u64 = 0x00000008;
+pub const DF_BIND_NOW: u64 = 0x0000_0008;
 /// Module uses the static TLS model.
-pub const DF_STATIC_TLS: u64 = 0x00000010;
+pub const DF_STATIC_TLS: u64 = 0x0000_0010;
 
 /// === State flags ===
 /// selectable in the `d_un.d_val` element of the DT_FLAGS_1 entry in the dynamic section.
 ///
 /// Set RTLD_NOW for this object.
-pub const DF_1_NOW: u64 = 0x00000001;
+pub const DF_1_NOW: u64 = 0x0000_0001;
 /// Set RTLD_GLOBAL for this object.
-pub const DF_1_GLOBAL: u64 = 0x00000002;
+pub const DF_1_GLOBAL: u64 = 0x0000_0002;
 /// Set RTLD_GROUP for this object.
-pub const DF_1_GROUP: u64 = 0x00000004;
+pub const DF_1_GROUP: u64 = 0x0000_0004;
 /// Set RTLD_NODELETE for this object.
-pub const DF_1_NODELETE: u64 = 0x00000008;
+pub const DF_1_NODELETE: u64 = 0x0000_0008;
 /// Trigger filtee loading at runtime.
-pub const DF_1_LOADFLTR: u64 = 0x00000010;
+pub const DF_1_LOADFLTR: u64 = 0x0000_0010;
 /// Set RTLD_INITFIRST for this object.
-pub const DF_1_INITFIRST: u64 = 0x00000020;
+pub const DF_1_INITFIRST: u64 = 0x0000_0020;
 /// Set RTLD_NOOPEN for this object.
-pub const DF_1_NOOPEN: u64 = 0x00000040;
+pub const DF_1_NOOPEN: u64 = 0x0000_0040;
 /// $ORIGIN must be handled.
-pub const DF_1_ORIGIN: u64 = 0x00000080;
+pub const DF_1_ORIGIN: u64 = 0x0000_0080;
 /// Direct binding enabled.
-pub const DF_1_DIRECT: u64 = 0x00000100;
-pub const DF_1_TRANS: u64 = 0x00000200;
+pub const DF_1_DIRECT: u64 = 0x0000_0100;
+pub const DF_1_TRANS: u64 = 0x0000_0200;
 /// Object is used to interpose.
-pub const DF_1_INTERPOSE: u64 = 0x00000400;
+pub const DF_1_INTERPOSE: u64 = 0x0000_0400;
 /// Ignore default lib search path.
-pub const DF_1_NODEFLIB: u64 = 0x00000800;
+pub const DF_1_NODEFLIB: u64 = 0x0000_0800;
 /// Object can't be dldump'ed.
-pub const DF_1_NODUMP: u64 = 0x00001000;
+pub const DF_1_NODUMP: u64 = 0x0000_1000;
 /// Configuration alternative created.
-pub const DF_1_CONFALT: u64 = 0x00002000;
+pub const DF_1_CONFALT: u64 = 0x0000_2000;
 /// Filtee terminates filters search.
-pub const DF_1_ENDFILTEE: u64 = 0x00004000;
+pub const DF_1_ENDFILTEE: u64 = 0x0000_4000;
 /// Disp reloc applied at build time.
-pub const DF_1_DISPRELDNE: u64 = 0x00008000;
+pub const DF_1_DISPRELDNE: u64 = 0x0000_8000;
 /// Disp reloc applied at run-time.
-pub const DF_1_DISPRELPND: u64 = 0x00010000;
+pub const DF_1_DISPRELPND: u64 = 0x0001_0000;
 /// Object has no-direct binding.
-pub const DF_1_NODIRECT: u64 = 0x00020000;
-pub const DF_1_IGNMULDEF: u64 = 0x00040000;
-pub const DF_1_NOKSYMS: u64 = 0x00080000;
-pub const DF_1_NOHDR: u64 = 0x00100000;
+pub const DF_1_NODIRECT: u64 = 0x0002_0000;
+pub const DF_1_IGNMULDEF: u64 = 0x0004_0000;
+pub const DF_1_NOKSYMS: u64 = 0x0008_0000;
+pub const DF_1_NOHDR: u64 = 0x0010_0000;
 /// Object is modified after built.
-pub const DF_1_EDITED: u64 = 0x00200000;
-pub const DF_1_NORELOC: u64 = 0x00400000;
+pub const DF_1_EDITED: u64 = 0x0020_0000;
+pub const DF_1_NORELOC: u64 = 0x0040_0000;
 /// Object has individual interposers.
-pub const DF_1_SYMINTPOSE: u64 = 0x00800000;
+pub const DF_1_SYMINTPOSE: u64 = 0x0080_0000;
 /// Global auditing required.
-pub const DF_1_GLOBAUDIT: u64 = 0x01000000;
+pub const DF_1_GLOBAUDIT: u64 = 0x0100_0000;
 /// Singleton dyn are used.
-pub const DF_1_SINGLETON: u64 = 0x02000000;
+pub const DF_1_SINGLETON: u64 = 0x0200_0000;
 
 if_alloc! {
     use core::fmt;
@@ -398,14 +398,15 @@ if_alloc! {
         }
 
         pub fn get_libraries<'a>(&self, strtab: &Strtab<'a>) -> Vec<&'a str> {
+            use log::warn;
             let count = self.info.needed_count;
             let mut needed = Vec::with_capacity(count);
             for dynamic in &self.dyns {
                 if dynamic.d_tag as u64 == DT_NEEDED {
-                    match strtab.get(dynamic.d_val as usize) {
-                        Some(Ok(lib)) => needed.push(lib),
-                        // FIXME: warn! here
-                        _ => (),
+                    if let Some(Ok(lib)) = strtab.get(dynamic.d_val as usize) {
+                        needed.push(lib)
+                    } else {
+                        warn!("Invalid DT_NEEDED {}", dynamic.d_val)
                     }
                 }
             }
@@ -454,8 +455,8 @@ macro_rules! elf_dyn_std_impl {
             impl From<Dyn> for ElfDyn {
                 fn from(dynamic: Dyn) -> Self {
                     ElfDyn {
-                        d_tag: dynamic.d_tag as u64,
-                        d_val: dynamic.d_val as u64,
+                        d_tag: u64::from(dynamic.d_tag),
+                        d_val: u64::from(dynamic.d_val),
                     }
                 }
             }
@@ -478,9 +479,9 @@ macro_rules! elf_dyn_std_impl {
                         let filesz = phdr.p_filesz as usize;
                         let dync = filesz / SIZEOF_DYN;
                         let mut dyns = vec![Dyn::default(); dync];
-                        fd.seek(Start(phdr.p_offset as u64))?;
+                        fd.seek(Start(u64::from(phdr.p_offset)))?;
                         unsafe {
-                            fd.read(plain::as_mut_bytes(&mut *dyns))?;
+                            fd.read_exact(plain::as_mut_bytes(&mut *dyns))?;
                         }
                         dyns.dedup();
                         return Ok(Some(dyns));
@@ -493,7 +494,7 @@ macro_rules! elf_dyn_std_impl {
             pub unsafe fn from_raw<'a>(bias: usize, vaddr: usize) -> &'a [Dyn] {
                 let dynp = vaddr.wrapping_add(bias) as *const Dyn;
                 let mut idx = 0;
-                while (*dynp.offset(idx)).d_tag as u64 != DT_NULL {
+                while u64::from((*dynp.offset(idx)).d_tag) != DT_NULL {
                     idx += 1;
                 }
                 slice::from_raw_parts(dynp, idx as usize)
@@ -516,7 +517,7 @@ macro_rules! elf_dyn_std_impl {
             pub unsafe fn get_needed<'a>(dyns: &[Dyn], strtab: *const Strtab<'a>, count: usize) -> Vec<&'a str> {
                 let mut needed = Vec::with_capacity(count);
                 for dynamic in dyns {
-                    if dynamic.d_tag as u64 == DT_NEEDED {
+                    if u64::from(dynamic.d_tag) == DT_NEEDED {
                         let lib = &(*strtab)[dynamic.d_val as usize];
                         needed.push(lib);
                     }
@@ -582,7 +583,7 @@ macro_rules! elf_dynamic_info_std_impl {
         impl DynamicInfo {
             #[inline]
             pub fn update(&mut self, phdrs: &[$phdr], dynamic: &Dyn) {
-                match dynamic.d_tag as u64 {
+                match u64::from(dynamic.d_tag) {
                     DT_RELA => self.rela = vm_to_offset(phdrs, dynamic.d_val).unwrap_or(0) as usize, // .rela.dyn
                     DT_RELASZ => self.relasz = dynamic.d_val as usize,
                     DT_RELAENT => self.relaent = dynamic.d_val as _,

@@ -337,6 +337,7 @@ pub mod elf32 {
     pub use crate::elf::note::Nhdr32 as Note;
 
     pub mod gnu_hash {
+        pub use crate::elf::gnu_hash::hash;
         elf_gnu_hash_impl!(u32);
     }
 }
@@ -353,6 +354,7 @@ pub mod elf64 {
     pub use crate::elf::note::Nhdr64 as Note;
 
     pub mod gnu_hash {
+        pub use crate::elf::gnu_hash::hash;
         elf_gnu_hash_impl!(u64);
     }
 }

@@ -1,9 +1,8 @@
 /// Demonstrates how to read additional metadata (i.e. .Net runtime ones) from PE context
-
 use goblin::container::Endian;
 use goblin::pe::data_directories::DataDirectory;
-use goblin::pe::PE;
 use goblin::pe::utils::get_data;
+use goblin::pe::PE;
 use scroll::ctx::TryFromCtx;
 use scroll::Pread;
 
@@ -72,6 +71,7 @@ fn main() {
 
     let cli_header_value: CliHeader = get_data(file, sections, cli_header, file_alignment).unwrap();
     println!("{:#?}", cli_header_value);
-    let metadata_root: MetadataRoot = get_data(file, sections, cli_header_value.metadata, file_alignment).unwrap();
+    let metadata_root: MetadataRoot =
+        get_data(file, sections, cli_header_value.metadata, file_alignment).unwrap();
     println!("{:#?}", metadata_root);
 }

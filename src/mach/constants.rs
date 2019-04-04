@@ -246,9 +246,9 @@ pub mod cputype {
     pub const CPU_SUBTYPE_MC68030_ONLY: CpuSubType = 3;
 
     macro_rules! CPU_SUBTYPE_INTEL {
-        ($f:expr, $m:expr) => ({
+        ($f:expr, $m:expr) => {{
             ($f) + (($m) << 4)
-        })
+        }};
     }
 
     pub const CPU_SUBTYPE_I386_ALL: CpuSubType = CPU_SUBTYPE_INTEL!(3, 0);
@@ -426,9 +426,21 @@ mod tests {
     fn test_basic_mapping() {
         use super::cputype::*;
 
-        assert_eq!(get_arch_from_flag("armv7"), Some((CPU_TYPE_ARM, CPU_SUBTYPE_ARM_V7)));
-        assert_eq!(get_arch_name_from_types(CPU_TYPE_ARM, CPU_SUBTYPE_ARM_V7), Some("armv7"));
-        assert_eq!(get_arch_from_flag("i386"), Some((CPU_TYPE_I386, CPU_SUBTYPE_I386_ALL)));
-        assert_eq!(get_arch_from_flag("x86"), Some((CPU_TYPE_I386, CPU_SUBTYPE_I386_ALL)));
+        assert_eq!(
+            get_arch_from_flag("armv7"),
+            Some((CPU_TYPE_ARM, CPU_SUBTYPE_ARM_V7))
+        );
+        assert_eq!(
+            get_arch_name_from_types(CPU_TYPE_ARM, CPU_SUBTYPE_ARM_V7),
+            Some("armv7")
+        );
+        assert_eq!(
+            get_arch_from_flag("i386"),
+            Some((CPU_TYPE_I386, CPU_SUBTYPE_I386_ALL))
+        );
+        assert_eq!(
+            get_arch_from_flag("x86"),
+            Some((CPU_TYPE_I386, CPU_SUBTYPE_I386_ALL))
+        );
     }
 }

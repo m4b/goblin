@@ -105,9 +105,9 @@ macro_rules! elf_reloc {
     };
 }
 
-macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
-
-    if_alloc! {
+macro_rules! elf_rela_std_impl {
+    ($size:ident, $isize:ty) => {
+        if_alloc! {
             use crate::elf::reloc::Reloc;
 
             use core::slice;
@@ -197,7 +197,6 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
     };
 }
 
-
 pub mod reloc32 {
 
     pub use crate::elf::reloc::*;
@@ -224,7 +223,6 @@ pub mod reloc32 {
 
     elf_rela_std_impl!(u32, i32);
 }
-
 
 pub mod reloc64 {
     pub use crate::elf::reloc::*;

@@ -51,7 +51,7 @@ macro_rules! elf_section_header {
                     .finish()
             }
         }
-    }
+    };
 }
 
 /// Undefined section.
@@ -253,7 +253,7 @@ pub fn shf_to_str(shf: u32) -> &'static str {
         SHF_COMPRESSED => "SHF_COMPRESSED",
         //SHF_MASKOS..SHF_MASKPROC => "SHF_OSFLAG",
         SHF_ORDERED => "SHF_ORDERED",
-        _ => "SHF_UNKNOWN"
+        _ => "SHF_UNKNOWN",
     }
 }
 
@@ -335,7 +335,6 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
     } // end if_alloc
 };}
 
-
 pub mod section_header32 {
     pub use crate::elf::section_header::*;
 
@@ -345,7 +344,6 @@ pub mod section_header32 {
 
     elf_section_header_std_impl!(u32);
 }
-
 
 pub mod section_header64 {
 

@@ -1,6 +1,6 @@
 use crate::alloc::string::{String, ToString};
-use scroll::Pread;
 use crate::error::{self, Error};
+use scroll::Pread;
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Clone, Default)]
@@ -28,18 +28,23 @@ fn base64_decode_string_entry(s: &str) -> Result<usize, ()> {
 
     let mut val = 0;
     for c in s.bytes() {
-        let v = if b'A' <= c && c <= b'Z' { // 00..=25
+        let v = if b'A' <= c && c <= b'Z' {
+            // 00..=25
             c - b'A'
-        } else if b'a' <= c && c <= b'z' { // 26..=51
+        } else if b'a' <= c && c <= b'z' {
+            // 26..=51
             c - b'a' + 26
-        } else if b'0' <= c && c <= b'9' { // 52..=61
+        } else if b'0' <= c && c <= b'9' {
+            // 52..=61
             c - b'0' + 52
-        } else if c == b'+' { // 62
+        } else if c == b'+' {
+            // 62
             62
-        } else if c == b'/' { // 63
+        } else if c == b'/' {
+            // 63
             63
         } else {
-            return Err(())
+            return Err(());
         };
         val = val * 64 + v as usize;
     }
@@ -47,7 +52,11 @@ fn base64_decode_string_entry(s: &str) -> Result<usize, ()> {
 }
 
 impl SectionTable {
-    pub fn parse(bytes: &[u8], offset: &mut usize, string_table_offset: usize) -> error::Result<Self> {
+    pub fn parse(
+        bytes: &[u8],
+        offset: &mut usize,
+        string_table_offset: usize,
+    ) -> error::Result<Self> {
         let mut table = SectionTable::default();
         let mut name = [0u8; 8];
         name.copy_from_slice(bytes.gread_with(offset, 8)?);
@@ -67,12 +76,17 @@ impl SectionTable {
         if name[0] == b'/' {
             let idx: usize = if name[1] == b'/' {
                 let b64idx = name.pread::<&str>(2)?;
-                base64_decode_string_entry(b64idx).map_err(|_|
-                    Error::Malformed(format!("Invalid indirect section name //{}: base64 decoding failed", b64idx)))?
+                base64_decode_string_entry(b64idx).map_err(|_| {
+                    Error::Malformed(format!(
+                        "Invalid indirect section name //{}: base64 decoding failed",
+                        b64idx
+                    ))
+                })?
             } else {
                 let name = name.pread::<&str>(1)?;
-                name.parse().map_err(|err|
-                    Error::Malformed(format!("Invalid indirect section name /{}: {}", name, err)))?
+                name.parse().map_err(|err| {
+                    Error::Malformed(format!("Invalid indirect section name /{}: {}", name, err))
+                })?
             };
             table.real_name = Some(bytes.pread::<&str>(string_table_offset + idx)?.to_string());
         }
@@ -82,7 +96,7 @@ impl SectionTable {
     pub fn name(&self) -> error::Result<&str> {
         match self.real_name.as_ref() {
             Some(s) => Ok(s),
-            None => Ok(self.name.pread(0)?)
+            None => Ok(self.name.pread(0)?),
         }
     }
 }

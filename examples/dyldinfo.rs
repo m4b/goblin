@@ -1,10 +1,10 @@
 use goblin::mach;
+use std::borrow::Cow;
 use std::env;
-use std::process;
-use std::path::Path;
 use std::fs::File;
 use std::io::Read;
-use std::borrow::Cow;
+use std::path::Path;
+use std::process;
 
 fn usage() -> ! {
     println!("usage: dyldinfo <options> <mach-o file>");
@@ -16,7 +16,7 @@ fn usage() -> ! {
 fn name_to_str<'a>(name: &'a [u8; 16]) -> Cow<'a, str> {
     for i in 0..16 {
         if name[i] == 0 {
-            return String::from_utf8_lossy(&name[0..i])
+            return String::from_utf8_lossy(&name[0..i]);
         }
     }
     String::from_utf8_lossy(&name[..])
@@ -27,9 +27,7 @@ fn dylib_name(name: &str) -> &str {
     //   "/usr/lib/libc++.1.dylib" => "libc++"
     //   "/usr/lib/libSystem.B.dylib" => "libSystem"
     //   "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation" => "CoreFoundation"
-    name
-        .rsplit('/').next().unwrap()
-        .split('.').next().unwrap()
+    name.rsplit('/').next().unwrap().split('.').next().unwrap()
 }
 
 fn print_binds(sections: &[mach::segment::Section], imports: &[mach::imports::Import]) {
@@ -37,24 +35,19 @@ fn print_binds(sections: &[mach::segment::Section], imports: &[mach::imports::Im
 
     println!(
         "{:7} {:16} {:14} {:7} {:6} {:16} {}",
-        "segment",
-        "section",
-        "address",
-        "type",
-        "addend",
-        "dylib",
-        "symbol"
+        "segment", "section", "address", "type", "addend", "dylib", "symbol"
     );
 
     for import in imports.iter().filter(|i| !i.is_lazy) {
         // find the section that imported this symbol
-        let section = sections.iter()
+        let section = sections
+            .iter()
             .filter(|s| import.address >= s.addr && import.address < (s.addr + s.size))
             .next();
 
         // get &strs for its name
         let (segname, sectname) = section
-            .map(|sect|  (name_to_str(&sect.segname), name_to_str(&sect.sectname)))
+            .map(|sect| (name_to_str(&sect.segname), name_to_str(&sect.sectname)))
             .unwrap_or((Cow::Borrowed("?"), Cow::Borrowed("?")));
 
         println!(
@@ -76,27 +69,23 @@ fn print_lazy_binds(sections: &[mach::segment::Section], imports: &[mach::import
 
     println!(
         "{:7} {:16} {:10} {:6} {:16} {}",
-        "segment",
-        "section",
-        "address",
-        "index",
-        "dylib",
-        "symbol"
+        "segment", "section", "address", "index", "dylib", "symbol"
     );
 
     for import in imports.iter().filter(|i| i.is_lazy) {
         // find the section that imported this symbol
-        let section = sections.iter()
+        let section = sections
+            .iter()
             .filter(|s| import.address >= s.addr && import.address < (s.addr + s.size))
             .next();
 
         // get &strs for its name
         let (segname, sectname) = section
-            .map(|sect|  (name_to_str(&sect.segname), name_to_str(&sect.sectname)))
+            .map(|sect| (name_to_str(&sect.segname), name_to_str(&sect.sectname)))
             .unwrap_or((Cow::Borrowed("?"), Cow::Borrowed("?")));
 
         println!(
-        "{:7} {:16} 0x{:<8X} {:<06} {:16} {}",
+            "{:7} {:16} 0x{:<8X} {:<06} {:16} {}",
             segname,
             sectname,
             import.address,
@@ -107,7 +96,7 @@ fn print_lazy_binds(sections: &[mach::segment::Section], imports: &[mach::import
     }
 }
 
-fn main () {
+fn main() {
     let len = env::args().len();
 
     let mut bind = false;
@@ -123,8 +112,8 @@ fn main () {
             flags.remove(0);
             for option in flags {
                 match option.as_str() {
-                    "-bind" => { bind = true }
-                    "-lazy_bind" => { lazy_bind = true }
+                    "-bind" => bind = true,
+                    "-lazy_bind" => lazy_bind = true,
                     other => {
                         println!("unknown flag: {}", other);
                         println!("");
@@ -137,7 +126,12 @@ fn main () {
         // open the file
         let path = env::args_os().last().unwrap();
         let path = Path::new(&path);
-        let buffer = { let mut v = Vec::new(); let mut f = File::open(&path).unwrap(); f.read_to_end(&mut v).unwrap(); v};
+        let buffer = {
+            let mut v = Vec::new();
+            let mut f = File::open(&path).unwrap();
+            f.read_to_end(&mut v).unwrap();
+            v
+        };
         match mach::MachO::parse(&buffer, 0) {
             Ok(macho) => {
                 // collect sections and sort by address
@@ -156,7 +150,7 @@ fn main () {
                 if lazy_bind {
                     print_lazy_binds(&sections, &imports);
                 }
-            },
+            }
             Err(err) => {
                 println!("err: {:?}", err);
                 process::exit(2);

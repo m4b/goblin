@@ -1,31 +1,32 @@
 use goblin::archive::*;
 use scroll::Pread;
-use std::path::Path;
 use std::fs::File;
+use std::path::Path;
 
 #[test]
 fn parse_file_header() {
-    let file_header: [u8; SIZEOF_HEADER] = [0x2f, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-                                            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-                                            0x20, 0x20, 0x30, 0x20, 0x20, 0x20, 0x20,
-                                            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-                                            0x30, 0x20, 0x20, 0x20, 0x20, 0x20, 0x30,
-                                            0x20, 0x20, 0x20, 0x20, 0x20, 0x30, 0x20,
-                                            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x38,
-                                            0x32, 0x34, 0x34, 0x20, 0x20, 0x20, 0x20,
-                                            0x20, 0x20, 0x60, 0x0a];
+    let file_header: [u8; SIZEOF_HEADER] = [
+        0x2f, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+        0x20, 0x30, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x30, 0x20,
+        0x20, 0x20, 0x20, 0x20, 0x30, 0x20, 0x20, 0x20, 0x20, 0x20, 0x30, 0x20, 0x20, 0x20, 0x20,
+        0x20, 0x20, 0x20, 0x38, 0x32, 0x34, 0x34, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x60, 0x0a,
+    ];
     let buffer = &file_header[..];
     match buffer.pread::<MemberHeader>(0) {
         Err(_) => assert!(false),
         Ok(file_header2) => {
             let file_header = MemberHeader {
-                identifier: [0x2f,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,],
+                identifier: [
+                    0x2f, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+                    0x20, 0x20, 0x20,
+                ],
                 timestamp: [48, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32],
                 owner_id: [48, 32, 32, 32, 32, 32],
                 group_id: [48, 32, 32, 32, 32, 32],
                 mode: [48, 32, 32, 32, 32, 32, 32, 32],
                 file_size: [56, 50, 52, 52, 32, 32, 32, 32, 32, 32],
-                terminator: [96, 10] };
+                terminator: [96, 10],
+            };
             assert_eq!(file_header, file_header2)
         }
     }
@@ -45,8 +46,11 @@ fn parse_archive() {
                 println!("could not get crt1.o");
                 assert!(false)
             }
-        },
-        Err(err) => {println!("could not parse archive: {:?}", err); assert!(false)}
+        }
+        Err(err) => {
+            println!("could not parse archive: {:?}", err);
+            assert!(false)
+        }
     };
 }
 
@@ -69,12 +73,15 @@ fn parse_self() {
     let archive = Archive::parse(&buffer).expect("parse rlib");
 
     // check that the archive has a useful symbol table by counting the total number of symbols
-    let symbol_count = archive.summarize().into_iter()
+    let symbol_count = archive
+        .summarize()
+        .into_iter()
         .map(|(_member_name, _member_index, ref symbols)| symbols.len())
-        .fold(0, |sum,symbol_count| sum + symbol_count);
+        .fold(0, |sum, symbol_count| sum + symbol_count);
     assert!(symbol_count > 500);
 
-    let goblin_object_name = archive.members()
+    let goblin_object_name = archive
+        .members()
         .into_iter()
         .filter(|member| {
             println!("member: {:?}", member);
@@ -86,7 +93,9 @@ fn parse_self() {
         .next()
         .expect("goblin-<hash>.0.o not found");
 
-    let bytes = archive.extract(goblin_object_name, &buffer).expect("extract goblin object");
+    let bytes = archive
+        .extract(goblin_object_name, &buffer)
+        .expect("extract goblin object");
     match goblin::Object::parse(&bytes).expect("parse object") {
         goblin::Object::Elf(elf) => {
             assert!(elf.entry == 0);

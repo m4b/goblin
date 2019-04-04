@@ -69,7 +69,7 @@ macro_rules! elf_header {
                     .finish()
             }
         }
-    }
+    };
 }
 
 /// No file type.
@@ -508,23 +508,22 @@ macro_rules! elf_header_test {
     ($class:expr) => {
         #[cfg(test)]
         mod test {
-            use scroll::{Pwrite, Pread};
-            use crate::elf::header::Header as ElfHeader;
             use super::*;
-            use crate::container::{Ctx, Container};
             use crate::alloc::vec::Vec;
+            use crate::container::{Container, Ctx};
+            use crate::elf::header::Header as ElfHeader;
+            use scroll::{Pread, Pwrite};
             #[test]
             fn size_of() {
                 assert_eq!(::std::mem::size_of::<Header>(), SIZEOF_EHDR);
             }
             #[test]
-            fn header_read_write () {
-                let crt1: Vec<u8> =
-                    if $class == ELFCLASS64 {
-                        include!("../../etc/crt1.rs")
-                    } else {
-                        include!("../../etc/crt132.rs")
-                    };
+            fn header_read_write() {
+                let crt1: Vec<u8> = if $class == ELFCLASS64 {
+                    include!("../../etc/crt1.rs")
+                } else {
+                    include!("../../etc/crt132.rs")
+                };
                 let header: Header = crt1.pread(0).unwrap();
                 assert_eq!(header.e_type, ET_REL);
                 println!("header: {:?}", &header);
@@ -534,13 +533,12 @@ macro_rules! elf_header_test {
                 assert_eq!(header, header2);
             }
             #[test]
-            fn elfheader_read_write () {
-                let (container, crt1): (Container, Vec<u8>) =
-                    if $class == ELFCLASS64 {
-                        (Container::Big, include!("../../etc/crt1.rs"))
-                    } else {
-                        (Container::Little, include!("../../etc/crt132.rs"))
-                    };
+            fn elfheader_read_write() {
+                let (container, crt1): (Container, Vec<u8>) = if $class == ELFCLASS64 {
+                    (Container::Big, include!("../../etc/crt1.rs"))
+                } else {
+                    (Container::Little, include!("../../etc/crt132.rs"))
+                };
                 let header: Header = crt1.pread(0).unwrap();
                 assert_eq!(header.e_type, ET_REL);
                 println!("header: {:?}", &header);
@@ -556,7 +554,7 @@ macro_rules! elf_header_test {
                 bytes.pwrite(header, 0).unwrap();
             }
         }
-    }
+    };
 }
 
 pub mod header32 {

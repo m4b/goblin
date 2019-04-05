@@ -155,7 +155,7 @@ macro_rules! elf_sym_std_impl {
     ($size:ty) => {
 
         #[cfg(test)]
-        mod test {
+        mod tests {
             use super::*;
             #[test]
             fn size_of() {

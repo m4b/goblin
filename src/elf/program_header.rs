@@ -231,7 +231,7 @@ if_alloc! {
 macro_rules! elf_program_header_std_impl { ($size:ty) => {
 
     #[cfg(test)]
-    mod test {
+    mod tests {
         use super::*;
         #[test]
         fn size_of() {

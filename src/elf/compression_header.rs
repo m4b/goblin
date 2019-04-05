@@ -30,7 +30,7 @@ pub const ELFCOMPRESS_HIPROC: u32 = 0x7fff_ffff;
 macro_rules! elf_compression_header_std_impl { ($size:ty) => {
 
     #[cfg(test)]
-    mod test {
+    mod tests {
         use super::*;
         #[test]
         fn size_of() {

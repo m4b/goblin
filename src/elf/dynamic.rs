@@ -419,7 +419,7 @@ macro_rules! elf_dyn_std_impl {
     ($size:ident, $phdr:ty) => {
 
         #[cfg(test)]
-        mod test {
+        mod tests {
             use super::*;
             #[test]
             fn size_of() {

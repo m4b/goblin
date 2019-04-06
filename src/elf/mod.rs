@@ -38,7 +38,7 @@
 //! `endian_fd` features if you disable `default`.
 
 #[macro_use]
-mod gnu_hash;
+pub(crate) mod gnu_hash;
 
 // These are shareable values for the 32/64 bit implementations.
 //

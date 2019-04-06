@@ -12,7 +12,32 @@
 //!   3. maskwords
 //!   4. shift2
 //!
-//! See: https://blogs.oracle.com/ali/entry/gnu_hash_elf_sections
+//! See: https://blogs.oracle.com/solaris/gnu-hash-elf-sections-v2
+
+/// GNU hash function: takes a string and returns the u32 hash of that string
+pub fn hash(symbol: &str) -> u32 {
+    const HASH_SEED: u32 = 5381;
+    let mut hash = HASH_SEED;
+    for b in symbol.as_bytes() {
+        hash = hash
+            .wrapping_mul(33)
+            .wrapping_add(u32::from(*b));
+    }
+    hash
+}
+
+#[cfg(test)]
+mod tests {
+    use super::hash;
+    #[test]
+    fn test_hash() {
+        assert_eq!(hash("")             , 0x00001505);
+        assert_eq!(hash("printf")       , 0x156b2bb8);
+        assert_eq!(hash("exit")         , 0x7c967e3f);
+        assert_eq!(hash("syscall")      , 0xbac212a0);
+        assert_eq!(hash("flapenguin.me"), 0x8ae9f18e);
+    }
+}
 
 macro_rules! elf_gnu_hash_impl {
     ($size:ty) => {
@@ -21,17 +46,6 @@ macro_rules! elf_gnu_hash_impl {
         use core::mem;
         use crate::strtab::Strtab;
         use super::sym;
-
-        /// GNU hash function: takes a string and returns the u32 hash of that string
-        pub fn hash(symbol: &str) -> u32 {
-            let bytes = symbol.as_bytes();
-            const HASH_SEED: u32 = 5381;
-            let mut hash = HASH_SEED;
-            for b in bytes {
-                hash = hash.wrapping_mul(32).wrapping_add(u32::from(*b)).wrapping_add(hash);
-            }
-            hash
-        }
 
         pub struct GnuHash<'process> {
             nbuckets: u32,

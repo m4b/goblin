@@ -14,8 +14,8 @@ use log::{debug, warn};
 
 pub const IMPORT_BY_ORDINAL_32: u32 = 0x8000_0000;
 pub const IMPORT_BY_ORDINAL_64: u64 = 0x8000_0000_0000_0000;
-pub const IMPORT_RVA_MASK_32: u32 = 0x8fff_ffff;
-pub const IMPORT_RVA_MASK_64: u64 = 0x0000_0000_8fff_ffff;
+pub const IMPORT_RVA_MASK_32: u32 = 0x7fff_ffff;
+pub const IMPORT_RVA_MASK_64: u64 = 0x0000_0000_7fff_ffff;
 
 pub trait Bitfield<'a>: Into<u64> + PartialEq + Eq + LowerHex + Debug + TryFromCtx<'a, scroll::Endian, Error=scroll::Error, Size=usize> {
     fn is_ordinal(&self) -> bool;

@@ -83,6 +83,48 @@ pub const NLIST_TYPE_MASK: u8 = 0xe;
 pub const NLIST_TYPE_GLOBAL: u8 = 0x1;
 pub const NLIST_TYPE_LOCAL: u8 = 0x0;
 
+/// Mask for reference flags of `n_desc` field.
+pub const REFERENCE_TYPE: u16 = 0xf;
+/// This symbol is a reference to an external non-lazy (data) symbol.
+pub const REFERENCE_FLAG_UNDEFINED_NON_LAZY: u16 = 0x0;
+/// This symbol is a reference to an external lazy symbol—that is, to a function call.
+pub const REFERENCE_FLAG_UNDEFINED_LAZY: u16 = 0x1;
+/// This symbol is defined in this module.
+pub const REFERENCE_FLAG_DEFINED: u16 = 0x2;
+/// This symbol is defined in this module and is visible only to modules within this
+/// shared library.
+pub const REFERENCE_FLAG_PRIVATE_DEFINED: u16 = 0x3;
+/// This symbol is defined in another module in this file, is a non-lazy (data) symbol,
+/// and is visible only to modules within this shared library.
+pub const REFERENCE_FLAG_PRIVATE_UNDEFINED_NON_LAZY: u16 = 0x4;
+/// This symbol is defined in another module in this file, is a lazy (function) symbol,
+/// and is visible only to modules within this shared library.
+pub const REFERENCE_FLAG_PRIVATE_UNDEFINED_LAZY: u16 = 0x5;
+
+// Additional flags of n_desc field.
+
+/// Must be set for any defined symbol that is referenced by dynamic-loader APIs
+/// (such as dlsym and NSLookupSymbolInImage) and not ordinary undefined symbol
+/// references. The `strip` tool uses this bit to avoid removing symbols that must
+/// exist: If the symbol has this bit set, `strip` does not strip it.
+pub const REFERENCED_DYNAMICALLY: u16 = 0x10;
+/// Sometimes used by the dynamic linker at runtime in a fully linked image. Do not
+/// set this bit in a fully linked image.
+pub const N_DESC_DISCARDED: u16 = 0x20;
+/// When set in a relocatable object file (file type MH_OBJECT) on a defined symbol,
+/// indicates to the static linker to never dead-strip the symbol.
+// (Note that the same bit (0x20) is used for two nonoverlapping purposes.)
+pub const N_NO_DEAD_STRIP: u16 = 0x20;
+/// Indicates that this undefined symbol is a weak reference. If the dynamic linker
+/// cannot find a definition for this symbol, it sets the address of this symbol to 0.
+/// The static linker sets this symbol given the appropriate weak-linking flags.
+pub const N_WEAK_REF: u16 = 0x40;
+/// Indicates that this symbol is a weak definition. If the static linker or the
+/// dynamic linker finds another (non-weak) definition for this symbol, the weak
+/// definition is ignored. Only symbols in a coalesced section can be marked as a
+/// weak definition.
+pub const N_WEAK_DEF: u16 = 0x80;
+
 pub fn n_type_to_str(n_type: u8) -> &'static str {
     match n_type {
         N_UNDF => "N_UNDF",
@@ -178,6 +220,10 @@ impl Nlist {
     /// Whether this symbol is global or not
     pub fn is_global(&self) -> bool {
         self.n_type & N_EXT != 0
+    }
+    /// Whether this symbol is weak or not
+    pub fn is_weak(&self) -> bool {
+        self.n_desc & (N_WEAK_REF | N_WEAK_DEF) != 0
     }
     /// Whether this symbol is undefined or not
     pub fn is_undefined(&self) -> bool {

@@ -5,9 +5,11 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, don't worry!
 
-## [Unreleased]
+## [0.0.22] - 2019-4-13
 ### Added
 - Beautify debugging by using `debug_struct` in `Debug` implementation of many structs.
+- PE: fix rva mask, thanks @wickawacka: https://github.com/m4b/goblin/pull/152
+- PE: add PE exception tables, thanks @jan-auer: https://github.com/m4b/goblin/pull/136
 
 ### Changed
 - Bump lowest Rust version to 1.31.1 and transition project to Rust 2018 edition.
@@ -17,10 +19,10 @@ I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, do
 - BREAKING: Rename `strtab::Strtab::to_vec(self)` -> `to_vec(&self).`
 
 ### Removed
-- `goblin::error::Error::description` would be removed. Use `to_string()` method instead.
+- BREAKING: `goblin::error::Error::description` would be removed. Use `to_string()` method instead.
 
 ### Fixed
-- elf: handle some invalid sizes #121
+- elf: handle some invalid sizes, thanks @philipc: https://github.com/m4b/goblin/pull/121
 
 ## [0.0.21] - 2019-2-21
 ### Added

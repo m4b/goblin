@@ -122,6 +122,7 @@ In alphabetic order:
 - [@tathanhdinh]
 - [@Techno-coder]
 - [@ticki]
+- [@wickerwacka]
 - [@willglynn]
 - [@xcoldhandsx]
 
@@ -151,6 +152,7 @@ In alphabetic order:
 [@willglynn]: https://github.com/willglynn
 [@xcoldhandsx]: https://github.com/xcoldhandsx
 [@lzutao]: https://github.com/lzutao
+[@wickerwacka]: https://github.com/wickerwaka
 
 ## Contributing
 

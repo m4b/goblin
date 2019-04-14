@@ -1,6 +1,6 @@
 [package]
 name = "goblin"
-version = "0.0.21"
+version = "0.0.22"
 authors = ["m4b <m4b.github.io@gmail.com>", "seu <seu@panopticon.re>", "Will Glynn <will@willglynn.com>", "Philip Craig <philipjcraig@gmail.com>"]
 edition = "2018"
 readme = "README.md"

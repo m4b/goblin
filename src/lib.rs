@@ -10,7 +10,7 @@
 //! * A PE32/PE32+ (64-bit) parser, and raw C structs
 //! * A Unix archive parser and loader
 //!
-//! Goblin _should_ require at least `rustc` 1.16, but is developed on stable.
+//! Goblin requires at least `rustc` 1.31.1, uses the 2018 rust edition, and is developed on stable.
 //!
 //! Goblin primarily supports the following important use cases:
 //!

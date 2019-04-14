@@ -83,7 +83,7 @@ pub const NLIST_TYPE_MASK: u8 = 0xe;
 pub const NLIST_TYPE_GLOBAL: u8 = 0x1;
 pub const NLIST_TYPE_LOCAL: u8 = 0x0;
 
-/// Mask for reference flags of n_desc field.
+/// Mask for reference flags of `n_desc` field.
 pub const REFERENCE_TYPE: u16 = 0xf;
 /// This symbol is a reference to an external non-lazy (data) symbol.
 pub const REFERENCE_FLAG_UNDEFINED_NON_LAZY: u16 = 0x0;
@@ -104,16 +104,16 @@ pub const REFERENCE_FLAG_PRIVATE_UNDEFINED_LAZY: u16 = 0x5;
 // Additional flags of n_desc field.
 
 /// Must be set for any defined symbol that is referenced by dynamic-loader APIs
-/// (such as dlsym``` and NSLookupSymbolInImage```) and not ordinary undefined symbol
-/// references. The strip tool uses this bit to avoid removing symbols that must
+/// (such as dlsym and NSLookupSymbolInImage) and not ordinary undefined symbol
+/// references. The `strip` tool uses this bit to avoid removing symbols that must
 /// exist: If the symbol has this bit set, `strip` does not strip it.
 pub const REFERENCED_DYNAMICALLY: u16 = 0x10;
 /// Sometimes used by the dynamic linker at runtime in a fully linked image. Do not
 /// set this bit in a fully linked image.
 pub const N_DESC_DISCARDED: u16 = 0x20;
 /// When set in a relocatable object file (file type MH_OBJECT) on a defined symbol,
-/// indicates to the static linker to never dead-strip the symbol. (Note that the
-/// same bit (0x20) is used for two nonoverlapping purposes.)
+/// indicates to the static linker to never dead-strip the symbol.
+// (Note that the same bit (0x20) is used for two nonoverlapping purposes.)
 pub const N_NO_DEAD_STRIP: u16 = 0x20;
 /// Indicates that this undefined symbol is a weak reference. If the dynamic linker
 /// cannot find a definition for this symbol, it sets the address of this symbol to 0.

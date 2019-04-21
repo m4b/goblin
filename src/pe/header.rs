@@ -30,8 +30,6 @@ impl DosHeader {
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub struct CoffHeader {
-    /// COFF Magic: PE\0\0, little endian
-    pub signature: u32,
     /// The machine type
     pub machine: u16,
     pub number_of_sections: u16,
@@ -51,8 +49,6 @@ pub const COFF_MACHINE_X86_64: u16 = 0x8664;
 impl CoffHeader {
     pub fn parse(bytes: &[u8], offset: &mut usize) -> error::Result<Self> {
         let mut coff = CoffHeader::default();
-        coff.signature = bytes.gread_with(offset, scroll::LE)
-            .map_err(|_| error::Error::Malformed(format!("cannot parse COFF signature (offset {:#x})", offset)))?;
         coff.machine = bytes.gread_with(offset, scroll::LE)
             .map_err(|_| error::Error::Malformed(format!("cannot parse COFF machine (offset {:#x})", offset)))?;
         coff.number_of_sections = bytes.gread_with(offset, scroll::LE)
@@ -74,6 +70,8 @@ impl CoffHeader {
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub struct Header {
     pub dos_header: DosHeader,
+    /// PE Magic: PE\0\0, little endian
+    pub signature: u32,
     pub coff_header: CoffHeader,
     pub optional_header: Option<optional_header::OptionalHeader>,
 }
@@ -82,13 +80,15 @@ impl Header {
     pub fn parse(bytes: &[u8]) -> error::Result<Self> {
         let dos_header = DosHeader::parse(&bytes)?;
         let mut offset = dos_header.pe_pointer as usize;
+        let signature = bytes.gread_with(&mut offset, scroll::LE)
+            .map_err(|_| error::Error::Malformed(format!("cannot parse PE signature (offset {:#x})", offset)))?;
         let coff_header = CoffHeader::parse(&bytes, &mut offset)?;
         let optional_header =
             if coff_header.size_of_optional_header > 0 {
                 Some (bytes.pread::<optional_header::OptionalHeader>(offset)?)
             }
         else { None };
-        Ok( Header { dos_header, coff_header, optional_header })
+        Ok( Header { dos_header, signature, coff_header, optional_header })
     }
 }
 
@@ -145,7 +145,7 @@ mod tests {
     fn crss_header () {
         let header = Header::parse(&&CRSS_HEADER[..]).unwrap();
         assert!(header.dos_header.signature == DOS_MAGIC);
-        assert!(header.coff_header.signature == COFF_MAGIC);
+        assert!(header.signature == COFF_MAGIC);
         assert!(header.coff_header.machine == COFF_MACHINE_X86);
         println!("header: {:?}", &header);
     }

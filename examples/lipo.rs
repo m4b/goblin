@@ -27,7 +27,7 @@ fn main () {
                     "-m64" => { m64 = true }
                     other => {
                         println!("unknown flag: {}", other);
-                        println!("");
+                        println!();
                         usage();
                     }
                 }

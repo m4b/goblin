@@ -260,7 +260,7 @@ pub fn shf_to_str(shf: u32) -> &'static str {
 macro_rules! elf_section_header_std_impl { ($size:ty) => {
 
     #[cfg(test)]
-    mod test {
+    mod tests {
         use super::*;
         #[test]
         fn size_of() {

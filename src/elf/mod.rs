@@ -312,24 +312,24 @@ if_sylvan! {
             }
 
             Ok(Elf {
-                header: header,
-                program_headers: program_headers,
-                section_headers: section_headers,
-                shdr_strtab: shdr_strtab,
-                dynamic: dynamic,
-                dynsyms: dynsyms,
-                dynstrtab: dynstrtab,
-                syms: syms,
-                strtab: strtab,
-                dynrelas: dynrelas,
-                dynrels: dynrels,
-                pltrelocs: pltrelocs,
-                shdr_relocs: shdr_relocs,
-                soname: soname,
-                interpreter: interpreter,
-                libraries: libraries,
-                is_64: is_64,
-                is_lib: is_lib,
+                header,
+                program_headers,
+                section_headers,
+                shdr_strtab,
+                dynamic,
+                dynsyms,
+                dynstrtab,
+                syms,
+                strtab,
+                dynrelas,
+                dynrels,
+                pltrelocs,
+                shdr_relocs,
+                soname,
+                interpreter,
+                libraries,
+                is_64,
+                is_lib,
                 entry: entry as u64,
                 little_endian: is_lsb,
                 ctx,
@@ -405,22 +405,19 @@ mod tests {
                 assert!(binary.syms.get(1000).is_none());
                 assert!(binary.syms.get(5).is_some());
                 let syms = binary.syms.to_vec();
-                let mut i = 0;
-                assert!(binary.section_headers.len() != 0);
-                for sym in &syms {
+                assert!(!binary.section_headers.is_empty());
+                for (i, sym) in syms.iter().enumerate() {
                     if i == 11 {
                         let symtab = binary.strtab;
                         println!("sym: {:?}", &sym);
                         assert_eq!(&symtab[sym.st_name], "_start");
                         break;
                     }
-                    i += 1;
                 }
-                assert!(syms.len() != 0);
+                assert!(!syms.is_empty());
              },
             Err (err) => {
-                println!("failed: {}", err);
-                assert!(false)
+                panic!("failed: {}", err);
             }
         }
     }
@@ -436,22 +433,19 @@ mod tests {
                 assert!(binary.syms.get(1000).is_none());
                 assert!(binary.syms.get(5).is_some());
                 let syms = binary.syms.to_vec();
-                let mut i = 0;
-                assert!(binary.section_headers.len() != 0);
-                for sym in &syms {
+                assert!(!binary.section_headers.is_empty());
+                for (i, sym) in syms.iter().enumerate() {
                     if i == 11 {
                         let symtab = binary.strtab;
                         println!("sym: {:?}", &sym);
                         assert_eq!(&symtab[sym.st_name], "__libc_csu_fini");
                         break;
                     }
-                    i += 1;
                 }
-                assert!(syms.len() != 0);
+                assert!(!syms.is_empty());
              },
             Err (err) => {
-                println!("failed: {}", err);
-                assert!(false)
+                panic!("failed: {}", err);
             }
         }
     }

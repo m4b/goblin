@@ -419,7 +419,7 @@ macro_rules! elf_dyn_std_impl {
     ($size:ident, $phdr:ty) => {
 
         #[cfg(test)]
-        mod test {
+        mod tests {
             use super::*;
             #[test]
             fn size_of() {
@@ -631,9 +631,9 @@ macro_rules! elf_dynamic_info_std_impl {
         if_alloc! {
             impl fmt::Debug for DynamicInfo {
                 fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                    let gnu_hash = if let Some(addr) = self.gnu_hash { addr } else { 0 };
-                    let hash = if let Some(addr) = self.hash { addr } else { 0 };
-                    let pltgot = if let Some(addr) = self.pltgot { addr } else { 0 };
+                    let gnu_hash = self.gnu_hash.unwrap_or(0);
+                    let hash = self.hash.unwrap_or(0);
+                    let pltgot = self.pltgot.unwrap_or(0);
                     f.debug_struct("DynamicInfo")
                         .field("rela", &format_args!("0x{:x}", self.rela))
                         .field("relasz", &self.relasz)

@@ -15,8 +15,7 @@ fn parse_fat_header() {
             assert_eq!(arches.get(2).is_none(), true);
         },
         _ => {
-            println!("got mach binary from fat");
-            assert!(false);
+            panic!("got mach binary from fat");
         }
     }
 }
@@ -57,11 +56,10 @@ fn parse_sections() {
         Mach::Binary(binary) => {
             println!("binary: {:?}", binary);
             let section = macho_get_section(&binary, "__text").unwrap();
-            assert!(section.len() > 0);
+            assert!(!section.is_empty());
         },
         _ => {
-            println!("got mach fat from regular binary");
-            assert!(false);
+            panic!("got mach fat from regular binary");
         }
     }
 }
@@ -77,14 +75,13 @@ fn iter_symbols() {
             for symbol in symbols.iter() {
                 println!("symbol: {:?}", symbol);
                 let (name, _symbol) = symbol.unwrap();
-                assert!(name.len() > 0);
+                assert!(!name.is_empty());
             }
             let symbols = symbols.iter().collect::<Vec<_>>();
             assert_eq!(symbols.len(), 4);
         },
         _ => {
-            println!("got mach fat from regular binary");
-            assert!(false);
+            panic!("got mach fat from regular binary");
         }
     }
 }
@@ -94,7 +91,7 @@ fn relocations() {
     use crate::relocation::*;
     let reloc = RelocationInfo {
         r_address: 0,
-        r_info: 0xe000009
+        r_info: 0xe00_0009
     };
     println!("reloc: {:?}", reloc);
     assert_eq!(reloc.r_length(), 3);
@@ -103,7 +100,7 @@ fn relocations() {
     assert_eq!(reloc.is_extern(), true);
     let reloc = RelocationInfo {
         r_address: 0,
-        r_info: 0x15000002
+        r_info: 0x1500_0002
     };
     println!("reloc: {:?}", reloc);
     assert_eq!(reloc.r_length(), 2);
@@ -112,7 +109,7 @@ fn relocations() {
     assert_eq!(reloc.is_extern(), false);
     let reloc = RelocationInfo {
         r_address: 0,
-        r_info: 0x2d000002
+        r_info: 0x2d00_0002
     };
     println!("reloc: {:?}", reloc);
     assert_eq!(reloc.r_length(), 2);

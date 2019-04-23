@@ -16,7 +16,7 @@ fn parse_file_header() {
                                             0x20, 0x20, 0x60, 0x0a];
     let buffer = &file_header[..];
     match buffer.pread::<MemberHeader>(0) {
-        Err(_) => assert!(false),
+        Err(e) => panic!("could not read the buffer: {:?}", e),
         Ok(file_header2) => {
             let file_header = MemberHeader {
                 identifier: [0x2f,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,],
@@ -42,11 +42,10 @@ fn parse_archive() {
                 assert_eq!(member.offset, 194);
                 assert_eq!(member.size(), 1928)
             } else {
-                println!("could not get crt1.o");
-                assert!(false)
+                panic!("could not get crt1.o");
             }
         },
-        Err(err) => {println!("could not parse archive: {:?}", err); assert!(false)}
+        Err(err) => panic!("could not parse archive: {:?}", err),
     };
 }
 
@@ -56,7 +55,7 @@ fn parse_self() {
     use std::io::Read;
     let mut path = Path::new("target").join("debug").join("libgoblin.rlib");
     // https://github.com/m4b/goblin/issues/63
-    if !fs::metadata(&path).is_ok() {
+    if fs::metadata(&path).is_err() {
         path = Path::new("target").join("release").join("libgoblin.rlib");
     }
     let buffer = {
@@ -69,21 +68,20 @@ fn parse_self() {
     let archive = Archive::parse(&buffer).expect("parse rlib");
 
     // check that the archive has a useful symbol table by counting the total number of symbols
-    let symbol_count = archive.summarize().into_iter()
+    let symbol_count: usize = archive.summarize().into_iter()
         .map(|(_member_name, _member_index, ref symbols)| symbols.len())
-        .fold(0, |sum,symbol_count| sum + symbol_count);
+        .sum();
     assert!(symbol_count > 500);
 
     let goblin_object_name = archive.members()
         .into_iter()
-        .filter(|member| {
+        .find(|member| {
             println!("member: {:?}", member);
             member.ends_with("goblin-archive.o")    // < 1.18
                 || (member.starts_with("goblin") && member.ends_with("0.o")) // >= 1.18 && < 1.22
                 || (member.starts_with("goblin") && member.ends_with("rust-cgu.o")) // = 1.22
                 || (member.starts_with("goblin") && member.ends_with("rcgu.o")) // >= nightly 1.23
         })
-        .next()
         .expect("goblin-<hash>.0.o not found");
 
     let bytes = archive.extract(goblin_object_name, &buffer).expect("extract goblin object");
@@ -96,8 +94,7 @@ fn parse_self() {
             assert_eq!(macho.entry, 0);
         }
         other => {
-            println!("unexpected Object::parse result: {:?}", other);
-            assert!(false);
+            panic!("unexpected Object::parse result: {:?}", other);
         }
     }
 }

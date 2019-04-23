@@ -405,22 +405,19 @@ mod tests {
                 assert!(binary.syms.get(1000).is_none());
                 assert!(binary.syms.get(5).is_some());
                 let syms = binary.syms.to_vec();
-                let mut i = 0;
-                assert!(binary.section_headers.len() != 0);
-                for sym in &syms {
+                assert!(!binary.section_headers.is_empty());
+                for (i, sym) in syms.iter().enumerate() {
                     if i == 11 {
                         let symtab = binary.strtab;
                         println!("sym: {:?}", &sym);
                         assert_eq!(&symtab[sym.st_name], "_start");
                         break;
                     }
-                    i += 1;
                 }
-                assert!(syms.len() != 0);
+                assert!(!syms.is_empty());
              },
             Err (err) => {
-                println!("failed: {}", err);
-                assert!(false)
+                panic!("failed: {}", err);
             }
         }
     }
@@ -436,22 +433,19 @@ mod tests {
                 assert!(binary.syms.get(1000).is_none());
                 assert!(binary.syms.get(5).is_some());
                 let syms = binary.syms.to_vec();
-                let mut i = 0;
-                assert!(binary.section_headers.len() != 0);
-                for sym in &syms {
+                assert!(!binary.section_headers.is_empty());
+                for (i, sym) in syms.iter().enumerate() {
                     if i == 11 {
                         let symtab = binary.strtab;
                         println!("sym: {:?}", &sym);
                         assert_eq!(&symtab[sym.st_name], "__libc_csu_fini");
                         break;
                     }
-                    i += 1;
                 }
-                assert!(syms.len() != 0);
+                assert!(!syms.is_empty());
              },
             Err (err) => {
-                println!("failed: {}", err);
-                assert!(false)
+                panic!("failed: {}", err);
             }
         }
     }

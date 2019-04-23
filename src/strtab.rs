@@ -135,7 +135,7 @@ fn to_vec_final_null() {
 #[test]
 fn to_vec_newline_delim() {
     let bytes = b"\nprintf\nmemmove\nbusta\n";
-    let strtab = unsafe { Strtab::from_raw(bytes.as_ptr(), bytes.len(), '\n' as u8) };
+    let strtab = unsafe { Strtab::from_raw(bytes.as_ptr(), bytes.len(), b'\n') };
     let vec = strtab.to_vec().unwrap();
     assert_eq!(vec.len(), 4);
     assert_eq!(vec, vec!["", "printf", "memmove", "busta"]);

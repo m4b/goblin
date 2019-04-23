@@ -8,6 +8,7 @@ os:
   - linux
   - osx
 matrix:
+  fast_finish: true
   allow_failures:
     - rust: nightly
 
@@ -18,3 +19,15 @@ script:
   - cargo test --release
   - make api
   - if [ "$TRAVIS_RUST_VERSION" = "nightly" ]; then make nightly_api; fi
+before_deploy:
+  - cargo doc --no-deps
+  - echo '<meta http-equiv=refresh content=0;url=goblin/index.html>' > target/doc/index.html;
+deploy:
+  - provider: pages
+    skip-cleanup: true
+    local-dir: target/doc
+    github-token: "$GITHUB_OAUTH_TOKEN"
+    keep-history: false
+    on:
+      branch: master
+      condition: $TRAVIS_OS_NAME = "linux" && $TRAVIS_RUST_VERSION = "stable"

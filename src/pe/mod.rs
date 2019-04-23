@@ -14,15 +14,14 @@ pub mod export;
 pub mod import;
 pub mod debug;
 pub mod exception;
+pub mod symbol;
 pub mod utils;
 
 use crate::error;
 use crate::container;
+use crate::strtab;
 
 use log::debug;
-
-/// Size of a single symbol in the COFF Symbol Table.
-const COFF_SYMBOL_SIZE: u32 = 18;
 
 #[derive(Debug)]
 /// An analyzed PE32/PE32+ binary
@@ -65,15 +64,7 @@ impl<'a> PE<'a> {
         let header = header::Header::parse(bytes)?;
         debug!("{:#?}", header);
         let offset = &mut (header.dos_header.pe_pointer as usize + header::SIZEOF_COFF_HEADER + header.coff_header.size_of_optional_header as usize);
-        let nsections = header.coff_header.number_of_sections as usize;
-        let mut sections = Vec::with_capacity(nsections);
-        // Note that if we are handling a BigCoff, the size of the symbol will be different!
-        let string_table_offset = header.coff_header.pointer_to_symbol_table + header.coff_header.number_of_symbol_table * COFF_SYMBOL_SIZE;
-        for i in 0..nsections {
-            let section = section_table::SectionTable::parse(bytes, offset, string_table_offset as usize)?;
-            debug!("({}) {:#?}", i, section);
-            sections.push(section);
-        }
+        let sections = header.coff_header.sections(bytes, offset)?;
         let is_lib = characteristic::is_dll(header.coff_header.characteristics);
         let mut entry = 0;
         let mut image_base = 0;
@@ -146,5 +137,31 @@ impl<'a> PE<'a> {
             debug_data,
             exception_data,
         })
+    }
+}
+
+/// An analyzed COFF object
+#[derive(Debug)]
+pub struct Coff<'a> {
+    /// The COFF header
+    pub header: header::CoffHeader,
+    /// A list of the sections in this COFF binary
+    pub sections: Vec<section_table::SectionTable>,
+    /// The COFF symbol table.
+    pub symbols: symbol::SymbolTable<'a>,
+    /// The string table.
+    pub strings: strtab::Strtab<'a>,
+}
+
+impl<'a> Coff<'a> {
+    /// Reads a COFF object from the underlying `bytes`
+    pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
+        let offset = &mut 0;
+        let header = header::CoffHeader::parse(bytes, offset)?;
+        debug!("{:#?}", header);
+        let sections = header.sections(bytes, offset)?;
+        let symbols = header.symbols(bytes)?;
+        let strings = header.strings(bytes)?;
+        Ok(Coff { header, sections, symbols, strings })
     }
 }

@@ -1,6 +1,7 @@
 use crate::error;
-
-use crate::pe::optional_header;
+use crate::pe::{optional_header, section_table, symbol};
+use crate::strtab;
+use log::debug;
 use scroll::Pread;
 
 /// DOS header present in all PE binaries
@@ -64,6 +65,49 @@ impl CoffHeader {
         coff.characteristics = bytes.gread_with(offset, scroll::LE)
             .map_err(|_| error::Error::Malformed(format!("cannot parse COFF characteristics (offset {:#x})", offset)))?;
         Ok(coff)
+    }
+
+    /// Parse the COFF section headers.
+    ///
+    /// For COFF, these immediately follow the COFF header. For PE, these immediately follow the
+    /// optional header.
+    pub fn sections(
+        &self,
+        bytes: &[u8],
+        offset: &mut usize,
+    ) -> error::Result<Vec<section_table::SectionTable>> {
+        let nsections = self.number_of_sections as usize;
+        let mut sections = Vec::with_capacity(nsections);
+        // Note that if we are handling a BigCoff, the size of the symbol will be different!
+        let string_table_offset = self.pointer_to_symbol_table as usize
+            + symbol::SymbolTable::size(self.number_of_symbol_table as usize);
+        for i in 0..nsections {
+            let section = section_table::SectionTable::parse(bytes, offset, string_table_offset as usize)?;
+            debug!("({}) {:#?}", i, section);
+            sections.push(section);
+        }
+        Ok(sections)
+    }
+
+    /// Return the COFF symbol table.
+    pub fn symbols<'a>(
+        &self,
+        bytes: &'a [u8],
+    ) -> error::Result<symbol::SymbolTable<'a>> {
+        let offset = self.pointer_to_symbol_table as usize;
+        let number = self.number_of_symbol_table as usize;
+        symbol::SymbolTable::parse(bytes, offset, number)
+    }
+
+    /// Return the COFF string table.
+    pub fn strings<'a>(
+        &self,
+        bytes: &'a [u8],
+    ) -> error::Result<strtab::Strtab<'a>> {
+        let offset = self.pointer_to_symbol_table as usize
+            + symbol::SymbolTable::size(self.number_of_symbol_table as usize);
+        let length = bytes.pread_with::<u32>(offset, scroll::LE)? as usize;
+        Ok(strtab::Strtab::parse(bytes, offset, length, 0).unwrap())
     }
 }
 

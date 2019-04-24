@@ -316,6 +316,7 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
         }
 
         impl SectionHeader {
+            // FIXME: > 65535 sections
             pub fn from_bytes(bytes: &[u8], shnum: usize) -> Vec<SectionHeader> {
                 let mut shdrs = vec![SectionHeader::default(); shnum];
                 shdrs.copy_from_bytes(bytes).expect("buffer is too short for given number of entries");
@@ -323,6 +324,7 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
             }
 
             #[cfg(feature = "std")]
+            // FIXME: > 65535 sections
             pub fn from_fd(fd: &mut File, offset: u64, shnum: usize) -> Result<Vec<SectionHeader>> {
                 let mut shdrs = vec![SectionHeader::default(); shnum];
                 fd.seek(Start(offset))?;
@@ -432,7 +434,13 @@ if_alloc! {
         pub fn parse(bytes: &[u8], mut offset: usize, count: usize, ctx: Ctx) -> error::Result<Vec<SectionHeader>> {
             use scroll::Pread;
             let mut section_headers = Vec::with_capacity(count);
-            for _ in 0..count {
+            let mut nsection_headers = count;
+            let empty_sh = bytes.gread_with::<SectionHeader>(&mut offset, ctx)?;
+            if count == 0 as usize {
+                nsection_headers = empty_sh.sh_size as usize;
+            }
+            section_headers.push(empty_sh);
+            for _ in 1..nsection_headers {
                 let shdr = bytes.gread_with(&mut offset, ctx)?;
                 section_headers.push(shdr);
             }

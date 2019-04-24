@@ -1,6 +1,7 @@
 use crate::error;
-
-use crate::pe::optional_header;
+use crate::pe::{optional_header, section_table, symbol};
+use crate::strtab;
+use log::debug;
 use scroll::Pread;
 
 /// DOS header present in all PE binaries
@@ -30,8 +31,6 @@ impl DosHeader {
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub struct CoffHeader {
-    /// COFF Magic: PE\0\0, little endian
-    pub signature: u32,
     /// The machine type
     pub machine: u16,
     pub number_of_sections: u16,
@@ -51,8 +50,6 @@ pub const COFF_MACHINE_X86_64: u16 = 0x8664;
 impl CoffHeader {
     pub fn parse(bytes: &[u8], offset: &mut usize) -> error::Result<Self> {
         let mut coff = CoffHeader::default();
-        coff.signature = bytes.gread_with(offset, scroll::LE)
-            .map_err(|_| error::Error::Malformed(format!("cannot parse COFF signature (offset {:#x})", offset)))?;
         coff.machine = bytes.gread_with(offset, scroll::LE)
             .map_err(|_| error::Error::Malformed(format!("cannot parse COFF machine (offset {:#x})", offset)))?;
         coff.number_of_sections = bytes.gread_with(offset, scroll::LE)
@@ -69,11 +66,56 @@ impl CoffHeader {
             .map_err(|_| error::Error::Malformed(format!("cannot parse COFF characteristics (offset {:#x})", offset)))?;
         Ok(coff)
     }
+
+    /// Parse the COFF section headers.
+    ///
+    /// For COFF, these immediately follow the COFF header. For PE, these immediately follow the
+    /// optional header.
+    pub fn sections(
+        &self,
+        bytes: &[u8],
+        offset: &mut usize,
+    ) -> error::Result<Vec<section_table::SectionTable>> {
+        let nsections = self.number_of_sections as usize;
+        let mut sections = Vec::with_capacity(nsections);
+        // Note that if we are handling a BigCoff, the size of the symbol will be different!
+        let string_table_offset = self.pointer_to_symbol_table as usize
+            + symbol::SymbolTable::size(self.number_of_symbol_table as usize);
+        for i in 0..nsections {
+            let section = section_table::SectionTable::parse(bytes, offset, string_table_offset as usize)?;
+            debug!("({}) {:#?}", i, section);
+            sections.push(section);
+        }
+        Ok(sections)
+    }
+
+    /// Return the COFF symbol table.
+    pub fn symbols<'a>(
+        &self,
+        bytes: &'a [u8],
+    ) -> error::Result<symbol::SymbolTable<'a>> {
+        let offset = self.pointer_to_symbol_table as usize;
+        let number = self.number_of_symbol_table as usize;
+        symbol::SymbolTable::parse(bytes, offset, number)
+    }
+
+    /// Return the COFF string table.
+    pub fn strings<'a>(
+        &self,
+        bytes: &'a [u8],
+    ) -> error::Result<strtab::Strtab<'a>> {
+        let offset = self.pointer_to_symbol_table as usize
+            + symbol::SymbolTable::size(self.number_of_symbol_table as usize);
+        let length = bytes.pread_with::<u32>(offset, scroll::LE)? as usize;
+        Ok(strtab::Strtab::parse(bytes, offset, length, 0).unwrap())
+    }
 }
 
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub struct Header {
     pub dos_header: DosHeader,
+    /// PE Magic: PE\0\0, little endian
+    pub signature: u32,
     pub coff_header: CoffHeader,
     pub optional_header: Option<optional_header::OptionalHeader>,
 }
@@ -82,13 +124,15 @@ impl Header {
     pub fn parse(bytes: &[u8]) -> error::Result<Self> {
         let dos_header = DosHeader::parse(&bytes)?;
         let mut offset = dos_header.pe_pointer as usize;
+        let signature = bytes.gread_with(&mut offset, scroll::LE)
+            .map_err(|_| error::Error::Malformed(format!("cannot parse PE signature (offset {:#x})", offset)))?;
         let coff_header = CoffHeader::parse(&bytes, &mut offset)?;
         let optional_header =
             if coff_header.size_of_optional_header > 0 {
                 Some (bytes.pread::<optional_header::OptionalHeader>(offset)?)
             }
         else { None };
-        Ok( Header { dos_header, coff_header, optional_header })
+        Ok( Header { dos_header, signature, coff_header, optional_header })
     }
 }
 
@@ -145,7 +189,7 @@ mod tests {
     fn crss_header () {
         let header = Header::parse(&&CRSS_HEADER[..]).unwrap();
         assert!(header.dos_header.signature == DOS_MAGIC);
-        assert!(header.coff_header.signature == COFF_MAGIC);
+        assert!(header.signature == COFF_MAGIC);
         assert!(header.coff_header.machine == COFF_MACHINE_X86);
         println!("header: {:?}", &header);
     }

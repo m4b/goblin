@@ -1,6 +1,7 @@
 use crate::alloc::string::{String, ToString};
 use scroll::Pread;
 use crate::error::{self, Error};
+use crate::pe::relocation;
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Clone, Default)]
@@ -84,6 +85,12 @@ impl SectionTable {
             Some(s) => Ok(s),
             None => Ok(self.name.pread(0)?)
         }
+    }
+
+    pub fn relocations<'a>(&self, bytes: &'a[u8]) -> error::Result<relocation::Relocations<'a>> {
+        let offset = self.pointer_to_relocations as usize;
+        let number = self.number_of_relocations as usize;
+        relocation::Relocations::parse(bytes, offset, number)
     }
 }
 

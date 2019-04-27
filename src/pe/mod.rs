@@ -15,6 +15,7 @@ pub mod import;
 pub mod debug;
 pub mod exception;
 pub mod symbol;
+pub mod relocation;
 pub mod utils;
 
 use crate::error;

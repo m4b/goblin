@@ -1,7 +1,8 @@
 use crate::alloc::string::{String, ToString};
-use scroll::Pread;
+use scroll::{ctx, Pread, Pwrite};
 use crate::error::{self, Error};
 use crate::pe::relocation;
+use std::io::Write;
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Clone, Default)]
@@ -64,20 +65,56 @@ impl SectionTable {
         table.number_of_linenumbers = bytes.gread_with(offset, scroll::LE)?;
         table.characteristics = bytes.gread_with(offset, scroll::LE)?;
 
-        // Based on https://github.com/llvm-mirror/llvm/blob/af7b1832a03ab6486c42a40d21695b2c03b2d8a3/lib/Object/COFFObjectFile.cpp#L1054
-        if name[0] == b'/' {
-            let idx: usize = if name[1] == b'/' {
-                let b64idx = name.pread::<&str>(2)?;
-                base64_decode_string_entry(b64idx).map_err(|_|
-                    Error::Malformed(format!("Invalid indirect section name //{}: base64 decoding failed", b64idx)))?
-            } else {
-                let name = name.pread::<&str>(1)?;
-                name.parse().map_err(|err|
-                    Error::Malformed(format!("Invalid indirect section name /{}: {}", name, err)))?
-            };
+        if let Some(idx) = table.name_offset()? {
             table.real_name = Some(bytes.pread::<&str>(string_table_offset + idx)?.to_string());
         }
         Ok(table)
+    }
+
+    pub fn name_offset(&self) -> error::Result<Option<usize>> {
+        // Based on https://github.com/llvm-mirror/llvm/blob/af7b1832a03ab6486c42a40d21695b2c03b2d8a3/lib/Object/COFFObjectFile.cpp#L1054
+        if self.name[0] == b'/' {
+            let idx: usize = if self.name[1] == b'/' {
+                let b64idx = self.name.pread::<&str>(2)?;
+                base64_decode_string_entry(b64idx).map_err(|_|
+                    Error::Malformed(format!("Invalid indirect section name //{}: base64 decoding failed", b64idx)))?
+            } else {
+                let name = self.name.pread::<&str>(1)?;
+                name.parse().map_err(|err|
+                    Error::Malformed(format!("Invalid indirect section name /{}: {}", name, err)))?
+            };
+            Ok(Some(idx))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn set_name_offset(&mut self, mut idx: usize) -> error::Result<()> {
+        if idx <= 9_999_999 { // 10^7 - 1
+            self.name = [0; 8];
+            self.name[0] = b'/';
+            write!(&mut self.name[1..], "{}", idx).unwrap();
+            Ok(())
+        } else if idx <= 0xfff_fff_fff { // 64^6 - 1
+            self.name[0] = b'/';
+            self.name[1] = b'/';
+            for i in 0..6 {
+                let rem = (idx % 64) as u8;
+                idx = idx / 64;
+                let c = match rem {
+                    0..=25 => b'A' + rem,
+                    26..=51 => b'a' + rem - 26,
+                    52..=61 => b'0' + rem - 52,
+                    62 => b'+',
+                    63 => b'/',
+                    _ => unreachable!(),
+                };
+                self.name[7 - i] = c;
+            }
+            Ok(())
+        } else {
+            Err(Error::Malformed(format!("Invalid section name offset: {}", idx)))
+        }
     }
 
     pub fn name(&self) -> error::Result<&str> {
@@ -91,6 +128,38 @@ impl SectionTable {
         let offset = self.pointer_to_relocations as usize;
         let number = self.number_of_relocations as usize;
         relocation::Relocations::parse(bytes, offset, number)
+    }
+}
+
+impl ctx::SizeWith<scroll::Endian> for SectionTable {
+    type Units = usize;
+    fn size_with(_ctx: &scroll::Endian) -> usize {
+        SIZEOF_SECTION_TABLE
+    }
+}
+
+impl ctx::TryIntoCtx<scroll::Endian> for SectionTable {
+    type Error = error::Error;
+    type Size = usize;
+    fn try_into_ctx(self, bytes: &mut [u8], ctx: scroll::Endian) -> Result<Self::Size, Self::Error> {
+        let offset = &mut 0;
+        bytes.gwrite(&self.name[..], offset)?;
+        bytes.gwrite_with(self.virtual_size, offset, ctx)?;
+        bytes.gwrite_with(self.virtual_address, offset, ctx)?;
+        bytes.gwrite_with(self.size_of_raw_data, offset, ctx)?;
+        bytes.gwrite_with(self.pointer_to_raw_data, offset, ctx)?;
+        bytes.gwrite_with(self.pointer_to_relocations, offset, ctx)?;
+        bytes.gwrite_with(self.pointer_to_linenumbers, offset, ctx)?;
+        bytes.gwrite_with(self.number_of_relocations, offset, ctx)?;
+        bytes.gwrite_with(self.number_of_linenumbers, offset, ctx)?;
+        bytes.gwrite_with(self.characteristics, offset, ctx)?;
+        Ok(SIZEOF_SECTION_TABLE)
+    }
+}
+
+impl ctx::IntoCtx<scroll::Endian> for SectionTable {
+    fn into_ctx(self, bytes: &mut [u8], ctx: scroll::Endian) {
+        bytes.pwrite_with(self, 0, ctx).unwrap();
     }
 }
 
@@ -150,3 +219,25 @@ pub const IMAGE_SCN_MEM_EXECUTE: u32 = 0x2000_0000;
 pub const IMAGE_SCN_MEM_READ: u32 = 0x4000_0000;
 /// The section can be written to.
 pub const IMAGE_SCN_MEM_WRITE: u32 = 0x8000_0000;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn set_name_offset() {
+        let mut section = SectionTable::default();
+        for (offset, name) in vec![
+            (0, b"/0\0\0\0\0\0\0"),
+            (1, b"/1\0\0\0\0\0\0"),
+            (9_999_999, b"/9999999"),
+            (10_000_000, b"//AAmJaA"),
+            (0xfff_fff_fff, b"////////"),
+        ] {
+            section.set_name_offset(offset).unwrap();
+            assert_eq!(&section.name, name);
+            assert_eq!(section.name_offset().unwrap(), Some(offset));
+        }
+        assert!(section.set_name_offset(0x1_000_000_000).is_err());
+    }
+}

@@ -160,6 +160,8 @@ impl<'a> Coff<'a> {
         let offset = &mut 0;
         let header = header::CoffHeader::parse(bytes, offset)?;
         debug!("{:#?}", header);
+        // TODO: maybe parse optional header, but it isn't present for Windows.
+        *offset += header.size_of_optional_header as usize;
         let sections = header.sections(bytes, offset)?;
         let symbols = header.symbols(bytes)?;
         let strings = header.strings(bytes)?;

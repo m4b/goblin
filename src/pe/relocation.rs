@@ -1,5 +1,5 @@
 use crate::error;
-use scroll::{Pread, Pwrite};
+use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith};
 
 /// Size of a single COFF relocation.
 pub const COFF_RELOCATION_SIZE: usize = 10;
@@ -78,7 +78,7 @@ pub const IMAGE_REL_AMD64_SSPAN32: u16 = 0x0010;
 
 /// A COFF relocation.
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq, Default, Pread, Pwrite)]
+#[derive(Debug, Copy, Clone, PartialEq, Default, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct Relocation {
     /// The address of the item to which relocation is applied.
     ///

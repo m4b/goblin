@@ -41,10 +41,10 @@ pub struct CoffHeader {
     pub characteristics: u16,
 }
 
-/// The size of `COFF_MAGIC` + `CoffHeader`.
-pub const SIZEOF_COFF_HEADER: usize = 24;
+pub const SIZEOF_COFF_HEADER: usize = 20;
 /// PE\0\0, little endian
-pub const COFF_MAGIC: u32 = 0x0000_4550;
+pub const PE_MAGIC: u32 = 0x0000_4550;
+pub const SIZEOF_PE_MAGIC: usize = 4;
 pub const COFF_MACHINE_X86: u16 = 0x14c;
 pub const COFF_MACHINE_X86_64: u16 = 0x8664;
 
@@ -124,7 +124,7 @@ impl Header {
 
 #[cfg(test)]
 mod tests {
-    use super::{DOS_MAGIC, COFF_MAGIC, COFF_MACHINE_X86, Header};
+    use super::{DOS_MAGIC, PE_MAGIC, COFF_MACHINE_X86, Header};
 
     const CRSS_HEADER: [u8; 688] =
         [0x4d, 0x5a, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00,
@@ -175,7 +175,7 @@ mod tests {
     fn crss_header () {
         let header = Header::parse(&&CRSS_HEADER[..]).unwrap();
         assert!(header.dos_header.signature == DOS_MAGIC);
-        assert!(header.signature == COFF_MAGIC);
+        assert!(header.signature == PE_MAGIC);
         assert!(header.coff_header.machine == COFF_MACHINE_X86);
         println!("header: {:?}", &header);
     }

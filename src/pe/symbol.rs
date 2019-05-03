@@ -16,6 +16,7 @@ pub const IMAGE_SYM_UNDEFINED: i16 = 0;
 pub const IMAGE_SYM_ABSOLUTE: i16 = -1;
 /// The symbol provides general type or debugging information but does not
 /// correspond to a section.
+pub const IMAGE_SYM_DEBUG: i16 = -2;
 
 // Base types for `Symbol::typ`.
 

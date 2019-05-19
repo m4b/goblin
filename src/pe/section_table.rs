@@ -95,7 +95,7 @@ impl SectionTable {
             self.name[0] = b'/';
             write!(&mut self.name[1..], "{}", idx).unwrap();
             Ok(())
-        } else if idx <= 0xfff_fff_fff { // 64^6 - 1
+        } else if idx as u64 <= 0xfff_fff_fff { // 64^6 - 1
             self.name[0] = b'/';
             self.name[1] = b'/';
             for i in 0..6 {
@@ -232,12 +232,14 @@ mod tests {
             (1, b"/1\0\0\0\0\0\0"),
             (9_999_999, b"/9999999"),
             (10_000_000, b"//AAmJaA"),
+            #[cfg(target_pointer_width = "64")]
             (0xfff_fff_fff, b"////////"),
         ] {
             section.set_name_offset(offset).unwrap();
             assert_eq!(&section.name, name);
             assert_eq!(section.name_offset().unwrap(), Some(offset));
         }
+        #[cfg(target_pointer_width = "64")]
         assert!(section.set_name_offset(0x1_000_000_000).is_err());
     }
 }

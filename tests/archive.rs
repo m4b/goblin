@@ -1,7 +1,9 @@
+use std::env;
+use std::path::PathBuf;
+use std::fs;
+
 use goblin::archive::*;
 use scroll::Pread;
-use std::path::Path;
-use std::fs::File;
 
 #[test]
 fn parse_file_header() {
@@ -49,21 +51,20 @@ fn parse_archive() {
     };
 }
 
+fn get_libgoblin_rlib() -> PathBuf {
+    // this test lies in `target/<target-triple>/<profile>/deps/`
+    let me = env::current_exe().unwrap();
+    // back to `<profile>` folder
+    let artifact_dir = me.ancestors().nth(2).unwrap();
+    artifact_dir.join("libgoblin.rlib")
+}
+
+// Cannot run this on Windows because *.rlib type on Windows is unknown
+#[cfg(not(windows))]
 #[test]
 fn parse_self() {
-    use std::fs;
-    use std::io::Read;
-    let mut path = Path::new("target").join("debug").join("libgoblin.rlib");
-    // https://github.com/m4b/goblin/issues/63
-    if fs::metadata(&path).is_err() {
-        path = Path::new("target").join("release").join("libgoblin.rlib");
-    }
-    let buffer = {
-        let mut fd = File::open(path).expect("can open file; did you run cargo build first?");
-        let mut v = Vec::new();
-        fd.read_to_end(&mut v).expect("read file");
-        v
-    };
+    let path = get_libgoblin_rlib();
+    let buffer = fs::read(path).expect("run `cargo build` first?");
 
     let archive = Archive::parse(&buffer).expect("parse rlib");
 

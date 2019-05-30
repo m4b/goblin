@@ -100,7 +100,7 @@ impl SectionTable {
             self.name[1] = b'/';
             for i in 0..6 {
                 let rem = (idx % 64) as u8;
-                idx = idx / 64;
+                idx /= 64;
                 let c = match rem {
                     0..=25 => b'A' + rem,
                     26..=51 => b'a' + rem - 26,
@@ -227,14 +227,14 @@ mod tests {
     #[test]
     fn set_name_offset() {
         let mut section = SectionTable::default();
-        for (offset, name) in vec![
-            (0, b"/0\0\0\0\0\0\0"),
+        for &(offset, name) in [
+            (0usize, b"/0\0\0\0\0\0\0"),
             (1, b"/1\0\0\0\0\0\0"),
             (9_999_999, b"/9999999"),
             (10_000_000, b"//AAmJaA"),
             #[cfg(target_pointer_width = "64")]
             (0xfff_fff_fff, b"////////"),
-        ] {
+        ].iter() {
             section.set_name_offset(offset).unwrap();
             assert_eq!(&section.name, name);
             assert_eq!(section.name_offset().unwrap(), Some(offset));

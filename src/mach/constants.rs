@@ -190,6 +190,13 @@ pub const SEG_UNIXSTACK: &str = "__UNIXSTACK";
 /// the segment for the self (dyld) modifing code stubs that has read, write and execute permissions
 pub const SEG_IMPORT: &str = "__IMPORT";
 
+/// Segment is readable.
+pub const VM_PROT_READ: u32 = 0x1;
+/// Segment is writable.
+pub const VM_PROT_WRITE: u32 = 0x2;
+/// Segment is executable.
+pub const VM_PROT_EXECUTE: u32 = 0x4;
+
 pub mod cputype {
 
     /// An alias for u32

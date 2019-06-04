@@ -203,6 +203,8 @@ pub mod cputype {
     pub const CPU_ARCH_MASK: CpuType = 0xff00_0000;
     /// the mask for 64 bit ABI
     pub const CPU_ARCH_ABI64: CpuType = 0x0100_0000;
+    /// the mask for ILP32 ABI on 64 bit hardware
+    pub const CPU_ARCH_ABI64_32: CpuType = 0x0200_0000;
 
     // CPU Types
     pub const CPU_TYPE_ANY: CpuType = !0;
@@ -216,6 +218,7 @@ pub mod cputype {
     pub const CPU_TYPE_HPPA: CpuType = 11;
     pub const CPU_TYPE_ARM: CpuType = 12;
     pub const CPU_TYPE_ARM64: CpuType = (CPU_TYPE_ARM | CPU_ARCH_ABI64);
+    pub const CPU_TYPE_ARM64_32: CpuType = (CPU_TYPE_ARM | CPU_ARCH_ABI64_32);
     pub const CPU_TYPE_MC88000: CpuType = 13;
     pub const CPU_TYPE_SPARC: CpuType = 14;
     pub const CPU_TYPE_I860: CpuType = 15;
@@ -326,6 +329,8 @@ pub mod cputype {
     pub const CPU_SUBTYPE_ARM64_ALL: CpuSubType = 0;
     pub const CPU_SUBTYPE_ARM64_V8: CpuSubType = 1;
     pub const CPU_SUBTYPE_ARM64_E: CpuSubType = 2;
+    pub const CPU_SUBTYPE_ARM64_32_ALL: CpuSubType = 0;
+    pub const CPU_SUBTYPE_ARM64_32_V8: CpuSubType = 1;
 
     macro_rules! cpu_flag_mapping {
         (
@@ -375,6 +380,7 @@ pub mod cputype {
         ("x86_64", CPU_TYPE_X86_64, CPU_SUBTYPE_X86_64_ALL),
         ("x86_64h", CPU_TYPE_X86_64, CPU_SUBTYPE_X86_64_H),
         ("arm64", CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64_ALL),
+        ("arm64_32", CPU_TYPE_ARM64_32, CPU_SUBTYPE_ARM64_32_ALL),
         ("ppc970-64", CPU_TYPE_POWERPC64, CPU_SUBTYPE_POWERPC_970),
         ("ppc", CPU_TYPE_POWERPC, CPU_SUBTYPE_POWERPC_ALL),
         ("i386", CPU_TYPE_I386, CPU_SUBTYPE_I386_ALL),
@@ -417,6 +423,7 @@ pub mod cputype {
         ("armv7em", CPU_TYPE_ARM, CPU_SUBTYPE_ARM_V7EM),
         ("arm64v8", CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64_V8),
         ("arm64e", CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64_E),
+        ("arm64_32_v8", CPU_TYPE_ARM64_32, CPU_SUBTYPE_ARM64_32_V8),
     }
 }
 

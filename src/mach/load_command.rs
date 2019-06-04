@@ -461,7 +461,7 @@ impl ThreadCommand {
                 let pc: u32 = self.thread_state[15];
                 Ok(u64::from(pc))
             }
-            super::cputype::CPU_TYPE_ARM64 => {
+            super::cputype::CPU_TYPE_ARM64 | super::cputype::CPU_TYPE_ARM64_32 => {
                 // struct arm_thread_state64_t {
                 //   uint64_t x[29];
                 //   uint64_t fp;

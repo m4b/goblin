@@ -167,7 +167,7 @@ pub const ARM64_RELOC_ADDEND: RelocType = 10;
 pub fn reloc_to_str(reloc: RelocType, cputype: mach::cputype::CpuType) -> &'static str {
     use crate::mach::constants::cputype::*;
     match cputype {
-        CPU_TYPE_ARM64 => {
+        CPU_TYPE_ARM64 | CPU_TYPE_ARM64_32 => {
             match reloc {
                 ARM64_RELOC_UNSIGNED => "ARM64_RELOC_UNSIGNED",
                 ARM64_RELOC_SUBTRACTOR => "ARM64_RELOC_SUBTRACTOR",

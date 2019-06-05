@@ -109,6 +109,20 @@ pub const ELFDATANONE: u8 = 0;
 pub const ELFDATA2LSB: u8 = 1;
 /// 2's complement, big endian.
 pub const ELFDATA2MSB: u8 = 2;
+
+/// File version byte index.
+pub const EI_VERSION: usize = 6;
+/// Current ELF version.
+pub const EV_CURRENT: u8 = 1;
+
+/// OS ABI byte index.
+pub const EI_OSABI: usize = 7;
+/// UNIX System V ABI.
+pub const ELFOSABI_NONE: u8 = 0;
+
+/// ABI version byte index.
+pub const EI_ABIVERSION: usize = 8;
+
 /// Number of bytes in an identifier.
 pub const SIZEOF_IDENT: usize = 16;
 
@@ -212,8 +226,8 @@ if_alloc! {
                     70,
                     typ,
                     byteorder,
-                    1,
-                    0,
+                    EV_CURRENT,
+                    ELFOSABI_NONE,
                     0,
                     0,
                     0,

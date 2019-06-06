@@ -2,7 +2,6 @@ use crate::alloc::string::{String, ToString};
 use scroll::{ctx, Pread, Pwrite};
 use crate::error::{self, Error};
 use crate::pe::relocation;
-use std::io::Write;
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Clone, Default)]
@@ -91,9 +90,24 @@ impl SectionTable {
 
     pub fn set_name_offset(&mut self, mut idx: usize) -> error::Result<()> {
         if idx <= 9_999_999 { // 10^7 - 1
+            // write!(&mut self.name[1..], "{}", idx) without using io::Write.
+            // We write into a temporary since we calculate digits starting at the right.
+            let mut name = [0; 7];
+            let mut len = 0;
+            if idx == 0 {
+                name[6] = b'0';
+                len = 1;
+            } else {
+                while idx != 0 {
+                    let rem = (idx % 10) as u8;
+                    idx /= 10;
+                    name[6 - len] = b'0' + rem;
+                    len += 1;
+                }
+            }
             self.name = [0; 8];
             self.name[0] = b'/';
-            write!(&mut self.name[1..], "{}", idx).unwrap();
+            self.name[1..][..len].copy_from_slice(&name[7 - len..]);
             Ok(())
         } else if idx as u64 <= 0xfff_fff_fff { // 64^6 - 1
             self.name[0] = b'/';

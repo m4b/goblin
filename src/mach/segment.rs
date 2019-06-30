@@ -390,7 +390,7 @@ impl<'a> ctx::IntoCtx<container::Ctx> for Segment<'a> {
 
 /// Read data that belongs to a segment if the offset is within the boundaries of bytes.
 fn segment_data(bytes: &[u8], fileoff :u64, filesize :u64) -> Result<&[u8], error::Error> {
-    let data :&[u8] = if (fileoff as usize) < bytes.len() {
+    let data :&[u8] = if filesize != 0 {
         bytes.pread_with(fileoff as usize, filesize as usize)?
     } else {
         &[]

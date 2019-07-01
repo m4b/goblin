@@ -5,6 +5,20 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, don't worry!
 
+## [0.0.23] - 2019-7-30
+### Added
+- pe: add write support for COFF object files!!! This is huge; we now support at a basic level writing out all major binary object formats, thanks @philipc: https://github.com/m4b/goblin/pull/159
+- elf: add more e_ident constants
+- mach: add segment protection constants
+- elf: add risc-v relocation constants
+- elf: add constants for arm64_32 (ILP32 ABI on 64-bit arm)
+- pe: coff relocations and other auxiliary symbol records
+
+### Fixed
+- mach: fix 0 length data sections in mach-o segments, seen in some object files, thanks @raindev: https://github.com/m4b/goblin/pull/172
+- build: alloc build was fixed: https://github.com/m4b/goblin/pull/170
+- pe: fix `set_name_offset` compilation for 32-bit: https://github.com/m4b/goblin/pull/163
+
 ## [0.0.22] - 2019-4-13
 ### Added
 - Beautify debugging by using `debug_struct` in `Debug` implementation of many structs.

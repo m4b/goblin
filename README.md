@@ -23,7 +23,7 @@ Add to your `Cargo.toml`
 
 ```toml
 [dependencies]
-goblin = "0.0.22"
+goblin = "0.0.23"
 ```
 
 ### Features

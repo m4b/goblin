@@ -102,6 +102,7 @@ Thank you all :heart: !
 In alphabetic order:
 
 - [@amanieu]
+- [@burjui]
 - [@flanfly]
 - [@ibabushkin]
 - [@jan-auer]
@@ -117,6 +118,7 @@ In alphabetic order:
 - [@pchickey]
 - [@philipc]
 - [@Pzixel]
+- [@raindev]
 - [@rocallahan]
 - [@sanxiyn]
 - [@tathanhdinh]
@@ -153,6 +155,8 @@ In alphabetic order:
 [@xcoldhandsx]: https://github.com/xcoldhandsx
 [@lzutao]: https://github.com/lzutao
 [@wickerwacka]: https://github.com/wickerwaka
+[@raindev]: https://github.com/raindev
+[@burjui]: https://github.com/burjui
 
 ## Contributing
 

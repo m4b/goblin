@@ -279,6 +279,37 @@ impl<'a> Index<'a> {
             strtab: strings,
         })
     }
+
+    // Parses Windows Second Linker Member:
+    // number of members (m):   4
+    // member offsets:          4 * m
+    // number of symbols (n):   4
+    // symbol member indexes:   2 * n
+    // followed by SysV-style string table
+    // https://docs.microsoft.com/en-us/windows/win32/debug/pe-format#first-linker-member
+    pub fn parse_windows_linker_member(buffer: &'a [u8]) -> Result<Self> {
+        let offset = &mut 0;
+        let members = buffer.gread_with::<u32>(offset, scroll::LE)? as usize;
+        let mut member_offsets = Vec::with_capacity(members);
+        for _ in 0..members {
+            member_offsets.push(buffer.gread_with::<u32>(offset, scroll::LE)?);
+        }
+        let symbols = buffer.gread_with::<u32>(offset, scroll::LE)? as usize;
+        let mut symbol_indexes = Vec::with_capacity(symbols);
+        for _ in 0..symbols {
+            symbol_indexes.push(buffer.gread_with::<u16>(offset, scroll::LE)? as usize);
+        }
+        let mut symbol_offsets = Vec::with_capacity(symbols);
+        for i in symbol_indexes {
+            symbol_offsets.push(member_offsets[i - 1]);
+        }
+        let strtab = strtab::Strtab::parse(buffer, *offset, buffer.len() - *offset, 0x0)?;
+        Ok(Index {
+            size: symbols,
+            symbol_indexes: symbol_offsets,
+            strtab: strtab.to_vec()?,
+        })
+    }
 }
 
 /// Member names greater than 16 bytes are indirectly referenced using a `/<idx` schema,
@@ -352,6 +383,7 @@ impl<'a> Archive<'a> {
         let mut member_array = Vec::new();
         let mut index = Index::default();
         let mut sysv_name_index = NameIndex::default();
+        let mut sysv_symbol_index_seen = false;
         while *offset < buffer.len() {
             // realign the cursor to a word boundary, if it's not on one already
             if *offset & 1 == 1 {
@@ -366,7 +398,13 @@ impl<'a> Archive<'a> {
             let name = member.raw_name();
             if name == INDEX_NAME {
                 let data: &[u8] = buffer.pread_with(member.offset as usize, member.size())?;
-                index = Index::parse_sysv_index(data)?;
+                index = if sysv_symbol_index_seen {
+                    // Second symbol index is Microsoft's extension of SysV format
+                    Index::parse_windows_linker_member(data)?
+                } else {
+                    sysv_symbol_index_seen = true;
+                    Index::parse_sysv_index(data)?
+                }
 
             } else if member.bsd_name == Some(BSD_SYMDEF_NAME) || member.bsd_name == Some(BSD_SYMDEF_SORTED_NAME) {
                 let data: &[u8] = buffer.pread_with(member.offset as usize, member.size())?;

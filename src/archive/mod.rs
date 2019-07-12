@@ -384,7 +384,7 @@ impl<'a> Archive<'a> {
         let mut index = Index::default();
         let mut sysv_name_index = NameIndex::default();
         let mut sysv_symbol_index_seen = false;
-        while *offset < buffer.len() {
+        while *offset + 1 < buffer.len() {
             // realign the cursor to a word boundary, if it's not on one already
             if *offset & 1 == 1 {
                 *offset += 1;

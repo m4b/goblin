@@ -378,8 +378,10 @@ impl<'a> Archive<'a> {
         }
         let mut member_array = Vec::new();
         let mut index = Index::default();
+        let mut sysv_index_seen = false;
+        let mut windows_linker_member_seen = false;
+        let mut bsd_index_seen = false;
         let mut sysv_name_index = NameIndex::default();
-        let mut sysv_symbol_index_seen = false;
         while *offset + 1 < buffer.len() {
             // realign the cursor to a word boundary, if it's not on one already
             if *offset & 1 == 1 {
@@ -393,16 +395,27 @@ impl<'a> Archive<'a> {
 
             let name = member.raw_name();
             if name == INDEX_NAME {
+                if bsd_index_seen {
+                    return Err(Error::Malformed("SysV index occurs after BSD index".into()));
+                }
                 let data: &[u8] = buffer.pread_with(member.offset as usize, member.size())?;
-                index = if sysv_symbol_index_seen {
+                index = if sysv_index_seen {
+                    if windows_linker_member_seen {
+                        return Err(Error::Malformed("More than two Windows Linker members".into()));
+                    }
+                    windows_linker_member_seen = true;
                     // Second symbol index is Microsoft's extension of SysV format
                     Index::parse_windows_linker_member(data)?
                 } else {
-                    sysv_symbol_index_seen = true;
+                    sysv_index_seen = true;
                     Index::parse_sysv_index(data)?
                 };
 
             } else if member.bsd_name == Some(BSD_SYMDEF_NAME) || member.bsd_name == Some(BSD_SYMDEF_SORTED_NAME) {
+                if sysv_index_seen {
+                    return Err(Error::Malformed("BSD index occurs after SysV index".into()));
+                }
+                bsd_index_seen = true;
                 let data: &[u8] = buffer.pread_with(member.offset as usize, member.size())?;
                 index = Index::parse_bsd_symdef(data)?;
 

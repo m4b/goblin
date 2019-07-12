@@ -295,13 +295,9 @@ impl<'a> Index<'a> {
             member_offsets.push(buffer.gread_with::<u32>(offset, scroll::LE)?);
         }
         let symbols = buffer.gread_with::<u32>(offset, scroll::LE)? as usize;
-        let mut symbol_indexes = Vec::with_capacity(symbols);
-        for _ in 0..symbols {
-            symbol_indexes.push(buffer.gread_with::<u16>(offset, scroll::LE)? as usize);
-        }
         let mut symbol_offsets = Vec::with_capacity(symbols);
-        for i in symbol_indexes {
-            symbol_offsets.push(member_offsets[i - 1]);
+        for _ in 0..symbols {
+            symbol_offsets.push(member_offsets[buffer.gread_with::<u16>(offset, scroll::LE)? as usize - 1]);
         }
         let strtab = strtab::Strtab::parse(buffer, *offset, buffer.len() - *offset, 0x0)?;
         Ok(Index {
@@ -404,7 +400,7 @@ impl<'a> Archive<'a> {
                 } else {
                     sysv_symbol_index_seen = true;
                     Index::parse_sysv_index(data)?
-                }
+                };
 
             } else if member.bsd_name == Some(BSD_SYMDEF_NAME) || member.bsd_name == Some(BSD_SYMDEF_SORTED_NAME) {
                 let data: &[u8] = buffer.pread_with(member.offset as usize, member.size())?;

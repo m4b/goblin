@@ -351,6 +351,21 @@ impl<'a> NameIndex<'a> {
     }
 }
 
+#[derive(Debug, PartialEq)]
+/// The type of symbol index can be present in an archive. Can serve as an indication of the
+/// archive format.
+pub enum IndexType {
+    /// No symbol index present.
+    None,
+    /// SystemV/GNU style symbol index, used on Windows as well.
+    SysV,
+    /// Windows specific extension of SysV symbol index, so called Second Linker Member. Has the
+    /// same member name as SysV symbol index but different structure.
+    Windows,
+    /// BSD style symbol index.
+    BSD,
+}
+
 // TODO: add pretty printer fmt::Display with number of members, and names of members, along with
 // the values of the index symbols once implemented
 #[derive(Debug)]
@@ -364,19 +379,14 @@ pub struct Archive<'a> {
     member_array: Vec<Member<'a>>,
     members: BTreeMap<&'a str, usize>,
     // symbol -> member
-    symbol_index: BTreeMap<&'a str, usize>
+    symbol_index: BTreeMap<&'a str, usize>,
+    /// Type of the symbol index that was found in the archive.
+    index_type: IndexType,
 }
 
 
 impl<'a> Archive<'a> {
     pub fn parse(buffer: &'a [u8]) -> Result<Archive<'a>> {
-        #[derive(PartialEq)]
-        enum IndexType {
-            NoIndex,
-            SysV,
-            WindowsLinkerMember,
-            BSD,
-        };
 
         let mut magic = [0u8; SIZEOF_MAGIC];
         let offset = &mut 0usize;
@@ -386,7 +396,7 @@ impl<'a> Archive<'a> {
         }
         let mut member_array = Vec::new();
         let mut index = Index::default();
-        let mut index_type = IndexType::NoIndex;
+        let mut index_type = IndexType::None;
         let mut sysv_name_index = NameIndex::default();
         while *offset + 1 < buffer.len() {
             // realign the cursor to a word boundary, if it's not on one already
@@ -401,24 +411,23 @@ impl<'a> Archive<'a> {
 
             let name = member.raw_name();
             if name == INDEX_NAME {
-                if index_type == IndexType::BSD {
-                    return Err(Error::Malformed("SysV index occurs after BSD index".into()));
-                }
-                if index_type == IndexType::WindowsLinkerMember {
-                    return Err(Error::Malformed("More than two Windows Linker members".into()));
-                }
                 let data: &[u8] = buffer.pread_with(member.offset as usize, member.size())?;
-                index = if index_type == IndexType::SysV {
-                    index_type = IndexType::WindowsLinkerMember;
-                    // second symbol index is Microsoft's extension of SysV format
-                    Index::parse_windows_linker_member(data)?
-                } else {
-                    index_type = IndexType::SysV;
-                    Index::parse_sysv_index(data)?
-                };
+                index = match index_type {
+                    IndexType::None => {
+                        index_type = IndexType::SysV;
+                        Index::parse_sysv_index(data)?
+                    },
+                    IndexType::SysV => {
+                        index_type = IndexType::Windows;
+                        // second symbol index is Microsoft's extension of SysV format
+                        Index::parse_windows_linker_member(data)?
+                    },
+                    IndexType::BSD => return Err(Error::Malformed("SysV index occurs after BSD index".into())),
+                    IndexType::Windows => return Err(Error::Malformed("More than two Windows Linker members".into())),
+                }
 
             } else if member.bsd_name == Some(BSD_SYMDEF_NAME) || member.bsd_name == Some(BSD_SYMDEF_SORTED_NAME) {
-                if index_type == IndexType::SysV {
+                if index_type != IndexType::None {
                     return Err(Error::Malformed("BSD index occurs after SysV index".into()));
                 }
                 index_type = IndexType::BSD;
@@ -459,15 +468,14 @@ impl<'a> Archive<'a> {
             symbol_index.insert(&name, member_index);
         }
 
-        let archive = Archive {
+        Ok(Archive {
             index,
             member_array,
             sysv_name_index,
             members,
             symbol_index,
-        };
-
-        Ok(archive)
+            index_type,
+        })
     }
 
     /// Get the member named `member` in this archive, if any

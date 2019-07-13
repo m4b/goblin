@@ -370,6 +370,14 @@ pub struct Archive<'a> {
 
 impl<'a> Archive<'a> {
     pub fn parse(buffer: &'a [u8]) -> Result<Archive<'a>> {
+        #[derive(PartialEq)]
+        enum IndexType {
+            NoIndex,
+            SysV,
+            WindowsLinkerMember,
+            BSD,
+        };
+
         let mut magic = [0u8; SIZEOF_MAGIC];
         let offset = &mut 0usize;
         buffer.gread_inout(offset, &mut magic)?;
@@ -378,9 +386,7 @@ impl<'a> Archive<'a> {
         }
         let mut member_array = Vec::new();
         let mut index = Index::default();
-        let mut sysv_index_seen = false;
-        let mut windows_linker_member_seen = false;
-        let mut bsd_index_seen = false;
+        let mut index_type = IndexType::NoIndex;
         let mut sysv_name_index = NameIndex::default();
         while *offset + 1 < buffer.len() {
             // realign the cursor to a word boundary, if it's not on one already
@@ -395,27 +401,27 @@ impl<'a> Archive<'a> {
 
             let name = member.raw_name();
             if name == INDEX_NAME {
-                if bsd_index_seen {
+                if index_type == IndexType::BSD {
                     return Err(Error::Malformed("SysV index occurs after BSD index".into()));
                 }
+                if index_type == IndexType::WindowsLinkerMember {
+                    return Err(Error::Malformed("More than two Windows Linker members".into()));
+                }
                 let data: &[u8] = buffer.pread_with(member.offset as usize, member.size())?;
-                index = if sysv_index_seen {
-                    if windows_linker_member_seen {
-                        return Err(Error::Malformed("More than two Windows Linker members".into()));
-                    }
-                    windows_linker_member_seen = true;
-                    // Second symbol index is Microsoft's extension of SysV format
+                index = if index_type == IndexType::SysV {
+                    index_type = IndexType::WindowsLinkerMember;
+                    // second symbol index is Microsoft's extension of SysV format
                     Index::parse_windows_linker_member(data)?
                 } else {
-                    sysv_index_seen = true;
+                    index_type = IndexType::SysV;
                     Index::parse_sysv_index(data)?
                 };
 
             } else if member.bsd_name == Some(BSD_SYMDEF_NAME) || member.bsd_name == Some(BSD_SYMDEF_SORTED_NAME) {
-                if sysv_index_seen {
+                if index_type == IndexType::SysV {
                     return Err(Error::Malformed("BSD index occurs after SysV index".into()));
                 }
-                bsd_index_seen = true;
+                index_type = IndexType::BSD;
                 let data: &[u8] = buffer.pread_with(member.offset as usize, member.size())?;
                 index = Index::parse_bsd_symdef(data)?;
 

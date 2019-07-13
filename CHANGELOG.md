@@ -5,7 +5,15 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, don't worry!
 
-## [0.0.23] - 2019-7-30
+## [0.0.24] - 2019-7-13
+### Added
+- archive: new public enum type to determine which kind of archive was parsed
+### Fixed
+- archive: thanks @raindev
+    * fix parsing of windows style archives: https://github.com/m4b/goblin/pull/174
+    * stricter parsing of archives with multiple indexes: https://github.com/m4b/goblin/pull/175
+
+## [0.0.23] - 2019-6-30
 ### Added
 - pe: add write support for COFF object files!!! This is huge; we now support at a basic level writing out all major binary object formats, thanks @philipc: https://github.com/m4b/goblin/pull/159
 - elf: add more e_ident constants

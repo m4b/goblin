@@ -157,23 +157,21 @@ impl<'a> scroll::ctx::TryFromCtx<'a, scroll::Endian> for Reexport<'a> {
             let c: u8 = bytes.pread(o)?;
             debug!("reexport offset: {:#x} char: {:#x}", o, c);
             if c == b'.' {
-                let i = o - 1;
-                let dll: &'a str = bytes.pread_with(0, scroll::ctx::StrCtx::Length(i))?;
+                let dll: &'a str = bytes.pread_with(0, scroll::ctx::StrCtx::Length(o))?;
                 debug!("dll: {:?}", &dll);
-                let len = reexport_len - i - 1;
-                let rest: &'a [u8] = bytes.pread_with(o, len)?;
+                if o + 1 == reexport_len {
+                    break;
+                }
+                let len = reexport_len - o - 1;
+                let rest: &'a [u8] = bytes.pread_with(o + 1, len)?;
                 debug!("rest: {:?}", &rest);
-                let len = rest.len() - 1;
                 if rest[0] == b'#' {
-                    // UNTESTED
-                    let ordinal = rest.pread_with::<&str>(1, scroll::ctx::StrCtx::Length(len))?;
+                    let ordinal = rest.pread_with::<&str>(1, scroll::ctx::StrCtx::Length(len - 1))?;
                     let ordinal = ordinal.parse::<u32>().map_err(|_e| error::Error::Malformed(format!("Cannot parse reexport ordinal from {} bytes", bytes.len())))?;
-                    // FIXME: return size
-                    return Ok((Reexport::DLLOrdinal { export: dll, ordinal: ordinal as usize }, 0))
+                    return Ok((Reexport::DLLOrdinal { export: dll, ordinal: ordinal as usize }, reexport_len + 1))
                 } else {
-                    let export = rest.pread_with::<&str>(1, scroll::ctx::StrCtx::Length(len))?;
-                    // FIXME: return size
-                    return Ok((Reexport::DLLName { export, lib: dll }, 0))
+                    let export = rest.pread_with::<&str>(0, scroll::ctx::StrCtx::Length(len))?;
+                    return Ok((Reexport::DLLName { export, lib: dll }, reexport_len + 1))
                 }
             }
         }

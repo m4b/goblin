@@ -142,7 +142,7 @@ impl<'a> ExportData<'a> {
 /// PE binaries have two kinds of reexports, either specifying the dll's name, or the ordinal value of the dll
 pub enum Reexport<'a> {
   DLLName { export: &'a str, lib: &'a str },
-  DLLOrdinal { export: &'a str, ordinal: usize }
+  DLLOrdinal { ordinal: usize, lib: &'a str }
 }
 
 impl<'a> scroll::ctx::TryFromCtx<'a, scroll::Endian> for Reexport<'a> {
@@ -168,7 +168,7 @@ impl<'a> scroll::ctx::TryFromCtx<'a, scroll::Endian> for Reexport<'a> {
                 if rest[0] == b'#' {
                     let ordinal = rest.pread_with::<&str>(1, scroll::ctx::StrCtx::Length(len - 1))?;
                     let ordinal = ordinal.parse::<u32>().map_err(|_e| error::Error::Malformed(format!("Cannot parse reexport ordinal from {} bytes", bytes.len())))?;
-                    return Ok((Reexport::DLLOrdinal { export: dll, ordinal: ordinal as usize }, reexport_len + 1))
+                    return Ok((Reexport::DLLOrdinal { ordinal: ordinal as usize, lib: dll }, reexport_len + 1))
                 } else {
                     let export = rest.pread_with::<&str>(0, scroll::ctx::StrCtx::Length(len))?;
                     return Ok((Reexport::DLLName { export, lib: dll }, reexport_len + 1))

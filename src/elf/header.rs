@@ -39,6 +39,10 @@ macro_rules! elf_header {
 
         use plain;
         // Declare that this is a plain type.
+        //
+        // # Safety
+        //
+        //   - `Header` is exclusively made of `Plain` types (integers)
         unsafe impl plain::Plain for Header {}
 
         impl Header {

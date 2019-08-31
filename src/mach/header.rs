@@ -180,6 +180,9 @@ pub struct Header32 {
 
 pub const SIZEOF_HEADER_32: usize = 0x1c;
 
+// # Safety
+//
+//   - `Header32` is exclusively made of `Plain` types (integers)
 unsafe impl Plain for Header32 {}
 
 impl Header32 {
@@ -214,6 +217,9 @@ pub struct Header64 {
     pub reserved: u32,
 }
 
+// # Safety
+//
+//   - `Header64` is exclusively made of `Plain` types (integers)
 unsafe impl Plain for Header64 {}
 
 pub const SIZEOF_HEADER_64: usize = 32;

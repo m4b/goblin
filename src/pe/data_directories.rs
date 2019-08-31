@@ -24,6 +24,32 @@ pub struct DataDirectories {
     pub data_directories: [Option<DataDirectory>; NUM_DATA_DIRECTORIES],
 }
 
+macro_rules! make_DataDirectory_getters {(
+    $(
+        $name:ident => $idx:literal;
+    )*
+) => (
+    $(
+        #[inline]
+        pub
+        fn $name (self: &'_ Self)
+            -> &'_ Option<DataDirectory>
+        {
+            const INDEX: usize = $idx;
+            unsafe {
+                // # Safety
+                //
+                //   - Indexing is checked at compile-time
+                let _: [_; NUM_DATA_DIRECTORIES] =
+                    self.data_directories
+                ;
+                const_assert!(INDEX < NUM_DATA_DIRECTORIES);
+                self.data_directories.get_unchecked(INDEX)
+            }
+        }
+    )*
+)}
+
 impl DataDirectories {
     pub fn parse(bytes: &[u8], count: usize, offset: &mut usize) -> error::Result<Self> {
         let mut data_directories = [None; NUM_DATA_DIRECTORIES];
@@ -35,64 +61,21 @@ impl DataDirectories {
         }
         Ok (DataDirectories { data_directories })
     }
-    pub fn get_export_table(&self) -> &Option<DataDirectory> {
-        let idx = 0;
-        unsafe { self.data_directories.get_unchecked(idx) }
-    }
-    pub fn get_import_table(&self) -> &Option<DataDirectory> {
-        let idx = 1;
-        unsafe { self.data_directories.get_unchecked(idx) }
-    }
-    pub fn get_resource_table(&self) ->          &Option<DataDirectory> {
-        let idx = 2;
-        unsafe { self.data_directories.get_unchecked(idx) }
-    }
-    pub fn get_exception_table(&self) ->         &Option<DataDirectory> {
-        let idx = 3;
-        unsafe { self.data_directories.get_unchecked(idx) }
-    }
-    pub fn get_certificate_table(&self) ->       &Option<DataDirectory> {
-        let idx = 4;
-        unsafe { self.data_directories.get_unchecked(idx) }
-    }
-    pub fn get_base_relocation_table(&self) ->   &Option<DataDirectory> {
-        let idx = 5;
-        unsafe { self.data_directories.get_unchecked(idx) }
-    }
-    pub fn get_debug_table(&self) ->             &Option<DataDirectory> {
-        let idx = 6;
-        unsafe { self.data_directories.get_unchecked(idx) }
-    }
-    pub fn get_architecture(&self) ->            &Option<DataDirectory> {
-        let idx = 7;
-        unsafe { self.data_directories.get_unchecked(idx) }
-    }
-    pub fn get_global_ptr(&self) ->              &Option<DataDirectory> {
-        let idx = 8;
-        unsafe { self.data_directories.get_unchecked(idx) }
-    }
-    pub fn get_tls_table(&self) ->               &Option<DataDirectory> {
-        let idx = 9;
-        unsafe { self.data_directories.get_unchecked(idx) }
-    }
-    pub fn get_load_config_table(&self) ->       &Option<DataDirectory> {
-        let idx = 10;
-        unsafe { self.data_directories.get_unchecked(idx) }
-    }
-    pub fn get_bound_import_table(&self) ->      &Option<DataDirectory> {
-        let idx = 11;
-        unsafe { self.data_directories.get_unchecked(idx) }
-    }
-    pub fn get_import_address_table(&self) ->    &Option<DataDirectory> {
-        let idx = 12;
-        unsafe { self.data_directories.get_unchecked(idx) }
-    }
-    pub fn get_delay_import_descriptor(&self) -> &Option<DataDirectory> {
-        let idx = 13;
-        unsafe { self.data_directories.get_unchecked(idx) }
-    }
-    pub fn get_clr_runtime_header(&self) ->      &Option<DataDirectory> {
-        let idx = 14;
-        unsafe { self.data_directories.get_unchecked(idx) }
+    make_DataDirectory_getters! {
+        get_export_table            =>  0;
+        get_import_table            =>  1;
+        get_resource_table          =>  2;
+        get_exception_table         =>  3;
+        get_certificate_table       =>  4;
+        get_base_relocation_table   =>  5;
+        get_debug_table             =>  6;
+        get_architecture            =>  7;
+        get_global_ptr              =>  8;
+        get_tls_table               =>  9;
+        get_load_config_table       => 10;
+        get_bound_import_table      => 11;
+        get_import_address_table    => 12;
+        get_delay_import_descriptor => 13;
+        get_clr_runtime_header      => 14;
     }
 }

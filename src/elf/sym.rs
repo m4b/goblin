@@ -245,9 +245,7 @@ macro_rules! elf_sym_std_impl {
                 // TODO: AFAIK this shouldn't work, since i pass in a byte size...
                 let mut syms = vec![Sym::default(); count];
                 fd.seek(Start(offset as u64))?;
-                unsafe {
-                    fd.read_exact(plain::as_mut_bytes(&mut *syms))?;
-                }
+                fd.read_exact(::zerocopy::AsBytes::as_bytes_mut(&mut *syms))?;
                 syms.dedup();
                 Ok(syms)
             }
@@ -262,7 +260,7 @@ pub mod sym32 {
     pub use crate::elf::sym::*;
 
     #[repr(C)]
-    #[derive(Clone, Copy, PartialEq, Default)]
+    #[derive(Clone, Copy, PartialEq, Default, AsBytes, FromBytes)]
     #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
     /// 32-bit Sym - used for both static and dynamic symbol information in a binary
     pub struct Sym {
@@ -293,7 +291,7 @@ pub mod sym64 {
     pub use crate::elf::sym::*;
 
     #[repr(C)]
-    #[derive(Clone, Copy, PartialEq, Default)]
+    #[derive(Clone, Copy, PartialEq, Default, AsBytes, FromBytes)]
     #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
     /// 64-bit Sym - used for both static and dynamic symbol information in a binary
     pub struct Sym {
@@ -329,7 +327,9 @@ if_alloc! {
     use crate::error::Result;
     use crate::alloc::vec::Vec;
 
-    #[derive(Default, PartialEq, Clone)]
+    derive_unaligned_getters_for_packed_struct! {
+    #[repr(C, packed)]
+    #[derive(Default, PartialEq, Clone, Copy, AsBytes, FromBytes)]
     /// A unified Sym definition - convertable to and from 32-bit and 64-bit variants
     pub struct Sym {
         pub st_name:     usize,
@@ -338,7 +338,7 @@ if_alloc! {
         pub st_shndx:    usize,
         pub st_value:    u64,
         pub st_size:     u64,
-    }
+    }}
 
     impl Sym {
         #[inline]
@@ -397,12 +397,12 @@ if_alloc! {
             let typ = self.st_type();
             let vis = self.st_visibility();
             f.debug_struct("Sym")
-                .field("st_name", &self.st_name)
-                .field("st_info", &format_args!("0x{:x} {} {}", self.st_info, bind_to_str(bind), type_to_str(typ)))
-                .field("st_other", &format_args!("{} {}", self.st_other, visibility_to_str(vis)))
-                .field("st_shndx", &self.st_shndx)
-                .field("st_value", &format_args!("0x{:x}", self.st_value))
-                .field("st_size", &self.st_size)
+                .field("st_name", &self.st_name())
+                .field("st_info", &format_args!("0x{:x} {} {}", self.st_info(), bind_to_str(bind), type_to_str(typ)))
+                .field("st_other", &format_args!("{} {}", self.st_other(), visibility_to_str(vis)))
+                .field("st_shndx", &self.st_shndx())
+                .field("st_value", &format_args!("0x{:x}", self.st_value()))
+                .field("st_size", &self.st_size())
                 .finish()
         }
     }

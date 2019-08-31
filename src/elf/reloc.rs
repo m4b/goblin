@@ -73,7 +73,7 @@ macro_rules! elf_reloc {
         #[cfg(feature = "alloc")]
         use scroll::{Pread, Pwrite, SizeWith};
         #[repr(C)]
-        #[derive(Clone, Copy, PartialEq, Default)]
+        #[derive(Clone, Copy, PartialEq, Default, AsBytes, FromBytes)]
         #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
         /// Relocation with an explicit addend
         pub struct Rela {
@@ -209,9 +209,7 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
                 let count = size / SIZEOF_RELA;
                 let mut relocs = vec![Rela::default(); count];
                 fd.seek(Start(offset as u64))?;
-                unsafe {
-                    fd.read_exact(plain::as_mut_bytes(&mut *relocs))?;
-                }
+                fd.read_exact(::zerocopy::AsBytes::as_bytes_mut(&mut *relocs))?;
                 Ok(relocs)
             }
         } // end if_alloc

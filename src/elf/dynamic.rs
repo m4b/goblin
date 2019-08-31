@@ -4,7 +4,7 @@ macro_rules! elf_dyn {
         #[cfg(feature = "alloc")]
         use scroll::{Pread, Pwrite, SizeWith};
         #[repr(C)]
-        #[derive(Copy, Clone, PartialEq, Default)]
+        #[derive(Copy, Clone, PartialEq, Default, AsBytes, FromBytes)]
         #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
         /// An entry in the dynamic array
         pub struct Dyn {
@@ -480,9 +480,7 @@ macro_rules! elf_dyn_std_impl {
                         let dync = filesz / SIZEOF_DYN;
                         let mut dyns = vec![Dyn::default(); dync];
                         fd.seek(Start(u64::from(phdr.p_offset)))?;
-                        unsafe {
-                            fd.read_exact(plain::as_mut_bytes(&mut *dyns))?;
-                        }
+                        fd.read_exact(::zerocopy::AsBytes::as_bytes_mut(&mut *dyns))?;
                         dyns.dedup();
                         return Ok(Some(dyns));
                     }

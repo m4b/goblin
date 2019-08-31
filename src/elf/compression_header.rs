@@ -1,9 +1,5 @@
 macro_rules! elf_compression_header {
     () => {
-        use plain;
-        // Declare that this is a plain type.
-        unsafe impl plain::Plain for CompressionHeader {}
-
         impl ::core::fmt::Debug for CompressionHeader {
             fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
                 f.debug_struct("CompressionHeader")
@@ -72,9 +68,7 @@ macro_rules! elf_compression_header_std_impl { ($size:ty) => {
             pub fn from_fd(fd: &mut File, offset: u64) -> Result<CompressionHeader> {
                 let mut chdr = CompressionHeader::default();
                 fd.seek(Start(offset))?;
-                unsafe {
-                    fd.read_exact(plain::as_mut_bytes(&mut chdr))?;
-                }
+                fd.read_exact(::zerocopy::AsBytes::as_bytes_mut(&mut chdr))?;
                 Ok(chdr)
             }
         }
@@ -88,7 +82,7 @@ pub mod compression_header32 {
     pub use crate::elf::compression_header::*;
 
     #[repr(C)]
-    #[derive(Copy, Clone, Eq, PartialEq, Default)]
+    #[derive(Copy, Clone, Eq, PartialEq, Default, AsBytes, FromBytes)]
     #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
     /// The compression header is used at the start of SHF_COMPRESSED sections
     pub struct CompressionHeader {
@@ -100,6 +94,11 @@ pub mod compression_header32 {
         pub ch_addralign: u32,
     }
 
+    use plain;
+    // # Safety
+    //
+    //   - `CompressionHeader` is exclusively made of `Plain` types (integers)
+    unsafe impl plain::Plain for CompressionHeader {}
     elf_compression_header!();
 
     pub const SIZEOF_CHDR: usize = 12;
@@ -124,7 +123,7 @@ pub mod compression_header64 {
     pub use crate::elf::compression_header::*;
 
     #[repr(C)]
-    #[derive(Copy, Clone, Eq, PartialEq, Default)]
+    #[derive(Copy, Clone, Eq, PartialEq, Default, AsBytes, FromBytes)]
     #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
     /// The compression header is used at the start of SHF_COMPRESSED sections
     pub struct CompressionHeader {
@@ -137,6 +136,11 @@ pub mod compression_header64 {
         pub ch_addralign: u64,
     }
 
+    use plain;
+    // # Safety
+    //
+    //   - `CompressionHeader` is exclusively made of `Plain` types (integers)
+    unsafe impl plain::Plain for CompressionHeader {}
     elf_compression_header!();
 
     pub const SIZEOF_CHDR: usize = 24;
@@ -169,7 +173,9 @@ if_alloc! {
     use scroll::ctx;
     use crate::container::{Container, Ctx};
 
-    #[derive(Default, PartialEq, Clone)]
+    derive_unaligned_getters_for_packed_struct! {
+    #[repr(C, packed)]
+    #[derive(Default, PartialEq, Clone, Copy, AsBytes, FromBytes)]
     /// A unified CompressionHeader - convertable to and from 32-bit and 64-bit variants
     pub struct CompressionHeader {
         /// Compression format
@@ -178,7 +184,7 @@ if_alloc! {
         pub ch_size: u64,
         /// Uncompressed data alignment
         pub ch_addralign: u64,
-    }
+    }}
 
     impl CompressionHeader {
         /// Return the size of the underlying compression header, given a `container`
@@ -205,9 +211,9 @@ if_alloc! {
     impl fmt::Debug for CompressionHeader {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             f.debug_struct("CompressionHeader")
-                .field("ch_type", &self.ch_type)
-                .field("ch_size", &format_args!("0x{:x}", self.ch_size))
-                .field("ch_addralign", &format_args!("0x{:x}", self.ch_addralign))
+                .field("ch_type", &self.ch_type())
+                .field("ch_size", &format_args!("0x{:x}", self.ch_size()))
+                .field("ch_addralign", &format_args!("0x{:x}", self.ch_addralign()))
                 .finish()
         }
     }

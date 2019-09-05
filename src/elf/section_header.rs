@@ -382,9 +382,7 @@ if_alloc! {
 
     #[cfg(feature = "endian_fd")]
     use crate::alloc::vec::Vec;
-    derive_unaligned_getters_for_packed_struct! {
-    #[repr(C, packed)]
-    #[derive(Default, PartialEq, Clone, Copy, AsBytes, FromBytes)]
+    #[derive(Default, PartialEq, Clone)]
     /// A unified SectionHeader - convertable to and from 32-bit and 64-bit variants
     pub struct SectionHeader {
         /// Section name (string tbl index)
@@ -407,7 +405,7 @@ if_alloc! {
         pub sh_addralign: u64,
         /// Entry size if section holds table
         pub sh_entsize: u64,
-    }}
+    }
 
     impl SectionHeader {
         /// Return the size of the underlying program header, given a `container`
@@ -462,7 +460,7 @@ if_alloc! {
             let (end, overflow) = self.sh_offset.overflowing_add(self.sh_size);
             if overflow || end > size as u64 {
                 let message = format!("Section {} size ({}) + offset ({}) is out of bounds. Overflowed: {}",
-                    self.sh_name(), self.sh_offset(), self.sh_size(), overflow);
+                    self.sh_name, self.sh_offset, self.sh_size, overflow);
                 return Err(error::Error::Malformed(message));
             }
             Ok(())
@@ -484,16 +482,16 @@ if_alloc! {
     impl fmt::Debug for SectionHeader {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             f.debug_struct("SectionHeader")
-                .field("sh_name", &self.sh_name())
-                .field("sh_type", &sht_to_str(self.sh_type()))
-                .field("sh_flags", &format_args!("0x{:x}", self.sh_flags()))
-                .field("sh_addr", &format_args!("0x{:x}", self.sh_addr()))
-                .field("sh_offset", &format_args!("0x{:x}", self.sh_offset()))
-                .field("sh_size", &format_args!("0x{:x}", self.sh_size()))
-                .field("sh_link", &format_args!("0x{:x}", self.sh_link()))
-                .field("sh_info", &format_args!("0x{:x}", self.sh_info()))
-                .field("sh_addralign", &format_args!("0x{:x}", self.sh_addralign()))
-                .field("sh_entsize", &format_args!("0x{:x}", self.sh_entsize()))
+                .field("sh_name", &self.sh_name)
+                .field("sh_type", &sht_to_str(self.sh_type))
+                .field("sh_flags", &format_args!("0x{:x}", self.sh_flags))
+                .field("sh_addr", &format_args!("0x{:x}", self.sh_addr))
+                .field("sh_offset", &format_args!("0x{:x}", self.sh_offset))
+                .field("sh_size", &format_args!("0x{:x}", self.sh_size))
+                .field("sh_link", &format_args!("0x{:x}", self.sh_link))
+                .field("sh_info", &format_args!("0x{:x}", self.sh_info))
+                .field("sh_addralign", &format_args!("0x{:x}", self.sh_addralign))
+                .field("sh_entsize", &format_args!("0x{:x}", self.sh_entsize))
                 .finish()
         }
     }

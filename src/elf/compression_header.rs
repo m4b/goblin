@@ -173,9 +173,7 @@ if_alloc! {
     use scroll::ctx;
     use crate::container::{Container, Ctx};
 
-    derive_unaligned_getters_for_packed_struct! {
-    #[repr(C, packed)]
-    #[derive(Default, PartialEq, Clone, Copy, AsBytes, FromBytes)]
+    #[derive(Default, PartialEq, Clone)]
     /// A unified CompressionHeader - convertable to and from 32-bit and 64-bit variants
     pub struct CompressionHeader {
         /// Compression format
@@ -184,7 +182,7 @@ if_alloc! {
         pub ch_size: u64,
         /// Uncompressed data alignment
         pub ch_addralign: u64,
-    }}
+    }
 
     impl CompressionHeader {
         /// Return the size of the underlying compression header, given a `container`
@@ -211,9 +209,9 @@ if_alloc! {
     impl fmt::Debug for CompressionHeader {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             f.debug_struct("CompressionHeader")
-                .field("ch_type", &self.ch_type())
-                .field("ch_size", &format_args!("0x{:x}", self.ch_size()))
-                .field("ch_addralign", &format_args!("0x{:x}", self.ch_addralign()))
+                .field("ch_type", &self.ch_type)
+                .field("ch_size", &format_args!("0x{:x}", self.ch_size))
+                .field("ch_addralign", &format_args!("0x{:x}", self.ch_addralign))
                 .finish()
         }
     }

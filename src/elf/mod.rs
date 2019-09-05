@@ -169,22 +169,22 @@ if_sylvan! {
         ) -> Option<note::NoteIterator<'a>> {
             let mut iters = vec![];
             for sect in &self.section_headers {
-                if sect.sh_type() != section_header::SHT_NOTE {
+                if sect.sh_type != section_header::SHT_NOTE {
                     continue;
                 }
 
                 if section_name.is_some() && !self.shdr_strtab
-                    .get(sect.sh_name())
+                    .get(sect.sh_name)
                     .map_or(false, |r| r.ok() == section_name) {
                     continue;
                 }
 
-                let offset = sect.sh_offset() as usize;
-                let alignment = sect.sh_addralign() as usize;
+                let offset = sect.sh_offset as usize;
+                let alignment = sect.sh_addralign as usize;
                 iters.push(note::NoteDataIterator {
                     data,
                     offset,
-                    size: offset + sect.sh_size() as usize,
+                    size: offset + sect.sh_size as usize,
                     ctx: (alignment, self.ctx)
                 });
             }
@@ -238,7 +238,7 @@ if_sylvan! {
                 } else {
                     let shdr = &section_headers[section_idx];
                     shdr.check_size(bytes.len())?;
-                    Strtab::parse(bytes, shdr.sh_offset() as usize, shdr.sh_size() as usize, 0x0)
+                    Strtab::parse(bytes, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0)
                 }
             };
 
@@ -248,11 +248,11 @@ if_sylvan! {
             let mut syms = Symtab::default();
             let mut strtab = Strtab::default();
             for shdr in &section_headers {
-                if shdr.sh_type() as u32 == section_header::SHT_SYMTAB {
-                    let size = shdr.sh_entsize();
-                    let count = if size == 0 { 0 } else { shdr.sh_size() / size };
-                    syms = Symtab::parse(bytes, shdr.sh_offset() as usize, count as usize, ctx)?;
-                    strtab = get_strtab(&section_headers, shdr.sh_link() as usize)?;
+                if shdr.sh_type as u32 == section_header::SHT_SYMTAB {
+                    let size = shdr.sh_entsize;
+                    let count = if size == 0 { 0 } else { shdr.sh_size / size };
+                    syms = Symtab::parse(bytes, shdr.sh_offset as usize, count as usize, ctx)?;
+                    strtab = get_strtab(&section_headers, shdr.sh_link as usize)?;
                 }
             }
 
@@ -303,10 +303,10 @@ if_sylvan! {
 
             let mut shdr_relocs = vec![];
             for (idx, section) in section_headers.iter().enumerate() {
-                let is_rela = section.sh_type() == section_header::SHT_RELA;
-                if is_rela || section.sh_type() == section_header::SHT_REL {
+                let is_rela = section.sh_type == section_header::SHT_RELA;
+                if is_rela || section.sh_type == section_header::SHT_REL {
                     section.check_size(bytes.len())?;
-                    let sh_relocs = RelocSection::parse(bytes, section.sh_offset() as usize, section.sh_size() as usize, is_rela, ctx)?;
+                    let sh_relocs = RelocSection::parse(bytes, section.sh_offset as usize, section.sh_size as usize, is_rela, ctx)?;
                     shdr_relocs.push((idx, sh_relocs));
                 }
             }
@@ -410,7 +410,7 @@ mod tests {
                     if i == 11 {
                         let symtab = binary.strtab;
                         println!("sym: {:?}", &sym);
-                        assert_eq!(&symtab[sym.st_name()], "_start");
+                        assert_eq!(&symtab[sym.st_name], "_start");
                         break;
                     }
                 }
@@ -438,7 +438,7 @@ mod tests {
                     if i == 11 {
                         let symtab = binary.strtab;
                         println!("sym: {:?}", &sym);
-                        assert_eq!(&symtab[sym.st_name()], "__libc_csu_fini");
+                        assert_eq!(&symtab[sym.st_name], "__libc_csu_fini");
                         break;
                     }
                 }

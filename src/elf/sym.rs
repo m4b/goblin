@@ -327,9 +327,7 @@ if_alloc! {
     use crate::error::Result;
     use crate::alloc::vec::Vec;
 
-    derive_unaligned_getters_for_packed_struct! {
-    #[repr(C, packed)]
-    #[derive(Default, PartialEq, Clone, Copy, AsBytes, FromBytes)]
+    #[derive(Default, PartialEq, Clone)]
     /// A unified Sym definition - convertable to and from 32-bit and 64-bit variants
     pub struct Sym {
         pub st_name:     usize,
@@ -338,7 +336,7 @@ if_alloc! {
         pub st_shndx:    usize,
         pub st_value:    u64,
         pub st_size:     u64,
-    }}
+    }
 
     impl Sym {
         #[inline]
@@ -397,12 +395,12 @@ if_alloc! {
             let typ = self.st_type();
             let vis = self.st_visibility();
             f.debug_struct("Sym")
-                .field("st_name", &self.st_name())
-                .field("st_info", &format_args!("0x{:x} {} {}", self.st_info(), bind_to_str(bind), type_to_str(typ)))
-                .field("st_other", &format_args!("{} {}", self.st_other(), visibility_to_str(vis)))
-                .field("st_shndx", &self.st_shndx())
-                .field("st_value", &format_args!("0x{:x}", self.st_value()))
-                .field("st_size", &self.st_size())
+                .field("st_name", &self.st_name)
+                .field("st_info", &format_args!("0x{:x} {} {}", self.st_info, bind_to_str(bind), type_to_str(typ)))
+                .field("st_other", &format_args!("{} {}", self.st_other, visibility_to_str(vis)))
+                .field("st_shndx", &self.st_shndx)
+                .field("st_value", &format_args!("0x{:x}", self.st_value))
+                .field("st_size", &self.st_size)
                 .finish()
         }
     }

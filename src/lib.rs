@@ -125,56 +125,6 @@ macro_rules! if_alloc {
     )*)
 }
 
-#[allow(unused)]
-macro_rules! derive_unaligned_getters_for_packed_struct {(
-    #[repr(C, packed)]
-    $(#[$struct_meta:meta])*
-    $struct_pub:vis
-    struct $StructName:ident {
-        $(
-            $(#[$field_meta:meta])*
-            $field_pub:vis
-            $field_name:ident : $field_ty:ty
-        ),* $(,)?
-    }
-) => (
-    // define the struct, but where the fields are private
-    #[repr(C, packed)]
-    $(#[$struct_meta])*
-    $struct_pub
-    struct $StructName {
-        $(
-            $(#[$field_meta])*
-            $field_name : $field_ty,
-        )*
-    }
-
-    // add the (maybe) public unaligned getters
-    impl $StructName {
-        $(
-            #[inline]
-            $field_pub
-            fn $field_name (self: &'_ Self)
-                -> $field_ty
-            where
-                $field_ty : Copy,
-            {
-                unsafe {
-                    // # Safety
-                    //
-                    //   - $field_ty : Copy
-                    //
-                    //   - Based on the official documentation example: https://doc.rust-lang.org/std/ptr/fn.read_unaligned.html
-                    ::core::ptr::read_unaligned(
-                        &self.$field_name
-                            as *const $field_ty
-                    )
-                }
-            }
-        )*
-    }
-)}
-
 #[cfg(feature = "alloc")]
 pub mod error;
 

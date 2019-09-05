@@ -85,8 +85,7 @@ if_alloc! {
     use crate::container::{Ctx, Container};
     use crate::alloc::vec::Vec;
 
-    #[repr(C)]
-    #[derive(Default, PartialEq, Clone, AsBytes, FromBytes)]
+    #[derive(Default, PartialEq, Clone)]
     /// A unified ProgramHeader - convertable to and from 32-bit and 64-bit variants
     pub struct ProgramHeader {
         pub p_type  : u32,

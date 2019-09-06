@@ -65,6 +65,8 @@
 //!
 //! Read more https://docs.oracle.com/cd/E23824_01/html/819-0690/chapter6-54839.html
 
+use crate::zerocopy;
+
 include!("constants_relocation.rs");
 
 macro_rules! elf_reloc {
@@ -72,8 +74,9 @@ macro_rules! elf_reloc {
         use core::fmt;
         #[cfg(feature = "alloc")]
         use scroll::{Pread, Pwrite, SizeWith};
+        #[macro_rules_derive(AsBytesAndFromBytes!)]
         #[repr(C)]
-        #[derive(Clone, Copy, PartialEq, Default, AsBytes, FromBytes)]
+        #[derive(Clone, Copy, PartialEq, Default)]
         #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
         /// Relocation with an explicit addend
         pub struct Rela {
@@ -84,6 +87,7 @@ macro_rules! elf_reloc {
             /// Addend
             pub r_addend: $isize,
         }
+        #[macro_rules_derive(AsBytesAndFromBytes!)]
         #[repr(C)]
         #[derive(Clone, PartialEq, Default)]
         #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
@@ -95,8 +99,24 @@ macro_rules! elf_reloc {
             pub r_info: $size,
         }
         use plain;
-        unsafe impl plain::Plain for Rela {}
-        unsafe impl plain::Plain for Rel {}
+        #[allow(bad_style, dead_code)]
+        const impl_Plain_for_Rel_and_Rela: () = {
+            const_assert!(
+                $size : plain::Plain
+            );
+            const_assert!(
+                $isize : plain::Plain
+            );
+            // # Safety
+            //
+            //   - `Rela` is exclusively made of `Plain` types
+            //     (integers or const_assert)
+            //
+            //   - `Rel` is exclusively made of `Plain` types
+            //     (integers or const_assert)
+            unsafe impl plain::Plain for Rela {}
+            unsafe impl plain::Plain for Rel {}
+        };
 
         impl fmt::Debug for Rela {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -209,7 +229,7 @@ macro_rules! elf_rela_std_impl { ($size:ident, $isize:ty) => {
                 let count = size / SIZEOF_RELA;
                 let mut relocs = vec![Rela::default(); count];
                 fd.seek(Start(offset as u64))?;
-                fd.read_exact(::zerocopy::AsBytes::as_bytes_mut(&mut *relocs))?;
+                fd.read_exact(zerocopy::AsBytes::as_bytes_mut(&mut *relocs))?;
                 Ok(relocs)
             }
         } // end if_alloc

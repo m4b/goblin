@@ -14,8 +14,7 @@ include = ["src/**/*", "Cargo.toml", "CHANGELOG.md", "LICENSE", "README.md", "et
 
 [dependencies]
 plain = "0.2.3"
-static_assertions = "0.3.4"
-zerocopy = "0.2.8"
+macro_rules_attribute = "0.0.1"
 
 [dependencies.log]
 version = "0.4"

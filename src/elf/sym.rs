@@ -1,3 +1,5 @@
+use crate::zerocopy;
+
 /// === Sym bindings ===
 /// Local symbol.
 pub const STB_LOCAL: u8 = 0;
@@ -245,7 +247,7 @@ macro_rules! elf_sym_std_impl {
                 // TODO: AFAIK this shouldn't work, since i pass in a byte size...
                 let mut syms = vec![Sym::default(); count];
                 fd.seek(Start(offset as u64))?;
-                fd.read_exact(::zerocopy::AsBytes::as_bytes_mut(&mut *syms))?;
+                fd.read_exact(zerocopy::AsBytes::as_bytes_mut(&mut *syms))?;
                 syms.dedup();
                 Ok(syms)
             }
@@ -259,8 +261,9 @@ use scroll::{Pread, Pwrite, SizeWith};
 pub mod sym32 {
     pub use crate::elf::sym::*;
 
+    #[macro_rules_derive(AsBytesAndFromBytes!)]
     #[repr(C)]
-    #[derive(Clone, Copy, PartialEq, Default, AsBytes, FromBytes)]
+    #[derive(Clone, Copy, PartialEq, Default)]
     #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
     /// 32-bit Sym - used for both static and dynamic symbol information in a binary
     pub struct Sym {
@@ -280,6 +283,10 @@ pub mod sym32 {
 
     use plain;
     // Declare that the type is plain.
+    //
+    // # Safety
+    //
+    //   - `Sym` is exclusively made of `Plain` types (integers)
     unsafe impl plain::Plain for Sym {}
 
     pub const SIZEOF_SYM: usize = 4 + 1 + 1 + 2 + 4 + 4;
@@ -290,8 +297,9 @@ pub mod sym32 {
 pub mod sym64 {
     pub use crate::elf::sym::*;
 
+    #[macro_rules_derive(AsBytesAndFromBytes!)]
     #[repr(C)]
-    #[derive(Clone, Copy, PartialEq, Default, AsBytes, FromBytes)]
+    #[derive(Clone, Copy, PartialEq, Default)]
     #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
     /// 64-bit Sym - used for both static and dynamic symbol information in a binary
     pub struct Sym {
@@ -310,7 +318,9 @@ pub mod sym64 {
     }
 
     use plain;
-    // Declare that the type is plain.
+    // # Safety
+    //
+    //   - `Sym` is exclusively made of `Plain` types (integers)
     unsafe impl plain::Plain for Sym {}
 
     pub const SIZEOF_SYM: usize = 4 + 1 + 1 + 2 + 8 + 8;

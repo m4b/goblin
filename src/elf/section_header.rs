@@ -1,9 +1,12 @@
+use crate::zerocopy;
+
 macro_rules! elf_section_header {
     ($size:ident) => {
         #[cfg(feature = "alloc")]
         use scroll::{Pread, Pwrite, SizeWith};
+        #[macro_rules_derive(AsBytesAndFromBytes!)]
         #[repr(C)]
-        #[derive(Copy, Clone, Eq, PartialEq, Default, AsBytes, FromBytes)]
+        #[derive(Copy, Clone, Eq, PartialEq, Default)]
         #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
         /// Section Headers are typically used by humans and static linkers for additional information or how to relocate the object
         ///
@@ -33,17 +36,17 @@ macro_rules! elf_section_header {
 
         use plain;
 
-        assert_impl_all!(
-            size_field_is_Plain;
-            $size, plain::Plain
-        );
-        // Declare that this is a plain type.
-        //
-        // # Safety
-        //
-        //   - u32 and $size are `Plain`, thus `SectionHeader` is exclusively
-        //     made of `Plain` elements.
-        unsafe impl plain::Plain for SectionHeader {}
+        #[allow(bad_style, dead_code)]
+        const impl_Plain_for_SectionHeader: () = {
+            // Declare that this is a plain type.
+            //
+            // # Safety
+            //
+            //   - `SectionHeader` is exclusively made of `Plain` types
+            //      (integers or const_assert-checked)
+            unsafe impl plain::Plain for SectionHeader {}
+            const_assert!($size : plain::Plain);
+        };
 
         impl ::core::fmt::Debug for SectionHeader {
             fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
@@ -338,7 +341,7 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
             pub fn from_fd(fd: &mut File, offset: u64, shnum: usize) -> Result<Vec<SectionHeader>> {
                 let mut shdrs = vec![SectionHeader::default(); shnum];
                 fd.seek(Start(offset))?;
-                fd.read_exact(::zerocopy::AsBytes::as_bytes_mut(&mut *shdrs))?;
+                fd.read_exact(zerocopy::AsBytes::as_bytes_mut(&mut *shdrs))?;
                 Ok(shdrs)
             }
         }

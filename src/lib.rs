@@ -90,11 +90,7 @@ extern crate alloc;
 
 #[allow(unused_imports)]
 #[macro_use]
-extern crate static_assertions;
-
-#[allow(unused_imports)]
-#[macro_use]
-extern crate zerocopy;
+extern crate macro_rules_attribute;
 
 #[cfg(feature = "std")]
 mod alloc {
@@ -125,10 +121,47 @@ macro_rules! if_alloc {
     )*)
 }
 
+// This macro can only be used in an expression context, which means that to
+// use it in an item / static context, a hack along the lines of
+// ```rust,ignore
+// #[allow(bad_style, dead_code)]
+// const <some unique identifier>: () = {
+//     /* This is an expression context */
+// };
+// ```
+// is required.
+//
+// Note: if we can afford to only support Rust 1.37+, this can be avoided by
+// using `const _` instead of `let _`.
+#[allow(unused)]
+macro_rules! const_assert {
+    (
+        $T:ty : $($bounds:tt)*
+    ) => (
+        let _: () = {
+            fn check() where
+                $T : $($bounds)*
+            {}
+            let _ = check;
+        };
+    );
+
+    (
+        $condition:expr
+    ) => (
+        let _: [(); 1] = [();
+            $condition
+        as usize];
+    );
+}
+
 #[cfg(feature = "alloc")]
 pub mod error;
 
 pub mod strtab;
+
+#[macro_use]
+pub mod zerocopy;
 
 /// Binary container size information and byte-order context
 pub mod container {

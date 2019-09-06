@@ -1,10 +1,12 @@
+use crate::zerocopy;
 
 macro_rules! elf_dyn {
     ($size:ty) => {
         #[cfg(feature = "alloc")]
         use scroll::{Pread, Pwrite, SizeWith};
+        #[macro_rules_derive(AsBytesAndFromBytes!)]
         #[repr(C)]
-        #[derive(Copy, Clone, PartialEq, Default, AsBytes, FromBytes)]
+        #[derive(Copy, Clone, PartialEq, Default)]
         #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
         /// An entry in the dynamic array
         pub struct Dyn {
@@ -15,7 +17,16 @@ macro_rules! elf_dyn {
         }
 
         use plain;
-        unsafe impl plain::Plain for Dyn {}
+        #[allow(bad_style, dead_code)]
+        const impl_Plain_for_Dyn: () = {
+            // # Safety
+            //
+            //   - `Dyn` is exclusively made of `Plain` types
+            unsafe impl plain::Plain for Dyn {}
+            const_assert!(
+                $size : plain::Plain
+            );
+        };
     }
 }
 
@@ -480,7 +491,7 @@ macro_rules! elf_dyn_std_impl {
                         let dync = filesz / SIZEOF_DYN;
                         let mut dyns = vec![Dyn::default(); dync];
                         fd.seek(Start(u64::from(phdr.p_offset)))?;
-                        fd.read_exact(::zerocopy::AsBytes::as_bytes_mut(&mut *dyns))?;
+                        fd.read_exact(zerocopy::AsBytes::as_bytes_mut(&mut *dyns))?;
                         dyns.dedup();
                         return Ok(Some(dyns));
                     }

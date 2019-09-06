@@ -1,3 +1,5 @@
+use crate::zerocopy;
+
 macro_rules! elf_compression_header {
     () => {
         impl ::core::fmt::Debug for CompressionHeader {
@@ -68,7 +70,7 @@ macro_rules! elf_compression_header_std_impl { ($size:ty) => {
             pub fn from_fd(fd: &mut File, offset: u64) -> Result<CompressionHeader> {
                 let mut chdr = CompressionHeader::default();
                 fd.seek(Start(offset))?;
-                fd.read_exact(::zerocopy::AsBytes::as_bytes_mut(&mut chdr))?;
+                fd.read_exact(zerocopy::AsBytes::as_bytes_mut(&mut chdr))?;
                 Ok(chdr)
             }
         }
@@ -80,9 +82,11 @@ use scroll::{Pread, Pwrite, SizeWith};
 
 pub mod compression_header32 {
     pub use crate::elf::compression_header::*;
+    use crate::zerocopy;
 
+    #[macro_rules_derive(AsBytesAndFromBytes!)]
     #[repr(C)]
-    #[derive(Copy, Clone, Eq, PartialEq, Default, AsBytes, FromBytes)]
+    #[derive(Copy, Clone, Eq, PartialEq, Default)]
     #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
     /// The compression header is used at the start of SHF_COMPRESSED sections
     pub struct CompressionHeader {
@@ -122,8 +126,9 @@ pub mod compression_header32 {
 pub mod compression_header64 {
     pub use crate::elf::compression_header::*;
 
+    #[macro_rules_derive(AsBytesAndFromBytes!)]
     #[repr(C)]
-    #[derive(Copy, Clone, Eq, PartialEq, Default, AsBytes, FromBytes)]
+    #[derive(Copy, Clone, Eq, PartialEq, Default)]
     #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
     /// The compression header is used at the start of SHF_COMPRESSED sections
     pub struct CompressionHeader {

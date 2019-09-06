@@ -43,7 +43,7 @@ macro_rules! make_DataDirectory_getters {(
                 let _: [_; NUM_DATA_DIRECTORIES] =
                     self.data_directories
                 ;
-                const_assert!(INDEX < NUM_DATA_DIRECTORIES);
+                const_assert!(NUM_DATA_DIRECTORIES > INDEX);
                 self.data_directories.get_unchecked(INDEX)
             }
         }

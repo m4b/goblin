@@ -1,3 +1,4 @@
+use crate::zerocopy;
 /* Legal values for p_type (segment type).  */
 
 /// Program header table entry unused
@@ -327,7 +328,7 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
             pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> Result<Vec<ProgramHeader>> {
                 let mut phdrs = vec![ProgramHeader::default(); count];
                 fd.seek(Start(offset))?;
-                fd.read_exact(::zerocopy::AsBytes::as_bytes_mut(&mut *phdrs))?;
+                fd.read_exact(zerocopy::AsBytes::as_bytes_mut(&mut *phdrs))?;
                 Ok(phdrs)
             }
         }
@@ -340,8 +341,9 @@ use scroll::{Pread, Pwrite, SizeWith};
 pub mod program_header32 {
     pub use crate::elf::program_header::*;
 
+    #[macro_rules_derive(AsBytesAndFromBytes!)]
     #[repr(C)]
-    #[derive(Copy, Clone, PartialEq, Default, AsBytes, FromBytes)]
+    #[derive(Copy, Clone, PartialEq, Default)]
     #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
     /// A 64-bit ProgramHeader typically specifies how to map executable and data segments into memory
     pub struct ProgramHeader {
@@ -367,6 +369,10 @@ pub mod program_header32 {
 
     use plain;
     // Declare that this is a plain type.
+    //
+    // # Safety
+    //
+    //   - `ProgramHeader` is exclusively made of `Plain` types (integers)
     unsafe impl plain::Plain for ProgramHeader {}
 
     elf_program_header_std_impl!(u32);
@@ -376,8 +382,9 @@ pub mod program_header32 {
 pub mod program_header64 {
     pub use crate::elf::program_header::*;
 
+    #[macro_rules_derive(AsBytesAndFromBytes!)]
     #[repr(C)]
-    #[derive(Copy, Clone, PartialEq, Default, AsBytes, FromBytes)]
+    #[derive(Copy, Clone, PartialEq, Default)]
     #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
     /// A 32-bit ProgramHeader typically specifies how to map executable and data segments into memory
     pub struct ProgramHeader {
@@ -403,6 +410,10 @@ pub mod program_header64 {
 
     use plain;
     // Declare that this is a plain type.
+    //
+    // # Safety
+    //
+    //   - `ProgramHeader` is exclusively made of `Plain` types (integers)
     unsafe impl plain::Plain for ProgramHeader {}
 
     elf_program_header_std_impl!(u64);

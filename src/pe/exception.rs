@@ -723,7 +723,7 @@ impl<'a> ExceptionData<'a> {
 
     /// Returns the function at the given index.
     pub fn get_function(&self, index: usize) -> error::Result<RuntimeFunction> {
-        self.get_function_by_offset(index * RUNTIME_FUNCTION_SIZE)
+        self.get_function_by_offset(self.offset + index * RUNTIME_FUNCTION_SIZE)
     }
 
     /// Performs a binary search to find a function entry covering the given RVA relative to the
@@ -797,10 +797,10 @@ impl<'a> ExceptionData<'a> {
 
     #[inline]
     fn get_function_by_offset(&self, offset: usize) -> error::Result<RuntimeFunction> {
-        debug_assert!(offset % RUNTIME_FUNCTION_SIZE == 0);
-        debug_assert!(offset < self.size);
+        debug_assert!((offset - self.offset) % RUNTIME_FUNCTION_SIZE == 0);
+        debug_assert!(offset < self.offset + self.size);
 
-        Ok(self.bytes.pread_with(self.offset + offset, scroll::LE)?)
+        Ok(self.bytes.pread_with(offset, scroll::LE)?)
     }
 }
 

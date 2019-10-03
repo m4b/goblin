@@ -88,6 +88,7 @@ impl SectionTable {
         }
     }
 
+    #[allow(clippy::useless_let_if_seq)]
     pub fn set_name_offset(&mut self, mut idx: usize) -> error::Result<()> {
         if idx <= 9_999_999 { // 10^7 - 1
             // write!(&mut self.name[1..], "{}", idx) without using io::Write.

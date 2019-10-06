@@ -13,6 +13,7 @@ pub mod export;
 pub mod header;
 pub mod import;
 pub mod optional_header;
+pub mod options;
 pub mod relocation;
 pub mod section_table;
 pub mod symbol;
@@ -62,6 +63,11 @@ pub struct PE<'a> {
 impl<'a> PE<'a> {
     /// Reads a PE binary from the underlying `bytes`
     pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
+        Self::parse_with_opts(bytes, &options::ParseOptions::default())
+    }
+
+    /// Reads a PE binary from the underlying `bytes`
+    pub fn parse_with_opts(bytes: &'a [u8], opts: &options::ParseOptions) -> error::Result<Self> {
         let header = header::Header::parse(bytes)?;
         debug!("{:#?}", header);
         let offset = &mut (header.dos_header.pe_pointer as usize
@@ -91,11 +97,21 @@ impl<'a> PE<'a> {
             );
             let file_alignment = optional_header.windows_fields.file_alignment;
             if let Some(export_table) = *optional_header.data_directories.get_export_table() {
-                if let Ok(ed) =
-                    export::ExportData::parse(bytes, export_table, &sections, file_alignment)
-                {
+                if let Ok(ed) = export::ExportData::parse_with_opts(
+                    bytes,
+                    export_table,
+                    &sections,
+                    file_alignment,
+                    opts,
+                ) {
                     debug!("export data {:#?}", ed);
-                    exports = export::Export::parse(bytes, &ed, &sections, file_alignment)?;
+                    exports = export::Export::parse_with_opts(
+                        bytes,
+                        &ed,
+                        &sections,
+                        file_alignment,
+                        opts,
+                    )?;
                     name = ed.name;
                     debug!("name: {:#?}", name);
                     export_data = Some(ed);
@@ -104,18 +120,20 @@ impl<'a> PE<'a> {
             debug!("exports: {:#?}", exports);
             if let Some(import_table) = *optional_header.data_directories.get_import_table() {
                 let id = if is_64 {
-                    import::ImportData::parse::<u64>(
+                    import::ImportData::parse_with_opts::<u64>(
                         bytes,
                         import_table,
                         &sections,
                         file_alignment,
+                        opts,
                     )?
                 } else {
-                    import::ImportData::parse::<u32>(
+                    import::ImportData::parse_with_opts::<u32>(
                         bytes,
                         import_table,
                         &sections,
                         file_alignment,
+                        opts,
                     )?
                 };
                 debug!("import data {:#?}", id);
@@ -135,11 +153,12 @@ impl<'a> PE<'a> {
             }
             debug!("imports: {:#?}", imports);
             if let Some(debug_table) = *optional_header.data_directories.get_debug_table() {
-                debug_data = Some(debug::DebugData::parse(
+                debug_data = Some(debug::DebugData::parse_with_opts(
                     bytes,
                     debug_table,
                     &sections,
                     file_alignment,
+                    opts,
                 )?);
             }
 
@@ -149,11 +168,12 @@ impl<'a> PE<'a> {
                 if let Some(exception_table) =
                     *optional_header.data_directories.get_exception_table()
                 {
-                    exception_data = Some(exception::ExceptionData::parse(
+                    exception_data = Some(exception::ExceptionData::parse_with_opts(
                         bytes,
                         exception_table,
                         &sections,
                         file_alignment,
+                        opts,
                     )?);
                 }
             }

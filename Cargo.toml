@@ -41,7 +41,3 @@ archive = ["alloc"]
 [badges.travis-ci]
 branch = "master"
 repository = "m4b/goblin"
-
-[dev-dependencies]
-reqwest = "0.9.21"
-lazy_static = "1.4.0"

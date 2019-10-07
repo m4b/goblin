@@ -1,11 +1,14 @@
-
 macro_rules! elf_dyn {
     ($size:ty) => {
-        #[cfg(feature = "alloc")]
-        use scroll::{Pread, Pwrite, SizeWith};
+        // XXX: Do not import scroll traits here.
+        // See: https://github.com/rust-lang/rust/issues/65090#issuecomment-538668155
+
         #[repr(C)]
         #[derive(Copy, Clone, PartialEq, Default)]
-        #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
+        #[cfg_attr(
+            feature = "alloc",
+            derive(scroll::Pread, scroll::Pwrite, scroll::SizeWith)
+        )]
         /// An entry in the dynamic array
         pub struct Dyn {
             /// Dynamic entry type
@@ -16,7 +19,7 @@ macro_rules! elf_dyn {
 
         use plain;
         unsafe impl plain::Plain for Dyn {}
-    }
+    };
 }
 
 // TODO: figure out what's the best, most friendly + safe API choice here - u32s or u64s

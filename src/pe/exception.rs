@@ -675,10 +675,10 @@ impl<'a> ExceptionData<'a> {
         let size = directory.size as usize;
 
         if size % RUNTIME_FUNCTION_SIZE != 0 {
-            Err(scroll::Error::BadInput {
+            return Err(error::Error::from(scroll::Error::BadInput {
                 size,
                 msg: "invalid exception directory table size",
-            })?;
+            }));
         }
 
         let rva = directory.virtual_address as usize;
@@ -687,7 +687,7 @@ impl<'a> ExceptionData<'a> {
         })?;
 
         if offset % 4 != 0 {
-            Err(scroll::Error::BadOffset(offset))?;
+            return Err(error::Error::from(scroll::Error::BadOffset(offset)));
         }
 
         Ok(ExceptionData {

@@ -189,7 +189,7 @@ impl<'a> ImportData<'a> {
     pub fn parse<T: Bitfield<'a>>(bytes: &'a[u8], dd: data_directories::DataDirectory, sections: &[section_table::SectionTable], file_alignment: u32) -> error::Result<ImportData<'a>> {
         let import_directory_table_rva = dd.virtual_address as usize;
         debug!("import_directory_table_rva {:#x}", import_directory_table_rva);
-        let offset = &mut utils::find_offset(import_directory_table_rva, sections, file_alignment).ok_or_else(|| error::Error::Malformed(format!("Cannot create ImportData; cannot map import_directory_table_rva {:#x} into offset", import_directory_table_rva)))?;;
+        let offset = &mut utils::find_offset(import_directory_table_rva, sections, file_alignment).ok_or_else(|| error::Error::Malformed(format!("Cannot create ImportData; cannot map import_directory_table_rva {:#x} into offset", import_directory_table_rva)))?;
         debug!("import data offset {:#x}", offset);
         let mut import_data = Vec::new();
         loop {

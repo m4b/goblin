@@ -1,10 +1,14 @@
 macro_rules! elf_section_header {
     ($size:ident) => {
-        #[cfg(feature = "alloc")]
-        use scroll::{Pread, Pwrite, SizeWith};
+        // XXX: Do not import scroll traits here.
+        // See: https://github.com/rust-lang/rust/issues/65090#issuecomment-538668155
+
         #[repr(C)]
         #[derive(Copy, Clone, Eq, PartialEq, Default)]
-        #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
+        #[cfg_attr(
+            feature = "alloc",
+            derive(scroll::Pread, scroll::Pwrite, scroll::SizeWith)
+        )]
         /// Section Headers are typically used by humans and static linkers for additional information or how to relocate the object
         ///
         /// **NOTE** section headers are strippable from a binary without any loss of portability/executability; _do not_ rely on them being there!
@@ -51,7 +55,7 @@ macro_rules! elf_section_header {
                     .finish()
             }
         }
-    }
+    };
 }
 
 /// Undefined section.

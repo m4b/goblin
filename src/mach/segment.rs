@@ -446,7 +446,7 @@ impl<'a> Segment<'a> {
             initprot: segment.initprot,
             nsects:   segment.nsects,
             flags:    segment.flags,
-            data: segment_data(bytes, segment.fileoff as u64, segment.filesize as u64)?,
+            data: segment_data(bytes, u64::from(segment.fileoff), u64::from(segment.filesize))?,
             offset,
             raw_data: bytes,
             ctx,
@@ -512,7 +512,7 @@ impl<'a> Segments<'a> {
     }
     /// Get every section from every segment
     // thanks to SpaceManic for figuring out the 'b lifetimes here :)
-    pub fn sections<'b>(&'b self) -> Box<Iterator<Item=SectionIterator<'a>> + 'b> {
+    pub fn sections<'b>(&'b self) -> Box<dyn Iterator<Item=SectionIterator<'a>> + 'b> {
         Box::new(self.segments.iter().map(|segment| segment.into_iter()))
     }
 }

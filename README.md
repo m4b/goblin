@@ -141,6 +141,7 @@ In alphabetic order:
 [@le-jzr]: https://github.com/le-jzr
 [@lion128]: https://github.com/lion128
 [@llogiq]: https://github.com/llogiq
+[@lzybkr]: https://github.com/lzybkr
 [@mitsuhiko]: https://github.com/mitsuhiko
 [@mre]: https://github.com/mre
 [@pchickey]: https://github.com/pchickey
@@ -152,6 +153,7 @@ In alphabetic order:
 [@Techno-coder]: https://github.com/Techno-coder
 [@ticki]: https://github.com/ticki
 [@willglynn]: https://github.com/willglynn
+[@wyxloading]: https://github.com/wyxloading
 [@xcoldhandsx]: https://github.com/xcoldhandsx
 [@lzutao]: https://github.com/lzutao
 [@wickerwacka]: https://github.com/wickerwaka

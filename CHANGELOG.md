@@ -5,6 +5,16 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, don't worry!
 
+## [0.1.0] - 2019-11-3
+### Added
+- update to scroll 0.10 api
+### Changed
+- BREAKING: rename export to lib in Reexport::DLLOrdinal from @lzybkr
+- pe: only parse ExceptionData for machine X86_64, thanks @wyxloading
+### Fixed
+pe: Fix resolution of redirect unwind info, thanks @jan-auer https://github.com/m4b/goblin/pull/183
+pe: fix reexport dll and ordinal, thanks @lzybkr: d62889f469846af0cceb789b415f1e14f5f9e402
+
 ## [0.0.24] - 2019-7-13
 ### Added
 - archive: new public enum type to determine which kind of archive was parsed

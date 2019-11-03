@@ -339,8 +339,7 @@ if_sylvan! {
 
     impl<'a> ctx::TryFromCtx<'a, (usize, Endian)> for Elf<'a> {
         type Error = crate::error::Error;
-        type Size = usize;
-        fn try_from_ctx(src: &'a [u8], (_, _): (usize, Endian)) -> Result<(Elf<'a>, Self::Size), Self::Error> {
+        fn try_from_ctx(src: &'a [u8], (_, _): (usize, Endian)) -> Result<(Elf<'a>, usize), Self::Error> {
             let elf = Elf::parse(src)?;
             Ok((elf, src.len()))
         }

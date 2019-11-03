@@ -147,7 +147,6 @@ impl SectionTable {
 }
 
 impl ctx::SizeWith<scroll::Endian> for SectionTable {
-    type Units = usize;
     fn size_with(_ctx: &scroll::Endian) -> usize {
         SIZEOF_SECTION_TABLE
     }
@@ -155,8 +154,7 @@ impl ctx::SizeWith<scroll::Endian> for SectionTable {
 
 impl ctx::TryIntoCtx<scroll::Endian> for SectionTable {
     type Error = error::Error;
-    type Size = usize;
-    fn try_into_ctx(self, bytes: &mut [u8], ctx: scroll::Endian) -> Result<Self::Size, Self::Error> {
+    fn try_into_ctx(self, bytes: &mut [u8], ctx: scroll::Endian) -> Result<usize, Self::Error> {
         let offset = &mut 0;
         bytes.gwrite(&self.name[..], offset)?;
         bytes.gwrite_with(self.virtual_size, offset, ctx)?;

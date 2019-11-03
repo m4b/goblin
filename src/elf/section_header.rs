@@ -494,8 +494,7 @@ if_alloc! {
     }
 
     impl ctx::SizeWith<Ctx> for SectionHeader {
-        type Units = usize;
-        fn size_with( &Ctx { container, .. }: &Ctx) -> Self::Units {
+        fn size_with( &Ctx { container, .. }: &Ctx) -> usize {
             match container {
                 Container::Little => {
                     section_header32::SIZEOF_SHDR
@@ -509,8 +508,7 @@ if_alloc! {
 
     impl<'a> ctx::TryFromCtx<'a, Ctx> for SectionHeader {
         type Error = crate::error::Error;
-        type Size = usize;
-        fn try_from_ctx(bytes: &'a [u8], Ctx {container, le}: Ctx) -> result::Result<(Self, Self::Size), Self::Error> {
+        fn try_from_ctx(bytes: &'a [u8], Ctx {container, le}: Ctx) -> result::Result<(Self, usize), Self::Error> {
             use scroll::Pread;
             let res = match container {
                 Container::Little => {
@@ -526,8 +524,7 @@ if_alloc! {
 
     impl ctx::TryIntoCtx<Ctx> for SectionHeader {
         type Error = crate::error::Error;
-        type Size = usize;
-        fn try_into_ctx(self, bytes: &mut [u8], Ctx {container, le}: Ctx) -> result::Result<Self::Size, Self::Error> {
+        fn try_into_ctx(self, bytes: &mut [u8], Ctx {container, le}: Ctx) -> result::Result<usize, Self::Error> {
             use scroll::Pwrite;
             match container {
                 Container::Little => {

@@ -21,7 +21,7 @@ default-features = false
 optional = true
 
 [dependencies.scroll]
-version = "0.9"
+version = "0.10"
 default_features = false
 
 [features]

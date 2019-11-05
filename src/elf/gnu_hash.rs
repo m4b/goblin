@@ -19,9 +19,7 @@ pub fn hash(symbol: &str) -> u32 {
     const HASH_SEED: u32 = 5381;
     let mut hash = HASH_SEED;
     for b in symbol.as_bytes() {
-        hash = hash
-            .wrapping_mul(33)
-            .wrapping_add(u32::from(*b));
+        hash = hash.wrapping_mul(33).wrapping_add(u32::from(*b));
     }
     hash
 }
@@ -31,21 +29,20 @@ mod tests {
     use super::hash;
     #[test]
     fn test_hash() {
-        assert_eq!(hash("")             , 0x0000_1505);
-        assert_eq!(hash("printf")       , 0x156b_2bb8);
-        assert_eq!(hash("exit")         , 0x7c96_7e3f);
-        assert_eq!(hash("syscall")      , 0xbac2_12a0);
+        assert_eq!(hash(""), 0x0000_1505);
+        assert_eq!(hash("printf"), 0x156b_2bb8);
+        assert_eq!(hash("exit"), 0x7c96_7e3f);
+        assert_eq!(hash("syscall"), 0xbac2_12a0);
         assert_eq!(hash("flapenguin.me"), 0x8ae9_f18e);
     }
 }
 
 macro_rules! elf_gnu_hash_impl {
     ($size:ty) => {
-
-        use core::slice;
-        use core::mem;
-        use crate::strtab::Strtab;
         use super::sym;
+        use crate::strtab::Strtab;
+        use core::mem;
+        use core::slice;
 
         pub struct GnuHash<'process> {
             nbuckets: u32,
@@ -60,7 +57,11 @@ macro_rules! elf_gnu_hash_impl {
         }
 
         impl<'process> GnuHash<'process> {
-            pub unsafe fn new(hashtab: *const u32, total_dynsyms: usize, symtab: &'process [sym::Sym]) -> GnuHash<'process> {
+            pub unsafe fn new(
+                hashtab: *const u32,
+                total_dynsyms: usize,
+                symtab: &'process [sym::Sym],
+            ) -> GnuHash<'process> {
                 let nbuckets = *hashtab;
                 let symindex = *hashtab.add(1) as usize;
                 let maskwords = *hashtab.add(2) as usize; // how many words our bloom filter mask has
@@ -85,11 +86,7 @@ macro_rules! elf_gnu_hash_impl {
             }
 
             #[inline(always)]
-            fn lookup(&self,
-                      symbol: &str,
-                      hash: u32,
-                      strtab: &Strtab)
-                      -> Option<&sym::Sym> {
+            fn lookup(&self, symbol: &str, hash: u32, strtab: &Strtab) -> Option<&sym::Sym> {
                 let mut idx = self.buckets[(hash % self.nbuckets) as usize] as usize;
                 // println!("lookup idx = buckets[hash % nbuckets] = {}", idx);
                 if idx == 0 {
@@ -127,11 +124,7 @@ macro_rules! elf_gnu_hash_impl {
             }
 
             /// Given a name, a hash of that name, a strtab to cross-reference names, maybe returns a Sym
-            pub fn find(&self,
-                        name: &str,
-                        hash: u32,
-                        strtab: &Strtab)
-                        -> Option<&sym::Sym> {
+            pub fn find(&self, name: &str, hash: u32, strtab: &Strtab) -> Option<&sym::Sym> {
                 if self.filter(hash) {
                     None
                 } else {
@@ -139,5 +132,5 @@ macro_rules! elf_gnu_hash_impl {
                 }
             }
         }
-    }
+    };
 }

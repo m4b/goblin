@@ -150,7 +150,6 @@ pub fn visibility_to_str(typ: u8) -> &'static str {
     }
 }
 
-
 macro_rules! elf_sym_std_impl {
     ($size:ty) => {
 

@@ -3,7 +3,7 @@
 #[cfg(feature = "log")]
 use log::debug;
 #[cfg(feature = "alloc")]
-use scroll::{Pread, Pwrite, IOread, IOwrite, SizeWith};
+use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith};
 
 /// ABI information.
 ///

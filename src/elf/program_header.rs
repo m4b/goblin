@@ -371,7 +371,6 @@ pub mod program_header32 {
     elf_program_header_std_impl!(u32);
 }
 
-
 pub mod program_header64 {
     pub use crate::elf::program_header::*;
 

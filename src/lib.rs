@@ -92,9 +92,9 @@ extern crate alloc;
 mod alloc {
     pub use std::borrow;
     pub use std::boxed;
+    pub use std::collections;
     pub use std::string;
     pub use std::vec;
-    pub use std::collections;
 }
 
 /////////////////////////
@@ -143,11 +143,11 @@ pub mod container {
 
     #[cfg(not(target_pointer_width = "64"))]
     /// The default binary container size - either `Big` or `Little`, depending on whether the host machine's pointer size is 64 or not
-    pub const CONTAINER: Container =  Container::Little;
+    pub const CONTAINER: Container = Container::Little;
 
     #[cfg(target_pointer_width = "64")]
     /// The default binary container size - either `Big` or `Little`, depending on whether the host machine's pointer size is 64 or not
-    pub const CONTAINER: Container =  Container::Big;
+    pub const CONTAINER: Container = Container::Big;
 
     impl Default for Container {
         #[inline]
@@ -173,7 +173,7 @@ pub mod container {
             self.le.is_little()
         }
         /// Create a new binary container context
-        pub fn new (container: Container, le: scroll::Endian) -> Self {
+        pub fn new(container: Container, le: scroll::Endian) -> Self {
             Ctx { container, le }
         }
         /// Return a dubious pointer/address byte size for the container
@@ -181,27 +181,36 @@ pub mod container {
             match self.container {
                 // TODO: require pointer size initialization/setting or default to container size with these values, e.g., avr pointer width will be smaller iirc
                 Container::Little => 4,
-                Container::Big    => 8,
+                Container::Big => 8,
             }
         }
     }
 
     impl From<Container> for Ctx {
         fn from(container: Container) -> Self {
-            Ctx { container, le: scroll::Endian::default() }
+            Ctx {
+                container,
+                le: scroll::Endian::default(),
+            }
         }
     }
 
     impl From<scroll::Endian> for Ctx {
         fn from(le: scroll::Endian) -> Self {
-            Ctx { container: CONTAINER, le }
+            Ctx {
+                container: CONTAINER,
+                le,
+            }
         }
     }
 
     impl Default for Ctx {
         #[inline]
         fn default() -> Self {
-            Ctx { container: Container::default(), le: scroll::Endian::default() }
+            Ctx {
+                container: Container::default(),
+                le: scroll::Endian::default(),
+            }
         }
     }
 }
@@ -328,13 +337,13 @@ pub mod elf;
 #[cfg(feature = "elf32")]
 /// The ELF 32-bit struct definitions and associated values, re-exported for easy "type-punning"
 pub mod elf32 {
-    pub use crate::elf::header::header32 as header;
-    pub use crate::elf::program_header::program_header32 as program_header;
-    pub use crate::elf::section_header::section_header32 as section_header;
     pub use crate::elf::dynamic::dyn32 as dynamic;
-    pub use crate::elf::sym::sym32 as sym;
-    pub use crate::elf::reloc::reloc32 as reloc;
+    pub use crate::elf::header::header32 as header;
     pub use crate::elf::note::Nhdr32 as Note;
+    pub use crate::elf::program_header::program_header32 as program_header;
+    pub use crate::elf::reloc::reloc32 as reloc;
+    pub use crate::elf::section_header::section_header32 as section_header;
+    pub use crate::elf::sym::sym32 as sym;
 
     pub mod gnu_hash {
         pub use crate::elf::gnu_hash::hash;
@@ -345,13 +354,13 @@ pub mod elf32 {
 #[cfg(feature = "elf64")]
 /// The ELF 64-bit struct definitions and associated values, re-exported for easy "type-punning"
 pub mod elf64 {
-    pub use crate::elf::header::header64 as header;
-    pub use crate::elf::program_header::program_header64 as program_header;
-    pub use crate::elf::section_header::section_header64 as section_header;
     pub use crate::elf::dynamic::dyn64 as dynamic;
-    pub use crate::elf::sym::sym64 as sym;
-    pub use crate::elf::reloc::reloc64 as reloc;
+    pub use crate::elf::header::header64 as header;
     pub use crate::elf::note::Nhdr64 as Note;
+    pub use crate::elf::program_header::program_header64 as program_header;
+    pub use crate::elf::reloc::reloc64 as reloc;
+    pub use crate::elf::section_header::section_header64 as section_header;
+    pub use crate::elf::sym::sym64 as sym;
 
     pub mod gnu_hash {
         pub use crate::elf::gnu_hash::hash;

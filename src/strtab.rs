@@ -1,10 +1,10 @@
 //! A byte-offset based string table.
 //! Commonly used in ELF binaries, Unix archives, and even PE binaries.
 
+use core::fmt;
 use core::ops::Index;
 use core::slice;
 use core::str;
-use core::fmt;
 use scroll::{ctx, Pread};
 if_alloc! {
     use crate::error;
@@ -15,7 +15,7 @@ if_alloc! {
 /// member index). Constructed using [`parse`](#method.parse)
 /// with your choice of delimiter. Please be careful.
 pub struct Strtab<'a> {
-    bytes: &'a[u8],
+    bytes: &'a [u8],
     delim: ctx::StrCtx,
 }
 
@@ -26,21 +26,41 @@ fn get_str(offset: usize, bytes: &[u8], delim: ctx::StrCtx) -> scroll::Result<&s
 
 impl<'a> Strtab<'a> {
     /// Construct a new strtab with `bytes` as the backing string table, using `delim` as the delimiter between entries
-    pub fn new (bytes: &'a [u8], delim: u8) -> Self {
-        Strtab { delim: ctx::StrCtx::Delimiter(delim), bytes }
+    pub fn new(bytes: &'a [u8], delim: u8) -> Self {
+        Strtab {
+            delim: ctx::StrCtx::Delimiter(delim),
+            bytes,
+        }
     }
     /// Construct a strtab from a `ptr`, and a `size`, using `delim` as the delimiter
     pub unsafe fn from_raw(ptr: *const u8, size: usize, delim: u8) -> Strtab<'a> {
-        Strtab { delim: ctx::StrCtx::Delimiter(delim), bytes: slice::from_raw_parts(ptr, size) }
+        Strtab {
+            delim: ctx::StrCtx::Delimiter(delim),
+            bytes: slice::from_raw_parts(ptr, size),
+        }
     }
     #[cfg(feature = "alloc")]
     /// Parses a strtab from `bytes` at `offset` with `len` size as the backing string table, using `delim` as the delimiter
-    pub fn parse(bytes: &'a [u8], offset: usize, len: usize, delim: u8) -> error::Result<Strtab<'a>> {
+    pub fn parse(
+        bytes: &'a [u8],
+        offset: usize,
+        len: usize,
+        delim: u8,
+    ) -> error::Result<Strtab<'a>> {
         let (end, overflow) = offset.overflowing_add(len);
-        if overflow || end > bytes.len () {
-            return Err(error::Error::Malformed(format!("Strtable size ({}) + offset ({}) is out of bounds for {} #bytes. Overflowed: {}", len, offset, bytes.len(), overflow)));
+        if overflow || end > bytes.len() {
+            return Err(error::Error::Malformed(format!(
+                "Strtable size ({}) + offset ({}) is out of bounds for {} #bytes. Overflowed: {}",
+                len,
+                offset,
+                bytes.len(),
+                overflow
+            )));
         }
-        Ok(Strtab { bytes: &bytes[offset..end], delim: ctx::StrCtx::Delimiter(delim) })
+        Ok(Strtab {
+            bytes: &bytes[offset..end],
+            delim: ctx::StrCtx::Delimiter(delim),
+        })
     }
     #[cfg(feature = "alloc")]
     /// Converts the string table to a vector, with the original `delim` used to separate the strings
@@ -88,7 +108,10 @@ impl<'a> fmt::Debug for Strtab<'a> {
 
 impl<'a> Default for Strtab<'a> {
     fn default() -> Strtab<'a> {
-        Strtab { bytes: &[], delim: ctx::StrCtx::default() }
+        Strtab {
+            bytes: &[],
+            delim: ctx::StrCtx::default(),
+        }
     }
 }
 

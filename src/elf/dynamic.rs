@@ -536,7 +536,7 @@ macro_rules! elf_dynamic_info_std_impl {
                 if address >= ph.p_vaddr {
                     let offset = address - ph.p_vaddr;
                     if offset < ph.p_memsz {
-                        return ph.p_offset.checked_add(offset );
+                        return ph.p_offset.checked_add(offset);
                     }
                 }
             }
@@ -594,22 +594,32 @@ macro_rules! elf_dynamic_info_std_impl {
                     DT_RELCOUNT => self.relcount = dynamic.d_val as usize,
                     DT_GNU_HASH => self.gnu_hash = vm_to_offset(phdrs, dynamic.d_val),
                     DT_HASH => self.hash = vm_to_offset(phdrs, dynamic.d_val),
-                    DT_STRTAB => self.strtab = vm_to_offset(phdrs, dynamic.d_val).unwrap_or(0) as usize,
+                    DT_STRTAB => {
+                        self.strtab = vm_to_offset(phdrs, dynamic.d_val).unwrap_or(0) as usize
+                    }
                     DT_STRSZ => self.strsz = dynamic.d_val as usize,
-                    DT_SYMTAB => self.symtab = vm_to_offset(phdrs, dynamic.d_val).unwrap_or(0) as usize,
+                    DT_SYMTAB => {
+                        self.symtab = vm_to_offset(phdrs, dynamic.d_val).unwrap_or(0) as usize
+                    }
                     DT_SYMENT => self.syment = dynamic.d_val as usize,
                     DT_PLTGOT => self.pltgot = vm_to_offset(phdrs, dynamic.d_val),
                     DT_PLTRELSZ => self.pltrelsz = dynamic.d_val as usize,
                     DT_PLTREL => self.pltrel = dynamic.d_val as _,
-                    DT_JMPREL => self.jmprel = vm_to_offset(phdrs, dynamic.d_val).unwrap_or(0) as usize, // .rela.plt
+                    DT_JMPREL => {
+                        self.jmprel = vm_to_offset(phdrs, dynamic.d_val).unwrap_or(0) as usize
+                    } // .rela.plt
                     DT_VERNEED => self.verneed = vm_to_offset(phdrs, dynamic.d_val).unwrap_or(0),
                     DT_VERNEEDNUM => self.verneednum = dynamic.d_val as _,
                     DT_VERSYM => self.versym = vm_to_offset(phdrs, dynamic.d_val).unwrap_or(0),
                     DT_INIT => self.init = vm_to_offset(phdrs, dynamic.d_val).unwrap_or(0),
                     DT_FINI => self.fini = vm_to_offset(phdrs, dynamic.d_val).unwrap_or(0),
-                    DT_INIT_ARRAY => self.init_array = vm_to_offset(phdrs, dynamic.d_val).unwrap_or(0),
+                    DT_INIT_ARRAY => {
+                        self.init_array = vm_to_offset(phdrs, dynamic.d_val).unwrap_or(0)
+                    }
                     DT_INIT_ARRAYSZ => self.init_arraysz = dynamic.d_val as _,
-                    DT_FINI_ARRAY => self.fini_array = vm_to_offset(phdrs, dynamic.d_val).unwrap_or(0),
+                    DT_FINI_ARRAY => {
+                        self.fini_array = vm_to_offset(phdrs, dynamic.d_val).unwrap_or(0)
+                    }
                     DT_FINI_ARRAYSZ => self.fini_arraysz = dynamic.d_val as _,
                     DT_NEEDED => self.needed_count += 1,
                     DT_FLAGS => self.flags = dynamic.d_val as _,
@@ -674,7 +684,10 @@ pub mod dyn32 {
     pub const SIZEOF_DYN: usize = 8;
 
     elf_dyn_std_impl!(u32, crate::elf32::program_header::ProgramHeader);
-    elf_dynamic_info_std_impl!(u32, crate::elf::program_header::program_header32::ProgramHeader);
+    elf_dynamic_info_std_impl!(
+        u32,
+        crate::elf::program_header::program_header32::ProgramHeader
+    );
 }
 
 pub mod dyn64 {
@@ -685,5 +698,8 @@ pub mod dyn64 {
     pub const SIZEOF_DYN: usize = 16;
 
     elf_dyn_std_impl!(u64, crate::elf64::program_header::ProgramHeader);
-    elf_dynamic_info_std_impl!(u64, crate::elf::program_header::program_header64::ProgramHeader);
+    elf_dynamic_info_std_impl!(
+        u64,
+        crate::elf::program_header::program_header64::ProgramHeader
+    );
 }

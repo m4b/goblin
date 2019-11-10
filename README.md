@@ -99,7 +99,7 @@ Here are some things you could do with this crate (or help to implement so they 
 
 Thank you all :heart: !
 
-In alphabetic order:
+In lexicographic order:
 
 - [@amanieu]
 - [@burjui]
@@ -108,11 +108,14 @@ In alphabetic order:
 - [@jan-auer]
 - [@jdub]
 - [@jrmuizel]
+- [@jsgf]
 - [@kjempelodott]
 - [@le-jzr]
 - [@lion128]
 - [@llogiq]
 - [@lzutao]
+- [@lzybkr]
+- [@m4b]
 - [@mitsuhiko]
 - [@mre]
 - [@pchickey]
@@ -126,11 +129,10 @@ In alphabetic order:
 - [@ticki]
 - [@wickerwacka]
 - [@willglynn]
+- [@wyxloading]
 - [@xcoldhandsx]
 
 <!-- Contributors -->
-
-In lexicographic order:
 
 [@amanieu]: https://github.com/amanieu
 [@burjui]: https://github.com/burjui

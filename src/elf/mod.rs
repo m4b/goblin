@@ -225,7 +225,7 @@ if_sylvan! {
                 if ph.p_type == program_header::PT_INTERP && ph.p_filesz != 0 {
                     let count = (ph.p_filesz - 1) as usize;
                     let offset = ph.p_offset as usize;
-                    interpreter = Some(bytes.pread_with::<&str>(offset, ::scroll::ctx::StrCtx::Length(count))?);
+                    interpreter = bytes.pread_with::<&str>(offset, ::scroll::ctx::StrCtx::Length(count)).ok();
                 }
             }
 

@@ -3,7 +3,11 @@ All notable changes to this project will be documented in this file.
 
 Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-I'm sorry, I will try my best to ease breaking changes.  We're almost to 1.0, don't worry!
+Goblin is now 0.1, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
+
+## [0.1.1] - 2019-11-10
+### Fixed
+elf: Don't fail entire elf parse when interpreter is malformed string, @jsgf https://github.com/m4b/goblin/pull/192
 
 ## [0.1.0] - 2019-11-3
 ### Added

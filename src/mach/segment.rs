@@ -13,6 +13,7 @@ use crate::error;
 
 use crate::mach::relocation::RelocationInfo;
 use crate::mach::load_command::{Section32, Section64, SegmentCommand32, SegmentCommand64, SIZEOF_SECTION_32, SIZEOF_SECTION_64, SIZEOF_SEGMENT_COMMAND_32, SIZEOF_SEGMENT_COMMAND_64, LC_SEGMENT, LC_SEGMENT_64};
+use crate::mach::constants::{SECTION_TYPE, S_ZEROFILL};
 
 pub struct RelocationIterator<'a> {
     data: &'a [u8],
@@ -236,22 +237,26 @@ impl<'a> Iterator for SectionIterator<'a> {
             self.idx += 1;
             match self.data.gread_with::<Section>(&mut self.offset, self.ctx) {
                 Ok(section) => {
-                    // it's not uncommon to encounter macho files where files are
-                    // truncated but the sections are still remaining in the header.
-                    // Because of this we want to not panic here but instead just
-                    // slice down to a empty data slice.  This way only if code
-                    // actually needs to access those sections it will fall over.
-                    let data = self.data
-                        .get(section.offset as usize..)
-                        .unwrap_or_else(|| {
-                            warn!("section #{} offset {} out of bounds", self.idx, section.offset);
-                            &[]
-                        })
-                        .get(..section.size as usize)
-                        .unwrap_or_else(|| {
-                            warn!("section #{} size {} out of bounds", self.idx, section.size);
-                            &[]
-                        });
+                    let data = if section.flags & SECTION_TYPE == S_ZEROFILL {
+                        &[]
+                    } else {
+                        // it's not uncommon to encounter macho files where files are
+                        // truncated but the sections are still remaining in the header.
+                        // Because of this we want to not panic here but instead just
+                        // slice down to a empty data slice.  This way only if code
+                        // actually needs to access those sections it will fall over.
+                        self.data
+                            .get(section.offset as usize..)
+                            .unwrap_or_else(|| {
+                                warn!("section #{} offset {} out of bounds", self.idx, section.offset);
+                                &[]
+                            })
+                            .get(..section.size as usize)
+                            .unwrap_or_else(|| {
+                                warn!("section #{} size {} out of bounds", self.idx, section.size);
+                                &[]
+                            })
+                    };
                     Some(Ok((section, data)))
                 },
                 Err(e) => Some(Err(e))

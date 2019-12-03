@@ -5,6 +5,10 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.1, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
+## [0.1.2] - 2019-12-02
+### Fixed
+mach: don't return data for zerofill sections, @philipc https://github.com/m4b/goblin/pull/195
+
 ## [0.1.1] - 2019-11-10
 ### Fixed
 elf: Don't fail entire elf parse when interpreter is malformed string, @jsgf https://github.com/m4b/goblin/pull/192

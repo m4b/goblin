@@ -327,7 +327,7 @@ if_alloc! {
     use core::result;
     use crate::container::{Ctx, Container};
     use crate::error::Result;
-    use crate::alloc::vec::Vec;
+    use alloc::vec::Vec;
 
     #[derive(Default, PartialEq, Clone)]
     /// A unified Sym definition - convertable to and from 32-bit and 64-bit variants

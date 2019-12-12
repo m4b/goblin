@@ -276,7 +276,7 @@ macro_rules! elf_section_header_std_impl { ($size:ty) => {
         use crate::elf::section_header::SectionHeader as ElfSectionHeader;
 
         use plain::Plain;
-        use crate::alloc::vec::Vec;
+        use alloc::vec::Vec;
 
         if_std! {
             use crate::error::Result;
@@ -377,7 +377,7 @@ if_alloc! {
     use crate::container::{Container, Ctx};
 
     #[cfg(feature = "endian_fd")]
-    use crate::alloc::vec::Vec;
+    use alloc::vec::Vec;
 
     #[derive(Default, PartialEq, Clone)]
     /// A unified SectionHeader - convertable to and from 32-bit and 64-bit variants

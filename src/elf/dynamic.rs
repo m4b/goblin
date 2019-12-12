@@ -282,7 +282,7 @@ if_alloc! {
     use core::result;
     use crate::container::{Ctx, Container};
     use crate::strtab::Strtab;
-    use crate::alloc::vec::Vec;
+    use alloc::vec::Vec;
 
     #[derive(Default, PartialEq, Clone)]
     pub struct Dyn {
@@ -434,7 +434,7 @@ macro_rules! elf_dyn_std_impl {
         if_alloc! {
             use core::fmt;
             use core::slice;
-            use crate::alloc::vec::Vec;
+            use alloc::vec::Vec;
 
             use crate::elf::program_header::{PT_DYNAMIC};
             use crate::strtab::Strtab;

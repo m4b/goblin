@@ -18,7 +18,6 @@ script:
   - cargo build --release
   - cargo test --release
   - make api
-  - if [ "$TRAVIS_RUST_VERSION" = "nightly" ]; then make nightly_api; fi
 before_deploy:
   - cargo doc --no-deps
   - echo '<meta http-equiv=refresh content=0;url=goblin/index.html>' > target/doc/index.html;

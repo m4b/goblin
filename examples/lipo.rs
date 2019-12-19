@@ -2,8 +2,8 @@ use goblin::mach::{self, Mach};
 use std::env;
 use std::process;
 use std::path::Path;
-use std::fs::File;
-use std::io::{Read, Write};
+use std::fs::{self, File};
+use std::io::Write;
 
 fn usage() -> ! {
     println!("usage: lipo <options> <mach-o fat file>");
@@ -36,7 +36,7 @@ fn main () {
 
         let path_name = env::args_os().last().unwrap();
         let path = Path::new(&path_name);
-        let buffer = { let mut v = Vec::new(); let mut f = File::open(&path).unwrap(); f.read_to_end(&mut v).unwrap(); v};
+        let buffer = fs::read(path).unwrap();
         match mach::Mach::parse(&buffer) {
             Ok(Mach::Binary(_macho)) => {
                 println!("Already a single arch binary");

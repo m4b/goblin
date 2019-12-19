@@ -4,8 +4,7 @@ use goblin::elf;
 use goblin::archive;
 use std::env;
 use std::path::Path;
-use std::fs::File;
-use std::io::Read;
+use std::fs;
 
 pub fn main () {
     let len = env::args().len();
@@ -22,7 +21,7 @@ pub fn main () {
             }
         }
         let path = Path::new(&path);
-        let buffer = { let mut v = Vec::new(); let mut f = File::open(&path).unwrap(); f.read_to_end(&mut v).unwrap(); v};
+        let buffer = fs::read(path).unwrap();
         match archive::Archive::parse(&buffer) {
             Ok(archive) => {
                 println!("{:#?}", &archive);

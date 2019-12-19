@@ -2,8 +2,7 @@ use goblin::mach;
 use std::env;
 use std::process;
 use std::path::Path;
-use std::fs::File;
-use std::io::Read;
+use std::fs;
 use std::borrow::Cow;
 
 fn usage() -> ! {
@@ -133,7 +132,7 @@ fn main () {
         // open the file
         let path = env::args_os().last().unwrap();
         let path = Path::new(&path);
-        let buffer = { let mut v = Vec::new(); let mut f = File::open(&path).unwrap(); f.read_to_end(&mut v).unwrap(); v};
+        let buffer = fs::read(&path).unwrap();
         match mach::MachO::parse(&buffer, 0) {
             Ok(macho) => {
                 // collect sections and sort by address

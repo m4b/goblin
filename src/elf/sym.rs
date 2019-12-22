@@ -163,84 +163,81 @@ macro_rules! elf_sym_std_impl {
             }
         }
 
-        if_alloc! {
-            use crate::elf::sym::Sym as ElfSym;
+        use crate::elf::sym::Sym as ElfSym;
 
-            use core::fmt;
-            use core::slice;
+        use core::fmt;
+        use core::slice;
 
-            if_std! {
-                use crate::error::Result;
-
-                use std::fs::File;
-                use std::io::{Read, Seek};
-                use std::io::SeekFrom::Start;
-            }
-
-            impl Sym {
-                /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` bind and a `st_value` of 0
-                #[inline]
-                pub fn is_import(&self) -> bool {
-                    let bind = self.st_info >> 4;
-                    (bind == STB_GLOBAL || bind == STB_WEAK) && self.st_value == 0
-                }
-                /// Checks whether this `Sym` has type `STT_FUNC`
-                #[inline]
-                pub fn is_function(&self) -> bool {
-                    st_type(self.st_info) == STT_FUNC
-                }
-            }
-
-            impl From<Sym> for ElfSym {
-                #[inline]
-                fn from(sym: Sym) -> Self {
-                    ElfSym {
-                        st_name:     sym.st_name as usize,
-                        st_info:     sym.st_info,
-                        st_other:    sym.st_other,
-                        st_shndx:    sym.st_shndx as usize,
-                        st_value:    u64::from(sym.st_value),
-                        st_size:     u64::from(sym.st_size),
-                    }
-                }
-            }
-
-            impl From<ElfSym> for Sym {
-                #[inline]
-                fn from(sym: ElfSym) -> Self {
-                    Sym {
-                        st_name:     sym.st_name as u32,
-                        st_info:     sym.st_info,
-                        st_other:    sym.st_other,
-                        st_shndx:    sym.st_shndx as u16,
-                        st_value:    sym.st_value as $size,
-                        st_size:     sym.st_size as $size,
-                    }
-                }
-            }
-
-            impl fmt::Debug for Sym {
-                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                    let bind = st_bind(self.st_info);
-                    let typ = st_type(self.st_info);
-                    let vis = st_visibility(self.st_other);
-                    f.debug_struct("Sym")
-                        .field("st_name", &self.st_name)
-                        .field("st_value", &format_args!("{:x}", self.st_value))
-                        .field("st_size", &self.st_size)
-                        .field("st_info", &format_args!("{:x} {} {}", self.st_info, bind_to_str(bind), type_to_str(typ)))
-                        .field("st_other", &format_args!("{} {}", self.st_other, visibility_to_str(vis)))
-                        .field("st_shndx", &self.st_shndx)
-                        .finish()
-                }
-            }
-
+        impl Sym {
+            /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` bind and a `st_value` of 0
             #[inline]
-            pub unsafe fn from_raw<'a>(symp: *const Sym, count: usize) -> &'a [Sym] {
-                slice::from_raw_parts(symp, count)
+            pub fn is_import(&self) -> bool {
+                let bind = self.st_info >> 4;
+                (bind == STB_GLOBAL || bind == STB_WEAK) && self.st_value == 0
             }
+            /// Checks whether this `Sym` has type `STT_FUNC`
+            #[inline]
+            pub fn is_function(&self) -> bool {
+                st_type(self.st_info) == STT_FUNC
+            }
+        }
 
-            #[cfg(feature = "std")]
+        impl From<Sym> for ElfSym {
+            #[inline]
+            fn from(sym: Sym) -> Self {
+                ElfSym {
+                    st_name:     sym.st_name as usize,
+                    st_info:     sym.st_info,
+                    st_other:    sym.st_other,
+                    st_shndx:    sym.st_shndx as usize,
+                    st_value:    u64::from(sym.st_value),
+                    st_size:     u64::from(sym.st_size),
+                }
+            }
+        }
+
+        impl From<ElfSym> for Sym {
+            #[inline]
+            fn from(sym: ElfSym) -> Self {
+                Sym {
+                    st_name:     sym.st_name as u32,
+                    st_info:     sym.st_info,
+                    st_other:    sym.st_other,
+                    st_shndx:    sym.st_shndx as u16,
+                    st_value:    sym.st_value as $size,
+                    st_size:     sym.st_size as $size,
+                }
+            }
+        }
+
+        impl fmt::Debug for Sym {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                let bind = st_bind(self.st_info);
+                let typ = st_type(self.st_info);
+                let vis = st_visibility(self.st_other);
+                f.debug_struct("Sym")
+                    .field("st_name", &self.st_name)
+                    .field("st_value", &format_args!("{:x}", self.st_value))
+                    .field("st_size", &self.st_size)
+                    .field("st_info", &format_args!("{:x} {} {}", self.st_info, bind_to_str(bind), type_to_str(typ)))
+                    .field("st_other", &format_args!("{} {}", self.st_other, visibility_to_str(vis)))
+                    .field("st_shndx", &self.st_shndx)
+                    .finish()
+            }
+        }
+
+        #[inline]
+        pub unsafe fn from_raw<'a>(symp: *const Sym, count: usize) -> &'a [Sym] {
+            slice::from_raw_parts(symp, count)
+        }
+
+        if_std! {
+            use crate::error::Result;
+
+            use std::fs::File;
+            use std::io::{Read, Seek};
+            use std::io::SeekFrom::Start;
+
             pub fn from_fd(fd: &mut File, offset: usize, count: usize) -> Result<Vec<Sym>> {
                 // TODO: AFAIK this shouldn't work, since i pass in a byte size...
                 let mut syms = vec![Sym::default(); count];
@@ -251,7 +248,7 @@ macro_rules! elf_sym_std_impl {
                 syms.dedup();
                 Ok(syms)
             }
-        } // end if_alloc
+        }
     };
 }
 

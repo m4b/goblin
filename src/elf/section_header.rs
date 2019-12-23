@@ -435,16 +435,22 @@ if_alloc! {
         }
         /// Parse `count` section headers from `bytes` at `offset`, using the given `ctx`
         #[cfg(feature = "endian_fd")]
-        pub fn parse(bytes: &[u8], mut offset: usize, count: usize, ctx: Ctx) -> error::Result<Vec<SectionHeader>> {
+        pub fn parse(bytes: &[u8], mut offset: usize, mut count: usize, ctx: Ctx) -> error::Result<Vec<SectionHeader>> {
             use scroll::Pread;
-            let mut section_headers = Vec::with_capacity(count);
-            let mut nsection_headers = count;
+            // Zero offset means no section headers, not even the null section header.
+            if offset == 0 {
+                return Ok(Vec::new());
+            }
             let empty_sh = bytes.gread_with::<SectionHeader>(&mut offset, ctx)?;
             if count == 0 as usize {
-                nsection_headers = empty_sh.sh_size as usize;
+                // Zero count means either no section headers if offset is also zero (checked
+                // above), or the number of section headers overflows SHN_LORESERVE, in which
+                // case the count is stored in the sh_size field of the null section header.
+                count = empty_sh.sh_size as usize;
             }
+            let mut section_headers = Vec::with_capacity(count);
             section_headers.push(empty_sh);
-            for _ in 1..nsection_headers {
+            for _ in 1..count {
                 let shdr = bytes.gread_with(&mut offset, ctx)?;
                 section_headers.push(shdr);
             }

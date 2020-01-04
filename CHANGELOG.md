@@ -5,6 +5,14 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.1, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
+## [Unreleased]
+### Changed
+- BREAKING: Changes in `elf::gnu_hash::GnuHash`:
+  + `new(*const u32, usize, &[sym::Sym]) -> Self`
+    to `from_raw_table(&[u8], : &[Sym]) -> Result<Self, &str>`
+  + `find(&self, &str, u32, &Strtab) -> Option<&Sym>`
+    to `find(&self, &str, &Strtab) -> Option<&Sym>`.
+
 ## [0.1.3] - 2019-12-28
 ### Removed
 - alloc feature, stabilized in 1.36 @philipc https://github.com/m4b/goblin/pull/196
@@ -25,9 +33,11 @@ elf: Don't fail entire elf parse when interpreter is malformed string, @jsgf htt
 ## [0.1.0] - 2019-11-3
 ### Added
 - update to scroll 0.10 api
+
 ### Changed
 - BREAKING: rename export to lib in Reexport::DLLOrdinal from @lzybkr
 - pe: only parse ExceptionData for machine X86_64, thanks @wyxloading
+
 ### Fixed
 pe: Fix resolution of redirect unwind info, thanks @jan-auer https://github.com/m4b/goblin/pull/183
 pe: fix reexport dll and ordinal, thanks @lzybkr: d62889f469846af0cceb789b415f1e14f5f9e402

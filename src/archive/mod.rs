@@ -465,7 +465,7 @@ impl<'a> Archive<'a> {
         let mut symbol_index: BTreeMap<&str, usize> = BTreeMap::new();
         for (member_offset, name) in index.symbol_indexes.iter().zip(index.strtab.iter()) {
             let member_index = *member_index_by_offset.get(member_offset)
-		.ok_or(Error::Malformed(format!("Could not get member {:?} at offset: {}", name, member_offset)))?;
+                .ok_or_else(|| Error::Malformed(format!("Could not get member {:?} at offset: {}", name, member_offset)))?;
             symbol_index.insert(&name, member_index);
         }
 

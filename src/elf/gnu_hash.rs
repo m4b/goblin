@@ -157,17 +157,15 @@ macro_rules! elf_gnu_hash_impl {
                 // Walk the chain until the symbol is found or the chain is exhausted.
                 let chain_idx = bucket - self.symindex;
                 let hash = hash & MASK_LOWEST_BIT;
-                let chains = &self.chains.get((chain_idx as usize)..);
-                let dynsyms = &self.dynsyms.get((bucket as usize)..);
-                if let (Some(chains), Some(dynsyms)) = (chains, dynsyms) {
-                    for (hash2, symb) in chains.iter().zip(dynsyms.iter()) {
-                        if (hash == (hash2 & MASK_LOWEST_BIT)) && (symbol == &dynstrtab[symb.st_name as usize]) {
-                            return Some(symb);
-                        }
-                        // Done if at end of chain
-                        if hash2 & 1 == 1 {
-                            break;
-                        }
+                let chains = &self.chains.get((chain_idx as usize)..)?;
+                let dynsyms = &self.dynsyms.get((bucket as usize)..)?;
+                for (hash2, symb) in chains.iter().zip(dynsyms.iter()) {
+                    if (hash == (hash2 & MASK_LOWEST_BIT)) && (symbol == &dynstrtab[symb.st_name as usize]) {
+                        return Some(symb);
+                    }
+                    // Chain ends with an element with the lowest bit set to 1.
+                    if hash2 & 1 == 1 {
+                        break;
                     }
                 }
                 None

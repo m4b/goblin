@@ -125,8 +125,9 @@ pub const X86_64_RELOC_TLV: RelocType = 9;
 pub const GENERIC_RELOC_VANILLA: RelocType = 0;
 pub const GENERIC_RELOC_PAIR: RelocType = 1;
 pub const GENERIC_RELOC_SECTDIFF: RelocType = 2;
-pub const GENERIC_RELOC_LOCAL_SECTDIFF: RelocType = 3;
-pub const GENERIC_RELOC_PB_LA_P: RelocType = 4;
+pub const GENERIC_RELOC_PB_LA_PTR: RelocType = 3;
+pub const GENERIC_RELOC_LOCAL_SECTDIFF: RelocType = 4;
+pub const GENERIC_RELOC_TLV: RelocType = 5;
 
 // arm relocations
 pub const ARM_RELOC_VANILLA: RelocType = GENERIC_RELOC_VANILLA;
@@ -218,8 +219,9 @@ pub fn reloc_to_str(reloc: RelocType, cputype: mach::cputype::CpuType) -> &'stat
                 GENERIC_RELOC_VANILLA => "GENERIC_RELOC_VANILLA",
                 GENERIC_RELOC_PAIR => "GENERIC_RELOC_PAIR",
                 GENERIC_RELOC_SECTDIFF => "GENERIC_RELOC_SECTDIFF",
+                GENERIC_RELOC_PB_LA_PTR => "GENERIC_RELOC_PB_LA_PTR",
                 GENERIC_RELOC_LOCAL_SECTDIFF => "GENERIC_RELOC_LOCAL_SECTDIFF",
-                GENERIC_RELOC_PB_LA_P => "GENERIC_RELOC_PB_LA_P",
+                GENERIC_RELOC_TLV => "GENERIC_RELOC_TLV",
                 _ => "UNKNOWN",
             }
         },

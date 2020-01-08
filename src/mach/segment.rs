@@ -13,7 +13,7 @@ use crate::error;
 
 use crate::mach::relocation::RelocationInfo;
 use crate::mach::load_command::{Section32, Section64, SegmentCommand32, SegmentCommand64, SIZEOF_SECTION_32, SIZEOF_SECTION_64, SIZEOF_SEGMENT_COMMAND_32, SIZEOF_SEGMENT_COMMAND_64, LC_SEGMENT, LC_SEGMENT_64};
-use crate::mach::constants::{SECTION_TYPE, S_ZEROFILL};
+use crate::mach::constants::{SECTION_TYPE, S_ZEROFILL, S_GB_ZEROFILL, S_THREAD_LOCAL_ZEROFILL};
 
 pub struct RelocationIterator<'a> {
     data: &'a [u8],
@@ -237,7 +237,11 @@ impl<'a> Iterator for SectionIterator<'a> {
             self.idx += 1;
             match self.data.gread_with::<Section>(&mut self.offset, self.ctx) {
                 Ok(section) => {
-                    let data = if section.flags & SECTION_TYPE == S_ZEROFILL {
+                    let section_type = section.flags & SECTION_TYPE;
+                    let data = if section_type == S_ZEROFILL
+                        || section_type == S_GB_ZEROFILL
+                        || section_type == S_THREAD_LOCAL_ZEROFILL
+                    {
                         &[]
                     } else {
                         // it's not uncommon to encounter macho files where files are

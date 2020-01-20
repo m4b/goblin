@@ -3,11 +3,10 @@
 /// which means downstream crates/clients can just "parse" headers out of
 /// arbitrary buffers, without learning new crate specific function names
 /// I.e., all you need are Types + Pread = Happiness
+use goblin::{elf, elf64, error};
+use scroll::{Pread, Pwrite};
 
-use goblin::{error, elf64, elf};
-use scroll::{Pwrite, Pread};
-
-fn run () -> error::Result<()> {
+fn run() -> error::Result<()> {
     let crt1: Vec<u8> = include!("../etc/crt1.rs");
     let header: elf64::header::Header = crt1.pread(0)?;
     assert_eq!(header.e_type, elf64::header::ET_REL);

@@ -150,10 +150,8 @@ pub fn visibility_to_str(typ: u8) -> &'static str {
     }
 }
 
-
 macro_rules! elf_sym_std_impl {
     ($size:ty) => {
-
         #[cfg(test)]
         mod tests {
             use super::*;
@@ -186,12 +184,12 @@ macro_rules! elf_sym_std_impl {
             #[inline]
             fn from(sym: Sym) -> Self {
                 ElfSym {
-                    st_name:     sym.st_name as usize,
-                    st_info:     sym.st_info,
-                    st_other:    sym.st_other,
-                    st_shndx:    sym.st_shndx as usize,
-                    st_value:    u64::from(sym.st_value),
-                    st_size:     u64::from(sym.st_size),
+                    st_name: sym.st_name as usize,
+                    st_info: sym.st_info,
+                    st_other: sym.st_other,
+                    st_shndx: sym.st_shndx as usize,
+                    st_value: u64::from(sym.st_value),
+                    st_size: u64::from(sym.st_size),
                 }
             }
         }
@@ -200,12 +198,12 @@ macro_rules! elf_sym_std_impl {
             #[inline]
             fn from(sym: ElfSym) -> Self {
                 Sym {
-                    st_name:     sym.st_name as u32,
-                    st_info:     sym.st_info,
-                    st_other:    sym.st_other,
-                    st_shndx:    sym.st_shndx as u16,
-                    st_value:    sym.st_value as $size,
-                    st_size:     sym.st_size as $size,
+                    st_name: sym.st_name as u32,
+                    st_info: sym.st_info,
+                    st_other: sym.st_other,
+                    st_shndx: sym.st_shndx as u16,
+                    st_value: sym.st_value as $size,
+                    st_size: sym.st_size as $size,
                 }
             }
         }
@@ -219,8 +217,19 @@ macro_rules! elf_sym_std_impl {
                     .field("st_name", &self.st_name)
                     .field("st_value", &format_args!("{:x}", self.st_value))
                     .field("st_size", &self.st_size)
-                    .field("st_info", &format_args!("{:x} {} {}", self.st_info, bind_to_str(bind), type_to_str(typ)))
-                    .field("st_other", &format_args!("{} {}", self.st_other, visibility_to_str(vis)))
+                    .field(
+                        "st_info",
+                        &format_args!(
+                            "{:x} {} {}",
+                            self.st_info,
+                            bind_to_str(bind),
+                            type_to_str(typ)
+                        ),
+                    )
+                    .field(
+                        "st_other",
+                        &format_args!("{} {}", self.st_other, visibility_to_str(vis)),
+                    )
                     .field("st_shndx", &self.st_shndx)
                     .finish()
             }
@@ -315,25 +324,25 @@ pub mod sym64 {
     elf_sym_std_impl!(u64);
 }
 
-use scroll::ctx;
-use scroll::ctx::SizeWith;
-use core::fmt::{self, Debug};
-use core::result;
-use crate::container::{Ctx, Container};
+use crate::container::{Container, Ctx};
 #[cfg(feature = "alloc")]
 use crate::error::Result;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
+use core::fmt::{self, Debug};
+use core::result;
+use scroll::ctx;
+use scroll::ctx::SizeWith;
 
 #[derive(Clone, Copy, PartialEq, Default)]
 /// A unified Sym definition - convertible to and from 32-bit and 64-bit variants
 pub struct Sym {
-    pub st_name:     usize,
-    pub st_info:     u8,
-    pub st_other:    u8,
-    pub st_shndx:    usize,
-    pub st_value:    u64,
-    pub st_size:     u64,
+    pub st_name: usize,
+    pub st_info: u8,
+    pub st_other: u8,
+    pub st_shndx: usize,
+    pub st_value: u64,
+    pub st_size: u64,
 }
 
 impl Sym {
@@ -392,8 +401,19 @@ impl fmt::Debug for Sym {
         let vis = self.st_visibility();
         f.debug_struct("Sym")
             .field("st_name", &self.st_name)
-            .field("st_info", &format_args!("0x{:x} {} {}", self.st_info, bind_to_str(bind), type_to_str(typ)))
-            .field("st_other", &format_args!("{} {}", self.st_other, visibility_to_str(vis)))
+            .field(
+                "st_info",
+                &format_args!(
+                    "0x{:x} {} {}",
+                    self.st_info,
+                    bind_to_str(bind),
+                    type_to_str(typ)
+                ),
+            )
+            .field(
+                "st_other",
+                &format_args!("{} {}", self.st_other, visibility_to_str(vis)),
+            )
             .field("st_shndx", &self.st_shndx)
             .field("st_value", &format_args!("0x{:x}", self.st_value))
             .field("st_size", &self.st_size)
@@ -403,14 +423,10 @@ impl fmt::Debug for Sym {
 
 impl ctx::SizeWith<Ctx> for Sym {
     #[inline]
-    fn size_with(&Ctx {container, .. }: &Ctx) -> usize {
+    fn size_with(&Ctx { container, .. }: &Ctx) -> usize {
         match container {
-            Container::Little => {
-                sym32::SIZEOF_SYM
-            },
-            Container::Big => {
-                sym64::SIZEOF_SYM
-            },
+            Container::Little => sym32::SIZEOF_SYM,
+            Container::Big => sym64::SIZEOF_SYM,
         }
     }
 }

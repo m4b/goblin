@@ -1,6 +1,6 @@
-use alloc::vec::Vec;
 use crate::error;
 use crate::strtab;
+use alloc::vec::Vec;
 use core::fmt::{self, Debug};
 use scroll::{ctx, IOread, IOwrite, Pread, Pwrite, SizeWith};
 

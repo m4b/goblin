@@ -5,21 +5,21 @@
 
 use alloc::vec::Vec;
 
-pub mod header;
-pub mod optional_header;
 pub mod characteristic;
-pub mod section_table;
 pub mod data_directories;
-pub mod export;
-pub mod import;
 pub mod debug;
 pub mod exception;
-pub mod symbol;
+pub mod export;
+pub mod header;
+pub mod import;
+pub mod optional_header;
 pub mod relocation;
+pub mod section_table;
+pub mod symbol;
 pub mod utils;
 
-use crate::error;
 use crate::container;
+use crate::error;
 use crate::strtab;
 
 use log::debug;
@@ -64,7 +64,10 @@ impl<'a> PE<'a> {
     pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
         let header = header::Header::parse(bytes)?;
         debug!("{:#?}", header);
-        let offset = &mut (header.dos_header.pe_pointer as usize + header::SIZEOF_PE_MAGIC + header::SIZEOF_COFF_HEADER + header.coff_header.size_of_optional_header as usize);
+        let offset = &mut (header.dos_header.pe_pointer as usize
+            + header::SIZEOF_PE_MAGIC
+            + header::SIZEOF_COFF_HEADER
+            + header.coff_header.size_of_optional_header as usize);
         let sections = header.coff_header.sections(bytes, offset)?;
         let is_lib = characteristic::is_dll(header.coff_header.characteristics);
         let mut entry = 0;
@@ -82,10 +85,15 @@ impl<'a> PE<'a> {
             entry = optional_header.standard_fields.address_of_entry_point as usize;
             image_base = optional_header.windows_fields.image_base as usize;
             is_64 = optional_header.container()? == container::Container::Big;
-            debug!("entry {:#x} image_base {:#x} is_64: {}", entry, image_base, is_64);
+            debug!(
+                "entry {:#x} image_base {:#x} is_64: {}",
+                entry, image_base, is_64
+            );
             let file_alignment = optional_header.windows_fields.file_alignment;
             if let Some(export_table) = *optional_header.data_directories.get_export_table() {
-                if let Ok(ed) = export::ExportData::parse(bytes, export_table, &sections, file_alignment) {
+                if let Ok(ed) =
+                    export::ExportData::parse(bytes, export_table, &sections, file_alignment)
+                {
                     debug!("export data {:#?}", ed);
                     exports = export::Export::parse(bytes, &ed, &sections, file_alignment)?;
                     name = ed.name;
@@ -96,9 +104,19 @@ impl<'a> PE<'a> {
             debug!("exports: {:#?}", exports);
             if let Some(import_table) = *optional_header.data_directories.get_import_table() {
                 let id = if is_64 {
-                    import::ImportData::parse::<u64>(bytes, import_table, &sections, file_alignment)?
+                    import::ImportData::parse::<u64>(
+                        bytes,
+                        import_table,
+                        &sections,
+                        file_alignment,
+                    )?
                 } else {
-                    import::ImportData::parse::<u32>(bytes, import_table, &sections, file_alignment)?
+                    import::ImportData::parse::<u32>(
+                        bytes,
+                        import_table,
+                        &sections,
+                        file_alignment,
+                    )?
                 };
                 debug!("import data {:#?}", id);
                 if is_64 {
@@ -106,25 +124,41 @@ impl<'a> PE<'a> {
                 } else {
                     imports = import::Import::parse::<u32>(bytes, &id, &sections)?
                 }
-                libraries = id.import_data.iter().map( | data | { data.name }).collect::<Vec<&'a str>>();
+                libraries = id
+                    .import_data
+                    .iter()
+                    .map(|data| data.name)
+                    .collect::<Vec<&'a str>>();
                 libraries.sort();
                 libraries.dedup();
                 import_data = Some(id);
             }
             debug!("imports: {:#?}", imports);
             if let Some(debug_table) = *optional_header.data_directories.get_debug_table() {
-                debug_data = Some(debug::DebugData::parse(bytes, debug_table, &sections, file_alignment)?);
+                debug_data = Some(debug::DebugData::parse(
+                    bytes,
+                    debug_table,
+                    &sections,
+                    file_alignment,
+                )?);
             }
 
             if header.coff_header.machine == header::COFF_MACHINE_X86_64 {
                 // currently only x86_64 is supported
                 debug!("exception data: {:#?}", exception_data);
-                if let Some(exception_table) = *optional_header.data_directories.get_exception_table() {
-                    exception_data = Some(exception::ExceptionData::parse(bytes, exception_table, &sections, file_alignment)?);
+                if let Some(exception_table) =
+                    *optional_header.data_directories.get_exception_table()
+                {
+                    exception_data = Some(exception::ExceptionData::parse(
+                        bytes,
+                        exception_table,
+                        &sections,
+                        file_alignment,
+                    )?);
                 }
             }
         }
-        Ok( PE {
+        Ok(PE {
             header,
             sections,
             size: 0,
@@ -168,6 +202,11 @@ impl<'a> Coff<'a> {
         let sections = header.sections(bytes, offset)?;
         let symbols = header.symbols(bytes)?;
         let strings = header.strings(bytes)?;
-        Ok(Coff { header, sections, symbols, strings })
+        Ok(Coff {
+            header,
+            sections,
+            symbols,
+            strings,
+        })
     }
 }

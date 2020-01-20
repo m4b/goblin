@@ -346,10 +346,7 @@ pub struct UnwindCode {
 impl<'a> TryFromCtx<'a, UnwindOpContext> for UnwindCode {
     type Error = error::Error;
     #[inline]
-    fn try_from_ctx(
-        bytes: &'a [u8],
-        ctx: UnwindOpContext,
-    ) -> Result<(Self, usize), Self::Error> {
+    fn try_from_ctx(bytes: &'a [u8], ctx: UnwindOpContext) -> Result<(Self, usize), Self::Error> {
         let mut read = 0;
         let code_offset = bytes.gread_with::<u8>(&mut read, scroll::LE)?;
         let operation = bytes.gread_with::<u8>(&mut read, scroll::LE)?;

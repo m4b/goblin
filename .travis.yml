@@ -13,6 +13,10 @@ matrix:
     - rust: nightly
 
 script:
+  - if [ "$TRAVIS_OS_NAME" = linux ] && [ "$TRAVIS_RUST_VERSION" = stable ]; then
+      rustup component add rustfmt;
+      cargo fmt -- --check;
+    fi
   - cargo build --verbose
   - cargo test --verbose
   - cargo build --release

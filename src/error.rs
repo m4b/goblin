@@ -1,10 +1,10 @@
 //! A custom Goblin error
 //!
 
-use scroll;
-use core::result;
-use core::fmt;
 use alloc::string::String;
+use core::fmt;
+use core::result;
+use scroll;
 #[cfg(feature = "std")]
 use std::{error, io};
 

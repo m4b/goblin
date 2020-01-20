@@ -25,9 +25,9 @@
 /// and the chain table.
 pub fn hash(symbol: &str) -> u32 {
     const HASH_SEED: u32 = 5381;
-    symbol
-        .bytes()
-        .fold(HASH_SEED, |hash, b| hash.wrapping_mul(33).wrapping_add(u32::from(b)))
+    symbol.bytes().fold(HASH_SEED, |hash, b| {
+        hash.wrapping_mul(33).wrapping_add(u32::from(b))
+    })
 }
 
 #[cfg(test)]
@@ -91,7 +91,10 @@ macro_rules! elf_gnu_hash_impl {
         impl<'a> GnuHash<'a> {
             /// Initialize a GnuHash from a pointer to `.hash` (or `.gnu.hash`) section
             /// and total number of dynamic symbols.
-            pub unsafe fn from_raw_table(hashtab: &'a [u8], dynsyms: &'a [Sym]) -> Result<Self, &'static str> {
+            pub unsafe fn from_raw_table(
+                hashtab: &'a [u8],
+                dynsyms: &'a [Sym],
+            ) -> Result<Self, &'static str> {
                 if hashtab.as_ptr() as usize % INT_SIZE != 0 {
                     return Err("hashtab is not aligned with 64-bit");
                 }
@@ -120,7 +123,9 @@ macro_rules! elf_gnu_hash_impl {
                     let bloom_size = (maskwords as usize).checked_mul(INT_SIZE);
 
                     let total_size = match (chains_size, buckets_size, bloom_size) {
-                        (Some(a), Some(b), Some(c)) => a.checked_add(b).and_then(|t| t.checked_add(c)),
+                        (Some(a), Some(b), Some(c)) => {
+                            a.checked_add(b).and_then(|t| t.checked_add(c))
+                        }
                         _ => None,
                     };
                     match total_size {
@@ -160,7 +165,9 @@ macro_rules! elf_gnu_hash_impl {
                 let chains = &self.chains.get((chain_idx as usize)..)?;
                 let dynsyms = &self.dynsyms.get((bucket as usize)..)?;
                 for (hash2, symb) in chains.iter().zip(dynsyms.iter()) {
-                    if (hash == (hash2 & MASK_LOWEST_BIT)) && (symbol == &dynstrtab[symb.st_name as usize]) {
+                    if (hash == (hash2 & MASK_LOWEST_BIT))
+                        && (symbol == &dynstrtab[symb.st_name as usize])
+                    {
                         return Some(symb);
                     }
                     // Chain ends with an element with the lowest bit set to 1.
@@ -192,7 +199,12 @@ macro_rules! elf_gnu_hash_impl {
 
             /// This function will not check if the passed `hash` is really
             /// the hash of `symbol`
-            pub fn find_with_hash(&self, symbol: &str, hash: u32, dynstrtab: &Strtab) -> Option<&'a Sym> {
+            pub fn find_with_hash(
+                &self,
+                symbol: &str,
+                hash: u32,
+                dynstrtab: &Strtab,
+            ) -> Option<&'a Sym> {
                 if self.check_maybe_match(hash) {
                     #[cold] // HACK: This is trick for `unlikely` in C
                     self.lookup(symbol, hash, dynstrtab)

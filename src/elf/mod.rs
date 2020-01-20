@@ -43,10 +43,10 @@ pub(crate) mod gnu_hash;
 // These are shareable values for the 32/64 bit implementations.
 //
 // They are publicly re-exported by the pub-using module
+pub mod compression_header;
 pub mod header;
 pub mod program_header;
 pub mod section_header;
-pub mod compression_header;
 #[macro_use]
 pub mod sym;
 pub mod dynamic;
@@ -397,7 +397,7 @@ mod tests {
     fn parse_crt1_64bit() {
         let crt1: Vec<u8> = include!("../../etc/crt1.rs");
         match Elf::parse(&crt1) {
-            Ok (binary) => {
+            Ok(binary) => {
                 assert!(binary.is_64);
                 assert!(!binary.is_lib);
                 assert_eq!(binary.entry, 0);
@@ -414,8 +414,8 @@ mod tests {
                     }
                 }
                 assert!(!syms.is_empty());
-             },
-            Err (err) => {
+            }
+            Err(err) => {
                 panic!("failed: {}", err);
             }
         }
@@ -425,7 +425,7 @@ mod tests {
     fn parse_crt1_32bit() {
         let crt1: Vec<u8> = include!("../../etc/crt132.rs");
         match Elf::parse(&crt1) {
-            Ok (binary) => {
+            Ok(binary) => {
                 assert!(!binary.is_64);
                 assert!(!binary.is_lib);
                 assert_eq!(binary.entry, 0);
@@ -442,8 +442,8 @@ mod tests {
                     }
                 }
                 assert!(!syms.is_empty());
-             },
-            Err (err) => {
+            }
+            Err(err) => {
                 panic!("failed: {}", err);
             }
         }

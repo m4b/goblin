@@ -35,7 +35,8 @@ fn parse_gnu_hash_section(base: &[u8], symbol_name: &str) -> Result<Sym, &'stati
 
 #[test]
 fn test_parse_gnu_hash_section_64bit() {
-    static ALIGNED_DATA: &AlignedData<[u8]> = &AlignedData(*include_bytes!("bins/elf/gnu_hash/hello.so"));
+    static ALIGNED_DATA: &AlignedData<[u8]> =
+        &AlignedData(*include_bytes!("bins/elf/gnu_hash/hello.so"));
 
     assert_eq!(
         parse_gnu_hash_section(&ALIGNED_DATA.0, "helloWorld"),
@@ -67,7 +68,8 @@ fn test_parse_gnu_hash_section_64bit() {
 
 #[test]
 fn test_parse_gnu_hash_section_32bit() {
-    static ALIGNED_DATA: &AlignedData<[u8]> = &AlignedData(*include_bytes!("bins/elf/gnu_hash/hello32.so"));
+    static ALIGNED_DATA: &AlignedData<[u8]> =
+        &AlignedData(*include_bytes!("bins/elf/gnu_hash/hello32.so"));
 
     assert_eq!(
         parse_gnu_hash_section(&ALIGNED_DATA.0, "helloWorld"),

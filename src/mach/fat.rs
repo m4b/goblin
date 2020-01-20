@@ -7,9 +7,9 @@ if_std! {
     use std::io::{self, Read};
 }
 
-use scroll::{Pread, Pwrite, SizeWith};
-use crate::mach::constants::cputype::{CpuType, CpuSubType, CPU_SUBTYPE_MASK, CPU_ARCH_ABI64};
 use crate::error;
+use crate::mach::constants::cputype::{CpuSubType, CpuType, CPU_ARCH_ABI64, CPU_SUBTYPE_MASK};
+use scroll::{Pread, Pwrite, SizeWith};
 
 pub const FAT_MAGIC: u32 = 0xcafe_babe;
 pub const FAT_CIGAM: u32 = 0xbeba_feca;
@@ -41,10 +41,7 @@ impl FatHeader {
         let mut offset = 0;
         let magic = bytes.gread_with(&mut offset, scroll::BE).unwrap();
         let nfat_arch = bytes.gread_with(&mut offset, scroll::BE).unwrap();
-        FatHeader {
-            magic,
-            nfat_arch,
-        }
+        FatHeader { magic, nfat_arch }
     }
 
     /// Reads a `FatHeader` from a `File` on disk
@@ -59,7 +56,6 @@ impl FatHeader {
     pub fn parse(bytes: &[u8]) -> error::Result<FatHeader> {
         Ok(bytes.pread_with::<FatHeader>(0, scroll::BE)?)
     }
-
 }
 
 #[repr(C)]
@@ -83,9 +79,9 @@ impl fmt::Debug for FatArch {
         fmt.debug_struct("FatArch")
             .field("cputype", &self.cputype())
             .field("cmdsize", &self.cpusubtype())
-            .field("offset",  &format_args!("{:#x}", &self.offset))
-            .field("size",    &self.size)
-            .field("align",   &self.align)
+            .field("offset", &format_args!("{:#x}", &self.offset))
+            .field("size", &self.size)
+            .field("align", &self.align)
             .finish()
     }
 }

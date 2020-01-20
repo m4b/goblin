@@ -5,13 +5,17 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.1, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
-## [Unreleased]
+## [0.2.0] - 2020-1-20
 ### Changed
 - BREAKING: Changes in `elf::gnu_hash::GnuHash`:
   + `new(*const u32, usize, &[sym::Sym]) -> Self`
     to `from_raw_table(&[u8], : &[Sym]) -> Result<Self, &str>`
   + `find(&self, &str, u32, &Strtab) -> Option<&Sym>`
     to `find(&self, &str, &Strtab) -> Option<&Sym>`.
+- BREAKING: mach: fix generic relocation constants, @philipc: https://github.com/m4b/goblin/pull/204/files
+### Added
+- elf: add more elf note values, thanks @xcoldhandsx: https://github.com/m4b/goblin/pull/201
+- finally rustfmt'd entire repo :D
 
 ## [0.1.3] - 2019-12-28
 ### Removed

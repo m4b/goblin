@@ -9,7 +9,7 @@ Goblin is now 0.1, which means we will try our best to ease breaking changes. Tr
 ### Changed
 - BREAKING: Changes in `elf::gnu_hash::GnuHash`:
   + `new(*const u32, usize, &[sym::Sym]) -> Self`
-    to `from_raw_table(&[u8], : &[Sym]) -> Result<Self, &str>`
+    to `from_raw_table(&[u8], &[Sym]) -> Result<Self, &str>`
   + `find(&self, &str, u32, &Strtab) -> Option<&Sym>`
     to `find(&self, &str, &Strtab) -> Option<&Sym>`.
 - BREAKING: mach: fix generic relocation constants, @philipc: https://github.com/m4b/goblin/pull/204/files

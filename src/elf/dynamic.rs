@@ -275,6 +275,8 @@ pub const DF_1_SYMINTPOSE: u64 = 0x0080_0000;
 pub const DF_1_GLOBAUDIT: u64 = 0x0100_0000;
 /// Singleton dyn are used.
 pub const DF_1_SINGLETON: u64 = 0x0200_0000;
+/// Object is a Position Independent Executable (PIE).
+pub const DF_1_PIE: u64 = 0x0800_0000;
 
 if_alloc! {
     use core::fmt;

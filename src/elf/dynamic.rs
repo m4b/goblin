@@ -673,6 +673,7 @@ macro_rules! elf_dynamic_info_std_impl {
                         .field("init_array", &format_args!("{:#x}", self.init_array))
                         .field("init_arraysz", &self.init_arraysz)
                         .field("needed_count", &self.needed_count)
+                        .field("soname", &self.soname)
                         .finish()
                 }
             }

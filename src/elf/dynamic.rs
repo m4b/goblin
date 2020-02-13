@@ -670,6 +670,8 @@ macro_rules! elf_dynamic_info_std_impl {
                         .field("versym", &format_args!("0x{:x}", self.versym))
                         .field("init", &format_args!("0x{:x}", self.init))
                         .field("fini", &format_args!("0x{:x}", self.fini))
+                        .field("init_array", &format_args!("{:#x}", self.init_array))
+                        .field("init_arraysz", &self.init_arraysz)
                         .field("needed_count", &self.needed_count)
                         .finish()
                 }

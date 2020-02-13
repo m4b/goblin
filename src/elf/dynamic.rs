@@ -225,6 +225,17 @@ pub const DF_BIND_NOW: u64 = 0x0000_0008;
 /// Module uses the static TLS model.
 pub const DF_STATIC_TLS: u64 = 0x0000_0010;
 
+pub fn df_tag_to_str(tag: u64) -> &'static str {
+    match tag {
+        DF_ORIGIN => "DF_ORIGIN",
+        DF_SYMBOLIC => "DF_SYMBOLIC",
+        DF_TEXTREL => "DF_TEXTREL",
+        DF_BIND_NOW => "DF_BIND_NOW",
+        DF_STATIC_TLS => "DF_STATIC_TLS",
+        _ => "UNKNOWN_TAG",
+    }
+}
+
 /// === State flags ===
 /// selectable in the `d_un.d_val` element of the DT_FLAGS_1 entry in the dynamic section.
 ///
@@ -277,6 +288,39 @@ pub const DF_1_GLOBAUDIT: u64 = 0x0100_0000;
 pub const DF_1_SINGLETON: u64 = 0x0200_0000;
 /// Object is a Position Independent Executable (PIE).
 pub const DF_1_PIE: u64 = 0x0800_0000;
+
+pub fn df_1_tag_to_str(tag: u64) -> &'static str {
+    match tag {
+        DF_1_NOW => "DF_1_NOW",
+        DF_1_GLOBAL => "DF_1_GLOBAL",
+        DF_1_GROUP => "DF_1_GROUP",
+        DF_1_NODELETE => "DF_1_NODELETE",
+        DF_1_LOADFLTR => "DF_1_LOADFLTR",
+        DF_1_INITFIRST => "DF_1_INITFIRST",
+        DF_1_NOOPEN => "DF_1_NOOPEN",
+        DF_1_ORIGIN => "DF_1_ORIGIN",
+        DF_1_DIRECT => "DF_1_DIRECT",
+        DF_1_TRANS => "DF_1_TRANS",
+        DF_1_INTERPOSE => "DF_1_INTERPOSE",
+        DF_1_NODEFLIB => "DF_1_NODEFLIB",
+        DF_1_NODUMP => "DF_1_NODUMP",
+        DF_1_CONFALT => "DF_1_CONFALT",
+        DF_1_ENDFILTEE => "DF_1_ENDFILTEE",
+        DF_1_DISPRELDNE => "DF_1_DISPRELDNE",
+        DF_1_DISPRELPND => "DF_1_DISPRELPND",
+        DF_1_NODIRECT => "DF_1_NODIRECT",
+        DF_1_IGNMULDEF => "DF_1_IGNMULDEF",
+        DF_1_NOKSYMS => "DF_1_NOKSYMS",
+        DF_1_NOHDR => "DF_1_NOHDR",
+        DF_1_EDITED => "DF_1_EDITED",
+        DF_1_NORELOC => "DF_1_NORELOC",
+        DF_1_SYMINTPOSE => "DF_1_SYMINTPOSE",
+        DF_1_GLOBAUDIT => "DF_1_GLOBAUDIT",
+        DF_1_SINGLETON => "DF_1_SINGLETON",
+        DF_1_PIE => "DF_1_PIE",
+        _ => "UNKNOWN_TAG",
+    }
+}
 
 if_alloc! {
     use core::fmt;
@@ -650,6 +694,47 @@ macro_rules! elf_dynamic_info_std_impl {
                     let gnu_hash = self.gnu_hash.unwrap_or(0);
                     let hash = self.hash.unwrap_or(0);
                     let pltgot = self.pltgot.unwrap_or(0);
+
+                    let flags: Vec<&'static str> = [DF_ORIGIN, DF_SYMBOLIC, DF_TEXTREL, DF_BIND_NOW, DF_STATIC_TLS,][..]
+                                    .iter()
+                                    .filter(|f| (self.flags as u64 & *f) != 0)
+                                    .map(|f| df_tag_to_str(*f))
+                                    .collect();
+
+                    let flags_1: Vec<&'static str> = [
+                            DF_1_NOW,
+                            DF_1_GLOBAL,
+                            DF_1_GROUP,
+                            DF_1_NODELETE,
+                            DF_1_LOADFLTR,
+                            DF_1_INITFIRST,
+                            DF_1_NOOPEN,
+                            DF_1_ORIGIN,
+                            DF_1_DIRECT,
+                            DF_1_TRANS,
+                            DF_1_INTERPOSE,
+                            DF_1_NODEFLIB,
+                            DF_1_NODUMP,
+                            DF_1_CONFALT,
+                            DF_1_ENDFILTEE,
+                            DF_1_DISPRELDNE,
+                            DF_1_DISPRELPND,
+                            DF_1_NODIRECT,
+                            DF_1_IGNMULDEF,
+                            DF_1_NOKSYMS,
+                            DF_1_NOHDR,
+                            DF_1_EDITED,
+                            DF_1_NORELOC,
+                            DF_1_SYMINTPOSE,
+                            DF_1_GLOBAUDIT,
+                            DF_1_SINGLETON,
+                            DF_1_PIE,
+                        ][..]
+                        .iter()
+                        .filter(|f| (self.flags_1 as u64 & *f) != 0)
+                        .map(|f| df_1_tag_to_str(*f))
+                        .collect();
+
                     f.debug_struct("DynamicInfo")
                         .field("rela", &format_args!("0x{:x}", self.rela))
                         .field("relasz", &self.relasz)
@@ -673,6 +758,8 @@ macro_rules! elf_dynamic_info_std_impl {
                         .field("init_array", &format_args!("{:#x}", self.init_array))
                         .field("init_arraysz", &self.init_arraysz)
                         .field("needed_count", &self.needed_count)
+                        .field("flags", &format_args!("{:#0width$x} {:?}", self.flags, flags, width = core::mem::size_of_val(&self.flags)))
+                        .field("flags_1", &format_args!("{:#0width$x} {:?}", self.flags_1, flags_1, width = core::mem::size_of_val(&self.flags_1)))
                         .field("soname", &self.soname)
                         .field("textrel", &self.textrel)
                         .finish()

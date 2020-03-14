@@ -5,6 +5,10 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.1, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
+## [0.2.1] - 2020-3-14
+### Added
+- elf: add more robust debug printing to various elf data structures, thanks @connorkuehl, e.g.: https://github.com/m4b/goblin/pull/211
+
 ## [0.2.0] - 2020-1-20
 ### Changed
 - BREAKING: Changes in `elf::gnu_hash::GnuHash`:
@@ -15,7 +19,7 @@ Goblin is now 0.1, which means we will try our best to ease breaking changes. Tr
 - BREAKING: mach: fix generic relocation constants, @philipc: https://github.com/m4b/goblin/pull/204/files
 ### Added
 - elf: add more elf note values, thanks @xcoldhandsx: https://github.com/m4b/goblin/pull/201
-- finally rustfmt'd entire repo :D
+- Finally rustfmt'd entire repo :D
 
 ## [0.1.3] - 2019-12-28
 ### Removed

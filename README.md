@@ -103,6 +103,7 @@ In lexicographic order:
 
 - [@amanieu]
 - [@burjui]
+- [@connorkuehl]
 - [@flanfly]
 - [@ibabushkin]
 - [@jan-auer]
@@ -136,6 +137,7 @@ In lexicographic order:
 
 [@amanieu]: https://github.com/amanieu
 [@burjui]: https://github.com/burjui
+[@connorkuehl]: https://github.com/connorkuehl
 [@flanfly]: https://github.com/flanfly
 [@ibabushkin]: https://github.com/ibabushkin
 [@jan-auer]: https://github.com/jan-auer

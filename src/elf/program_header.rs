@@ -342,7 +342,7 @@ pub mod program_header32 {
     #[repr(C)]
     #[derive(Copy, Clone, PartialEq, Default)]
     #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
-    /// A 64-bit ProgramHeader typically specifies how to map executable and data segments into memory
+    /// A 32-bit ProgramHeader typically specifies how to map executable and data segments into memory
     pub struct ProgramHeader {
         /// Segment type
         pub p_type: u32,
@@ -377,7 +377,7 @@ pub mod program_header64 {
     #[repr(C)]
     #[derive(Copy, Clone, PartialEq, Default)]
     #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, SizeWith))]
-    /// A 32-bit ProgramHeader typically specifies how to map executable and data segments into memory
+    /// A 64-bit ProgramHeader typically specifies how to map executable and data segments into memory
     pub struct ProgramHeader {
         /// Segment type
         pub p_type: u32,

@@ -1,9 +1,12 @@
-# libgoblin [![Build status][travis-badge]][travis-url] [![crates.io version][crates-goblin-badge]][crates-goblin]
+# libgoblin
+
+[![Actions][actions-badge]][actions-url]
+[![crates.io version][crates-goblin-badge]][crates-goblin]
 
 <!-- Badges' links -->
 
-[travis-badge]: https://travis-ci.org/m4b/goblin.svg?branch=master
-[travis-url]: https://travis-ci.org/m4b/goblin
+[actions-badge]: https://github.com/m4b/goblin/workflows/.github/workflows/main.yml/badge.svg
+[actions-url]: https://github.com/m4b/goblin/actions
 [crates-goblin-badge]: https://img.shields.io/crates/v/goblin.svg
 [crates-goblin]: https://crates.io/crates/goblin
 

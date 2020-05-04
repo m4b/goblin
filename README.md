@@ -5,7 +5,7 @@
 
 <!-- Badges' links -->
 
-[actions-badge]: https://github.com/m4b/goblin/workflows/.github/workflows/main.yml/badge.svg
+[actions-badge]: https://github.com/m4b/goblin/workflows/CI/badge.svg?branch=master
 [actions-url]: https://github.com/m4b/goblin/actions
 [crates-goblin-badge]: https://img.shields.io/crates/v/goblin.svg
 [crates-goblin]: https://crates.io/crates/goblin

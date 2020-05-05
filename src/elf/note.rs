@@ -49,10 +49,10 @@ pub const NT_PRSTATUS: u32 = 1;
 pub const NT_PRPSINFO: u32 = 3;
 
 ///Fields of siginfo_t.
-pub const NT_SIGINFO: u32 = 0x53494749;
+pub const NT_SIGINFO: u32 = 0x53_494_749;
 
 ///Description of mapped files.
-pub const NT_FILE: u32 = 0x46494c45;
+pub const NT_FILE: u32 = 0x46_494_c45;
 
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, IOread, IOwrite, SizeWith))]

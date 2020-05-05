@@ -91,6 +91,9 @@ macro_rules! elf_gnu_hash_impl {
         impl<'a> GnuHash<'a> {
             /// Initialize a GnuHash from a pointer to `.hash` (or `.gnu.hash`) section
             /// and total number of dynamic symbols.
+            /// # Safety
+            ///
+            /// This function creates a `GnuHash` directly from a raw pointer
             pub unsafe fn from_raw_table(
                 hashtab: &'a [u8],
                 dynsyms: &'a [Sym],

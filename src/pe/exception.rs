@@ -587,13 +587,13 @@ impl<'a> UnwindInfo<'a> {
         // whenever flags UNW_FLAG_EHANDLER or UNW_FLAG_UHANDLER are set. The language-specific
         // handler is called as part of the search for an exception handler or as part of an unwind.
         } else if flags & (UNW_FLAG_EHANDLER | UNW_FLAG_UHANDLER) != 0 {
-            let offset = bytes.gread_with::<u32>(&mut offset, scroll::LE)? as usize;
+            let address = bytes.gread_with::<u32>(&mut offset, scroll::LE)?;
             let data = &bytes[offset..];
 
             handler = Some(if flags & UNW_FLAG_EHANDLER != 0 {
-                UnwindHandler::ExceptionHandler(offset as u32, data)
+                UnwindHandler::ExceptionHandler(address, data)
             } else {
-                UnwindHandler::TerminationHandler(offset as u32, data)
+                UnwindHandler::TerminationHandler(address, data)
             });
         }
 

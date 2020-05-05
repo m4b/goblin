@@ -446,10 +446,16 @@ if_alloc! {
                 // case the count is stored in the sh_size field of the null section header.
                 count = empty_sh.sh_size as usize;
             }
+
+            // Sanity check to avoid OOM
+            if count > bytes.len() / Self::size(ctx) {
+                let message = format!("Buffer is too short for {} section headers", count);
+                return Err(error::Error::Malformed(message));
+            }
             let mut section_headers = Vec::with_capacity(count);
             section_headers.push(empty_sh);
             for _ in 1..count {
-                let shdr = bytes.gread_with(&mut offset, ctx)?;
+                let shdr  = bytes.gread_with(&mut offset, ctx)?;
                 section_headers.push(shdr);
             }
             Ok(section_headers)

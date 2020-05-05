@@ -98,3 +98,90 @@ fn test_parse_gnu_hash_section_32bit() {
         Err("cannot find symbol"),
     );
 }
+
+#[test]
+fn test_oom() {
+    use goblin::container::{Container, Ctx};
+    use scroll::Pwrite;
+
+    fn test_oom(data: &mut [u8]) {
+        let mut modified_data = data.to_vec();
+        let mut elf = Elf::parse(&data).unwrap();
+        let endianness = elf.header.endianness().unwrap();
+        let ctx = Ctx::new(
+            if elf.is_64 {
+                Container::Big
+            } else {
+                Container::Little
+            },
+            endianness,
+        );
+        let original_e_phnum = elf.header.e_phnum;
+        let original_e_shnum = elf.header.e_shnum;
+
+        // Way too many program headers
+        elf.header.e_phnum = 1000;
+        modified_data
+            .pwrite_with(elf.header, 0, endianness)
+            .unwrap();
+        assert!(Elf::parse(&modified_data).is_err());
+
+        // Possible overflow of program headers
+        elf.header.e_phnum = std::u16::MAX;
+        modified_data
+            .pwrite_with(elf.header, 0, endianness)
+            .unwrap();
+        assert!(Elf::parse(&modified_data).is_err());
+
+        // Back to original
+        elf.header.e_phnum = original_e_phnum;
+        modified_data
+            .pwrite_with(elf.header, 0, endianness)
+            .unwrap();
+        assert!(Elf::parse(&modified_data).is_ok());
+
+        // Way too many section headers
+        elf.header.e_shnum = 1000;
+        modified_data
+            .pwrite_with(elf.header, 0, endianness)
+            .unwrap();
+        assert!(Elf::parse(&modified_data).is_err());
+
+        // Fallback to large empty section header's sh_size
+        elf.header.e_shnum = 0;
+        elf.section_headers[0].sh_size = std::u64::MAX;
+        modified_data
+            .pwrite_with(elf.header, 0, endianness)
+            .unwrap();
+        modified_data
+            .pwrite_with(
+                elf.section_headers[0].clone(),
+                elf.header.e_shoff as usize,
+                ctx,
+            )
+            .unwrap();
+        assert!(Elf::parse(&modified_data).is_err());
+
+        // Possible overflow of section headers
+        elf.header.e_shnum = std::u16::MAX;
+        modified_data
+            .pwrite_with(elf.header, 0, endianness)
+            .unwrap();
+        assert!(Elf::parse(&modified_data).is_err());
+
+        // Back to original
+        elf.header.e_shnum = original_e_shnum;
+        modified_data
+            .pwrite_with(elf.header, 0, endianness)
+            .unwrap();
+        assert!(Elf::parse(&modified_data).is_ok());
+    }
+
+    let aligned_data: &mut AlignedData<[u8]> =
+        &mut AlignedData(*include_bytes!("bins/elf/gnu_hash/hello32.so"));
+    test_oom(&mut aligned_data.0);
+
+    let aligned_data: &mut AlignedData<[u8]> =
+        &mut AlignedData(*include_bytes!("bins/elf/gnu_hash/hello.so"));
+    test_oom(&mut aligned_data.0);
+}

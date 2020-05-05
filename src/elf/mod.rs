@@ -122,6 +122,7 @@ if_sylvan! {
         pub interpreter: Option<&'a str>,
         /// A list of this binary's dynamic libraries it uses, if there are any
         pub libraries: Vec<&'a str>,
+        /// Whether this is a 64-bit elf or not
         pub is_64: bool,
         /// Whether this is a shared object or not
         pub is_lib: bool,

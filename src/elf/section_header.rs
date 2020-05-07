@@ -455,7 +455,7 @@ if_alloc! {
             let mut section_headers = Vec::with_capacity(count);
             section_headers.push(empty_sh);
             for _ in 1..count {
-                let shdr  = bytes.gread_with(&mut offset, ctx)?;
+                let shdr = bytes.gread_with(&mut offset, ctx)?;
                 section_headers.push(shdr);
             }
             Ok(section_headers)

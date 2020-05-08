@@ -83,6 +83,7 @@ if_alloc! {
     use core::result;
     use core::ops::Range;
     use crate::container::{Ctx, Container};
+    use crate::error;
     use alloc::vec::Vec;
 
     #[derive(Default, PartialEq, Clone)]
@@ -154,6 +155,11 @@ if_alloc! {
         #[cfg(feature = "endian_fd")]
         pub fn parse(bytes: &[u8], mut offset: usize, count: usize, ctx: Ctx) -> crate::error::Result<Vec<ProgramHeader>> {
             use scroll::Pread;
+            // Sanity check to avoid OOM
+            if count > bytes.len() / Self::size(ctx) {
+                let message = format!("Buffer is too short for {} program headers", count);
+                return Err(error::Error::Malformed(message));
+            }
             let mut program_headers = Vec::with_capacity(count);
             for _ in 0..count {
                 let phdr = bytes.gread_with(&mut offset, ctx)?;

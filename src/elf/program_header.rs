@@ -122,11 +122,11 @@ if_alloc! {
         }
         /// Returns this program header's file offset range
         pub fn file_range(&self) -> Range<usize> {
-            (self.p_offset as usize..self.p_offset as usize + self.p_filesz as usize)
+            self.p_offset as usize..self.p_offset as usize + self.p_filesz as usize
         }
         /// Returns this program header's virtual memory range
         pub fn vm_range(&self) -> Range<usize> {
-            (self.p_vaddr as usize..self.p_vaddr as usize + self.p_memsz as usize)
+            self.p_vaddr as usize..self.p_vaddr as usize + self.p_memsz as usize
         }
         /// Sets the executable flag
         pub fn executable(&mut self) {
@@ -320,6 +320,9 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
                 phdrs
             }
 
+            /// # Safety
+            ///
+            /// This function creates a `ProgramHeader` directly from a raw pointer
             pub unsafe fn from_raw_parts<'a>(phdrp: *const ProgramHeader,
                                              phnum: usize)
                                              -> &'a [ProgramHeader] {

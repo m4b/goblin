@@ -33,6 +33,9 @@ impl<'a> Strtab<'a> {
         }
     }
     /// Construct a strtab from a `ptr`, and a `size`, using `delim` as the delimiter
+    /// # Safety
+    ///
+    /// This function creates a `Strtab` directly from a raw pointer and size
     pub unsafe fn from_raw(ptr: *const u8, size: usize, delim: u8) -> Strtab<'a> {
         Strtab {
             delim: ctx::StrCtx::Delimiter(delim),

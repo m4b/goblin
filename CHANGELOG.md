@@ -5,9 +5,15 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.1, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
+## [0.2.2] - 2020-5-08
+### Fixed
+- elf: protect against out of memory when parsing, thanks @jackcmay: https://github.com/m4b/goblin/pull/219
+- pe: fix panic when parsing unwind info, thanks @jan-auer: https://github.com/m4b/goblin/pull/218
+
 ## [0.2.1] - 2020-3-14
 ### Added
 - elf: add more robust debug printing to various elf data structures, thanks @connorkuehl, e.g.: https://github.com/m4b/goblin/pull/211
+- elf: derive PartialEq for DynamicInfo, thanks @connorkuehl: https://github.com/m4b/goblin/pull/209
 
 ## [0.2.0] - 2020-1-20
 ### Changed

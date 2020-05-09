@@ -109,6 +109,7 @@ In lexicographic order:
 - [@connorkuehl]
 - [@flanfly]
 - [@ibabushkin]
+- [@jackcmay]
 - [@jan-auer]
 - [@jdub]
 - [@jrmuizel]
@@ -143,6 +144,7 @@ In lexicographic order:
 [@connorkuehl]: https://github.com/connorkuehl
 [@flanfly]: https://github.com/flanfly
 [@ibabushkin]: https://github.com/ibabushkin
+[@jackcmay]: https://github.com/jackcmay
 [@jan-auer]: https://github.com/jan-auer
 [@jdub]: https://github.com/jdub
 [@jrmuizel]: https://github.com/jrmuizel

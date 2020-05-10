@@ -56,8 +56,56 @@ pub const SIZEOF_COFF_HEADER: usize = 20;
 /// PE\0\0, little endian
 pub const PE_MAGIC: u32 = 0x0000_4550;
 pub const SIZEOF_PE_MAGIC: usize = 4;
-pub const COFF_MACHINE_X86: u16 = 0x14c;
+/// The contents of this field are assumed to be applicable to any machine type
+pub const COFF_MACHINE_UNKNOWN: u16 = 0x0;
+/// Matsushita AM33
+pub const COFF_MACHINE_AM33: u16 = 0x1d3;
+/// x64
 pub const COFF_MACHINE_X86_64: u16 = 0x8664;
+/// ARM little endian
+pub const COFF_MACHINE_ARM: u16 = 0x1c0;
+/// ARM64 little endian
+pub const COFF_MACHINE_ARM64: u16 = 0xaa64;
+/// ARM Thumb-2 little endian
+pub const COFF_MACHINE_ARMNT: u16 = 0x1c4;
+/// EFI byte code
+pub const COFF_MACHINE_EBC: u16 = 0xebc;
+/// Intel 386 or later processors and compatible processors
+pub const COFF_MACHINE_X86: u16 = 0x14c;
+/// Intel Itanium processor family
+pub const COFF_MACHINE_IA64: u16 = 0x200;
+/// Mitsubishi M32R little endian
+pub const COFF_MACHINE_M32R: u16 = 0x9041;
+/// MIPS16
+pub const COFF_MACHINE_MIPS16: u16 = 0x266;
+/// MIPS with FPU
+pub const COFF_MACHINE_MIPSFPU: u16 = 0x366;
+/// MIPS16 with FPU
+pub const COFF_MACHINE_MIPSFPU16: u16 = 0x466;
+/// Power PC little endian
+pub const COFF_MACHINE_POWERPC: u16 = 0x1f0;
+/// Power PC with floating point support
+pub const COFF_MACHINE_POWERPCFP: u16 = 0x1f1;
+/// MIPS little endian
+pub const COFF_MACHINE_R4000: u16 = 0x166;
+/// RISC-V 32-bit address space
+pub const COFF_MACHINE_RISCV32: u16 = 0x5032;
+/// RISC-V 64-bit address space
+pub const COFF_MACHINE_RISCV64: u16 = 0x5064;
+/// RISC-V 128-bit address space
+pub const COFF_MACHINE_RISCV128: u16 = 0x5128;
+/// Hitachi SH3
+pub const COFF_MACHINE_SH3: u16 = 0x1a2;
+/// Hitachi SH3 DSP
+pub const COFF_MACHINE_SH3DSP: u16 = 0x1a3;
+/// Hitachi SH4
+pub const COFF_MACHINE_SH4: u16 = 0x1a6;
+/// Hitachi SH5
+pub const COFF_MACHINE_SH5: u16 = 0x1a8;
+/// Thumb
+pub const COFF_MACHINE_THUMB: u16 = 0x1c2;
+/// MIPS little-endian WCE v2
+pub const COFF_MACHINE_WCEMIPSV2: u16 = 0x169;
 
 impl CoffHeader {
     pub fn parse(bytes: &[u8], offset: &mut usize) -> error::Result<Self> {

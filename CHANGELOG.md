@@ -5,6 +5,12 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.1, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
+## [0.2.3] - 2020-5-10
+### Fixed
+- pe: remove unwrap on coffheader strtab parsing, thanks @ExPixel: https://github.com/m4b/goblin/pull/222
+### Added
+- pe: add more machine constants, thanks @ExPixel: https://github.com/m4b/goblin/pull/223
+
 ## [0.2.2] - 2020-5-08
 ### Fixed
 - elf: protect against out of memory when parsing, thanks @jackcmay: https://github.com/m4b/goblin/pull/219

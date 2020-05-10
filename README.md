@@ -107,6 +107,7 @@ In lexicographic order:
 - [@amanieu]
 - [@burjui]
 - [@connorkuehl]
+- [@ExPixel]
 - [@flanfly]
 - [@ibabushkin]
 - [@jackcmay]
@@ -142,6 +143,7 @@ In lexicographic order:
 [@amanieu]: https://github.com/amanieu
 [@burjui]: https://github.com/burjui
 [@connorkuehl]: https://github.com/connorkuehl
+[@ExPixel]: https://github.com/ExPixel
 [@flanfly]: https://github.com/flanfly
 [@ibabushkin]: https://github.com/ibabushkin
 [@jackcmay]: https://github.com/jackcmay

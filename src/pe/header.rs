@@ -99,7 +99,7 @@ impl CoffHeader {
         let offset = self.pointer_to_symbol_table as usize
             + symbol::SymbolTable::size(self.number_of_symbol_table as usize);
         let length = bytes.pread_with::<u32>(offset, scroll::LE)? as usize;
-        Ok(strtab::Strtab::parse(bytes, offset, length, 0).unwrap())
+        Ok(strtab::Strtab::parse(bytes, offset, length, 0)?)
     }
 }
 

@@ -147,6 +147,8 @@ pub const SHT_HISUNW: u32 = 0x6fff_ffff;
 pub const SHT_HIOS: u32 = 0x6fff_ffff;
 /// Start of processor-specific.
 pub const SHT_LOPROC: u32 = 0x7000_0000;
+/// X86-64 unwind information.
+pub const SHT_X86_64_UNWIND: u32 = 0x7000_0001;
 /// End of processor-specific.
 pub const SHT_HIPROC: u32 = 0x7fff_ffff;
 /// Start of application-specific.
@@ -235,6 +237,7 @@ pub fn sht_to_str(sht: u32) -> &'static str {
         SHT_GNU_VERNEED => "SHT_GNU_VERNEED",
         SHT_GNU_VERSYM => "SHT_GNU_VERSYM",
         SHT_LOPROC => "SHT_LOPROC",
+        SHT_X86_64_UNWIND => "SHT_X86_64_UNWIND",
         SHT_HIPROC => "SHT_HIPROC",
         SHT_LOUSER => "SHT_LOUSER",
         SHT_HIUSER => "SHT_HIUSER",

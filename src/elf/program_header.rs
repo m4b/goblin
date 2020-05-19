@@ -373,7 +373,6 @@ pub mod program_header32 {
 
     pub const SIZEOF_PHDR: usize = 32;
 
-    use plain;
     // Declare that this is a plain type.
     unsafe impl plain::Plain for ProgramHeader {}
 
@@ -408,7 +407,6 @@ pub mod program_header64 {
 
     pub const SIZEOF_PHDR: usize = 56;
 
-    use plain;
     // Declare that this is a plain type.
     unsafe impl plain::Plain for ProgramHeader {}
 

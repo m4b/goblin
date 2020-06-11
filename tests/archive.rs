@@ -47,6 +47,8 @@ fn parse_archive() {
             } else {
                 panic!("could not get crt1.o");
             }
+            assert_eq!(archive.len(), 1);
+            assert_eq!(archive.get_at(0).unwrap().extended_name(), "crt1.o");
         }
         Err(err) => panic!("could not parse archive: {:?}", err),
     };

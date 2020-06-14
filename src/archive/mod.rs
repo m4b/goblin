@@ -402,8 +402,10 @@ pub struct Archive<'a> {
     // debugging
     index: Index<'a>,
     sysv_name_index: NameIndex<'a>,
-    // the array of members, which are indexed by the members hash and symbol index
+    // The array of members, which are indexed by the members hash and symbol index.
+    // These are in the same order they are found in the file.
     member_array: Vec<Member<'a>>,
+    // file name -> member
     members: BTreeMap<&'a str, usize>,
     // symbol -> member
     symbol_index: BTreeMap<&'a str, usize>,
@@ -513,13 +515,25 @@ impl<'a> Archive<'a> {
         })
     }
 
-    /// Get the member named `member` in this archive, if any
+    /// Get the member named `member` in this archive, if any. If there are
+    /// multiple files in the archive with the same name it only returns one
+    /// of them.
     pub fn get(&self, member: &str) -> Option<&Member> {
         if let Some(idx) = self.members.get(member) {
             Some(&self.member_array[*idx])
         } else {
             None
         }
+    }
+
+    /// Get the member at position `index` in this archive, if any.
+    pub fn get_at(&self, index: usize) -> Option<&Member> {
+        self.member_array.get(index)
+    }
+
+    /// Return the number of archive members.
+    pub fn len(&self) -> usize {
+        self.member_array.len()
     }
 
     /// Returns a slice of the raw bytes for the given `member` in the scrollable `buffer`
@@ -553,6 +567,11 @@ impl<'a> Archive<'a> {
     }
 
     /// Get the list of member names in this archive
+    ///
+    /// This returns members in alphabetical order, not in the order they
+    /// occurred in the archive. If there are multiple files with the same
+    /// name, the size of the returned array will be less than the size of
+    /// `len()`.
     pub fn members(&self) -> Vec<&'a str> {
         self.members.keys().cloned().collect()
     }

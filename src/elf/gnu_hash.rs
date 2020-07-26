@@ -154,6 +154,7 @@ macro_rules! elf_gnu_hash_impl {
             }
 
             /// Locate the hash chain, and corresponding hash value element.
+            #[cold]
             fn lookup(&self, symbol: &str, hash: u32, dynstrtab: &Strtab) -> Option<&'a Sym> {
                 const MASK_LOWEST_BIT: u32 = 0xffff_fffe;
                 let bucket = self.buckets[hash as usize % self.buckets.len()];
@@ -209,7 +210,6 @@ macro_rules! elf_gnu_hash_impl {
                 dynstrtab: &Strtab,
             ) -> Option<&'a Sym> {
                 if self.check_maybe_match(hash) {
-                    #[cold] // HACK: This is trick for `unlikely` in C
                     self.lookup(symbol, hash, dynstrtab)
                 } else {
                     None

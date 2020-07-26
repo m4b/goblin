@@ -219,19 +219,19 @@ pub mod cputype {
     pub const CPU_TYPE_MC680X0: CpuType = 6;
     pub const CPU_TYPE_X86: CpuType = 7;
     pub const CPU_TYPE_I386: CpuType = CPU_TYPE_X86;
-    pub const CPU_TYPE_X86_64: CpuType = (CPU_TYPE_X86 | CPU_ARCH_ABI64);
+    pub const CPU_TYPE_X86_64: CpuType = CPU_TYPE_X86 | CPU_ARCH_ABI64;
     pub const CPU_TYPE_MIPS: CpuType = 8;
     pub const CPU_TYPE_MC98000: CpuType = 10;
     pub const CPU_TYPE_HPPA: CpuType = 11;
     pub const CPU_TYPE_ARM: CpuType = 12;
-    pub const CPU_TYPE_ARM64: CpuType = (CPU_TYPE_ARM | CPU_ARCH_ABI64);
-    pub const CPU_TYPE_ARM64_32: CpuType = (CPU_TYPE_ARM | CPU_ARCH_ABI64_32);
+    pub const CPU_TYPE_ARM64: CpuType = CPU_TYPE_ARM | CPU_ARCH_ABI64;
+    pub const CPU_TYPE_ARM64_32: CpuType = CPU_TYPE_ARM | CPU_ARCH_ABI64_32;
     pub const CPU_TYPE_MC88000: CpuType = 13;
     pub const CPU_TYPE_SPARC: CpuType = 14;
     pub const CPU_TYPE_I860: CpuType = 15;
     pub const CPU_TYPE_ALPHA: CpuType = 16;
     pub const CPU_TYPE_POWERPC: CpuType = 18;
-    pub const CPU_TYPE_POWERPC64: CpuType = (CPU_TYPE_POWERPC | CPU_ARCH_ABI64);
+    pub const CPU_TYPE_POWERPC64: CpuType = CPU_TYPE_POWERPC | CPU_ARCH_ABI64;
 
     // CPU Subtypes
     pub const CPU_SUBTYPE_MULTIPLE: CpuSubType = !0;

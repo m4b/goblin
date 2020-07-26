@@ -111,7 +111,6 @@ pub mod strtab;
 
 /// Binary container size information and byte-order context
 pub mod container {
-    use scroll;
     pub use scroll::Endian;
 
     #[derive(Debug, Copy, Clone, PartialEq)]

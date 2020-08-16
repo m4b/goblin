@@ -363,6 +363,10 @@ pub mod cputype {
             /// For example:
             ///
             /// ```rust
+            /// use std::fs::read;
+            /// use goblin::mach::constants::cputype::get_arch_name_from_types;
+            /// use goblin::macho::Mach;
+            /// 
             /// let buf = read("path/to/macho").unwrap();
             /// if let Ok(Mach::Binary(a)) = Mach::parse(&buf) {
             ///     println!("arch name: {}", get_arch_name_from_types(a.header.cputype(), a.header.cpusubtype()).unwrap());

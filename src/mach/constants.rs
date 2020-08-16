@@ -351,6 +351,23 @@ pub mod cputype {
             }
 
             /// Get the architecture name from cputype and cpusubtype
+            ///
+            /// When using this method to determine the architecture
+            /// name of an instance of
+            /// [`goblin::mach::header::Header`](/goblin/mach/header/struct.Header.html),
+            /// use the provided method
+            /// [`cputype()`](/goblin/mach/header/struct.Header.html#method.cputype) and
+            /// [`cpusubtype()`](/goblin/mach/header/struct.Header.html#method.cpusubtype)
+            /// instead of corresponding field `cputype` and `cpusubtype`.
+            ///
+            /// For example:
+            ///
+            /// ```rust
+            /// let buf = read("path/to/macho").unwrap();
+            /// if let Ok(Mach::Binary(a)) = Mach::parse(&buf) {
+            ///     println!("arch name: {}", get_arch_name_from_types(a.header.cputype(), a.header.cpusubtype()).unwrap());
+            /// }
+            /// ```
             pub fn get_arch_name_from_types(cputype: CpuType, cpusubtype: CpuSubType)
                 -> Option<&'static str> {
                 match (cputype, cpusubtype) {

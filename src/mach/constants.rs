@@ -365,7 +365,7 @@ pub mod cputype {
             /// ```rust
             /// use std::fs::read;
             /// use goblin::mach::constants::cputype::get_arch_name_from_types;
-            /// use goblin::macho::Mach;
+            /// use goblin::mach::Mach;
             ///
             /// let buf = read("path/to/macho").unwrap();
             /// if let Ok(Mach::Binary(a)) = Mach::parse(&buf) {

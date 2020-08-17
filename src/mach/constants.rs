@@ -367,10 +367,12 @@ pub mod cputype {
             /// use goblin::mach::constants::cputype::get_arch_name_from_types;
             /// use goblin::mach::Mach;
             ///
-            /// let buf = read("path/to/macho").unwrap();
-            /// if let Ok(Mach::Binary(a)) = Mach::parse(&buf) {
-            ///     println!("arch name: {}", get_arch_name_from_types(a.header.cputype(), a.header.cpusubtype()).unwrap());
-            /// }
+            /// read("path/to/macho").and_then(|buf| {
+            ///     if let Ok(Mach::Binary(a)) = Mach::parse(&buf) {
+            ///         println!("arch name: {}", get_arch_name_from_types(a.header.cputype(), a.header.cpusubtype()).unwrap());
+            ///     }
+            ///     Ok(())
+            /// });
             /// ```
             pub fn get_arch_name_from_types(cputype: CpuType, cpusubtype: CpuSubType)
                 -> Option<&'static str> {

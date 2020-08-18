@@ -280,6 +280,7 @@ if_everything! {
     }
 
     /// Takes a reference to the first 16 bytes of the total bytes slice and convert it to an array for `peek_bytes` to use.
+    /// Returns None if bytes's length is less than 16.
     fn take_hint_bytes(bytes: &[u8]) -> Option<&[u8; 16]> {
         use core::convert::TryInto;
         bytes.get(0..16)

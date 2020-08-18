@@ -279,6 +279,15 @@ if_everything! {
         peek_bytes(&bytes)
     }
 
+    /// Takes a reference to the first 16 bytes of the total bytes slice and convert it to an array for `peek_bytes` to use.
+    fn take_hint_bytes(bytes: &[u8]) -> Option<&[u8; 16]> {
+        use core::convert::TryInto;
+        bytes.get(0..16)
+            .and_then(|hint_bytes_slice| {
+                hint_bytes_slice.try_into().ok()
+            })
+    }
+
     #[derive(Debug)]
     #[allow(clippy::large_enum_variant)]
     /// A parseable object that goblin understands
@@ -295,18 +304,19 @@ if_everything! {
         Unknown(u64),
     }
 
-    // TODO: this could avoid std using peek_bytes
-    #[cfg(feature = "std")]
     impl<'a> Object<'a> {
         /// Tries to parse an `Object` from `bytes`
         pub fn parse(bytes: &[u8]) -> error::Result<Object> {
-            use std::io::Cursor;
-            match peek(&mut Cursor::new(&bytes))? {
-                Hint::Elf(_) => Ok(Object::Elf(elf::Elf::parse(bytes)?)),
-                Hint::Mach(_) | Hint::MachFat(_) => Ok(Object::Mach(mach::Mach::parse(bytes)?)),
-                Hint::Archive => Ok(Object::Archive(archive::Archive::parse(bytes)?)),
-                Hint::PE => Ok(Object::PE(pe::PE::parse(bytes)?)),
-                Hint::Unknown(magic) => Ok(Object::Unknown(magic))
+            if let Some(hint_bytes) = take_hint_bytes(bytes) {
+                match peek_bytes(hint_bytes)? {
+                    Hint::Elf(_) => Ok(Object::Elf(elf::Elf::parse(bytes)?)),
+                    Hint::Mach(_) | Hint::MachFat(_) => Ok(Object::Mach(mach::Mach::parse(bytes)?)),
+                    Hint::Archive => Ok(Object::Archive(archive::Archive::parse(bytes)?)),
+                    Hint::PE => Ok(Object::PE(pe::PE::parse(bytes)?)),
+                    Hint::Unknown(magic) => Ok(Object::Unknown(magic))
+                }
+            } else {
+                Err(error::Error::Malformed(format!("Object is too small.")))
             }
         }
     }
@@ -362,3 +372,23 @@ pub mod pe;
 
 #[cfg(feature = "archive")]
 pub mod archive;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    if_everything! {
+        #[test]
+        fn take_hint_bytes_long_enough() {
+            let bytes_array = [1; 32];
+            let bytes = &bytes_array[..];
+            assert!(take_hint_bytes(bytes).is_some())
+        }
+
+        #[test]
+        fn take_hint_bytes_not_long_enough() {
+            let bytes_array = [1; 8];
+            let bytes = &bytes_array[..];
+            assert!(take_hint_bytes(bytes).is_none())
+        }
+    }
+}

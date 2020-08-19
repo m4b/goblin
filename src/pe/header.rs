@@ -41,6 +41,7 @@ impl DosHeader {
         if self.signature == DOS_MAGIC {
             Ok(())
         } else {
+            use alloc::string::String;
             Err(error::Error::Malformed(String::from(
                 "Unexpected DOS signature, expecting 0x5A4D.",
             )))
@@ -230,6 +231,7 @@ impl Header {
             error_messages.push(error_message);
         }
         if self.signature != PE_MAGIC {
+            use alloc::string::String;
             error_messages.push(String::from(
                 r#"Unexpected PE signature, expecting "PE\0\0" in little endian."#,
             ));

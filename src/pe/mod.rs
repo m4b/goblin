@@ -176,6 +176,24 @@ impl<'a> PE<'a> {
             exception_data,
         })
     }
+
+    /// Validate the `PE`
+    pub fn validate(&self) -> error::Result<()> {
+        let mut error_messages = vec![];
+        if let Err(error::Error::Malformed(error_message)) = self.header.validate() {
+            error_messages.push(error_message);
+        }
+        for section in &self.sections {
+            if let Err(error::Error::Malformed(error_message)) = section.validate(true) {
+                error_messages.push(error_message);
+            }
+        }
+        if error_messages.is_empty() {
+            Ok(())
+        } else {
+            Err(error::Error::Malformed(error_messages.join("\n")))
+        }
+    }
 }
 
 /// An analyzed COFF object
@@ -208,5 +226,23 @@ impl<'a> Coff<'a> {
             symbols,
             strings,
         })
+    }
+
+    /// Validate the `COFF`
+    pub fn validate(&self) -> error::Result<()> {
+        let mut error_messages = vec![];
+        if let Err(error::Error::Malformed(error_message)) = self.header.validate(false) {
+            error_messages.push(error_message);
+        }
+        for section in &self.sections {
+            if let Err(error::Error::Malformed(error_message)) = section.validate(false) {
+                error_messages.push(error_message);
+            }
+        }
+        if error_messages.is_empty() {
+            Ok(())
+        } else {
+            Err(error::Error::Malformed(error_messages.join("\n")))
+        }
     }
 }

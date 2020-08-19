@@ -234,6 +234,35 @@ impl From<WindowsFields32> for WindowsFields {
 
 pub type WindowsFields = WindowsFields64;
 
+impl WindowsFields {
+    /// Validate the Windows-Specific Fields
+    ///
+    /// This method DOES NOT validate `check_sum` field since
+    /// the algorithm for computing the checksum is incorporated
+    /// into IMAGEHELP.DLL, which is os-dependent.
+    pub fn validate(&self) -> error::Result<()> {
+        let mut error_messages = vec![];
+        if self.image_base % 0x1000 != 0 {
+            error_messages.push("ImageBase must be a multiple of 64K.");
+        }
+        if self.section_alignment < self.file_alignment {
+            error_messages.push("SectionAlignment must be greater than or equal to FileAlignment.");
+        }
+        if self.file_alignment < 512 || self.file_alignment > 0x1000 || self.file_alignment % 2 != 0
+        {
+            error_messages.push("FileAlignment should be a power of 2 between 512 and 64K.");
+        }
+        if self.size_of_image % self.section_alignment != 0 {
+            error_messages.push("SizeOfImage must be a multiple of SectionAlignment.");
+        }
+        if error_messages.is_empty() {
+            Ok(())
+        } else {
+            Err(error::Error::Malformed(error_messages.join("\n")))
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct OptionalHeader {
     pub standard_fields: StandardFields,
@@ -247,6 +276,22 @@ impl OptionalHeader {
             MAGIC_32 => Ok(container::Container::Little),
             MAGIC_64 => Ok(container::Container::Big),
             magic => Err(error::Error::BadMagic(u64::from(magic))),
+        }
+    }
+
+    /// Validate the Optional Header.
+    pub fn validate(&self) -> error::Result<()> {
+        let mut error_messages = vec![];
+        if let Err(error::Error::Malformed(error_message)) = self.windows_fields.validate() {
+            error_messages.push(error_message);
+        }
+        if let Err(error::Error::Malformed(error_message)) = self.data_directories.validate() {
+            error_messages.push(error_message);
+        }
+        if error_messages.is_empty() {
+            Ok(())
+        } else {
+            Err(error::Error::Malformed(error_messages.join("\n")))
         }
     }
 }

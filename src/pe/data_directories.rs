@@ -43,6 +43,23 @@ impl DataDirectories {
         }
         Ok(DataDirectories { data_directories })
     }
+    /// Validate the Data Directories.
+    pub fn validate(&self) -> error::Result<()> {
+        let mut error_messages = vec![];
+        if self.get_architecture().is_some() {
+            error_messages.push("Architecture field is reserved, must be 0.");
+        }
+        if let Some(global_ptr_directory) = self.get_global_ptr() {
+            if global_ptr_directory.size != 0 {
+                error_messages.push("The size member of Global Ptr must be set to zero.");
+            }
+        }
+        if error_messages.is_empty() {
+            Ok(())
+        } else {
+            Err(error::Error::Malformed(error_messages.join("\n")))
+        }
+    }
     pub fn get_export_table(&self) -> &Option<DataDirectory> {
         let idx = 0;
         unsafe { self.data_directories.get_unchecked(idx) }

@@ -36,6 +36,16 @@ impl DosHeader {
             pe_pointer,
         })
     }
+
+    pub fn validate(&self) -> error::Result<()> {
+        if self.signature == DOS_MAGIC {
+            Ok(())
+        } else {
+            Err(error::Error::Malformed(String::from(
+                "Unexpected DOS signature, expecting 0x5A4D.",
+            )))
+        }
+    }
 }
 
 /// COFF Header
@@ -149,6 +159,38 @@ impl CoffHeader {
         let length = bytes.pread_with::<u32>(offset, scroll::LE)? as usize;
         Ok(strtab::Strtab::parse(bytes, offset, length, 0)?)
     }
+
+    /// Validate the `CoffHeader`.
+    ///
+    /// `is_image` being `true` indicates the `CoffHeader` is in a `PE`,
+    /// being `false` indicates the `CoffHeader` is in a `Coff`.
+    pub fn validate(&self, is_image: bool) -> error::Result<()> {
+        let mut error_messages = vec![];
+        if is_image {
+            if self.pointer_to_symbol_table != 0 {
+                error_messages.push("PointerToSymbolTable should be zero for an image because COFF debugging information is deprecated.");
+            }
+            if self.number_of_symbol_table != 0 {
+                error_messages.push("NumberOfSymbols should be zero for an image because COFF debugging information is deprecated.");
+            }
+        } else {
+            if self.size_of_optional_header != 0 {
+                error_messages.push("SizeOfOptionalHeader should be zero for an object file.");
+            }
+        }
+        let characteristic_error_message;
+        if let Err(error::Error::Malformed(error_message)) =
+            super::characteristic::validate(self.characteristics, is_image)
+        {
+            characteristic_error_message = error_message.clone();
+            error_messages.push(&characteristic_error_message);
+        }
+        if error_messages.is_empty() {
+            Ok(())
+        } else {
+            Err(error::Error::Malformed(error_messages.join("\n")))
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
@@ -179,6 +221,32 @@ impl Header {
             coff_header,
             optional_header,
         })
+    }
+
+    /// Validate the Header.
+    pub fn validate(&self) -> error::Result<()> {
+        let mut error_messages = vec![];
+        if let Err(error::Error::Malformed(error_message)) = self.dos_header.validate() {
+            error_messages.push(error_message);
+        }
+        if self.signature != PE_MAGIC {
+            error_messages.push(String::from(
+                r#"Unexpected PE signature, expecting "PE\0\0" in little endian."#,
+            ));
+        }
+        if let Err(error::Error::Malformed(error_message)) = self.coff_header.validate(true) {
+            error_messages.push(error_message);
+        }
+        if let Some(optional_header) = self.optional_header {
+            if let Err(error::Error::Malformed(error_message)) = optional_header.validate() {
+                error_messages.push(error_message);
+            }
+        }
+        if error_messages.is_empty() {
+            Ok(())
+        } else {
+            Err(error::Error::Malformed(error_messages.join("\n")))
+        }
     }
 }
 

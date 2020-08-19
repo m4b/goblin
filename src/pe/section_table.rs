@@ -1,5 +1,6 @@
 use crate::error::{self, Error};
 use crate::pe::relocation;
+use alloc::borrow::ToOwned;
 use alloc::string::{String, ToString};
 use scroll::{ctx, Pread, Pwrite};
 

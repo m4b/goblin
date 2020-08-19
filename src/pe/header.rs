@@ -1,6 +1,7 @@
 use crate::error;
 use crate::pe::{optional_header, section_table, symbol};
 use crate::strtab;
+use alloc::borrow::ToOwned;
 use alloc::string::String;
 use alloc::vec::Vec;
 use log::debug;

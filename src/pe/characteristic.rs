@@ -73,6 +73,7 @@ let show_type characteristics =
   else "MANY"                   (* print all *)
  */
 use crate::error;
+use alloc::borrow::ToOwned;
 
 pub const IMAGE_FILE_RELOCS_STRIPPED: u16 = 0x0001;
 pub const IMAGE_FILE_EXECUTABLE_IMAGE: u16 = 0x0002;

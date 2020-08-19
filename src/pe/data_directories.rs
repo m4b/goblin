@@ -1,4 +1,5 @@
 use crate::error;
+use alloc::borrow::ToOwned;
 use scroll::{Pread, Pwrite, SizeWith};
 
 #[repr(C)]

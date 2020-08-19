@@ -3,6 +3,7 @@ use crate::error;
 
 use crate::pe::data_directories;
 
+use alloc::borrow::ToOwned;
 use scroll::{ctx, Endian, LE};
 use scroll::{Pread, Pwrite, SizeWith};
 

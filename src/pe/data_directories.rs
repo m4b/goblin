@@ -47,17 +47,17 @@ impl DataDirectories {
     pub fn validate(&self) -> error::Result<()> {
         let mut error_messages = vec![];
         if self.get_architecture().is_some() {
-            error_messages.push("Architecture field is reserved, must be 0.");
+            error_messages.push("Architecture field is reserved, must be 0.".to_owned());
         }
         if let Some(global_ptr_directory) = self.get_global_ptr() {
             if global_ptr_directory.size != 0 {
-                error_messages.push("The size member of Global Ptr must be set to zero.");
+                error_messages.push("The size member of Global Ptr must be set to zero.".to_owned());
             }
         }
         if error_messages.is_empty() {
             Ok(())
         } else {
-            Err(error::Error::Malformed(error_messages.join("\n")))
+            Err(error::Error::Malformed(super::utils::organize_validation_error_messages("", error_messages)))
         }
     }
     pub fn get_export_table(&self) -> &Option<DataDirectory> {

@@ -2,6 +2,7 @@ use crate::error;
 use crate::pe::{optional_header, section_table, symbol};
 use crate::strtab;
 use alloc::vec::Vec;
+use alloc::string::String;
 use log::debug;
 use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith};
 
@@ -41,7 +42,6 @@ impl DosHeader {
         if self.signature == DOS_MAGIC {
             Ok(())
         } else {
-            use alloc::string::String;
             Err(error::Error::Malformed(String::from(
                 "Unexpected DOS signature, expecting 0x5A4D.",
             )))
@@ -169,14 +169,14 @@ impl CoffHeader {
         let mut error_messages = vec![];
         if is_image {
             if self.pointer_to_symbol_table != 0 {
-                error_messages.push("PointerToSymbolTable should be zero for an image because COFF debugging information is deprecated.");
+                error_messages.push("PointerToSymbolTable should be zero for an image because COFF debugging information is deprecated.".to_owned());
             }
             if self.number_of_symbol_table != 0 {
-                error_messages.push("NumberOfSymbols should be zero for an image because COFF debugging information is deprecated.");
+                error_messages.push("NumberOfSymbols should be zero for an image because COFF debugging information is deprecated.".to_owned());
             }
         } else {
             if self.size_of_optional_header != 0 {
-                error_messages.push("SizeOfOptionalHeader should be zero for an object file.");
+                error_messages.push("SizeOfOptionalHeader should be zero for an object file.".to_owned());
             }
         }
         let characteristic_error_message;
@@ -184,12 +184,12 @@ impl CoffHeader {
             super::characteristic::validate(self.characteristics, is_image)
         {
             characteristic_error_message = error_message.clone();
-            error_messages.push(&characteristic_error_message);
+            error_messages.push(characteristic_error_message);
         }
         if error_messages.is_empty() {
             Ok(())
         } else {
-            Err(error::Error::Malformed(error_messages.join("\n")))
+            Err(error::Error::Malformed(super::utils::organize_validation_error_messages("", error_messages)))
         }
     }
 }
@@ -231,7 +231,6 @@ impl Header {
             error_messages.push(error_message);
         }
         if self.signature != PE_MAGIC {
-            use alloc::string::String;
             error_messages.push(String::from(
                 r#"Unexpected PE signature, expecting "PE\0\0" in little endian."#,
             ));
@@ -247,7 +246,7 @@ impl Header {
         if error_messages.is_empty() {
             Ok(())
         } else {
-            Err(error::Error::Malformed(error_messages.join("\n")))
+            Err(error::Error::Malformed(super::utils::organize_validation_error_messages("", error_messages)))
         }
     }
 }

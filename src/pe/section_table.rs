@@ -172,40 +172,38 @@ impl SectionTable {
         let mut error_messages = vec![];
         if is_image {
             if self.name[0] == b'/' {
-                error_messages.push("Executable images do not use a string table and do not support section names longer than 8 characters.");
+                error_messages.push("Executable images do not use a string table and do not support section names longer than 8 characters.".to_owned());
             }
             // TODO: Validate `size_of_raw_data` field as: For executable images, this must be a multiple of FileAlignment from the optional header.
             // TODO: Validate `pointer_to_raw_data` field as: For executable images, this must be a multiple of FileAlignment from the optional header.
             if self.pointer_to_relocations != 0 {
-                error_messages.push("PointerToRelocations is set to zero for executable images.");
+                error_messages.push("PointerToRelocations is set to zero for executable images.".to_owned());
             }
             if self.pointer_to_linenumbers != 0 {
-                error_messages.push("PointerToLinenumbers should be zero for an image because COFF debugging information is deprecated.");
+                error_messages.push("PointerToLinenumbers should be zero for an image because COFF debugging information is deprecated.".to_owned());
             }
             if self.number_of_relocations != 0 {
                 error_messages
-                    .push("NumberOfRelocations should be set to zero for executable images.");
+                    .push("NumberOfRelocations should be set to zero for executable images.".to_owned());
             }
             if self.number_of_linenumbers != 0 {
-                error_messages.push("NumberOfLinenumbers shuold be zero for an image because COFF debugging information is deprecated.");
+                error_messages.push("NumberOfLinenumbers shuold be zero for an image because COFF debugging information is deprecated.".to_owned());
             }
             if self.name.contains(&b'$') {
                 error_messages
-                    .push(r#"The section name in an image file never contains a "$"? character."#);
+                    .push(r#"The section name in an image file never contains a "$"? character."#.to_owned());
             }
         } else {
             if self.virtual_size != 0 {
-                error_messages.push("VirtualSize field should be set zero for object files.");
+                error_messages.push("VirtualSize field should be set zero for object files.".to_owned());
             }
         }
         if error_messages.is_empty() {
             Ok(())
         } else {
-            Err(error::Error::Malformed(format!(
-                "For section {}:\n{}",
-                String::from_utf8_lossy(&self.name),
-                error_messages.join("\n")
-            )))
+            Err(error::Error::Malformed(
+                super::utils::organize_validation_error_messages(&String::from_utf8_lossy(&self.name), error_messages)
+            ))
         }
     }
 }

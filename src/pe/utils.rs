@@ -5,9 +5,9 @@ use scroll::Pread;
 use super::section_table;
 
 use crate::pe::data_directories::DataDirectory;
-use core::cmp;
-use alloc::vec::Vec;
 use alloc::string::String;
+use alloc::vec::Vec;
+use core::cmp;
 
 use log::debug;
 
@@ -129,7 +129,10 @@ where
 }
 
 /// Equivalent to `format!("{}{}", prefix, error_messages.join("\n"))`, which can't compile in some old version of Rust with alloc and core.
-pub(crate) fn organize_validation_error_messages(prefix: &str, error_messages: Vec<String>) -> String {
+pub(crate) fn organize_validation_error_messages(
+    prefix: &str,
+    error_messages: Vec<String>,
+) -> String {
     let mut message = String::new();
     message.push_str(prefix);
     for (index, error_message) in error_messages.iter().enumerate() {

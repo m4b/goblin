@@ -111,8 +111,10 @@ pub fn validate(characteristics: u16, is_image: bool) -> error::Result<()> {
     let mut error_messages = vec![];
     if is_image {
         if !has_flag(characteristics, IMAGE_FILE_EXECUTABLE_IMAGE) {
-            error_messages
-                .push("If IMAGE_FILE_EXECUTABLE_IMAGE is not set, it indicates a linker error.".to_owned());
+            error_messages.push(
+                "If IMAGE_FILE_EXECUTABLE_IMAGE is not set, it indicates a linker error."
+                    .to_owned(),
+            );
         }
     } else {
         if has_flag(characteristics, IMAGE_FILE_RELOCS_STRIPPED) {
@@ -123,23 +125,30 @@ pub fn validate(characteristics: u16, is_image: bool) -> error::Result<()> {
         }
     }
     if has_flag(characteristics, IMAGE_FILE_LINE_NUMS_STRIPPED) {
-        error_messages.push("IMAGE_FILE_LINE_NUMS_STRIPPED is deprecated and should be zero.".to_owned())
+        error_messages
+            .push("IMAGE_FILE_LINE_NUMS_STRIPPED is deprecated and should be zero.".to_owned())
     }
     if has_flag(characteristics, IMAGE_FILE_LOCAL_SYMS_STRIPPED) {
-        error_messages.push("IMAGE_FILE_LOCAL_SYMS_STRIPPED is deprecated and should be zero.".to_owned())
+        error_messages
+            .push("IMAGE_FILE_LOCAL_SYMS_STRIPPED is deprecated and should be zero.".to_owned())
     }
     if has_flag(characteristics, IMAGE_FILE_AGGRESSIVE_WS_TRIM) {
-        error_messages.push("IMAGE_FILE_AGGRESSIVE_WS_TRIM is deprecated and must be zero.".to_owned());
+        error_messages
+            .push("IMAGE_FILE_AGGRESSIVE_WS_TRIM is deprecated and must be zero.".to_owned());
     }
     if has_flag(characteristics, IMAGE_FILE_BYTES_REVERSED_LO) {
-        error_messages.push("IMAGE_FILE_BYTES_REVERSED_LO is deprecated and should be zero.".to_owned());
+        error_messages
+            .push("IMAGE_FILE_BYTES_REVERSED_LO is deprecated and should be zero.".to_owned());
     }
     if has_flag(characteristics, IMAGE_FILE_BYTES_REVERSED_HI) {
-        error_messages.push("IMAGE_FILE_BYTES_REVERSED_HI is deprecated and should be zero.".to_owned());
+        error_messages
+            .push("IMAGE_FILE_BYTES_REVERSED_HI is deprecated and should be zero.".to_owned());
     }
     if error_messages.is_empty() {
         Ok(())
     } else {
-        Err(error::Error::Malformed(super::utils::organize_validation_error_messages("", error_messages)))
+        Err(error::Error::Malformed(
+            super::utils::organize_validation_error_messages("", error_messages),
+        ))
     }
 }

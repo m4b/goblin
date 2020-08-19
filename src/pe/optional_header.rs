@@ -246,11 +246,14 @@ impl WindowsFields {
             error_messages.push("ImageBase must be a multiple of 64K.".to_owned());
         }
         if self.section_alignment < self.file_alignment {
-            error_messages.push("SectionAlignment must be greater than or equal to FileAlignment.".to_owned());
+            error_messages.push(
+                "SectionAlignment must be greater than or equal to FileAlignment.".to_owned(),
+            );
         }
         if self.file_alignment < 512 || self.file_alignment > 0x1000 || self.file_alignment % 2 != 0
         {
-            error_messages.push("FileAlignment should be a power of 2 between 512 and 64K.".to_owned());
+            error_messages
+                .push("FileAlignment should be a power of 2 between 512 and 64K.".to_owned());
         }
         if self.size_of_image % self.section_alignment != 0 {
             error_messages.push("SizeOfImage must be a multiple of SectionAlignment.".to_owned());
@@ -258,7 +261,9 @@ impl WindowsFields {
         if error_messages.is_empty() {
             Ok(())
         } else {
-            Err(error::Error::Malformed(super::utils::organize_validation_error_messages("", error_messages)))
+            Err(error::Error::Malformed(
+                super::utils::organize_validation_error_messages("", error_messages),
+            ))
         }
     }
 }
@@ -291,7 +296,9 @@ impl OptionalHeader {
         if error_messages.is_empty() {
             Ok(())
         } else {
-            Err(error::Error::Malformed(super::utils::organize_validation_error_messages("", error_messages)))
+            Err(error::Error::Malformed(
+                super::utils::organize_validation_error_messages("", error_messages),
+            ))
         }
     }
 }

@@ -1,8 +1,8 @@
 use crate::error;
 use crate::pe::{optional_header, section_table, symbol};
 use crate::strtab;
-use alloc::vec::Vec;
 use alloc::string::String;
+use alloc::vec::Vec;
 use log::debug;
 use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith};
 
@@ -176,7 +176,8 @@ impl CoffHeader {
             }
         } else {
             if self.size_of_optional_header != 0 {
-                error_messages.push("SizeOfOptionalHeader should be zero for an object file.".to_owned());
+                error_messages
+                    .push("SizeOfOptionalHeader should be zero for an object file.".to_owned());
             }
         }
         let characteristic_error_message;
@@ -189,7 +190,9 @@ impl CoffHeader {
         if error_messages.is_empty() {
             Ok(())
         } else {
-            Err(error::Error::Malformed(super::utils::organize_validation_error_messages("", error_messages)))
+            Err(error::Error::Malformed(
+                super::utils::organize_validation_error_messages("", error_messages),
+            ))
         }
     }
 }
@@ -246,7 +249,9 @@ impl Header {
         if error_messages.is_empty() {
             Ok(())
         } else {
-            Err(error::Error::Malformed(super::utils::organize_validation_error_messages("", error_messages)))
+            Err(error::Error::Malformed(
+                super::utils::organize_validation_error_messages("", error_messages),
+            ))
         }
     }
 }

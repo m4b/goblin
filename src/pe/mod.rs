@@ -191,7 +191,9 @@ impl<'a> PE<'a> {
         if error_messages.is_empty() {
             Ok(())
         } else {
-            Err(error::Error::Malformed(utils::organize_validation_error_messages("", error_messages)))
+            Err(error::Error::Malformed(
+                utils::organize_validation_error_messages("", error_messages),
+            ))
         }
     }
 }
@@ -242,7 +244,9 @@ impl<'a> Coff<'a> {
         if error_messages.is_empty() {
             Ok(())
         } else {
-            Err(error::Error::Malformed(utils::organize_validation_error_messages("", error_messages)))
+            Err(error::Error::Malformed(
+                utils::organize_validation_error_messages("", error_messages),
+            ))
         }
     }
 }

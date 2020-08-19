@@ -51,13 +51,16 @@ impl DataDirectories {
         }
         if let Some(global_ptr_directory) = self.get_global_ptr() {
             if global_ptr_directory.size != 0 {
-                error_messages.push("The size member of Global Ptr must be set to zero.".to_owned());
+                error_messages
+                    .push("The size member of Global Ptr must be set to zero.".to_owned());
             }
         }
         if error_messages.is_empty() {
             Ok(())
         } else {
-            Err(error::Error::Malformed(super::utils::organize_validation_error_messages("", error_messages)))
+            Err(error::Error::Malformed(
+                super::utils::organize_validation_error_messages("", error_messages),
+            ))
         }
     }
     pub fn get_export_table(&self) -> &Option<DataDirectory> {

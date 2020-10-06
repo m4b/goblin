@@ -1,7 +1,17 @@
 use std::process;
 
+fn get_realpath(cmd: &str) -> String {
+    let output = process::Command::new("/usr/bin/xcrun")
+        .arg("-f")
+        .arg(cmd)
+        .output()
+        .expect("can get realpath");
+    String::from_utf8(output.stdout).expect("output is valid utf8")
+}
+
 pub fn compare(args: Vec<&str>) {
-    let apple = process::Command::new("/Library/Developer/CommandLineTools/usr/bin/dyldinfo")
+    let apple = process::Command::new("/usr/bin/xcrun")
+        .arg("dyldinfo")
         .args(&args)
         .output()
         .expect("run Apple dyldinfo");
@@ -39,39 +49,28 @@ pub fn compare(args: Vec<&str>) {
 #[cfg(target_os = "macos")]
 #[test]
 fn compare_binds() {
-    compare(vec![
-        "-bind",
-        "/Library/Developer/CommandLineTools/usr/bin/dyldinfo",
-    ]);
-    compare(vec![
-        "-bind",
-        "/Library/Developer/CommandLineTools/usr/bin/clang",
-    ]);
+    let dyldinfo = get_realpath("dyldinfo");
+    let clang = get_realpath("clang");
+    compare(vec!["-bind", &dyldinfo]);
+    compare(vec!["-bind", &clang]);
     compare(vec!["-bind", "/usr/bin/tmutil"]);
 }
 
 #[cfg(target_os = "macos")]
 #[test]
 fn compare_lazy_binds() {
-    compare(vec![
-        "-lazy_bind",
-        "/Library/Developer/CommandLineTools/usr/bin/dyldinfo",
-    ]);
-    compare(vec![
-        "-lazy_bind",
-        "/Library/Developer/CommandLineTools/usr/bin/clang",
-    ]);
+    let dyldinfo = get_realpath("dyldinfo");
+    let clang = get_realpath("clang");
+    compare(vec!["-lazy_bind", &dyldinfo]);
+    compare(vec!["-lazy_bind", &clang]);
     compare(vec!["-lazy_bind", "/usr/bin/tmutil"]);
 }
 
 #[cfg(target_os = "macos")]
 #[test]
 fn compare_combined_options() {
-    compare(vec![
-        "-lazy_bind",
-        "-bind",
-        "/Library/Developer/CommandLineTools/usr/bin/dyldinfo",
-    ]);
+    let dyldinfo = get_realpath("dyldinfo");
+    compare(vec!["-lazy_bind", "-bind", &dyldinfo]);
 }
 
 #[cfg(not(target_os = "macos"))]

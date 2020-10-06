@@ -348,18 +348,18 @@ if_sylvan! {
 
     fn gnu_hash_len(bytes: &[u8], offset: usize, ctx: Ctx) -> error::Result<usize> {
         let buckets_num = bytes.pread_with::<u32>(offset, ctx.le)? as usize;
-        let min_chain = bytes.pread_with::<u32>(offset + 4, ctx.le)? as usize;
-        let bloom_size = bytes.pread_with::<u32>(offset + 8, ctx.le)? as usize;
+        let min_chain = bytes.pread_with::<u32>(offset.wrapping_add(4), ctx.le)? as usize;
+        let bloom_size = bytes.pread_with::<u32>(offset.wrapping_add(8), ctx.le)? as usize;
         // We could handle min_chain==0 if we really had to, but it shouldn't happen.
         if buckets_num == 0 || min_chain == 0 || bloom_size == 0 {
             return Err(error::Error::Malformed(format!("Invalid DT_GNU_HASH: buckets_num={} min_chain={} bloom_size={}",
                                                        buckets_num, min_chain, bloom_size)));
         }
         // Find the last bucket.
-        let buckets_offset = offset + 16 + bloom_size * if ctx.container.is_big() { 8 } else { 4 };
+        let buckets_offset = offset.wrapping_add(16).wrapping_add(bloom_size.wrapping_mul(if ctx.container.is_big() { 8 } else { 4 }));
         let mut max_chain = 0;
         for bucket in 0..buckets_num {
-            let chain = bytes.pread_with::<u32>(buckets_offset + bucket * 4, ctx.le)? as usize;
+            let chain = bytes.pread_with::<u32>(buckets_offset.wrapping_add(bucket.wrapping_mul(4)), ctx.le)? as usize;
             if max_chain < chain {
                 max_chain = chain;
             }
@@ -368,7 +368,7 @@ if_sylvan! {
             return Ok(0);
         }
         // Find the last chain within the bucket.
-        let mut chain_offset = buckets_offset + buckets_num * 4 + (max_chain - min_chain) * 4;
+        let mut chain_offset = buckets_offset.wrapping_add(buckets_num.wrapping_mul(4)).wrapping_add((max_chain - min_chain).wrapping_mul(4));
         loop {
             let hash = bytes.pread_with::<u32>(chain_offset, ctx.le)?;
             max_chain += 1;
@@ -382,9 +382,9 @@ if_sylvan! {
     fn hash_len(bytes: &[u8], offset: usize, machine: u16, ctx: Ctx) -> error::Result<usize> {
         // Based on readelf code.
         let nchain = if (machine == header::EM_FAKE_ALPHA || machine == header::EM_S390) && ctx.container.is_big() {
-            bytes.pread_with::<u64>(offset + 4, ctx.le)? as usize
+            bytes.pread_with::<u64>(offset.wrapping_add(4), ctx.le)? as usize
         } else {
-            bytes.pread_with::<u32>(offset + 4, ctx.le)? as usize
+            bytes.pread_with::<u32>(offset.wrapping_add(4), ctx.le)? as usize
         };
         Ok(nchain)
     }

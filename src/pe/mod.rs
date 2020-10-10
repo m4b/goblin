@@ -57,7 +57,7 @@ pub struct PE<'a> {
     pub debug_data: Option<debug::DebugData<'a>>,
     /// Exception handling and stack unwind information, if any, contained in the PE header
     pub exception_data: Option<exception::ExceptionData<'a>>,
-    pub section_table: &'a [u8]
+    pub section_table: &'a [u8],
 }
 
 impl<'a> PE<'a> {
@@ -70,15 +70,16 @@ impl<'a> PE<'a> {
             + header::SIZEOF_COFF_HEADER
             + header.coff_header.size_of_optional_header as usize);
 
-        let min_size = *offset + header.coff_header.number_of_sections as usize * header::SIZEOF_IMAGE_SECTION_HEADER;
+        let min_size = *offset
+            + header.coff_header.number_of_sections as usize * header::SIZEOF_IMAGE_SECTION_HEADER;
 
         if bytes.len() < min_size {
             // The section table contains more entries than the binary can provide given the size
-            return Err(
-                error::Error::Malformed(
-                    format!("Corrupted PE: Expected at least {:#X} bytes but got {:#X}", min_size, bytes.len())
-                )
-            )
+            return Err(error::Error::Malformed(format!(
+                "Corrupted PE: Expected at least {:#X} bytes but got {:#X}",
+                min_size,
+                bytes.len()
+            )));
         }
 
         let section_table = &bytes[*offset..min_size];
@@ -189,7 +190,7 @@ impl<'a> PE<'a> {
             libraries,
             debug_data,
             exception_data,
-            section_table
+            section_table,
         })
     }
 }

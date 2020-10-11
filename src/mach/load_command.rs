@@ -4,6 +4,7 @@ use crate::error;
 use core::fmt::{self, Display};
 use scroll::{ctx, Endian};
 use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith};
+use std::convert::TryFrom;
 
 ///////////////////////////////////////
 // Load Commands from mach-o/loader.h
@@ -999,6 +1000,46 @@ pub struct EncryptionInfoCommand64 {
 
 pub const SIZEOF_ENCRYPTION_INFO_COMMAND_64: usize = 24;
 
+/// An enumeration of platforms currently identifiable within a version_min_command.
+#[non_exhaustive]
+#[derive(Debug)]
+pub enum Platform {
+    Macos,
+    Iphoneos,
+    Tvos,
+    Watchos,
+}
+
+impl std::convert::From<Platform> for u32 {
+    fn from(platform: Platform) -> Self {
+        match platform {
+            Platform::Macos => LC_VERSION_MIN_MACOSX,
+            Platform::Iphoneos => LC_VERSION_MIN_IPHONEOS,
+            Platform::Tvos => LC_VERSION_MIN_TVOS,
+            Platform::Watchos => LC_VERSION_MIN_WATCHOS,
+        }
+    }
+}
+
+impl TryFrom<u32> for Platform {
+    type Error = error::Error;
+
+    fn try_from(cmd: u32) -> Result<Self, Self::Error> {
+        Ok(match cmd {
+            LC_VERSION_MIN_MACOSX => Platform::Macos,
+            LC_VERSION_MIN_IPHONEOS => Platform::Iphoneos,
+            LC_VERSION_MIN_TVOS => Platform::Tvos,
+            LC_VERSION_MIN_WATCHOS => Platform::Watchos,
+            _ => {
+                return Err(error::Error::Malformed(format!(
+                    "unknown platform for load command: {:x}",
+                    cmd
+                )))
+            }
+        })
+    }
+}
+
 /// The version_min_command contains the min OS version on which this
 /// binary was built to run.
 ///
@@ -1015,18 +1056,17 @@ pub struct VersionMinCommand {
 }
 
 impl VersionMinCommand {
-    // TODO: Needs a discriminant for TvOS, WatchOS.
-    pub fn new(is_ios: bool) -> Self {
+    pub fn new(platform: Platform) -> Self {
         VersionMinCommand {
-            cmd: if is_ios {
-                LC_VERSION_MIN_IPHONEOS
-            } else {
-                LC_VERSION_MIN_MACOSX
-            },
+            cmd: platform as u32,
             cmdsize: SIZEOF_VERSION_MIN_COMMAND as u32,
             version: 0,
             sdk: 0,
         }
+    }
+
+    pub fn platform(&self) -> error::Result<Platform> {
+        Platform::try_from(self.cmd)
     }
 }
 

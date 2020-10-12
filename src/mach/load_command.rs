@@ -1,7 +1,7 @@
 //! Load commands tell the kernel and dynamic linker anything from how to load this binary into memory, what the entry point is, apple specific information, to which libraries it requires for dynamic linking
 
 use crate::error;
-use core::convert::{From, TryFrom};
+use core::convert::TryFrom;
 use core::fmt::{self, Display};
 use scroll::{ctx, Endian};
 use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith};
@@ -1002,23 +1002,13 @@ pub const SIZEOF_ENCRYPTION_INFO_COMMAND_64: usize = 24;
 
 /// An enumeration of platforms currently identifiable within a version_min_command.
 #[non_exhaustive]
+#[repr(u32)]
 #[derive(Debug)]
 pub enum Platform {
-    Macos,
-    Iphoneos,
-    Tvos,
-    Watchos,
-}
-
-impl From<Platform> for u32 {
-    fn from(platform: Platform) -> Self {
-        match platform {
-            Platform::Macos => LC_VERSION_MIN_MACOSX,
-            Platform::Iphoneos => LC_VERSION_MIN_IPHONEOS,
-            Platform::Tvos => LC_VERSION_MIN_TVOS,
-            Platform::Watchos => LC_VERSION_MIN_WATCHOS,
-        }
-    }
+    Macos = LC_VERSION_MIN_MACOSX,
+    Iphoneos = LC_VERSION_MIN_IPHONEOS,
+    Tvos = LC_VERSION_MIN_TVOS,
+    Watchos = LC_VERSION_MIN_WATCHOS,
 }
 
 impl TryFrom<u32> for Platform {
@@ -1065,8 +1055,12 @@ impl VersionMinCommand {
         }
     }
 
-    pub fn platform(&self) -> error::Result<Platform> {
-        Platform::try_from(self.cmd)
+    pub fn platform(&self) -> Platform {
+        // A panic here indicates an incomplete API change above: VersionMinCommand
+        // can only be constructed from one of the LC_VERSION_* commands or directly
+        // from a Platform, so an error indicates that a new one hasn't been correctly
+        // added to the Platform enum.
+        Platform::try_from(self.cmd).expect("impossible platform (implementation error)")
     }
 }
 

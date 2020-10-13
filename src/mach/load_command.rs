@@ -1,6 +1,7 @@
 //! Load commands tell the kernel and dynamic linker anything from how to load this binary into memory, what the entry point is, apple specific information, to which libraries it requires for dynamic linking
 
 use crate::error;
+use core::convert::TryFrom;
 use core::fmt::{self, Display};
 use scroll::{ctx, Endian};
 use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith};
@@ -946,7 +947,8 @@ pub const SIZEOF_RPATH_COMMAND: usize = 12;
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct LinkeditDataCommand {
-    /// LC_CODE_SIGNATURE, LC_SEGMENT_SPLIT_INFO, LC_FUNCTION_STARTS, LC_DATA_IN_CODE, LC_DYLIB_CODE_SIGN_DRS or LC_LINKER_OPTIMIZATION_HINT.
+    /// LC_CODE_SIGNATURE, LC_SEGMENT_SPLIT_INFO, LC_FUNCTION_STARTS, LC_DATA_IN_CODE,
+    /// LC_DYLIB_CODE_SIGN_DRS, LC_LINKER_OPTIMIZATION_HINT, LC_DYLD_EXPORTS_TRIE, or LC_DYLD_CHAINED_FIXUPS.
     pub cmd: u32,
     /// sizeof(struct linkedit_data_command)
     pub cmdsize: u32,
@@ -998,13 +1000,43 @@ pub struct EncryptionInfoCommand64 {
 
 pub const SIZEOF_ENCRYPTION_INFO_COMMAND_64: usize = 24;
 
+/// An enumeration of platforms currently identifiable within a version_min_command.
+#[non_exhaustive]
+#[repr(u32)]
+#[derive(Debug)]
+pub enum Platform {
+    Macos = LC_VERSION_MIN_MACOSX,
+    Iphoneos = LC_VERSION_MIN_IPHONEOS,
+    Tvos = LC_VERSION_MIN_TVOS,
+    Watchos = LC_VERSION_MIN_WATCHOS,
+}
+
+impl TryFrom<u32> for Platform {
+    type Error = error::Error;
+
+    fn try_from(cmd: u32) -> Result<Self, Self::Error> {
+        Ok(match cmd {
+            LC_VERSION_MIN_MACOSX => Platform::Macos,
+            LC_VERSION_MIN_IPHONEOS => Platform::Iphoneos,
+            LC_VERSION_MIN_TVOS => Platform::Tvos,
+            LC_VERSION_MIN_WATCHOS => Platform::Watchos,
+            _ => {
+                return Err(error::Error::Malformed(format!(
+                    "unknown platform for load command: {:x}",
+                    cmd
+                )))
+            }
+        })
+    }
+}
+
 /// The version_min_command contains the min OS version on which this
 /// binary was built to run.
 ///
-/// LC_VERSION_MIN_MACOSX or LC_VERSION_MIN_IPHONEOS
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct VersionMinCommand {
+    /// LC_VERSION_MIN_MACOSX, LC_VERSION_MIN_IPHONEOS, LC_VERSION_MIN_TVOS, or LC_VERSION_MIN_WATCHOS.
     pub cmd: u32,
     pub cmdsize: u32,
     /// X.Y.Z is encoded in nibbles xxxx.yy.zz
@@ -1014,17 +1046,21 @@ pub struct VersionMinCommand {
 }
 
 impl VersionMinCommand {
-    pub fn new(is_ios: bool) -> Self {
+    pub fn new(platform: Platform) -> Self {
         VersionMinCommand {
-            cmd: if is_ios {
-                LC_VERSION_MIN_IPHONEOS
-            } else {
-                LC_VERSION_MIN_MACOSX
-            },
+            cmd: platform as u32,
             cmdsize: SIZEOF_VERSION_MIN_COMMAND as u32,
             version: 0,
             sdk: 0,
         }
+    }
+
+    pub fn platform(&self) -> Platform {
+        // A panic here indicates an incomplete API change above: VersionMinCommand
+        // can only be constructed from one of the LC_VERSION_* commands or directly
+        // from a Platform, so an error indicates that a new one hasn't been correctly
+        // added to the Platform enum.
+        Platform::try_from(self.cmd).expect("impossible platform (implementation error)")
     }
 }
 
@@ -1184,6 +1220,8 @@ pub const LC_REEXPORT_DYLIB: u32 = 0x1f | LC_REQ_DYLD;
 pub const LC_DYLD_INFO_ONLY: u32 = 0x22 | LC_REQ_DYLD;
 pub const LC_LOAD_UPWARD_DYLIB: u32 = 0x23 | LC_REQ_DYLD;
 pub const LC_MAIN: u32 = 0x28 | LC_REQ_DYLD;
+pub const LC_DYLD_EXPORTS_TRIE: u32 = 0x33 | LC_REQ_DYLD;
+pub const LC_DYLD_CHAINED_FIXUPS: u32 = 0x34 | LC_REQ_DYLD;
 pub const LC_SEGMENT: u32 = 0x1;
 pub const LC_SYMTAB: u32 = 0x2;
 pub const LC_SYMSEG: u32 = 0x3;
@@ -1225,6 +1263,10 @@ pub const LC_DYLIB_CODE_SIGN_DRS: u32 = 0x2B;
 pub const LC_ENCRYPTION_INFO_64: u32 = 0x2C;
 pub const LC_LINKER_OPTION: u32 = 0x2D;
 pub const LC_LINKER_OPTIMIZATION_HINT: u32 = 0x2E;
+pub const LC_VERSION_MIN_TVOS: u32 = 0x2F;
+pub const LC_VERSION_MIN_WATCHOS: u32 = 0x30;
+pub const LC_NOTE: u32 = 0x31;
+pub const LC_BUILD_VERSION: u32 = 0x32;
 
 pub fn cmd_to_str(cmd: u32) -> &'static str {
     match cmd {
@@ -1275,6 +1317,12 @@ pub fn cmd_to_str(cmd: u32) -> &'static str {
         LC_ENCRYPTION_INFO_64 => "LC_ENCRYPTION_INFO_64",
         LC_LINKER_OPTION => "LC_LINKER_OPTION",
         LC_LINKER_OPTIMIZATION_HINT => "LC_LINKER_OPTIMIZATION_HINT",
+        LC_VERSION_MIN_TVOS => "LC_VERSION_MIN_TVOS",
+        LC_VERSION_MIN_WATCHOS => "LC_VERSION_MIN_WATCHOS",
+        LC_NOTE => "LC_NOTE",
+        LC_BUILD_VERSION => "LC_BUILD_VERSION",
+        LC_DYLD_EXPORTS_TRIE => "LC_DYLD_EXPORTS_TRIE",
+        LC_DYLD_CHAINED_FIXUPS => "LC_DYLD_CHAINED_FIXUPS",
         _ => "LC_UNKNOWN",
     }
 }
@@ -1334,6 +1382,10 @@ pub enum CommandVariant {
     DylibCodeSignDrs(LinkeditDataCommand),
     LinkerOption(LinkeditDataCommand),
     LinkerOptimizationHint(LinkeditDataCommand),
+    VersionMinTvos(VersionMinCommand),
+    VersionMinWatchos(VersionMinCommand),
+    DyldExportsTrie(LinkeditDataCommand),
+    DyldChainedFixups(LinkeditDataCommand),
     Unimplemented(LoadCommandHeader),
 }
 
@@ -1540,7 +1592,25 @@ impl<'a> ctx::TryFromCtx<'a, Endian> for CommandVariant {
                 let comm = bytes.pread_with::<LinkeditDataCommand>(0, le)?;
                 Ok((LinkerOptimizationHint(comm), size))
             }
-            _ => Ok((Unimplemented(lc), size)),
+            LC_VERSION_MIN_TVOS => {
+                let comm = bytes.pread_with::<VersionMinCommand>(0, le)?;
+                Ok((VersionMinTvos(comm), size))
+            }
+            LC_VERSION_MIN_WATCHOS => {
+                let comm = bytes.pread_with::<VersionMinCommand>(0, le)?;
+                Ok((VersionMinWatchos(comm), size))
+            }
+            LC_DYLD_EXPORTS_TRIE => {
+                let comm = bytes.pread_with::<LinkeditDataCommand>(0, le)?;
+                Ok((DyldExportsTrie(comm), size))
+            }
+            LC_DYLD_CHAINED_FIXUPS => {
+                let comm = bytes.pread_with::<LinkeditDataCommand>(0, le)?;
+                Ok((DyldChainedFixups(comm), size))
+            }
+            // TODO: LC_NOTE (NoteCommand) and LC_BUILD_VERSION (BuildVersionCommand)
+            // are unimplemented.
+            LC_NOTE | LC_BUILD_VERSION | _ => Ok((Unimplemented(lc), size)),
         }
     }
 }
@@ -1596,6 +1666,10 @@ impl CommandVariant {
             DylibCodeSignDrs(comm) => comm.cmdsize,
             LinkerOption(comm) => comm.cmdsize,
             LinkerOptimizationHint(comm) => comm.cmdsize,
+            VersionMinTvos(comm) => comm.cmdsize,
+            VersionMinWatchos(comm) => comm.cmdsize,
+            DyldExportsTrie(comm) => comm.cmdsize,
+            DyldChainedFixups(comm) => comm.cmdsize,
             Unimplemented(comm) => comm.cmdsize,
         };
         cmdsize as usize
@@ -1650,6 +1724,10 @@ impl CommandVariant {
             DylibCodeSignDrs(comm) => comm.cmd,
             LinkerOption(comm) => comm.cmd,
             LinkerOptimizationHint(comm) => comm.cmd,
+            VersionMinTvos(comm) => comm.cmd,
+            VersionMinWatchos(comm) => comm.cmd,
+            DyldExportsTrie(comm) => comm.cmd,
+            DyldChainedFixups(comm) => comm.cmd,
             Unimplemented(comm) => comm.cmd,
         }
     }

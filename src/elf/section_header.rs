@@ -428,11 +428,11 @@ if_alloc! {
         }
         /// Returns this section header's file offset range
         pub fn file_range(&self) -> Range<usize> {
-            self.sh_offset as usize..self.sh_offset as usize + self.sh_size as usize
+            self.sh_offset as usize..(self.sh_offset as usize).saturating_add(self.sh_size as usize)
         }
         /// Returns this section header's virtual memory range
         pub fn vm_range(&self) -> Range<usize> {
-            self.sh_addr as usize..self.sh_addr as usize + self.sh_size as usize
+            self.sh_addr as usize..(self.sh_addr as usize).saturating_add(self.sh_size as usize)
         }
         /// Parse `count` section headers from `bytes` at `offset`, using the given `ctx`
         #[cfg(feature = "endian_fd")]
@@ -471,6 +471,12 @@ if_alloc! {
             if overflow || end > size as u64 {
                 let message = format!("Section {} size ({}) + offset ({}) is out of bounds. Overflowed: {}",
                     self.sh_name, self.sh_offset, self.sh_size, overflow);
+                return Err(error::Error::Malformed(message));
+            }
+            let (end, overflow) = self.sh_addr.overflowing_add(self.sh_size);
+            if overflow || end > size as u64 {
+                let message = format!("Section {} size ({}) + addr ({}) is out of bounds. Overflowed: {}",
+                    self.sh_name, self.sh_addr, self.sh_size, overflow);
                 return Err(error::Error::Malformed(message));
             }
             Ok(())

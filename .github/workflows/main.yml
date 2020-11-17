@@ -47,7 +47,7 @@ jobs:
         curl -sSL https://sh.rustup.rs | sh -s -- -y --profile=minimal --default-toolchain=none
         export PATH="$HOME/.cargo/bin:$PATH"
         rustup override set ${{ matrix.rust }}
-        echo "##[add-path]$HOME/.cargo/bin"
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
     - name: rustfmt
       shell: bash
       if: runner.os == 'Linux' && matrix.rust == 'stable'

@@ -5,6 +5,18 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.1, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
+## [0.3.0] - 2020-11-26
+### BREAKING
+- mach: add missing load commands, and fixup minversion enum and api, thanks @woodruffw !: https://github.com/m4b/goblin/pull/240
+### Fixed
+- elf: prevent overflow in bad section sizes, thanks @jackcmay: https://github.com/m4b/goblin/pull/243
+- `Object::parse` no longer needs `std`! thanks @Evian-Zhang: https://github.com/m4b/goblin/pull/235
+-  test: remove hardcoded CommandLineTools path in macos test, thanks @quake: https://github.com/m4b/goblin/pull/238
+- build: Resolve clippy lints, thanks @connorkuehl: https://github.com/m4b/goblin/pull/225
+### Added
+- elf: add the x86-64 unwind processor specific section header type https://github.com/m4b/goblin/pull/224
+- elf: Add ability to get archive members by index https://github.com/m4b/goblin/pull/225
+
 ## [0.2.3] - 2020-5-10
 ### Fixed
 - pe: remove unwrap on coffheader strtab parsing, thanks @ExPixel: https://github.com/m4b/goblin/pull/222

@@ -108,6 +108,7 @@ In lexicographic order:
 - [@burjui]
 - [@connorkuehl]
 - [@ExPixel]
+- [@Evian-Zhang]
 - [@flanfly]
 - [@ibabushkin]
 - [@jackcmay]
@@ -127,14 +128,17 @@ In lexicographic order:
 - [@pchickey]
 - [@philipc]
 - [@Pzixel]
+- [@quake]
 - [@raindev]
 - [@rocallahan]
 - [@sanxiyn]
 - [@tathanhdinh]
 - [@Techno-coder]
 - [@ticki]
+- [@Timmmm]
 - [@wickerwacka]
 - [@willglynn]
+- [@woodruffw]
 - [@wyxloading]
 - [@xcoldhandsx]
 
@@ -143,6 +147,7 @@ In lexicographic order:
 [@amanieu]: https://github.com/amanieu
 [@burjui]: https://github.com/burjui
 [@connorkuehl]: https://github.com/connorkuehl
+[@Evian-Zhang]: https://github.com/Evian-Zhang
 [@ExPixel]: https://github.com/ExPixel
 [@flanfly]: https://github.com/flanfly
 [@ibabushkin]: https://github.com/ibabushkin
@@ -163,14 +168,17 @@ In lexicographic order:
 [@pchickey]: https://github.com/pchickey
 [@philipc]: https://github.com/philipc
 [@Pzixel]: https://github.com/Pzixel
+[@quake]: https://github.com/quake
 [@raindev]: https://github.com/raindev
 [@rocallahan]: https://github.com/rocallahan
 [@sanxiyn]: https://github.com/sanxiyn
 [@tathanhdinh]: https://github.com/tathanhdinh
 [@Techno-coder]: https://github.com/Techno-coder
 [@ticki]: https://github.com/ticki
+[@Timmmm]: https://github.com/Timmmm
 [@wickerwacka]: https://github.com/wickerwaka
 [@willglynn]: https://github.com/willglynn
+[@woodruffw]: https://github.com/woodruffw
 [@wyxloading]: https://github.com/wyxloading
 [@xcoldhandsx]: https://github.com/xcoldhandsx
 

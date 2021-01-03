@@ -12,6 +12,8 @@ fn get_realpath(cmd: &str) -> String {
 pub fn compare(args: Vec<&str>) {
     let apple = process::Command::new("/usr/bin/xcrun")
         .arg("dyldinfo")
+        .arg("-arch")
+        .arg("x86_64")
         .args(&args)
         .output()
         .expect("run Apple dyldinfo");
@@ -22,6 +24,8 @@ pub fn compare(args: Vec<&str>) {
         .arg("--example")
         .arg("dyldinfo")
         .arg("--")
+        .arg("-arch")
+        .arg("x86_64")
         .args(&args)
         .output()
         .expect("run cargo dyldinfo");

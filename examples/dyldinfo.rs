@@ -7,6 +7,9 @@ use std::process;
 
 fn usage() -> ! {
     println!("usage: dyldinfo <options> <mach-o file>");
+    println!(
+        "   [-arch <arch>]     the architecture to print binds for, only applies for fat binaries"
+    );
     println!("    -bind             print binds as seen by macho::imports()");
     println!("    -lazy_bind        print lazy binds as seen by macho::imports()");
     process::exit(1);
@@ -93,11 +96,67 @@ fn print_lazy_binds(sections: &[mach::segment::Section], imports: &[mach::import
     }
 }
 
+fn print(macho: &mach::MachO, bind: bool, lazy_bind: bool) {
+    // collect sections and sort by address
+    let mut sections: Vec<mach::segment::Section> = Vec::new();
+    for sects in macho.segments.sections() {
+        sections.extend(sects.map(|r| r.expect("section").0));
+    }
+    sections.sort_by_key(|s| s.addr);
+
+    // get the imports
+    let imports = macho.imports().expect("imports");
+
+    if bind {
+        print_binds(&sections, &imports);
+    }
+    if lazy_bind {
+        print_lazy_binds(&sections, &imports);
+    }
+}
+
+fn print_multi_arch(
+    multi_arch: &mach::MultiArch,
+    arch: Option<String>,
+    bind: bool,
+    lazy_bind: bool,
+) {
+    if let Some(arch) = arch {
+        if let Some((cputype, _)) = mach::constants::cputype::get_arch_from_flag(&arch) {
+            for bin in multi_arch.into_iter() {
+                match bin {
+                    Ok(bin) => {
+                        if bin.header.cputype == cputype {
+                            print(&bin, bind, lazy_bind);
+                            process::exit(0);
+                        }
+                    }
+                    Err(err) => {
+                        println!("err: {:?}", err);
+                        process::exit(1);
+                    }
+                }
+            }
+
+            println!("err: no slice found for -arch {:?}", arch);
+            process::exit(1);
+        } else {
+            println!("err: invalid -arch {:?}", arch);
+            process::exit(1);
+        }
+    } else {
+        println!("err: -arch is required for fat binaries");
+        process::exit(1);
+    }
+}
+
 fn main() {
     let len = env::args().len();
 
     let mut bind = false;
     let mut lazy_bind = false;
+    let mut next_arch = false;
+    let mut arch = None;
 
     if len <= 2 {
         usage();
@@ -108,7 +167,13 @@ fn main() {
             flags.pop();
             flags.remove(0);
             for option in flags {
+                if next_arch {
+                    next_arch = false;
+                    arch = Some(option);
+                    continue;
+                }
                 match option.as_str() {
+                    "-arch" => next_arch = true,
                     "-bind" => bind = true,
                     "-lazy_bind" => lazy_bind = true,
                     other => {
@@ -124,25 +189,15 @@ fn main() {
         let path = env::args_os().last().unwrap();
         let path = Path::new(&path);
         let buffer = fs::read(&path).unwrap();
-        match mach::MachO::parse(&buffer, 0) {
-            Ok(macho) => {
-                // collect sections and sort by address
-                let mut sections: Vec<mach::segment::Section> = Vec::new();
-                for sects in macho.segments.sections() {
-                    sections.extend(sects.map(|r| r.expect("section").0));
+        match mach::Mach::parse(&buffer) {
+            Ok(macho) => match macho {
+                mach::Mach::Fat(bin) => {
+                    print_multi_arch(&bin, arch, bind, lazy_bind);
                 }
-                sections.sort_by_key(|s| s.addr);
-
-                // get the imports
-                let imports = macho.imports().expect("imports");
-
-                if bind {
-                    print_binds(&sections, &imports);
+                mach::Mach::Binary(bin) => {
+                    print(&bin, bind, lazy_bind);
                 }
-                if lazy_bind {
-                    print_lazy_binds(&sections, &imports);
-                }
-            }
+            },
             Err(err) => {
                 println!("err: {:?}", err);
                 process::exit(2);

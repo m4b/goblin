@@ -64,6 +64,8 @@ pub struct MachO<'a> {
     pub symbols: Option<symbols::Symbols<'a>>,
     /// The dylibs this library depends on
     pub libs: Vec<&'a str>,
+    /// The runtime search paths for dylibs this library depends on
+    pub rpaths: Vec<&'a str>,
     /// The entry point (as a virtual memory address), 0 if none
     pub entry: u64,
     /// Whether `entry` refers to an older `LC_UNIXTHREAD` instead of the newer `LC_MAIN` entrypoint
@@ -163,6 +165,7 @@ impl<'a> MachO<'a> {
         let mut cmds: Vec<load_command::LoadCommand> = Vec::with_capacity(ncmds);
         let mut symbols = None;
         let mut libs = vec!["self"];
+        let mut rpaths = vec![];
         let mut export_trie = None;
         let mut bind_interpreter = None;
         let mut unixthread_entry_address = None;
@@ -190,6 +193,10 @@ impl<'a> MachO<'a> {
                 | load_command::CommandVariant::LazyLoadDylib(command) => {
                     let lib = bytes.pread::<&str>(cmd.offset + command.dylib.name as usize)?;
                     libs.push(lib);
+                }
+                load_command::CommandVariant::Rpath(command) => {
+                    let rpath = bytes.pread::<&str>(cmd.offset + command.path as usize)?;
+                    rpaths.push(rpath);
                 }
                 load_command::CommandVariant::DyldInfo(command)
                 | load_command::CommandVariant::DyldInfoOnly(command) => {
@@ -248,6 +255,7 @@ impl<'a> MachO<'a> {
             segments,
             symbols,
             libs,
+            rpaths,
             export_trie,
             bind_interpreter,
             entry,

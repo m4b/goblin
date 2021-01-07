@@ -33,6 +33,44 @@ fn parse_gnu_hash_section(base: &[u8], symbol_name: &str) -> Result<Sym, &'stati
     section.copied().ok_or("cannot find symbol")
 }
 
+// Use lazy_parse and assembles the Elf with only parts we care
+fn parse_text_section_size_lazy(base: &[u8]) -> Result<u64, &'static str> {
+    let header = Elf::parse_header(base).map_err(|_| "parse elf header error")?;
+    // dummy Elf with only header
+    let mut obj = Elf::lazy_parse(header).map_err(|_| "cannot parse ELF file")?;
+
+    use goblin::container::{Container, Ctx};
+    use goblin::elf::SectionHeader;
+    use goblin::strtab::Strtab;
+
+    let ctx = Ctx {
+        le: scroll::Endian::Little,
+        container: Container::Big,
+    };
+
+    obj.section_headers =
+        SectionHeader::parse(base, header.e_shoff as usize, header.e_shnum as usize, ctx)
+            .map_err(|_| "parse section headers error")?;
+
+    let strtab_idx = header.e_shstrndx as usize;
+    let strtab_shdr = &obj.section_headers[strtab_idx];
+    let strtab = Strtab::parse(
+        base,
+        strtab_shdr.sh_offset as usize,
+        strtab_shdr.sh_size as usize,
+        0x0,
+    )
+    .map_err(|_| "parse string table error")?;
+    for (_, section) in obj.section_headers.iter().enumerate() {
+        let section_name = strtab.get(section.sh_name).unwrap().unwrap();
+        if section_name == ".text" {
+            return Ok(section.sh_size);
+        }
+    }
+
+    Err("Didn't find text section")
+}
+
 #[test]
 fn test_parse_gnu_hash_section_64bit() {
     static ALIGNED_DATA: &AlignedData<[u8]> =
@@ -97,6 +135,13 @@ fn test_parse_gnu_hash_section_32bit() {
         parse_gnu_hash_section(&ALIGNED_DATA.0, "__gmon_start__"),
         Err("cannot find symbol"),
     );
+}
+
+#[test]
+fn test_parse_text_section_size_lazy() {
+    static ALIGNED_DATA: &AlignedData<[u8]> =
+        &AlignedData(*include_bytes!("bins/elf/gnu_hash/hello.so"));
+    assert_eq!(parse_text_section_size_lazy(&ALIGNED_DATA.0), Ok(0x126));
 }
 
 #[test]

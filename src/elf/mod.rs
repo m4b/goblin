@@ -202,22 +202,46 @@ if_sylvan! {
         pub fn is_object_file(&self) -> bool {
             self.header.e_type == header::ET_REL
         }
+
+        /// Parses the contents to get the Header only. This `bytes` buffer should contain at least the length for parsing Header.
+        pub fn parse_header(bytes: &'a [u8]) -> error::Result<Header> {
+            bytes.pread::<Header>(0)
+        }
+
+        /// Lazy parse the ELF contents. This function mainly just assembles an Elf struct. Once we have the struct, we can choose to parse whatever we want.
+        pub fn lazy_parse(header: Header) -> error::Result<Self> {
+            let misc = parse_misc(&header)?;
+
+            Ok(Elf {
+                header,
+                program_headers: vec![],
+                section_headers: Default::default(),
+                shdr_strtab: Default::default(),
+                dynamic: None,
+                dynsyms: Default::default(),
+                dynstrtab: Strtab::default(),
+                syms: Default::default(),
+                strtab: Default::default(),
+                dynrelas: Default::default(),
+                dynrels: Default::default(),
+                pltrelocs: Default::default(),
+                shdr_relocs: Default::default(),
+                soname: None,
+                interpreter: None,
+                libraries: vec![],
+                is_64: misc.is_64,
+                is_lib: misc.is_lib,
+                entry: misc.entry,
+                little_endian: misc.little_endian,
+                ctx: misc.ctx,
+            })
+        }
+
         /// Parses the contents of the byte stream in `bytes`, and maybe returns a unified binary
         pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
-            let header = bytes.pread::<Header>(0)?;
-            let entry = header.e_entry as usize;
-            let is_lib = header.e_type == header::ET_DYN;
-            let is_lsb = header.e_ident[header::EI_DATA] == header::ELFDATA2LSB;
-            let endianness = scroll::Endian::from(is_lsb);
-            let class = header.e_ident[header::EI_CLASS];
-            if class != header::ELFCLASS64 && class != header::ELFCLASS32 {
-                return Err(error::Error::Malformed(format!("Unknown values in ELF ident header: class: {} endianness: {}",
-                                                           class,
-                                                           header.e_ident[header::EI_DATA])));
-            }
-            let is_64 = class == header::ELFCLASS64;
-            let container = if is_64 { Container::Big } else { Container::Little };
-            let ctx = Ctx::new(container, endianness);
+            let header = Self::parse_header(bytes)?;
+            let misc = parse_misc(&header)?;
+            let ctx = misc.ctx;
 
             let program_headers = ProgramHeader::parse(bytes, header.e_phoff as usize, header.e_phnum as usize, ctx)?;
 
@@ -329,11 +353,11 @@ if_sylvan! {
                 soname,
                 interpreter,
                 libraries,
-                is_64,
-                is_lib,
-                entry: entry as u64,
-                little_endian: is_lsb,
-                ctx,
+                is_64: misc.is_64,
+                is_lib: misc.is_lib,
+                entry: misc.entry,
+                little_endian: misc.little_endian,
+                ctx: ctx,
             })
         }
     }
@@ -387,6 +411,38 @@ if_sylvan! {
             bytes.pread_with::<u32>(offset + 4, ctx.le)? as usize
         };
         Ok(nchain)
+    }
+
+    struct Misc {
+        is_64: bool,
+        is_lib: bool,
+        entry: u64,
+        little_endian: bool,
+        ctx: Ctx,
+    }
+
+    fn parse_misc(header: &Header) -> error::Result<Misc> {
+        let entry = header.e_entry as usize;
+        let is_lib = header.e_type == header::ET_DYN;
+        let is_lsb = header.e_ident[header::EI_DATA] == header::ELFDATA2LSB;
+        let endianness = scroll::Endian::from(is_lsb);
+        let class = header.e_ident[header::EI_CLASS];
+        if class != header::ELFCLASS64 && class != header::ELFCLASS32 {
+            return Err(error::Error::Malformed(format!("Unknown values in ELF ident header: class: {} endianness: {}",
+                                                        class,
+                                                        header.e_ident[header::EI_DATA])));
+        }
+        let is_64 = class == header::ELFCLASS64;
+        let container = if is_64 { Container::Big } else { Container::Little };
+        let ctx = Ctx::new(container, endianness);
+
+        Ok(Misc{
+            is_64,
+            is_lib,
+            entry: entry as u64,
+            little_endian:is_lsb,
+            ctx,
+        })
     }
 }
 

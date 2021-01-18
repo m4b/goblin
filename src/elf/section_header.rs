@@ -473,8 +473,8 @@ if_alloc! {
                     self.sh_name, self.sh_offset, self.sh_size, overflow);
                 return Err(error::Error::Malformed(message));
             }
-            let (end, overflow) = self.sh_addr.overflowing_add(self.sh_size);
-            if overflow || end > size as u64 {
+            let (_, overflow) = self.sh_addr.overflowing_add(self.sh_size);
+            if overflow {
                 let message = format!("Section {} size ({}) + addr ({}) is out of bounds. Overflowed: {}",
                     self.sh_name, self.sh_addr, self.sh_size, overflow);
                 return Err(error::Error::Malformed(message));

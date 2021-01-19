@@ -116,6 +116,7 @@ In lexicographic order:
 - [@jdub]
 - [@jrmuizel]
 - [@jsgf]
+- [@keith]
 - [@kjempelodott]
 - [@le-jzr]
 - [@lion128]
@@ -156,6 +157,7 @@ In lexicographic order:
 [@jdub]: https://github.com/jdub
 [@jrmuizel]: https://github.com/jrmuizel
 [@jsgf]: https://github.com/jsgf
+[@keith]: https://github.com/keith
 [@kjempelodott]: https://github.com/kjempelodott
 [@le-jzr]: https://github.com/le-jzr
 [@lion128]: https://github.com/lion128

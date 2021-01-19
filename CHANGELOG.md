@@ -5,6 +5,12 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.1, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
+## [0.3.1] - 2021-1-18
+### Added
+- mach: add rpaths, thanks @keith: https://github.com/m4b/goblin/pull/248
+### Fixed
+- elf: fix regression parsing binaries like busybox (https://github.com/m4b/bingrep/issues/28), thanks @jan-auer: https://github.com/m4b/goblin/pull/249
+
 ## [0.3.0] - 2020-11-26
 ### BREAKING
 - mach: add missing load commands, and fixup minversion enum and api, thanks @woodruffw !: https://github.com/m4b/goblin/pull/240

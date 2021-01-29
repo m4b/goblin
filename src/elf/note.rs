@@ -205,8 +205,10 @@ if_alloc! {
             };
             debug!("{:?} - {:#x}", header, *offset);
             // -1 because includes \0 terminator
-            let name = bytes.gread_with::<&'a str>(offset, ctx::StrCtx::Length(header.n_namesz - 1))?;
-            *offset += 1;
+            let name = bytes.gread_with::<&'a str>(offset, ctx::StrCtx::Length(header.n_namesz.saturating_sub(1)))?;
+            if (header.n_namesz > 0) {
+                *offset += 1;
+            }
             align(alignment, offset);
             debug!("note name {} - {:#x}", name, *offset);
             let desc = bytes.gread_with::<&'a [u8]>(offset, header.n_descsz)?;

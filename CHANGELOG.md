@@ -3,7 +3,11 @@ All notable changes to this project will be documented in this file.
 
 Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-Goblin is now 0.1, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
+Goblin is now 0.3, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
+
+## [0.3.2] - 2021-1-29
+### Fixed
+- elf: overflow panic when note name is 0, thanks @glandium: https://github.com/m4b/goblin/pull/256
 
 ## [0.3.1] - 2021-1-18
 ### Added

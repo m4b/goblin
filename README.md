@@ -125,6 +125,7 @@ In lexicographic order:
 - [@lzutao]
 - [@lzybkr]
 - [@m4b]
+- [@messense]
 - [@mitsuhiko]
 - [@mre]
 - [@pchickey]
@@ -138,6 +139,7 @@ In lexicographic order:
 - [@Techno-coder]
 - [@ticki]
 - [@Timmmm]
+- [@Tiwalun]
 - [@wickerwacka]
 - [@willglynn]
 - [@woodruffw]
@@ -167,6 +169,7 @@ In lexicographic order:
 [@lzutao]: https://github.com/lzutao
 [@lzybkr]: https://github.com/lzybkr
 [@m4b]: https://github.com/m4b
+[@messense]: https://github.com/messense
 [@mitsuhiko]: https://github.com/mitsuhiko
 [@mre]: https://github.com/mre
 [@pchickey]: https://github.com/pchickey
@@ -180,6 +183,7 @@ In lexicographic order:
 [@Techno-coder]: https://github.com/Techno-coder
 [@ticki]: https://github.com/ticki
 [@Timmmm]: https://github.com/Timmmm
+[@Tiwalun]: https://github.com/Tiwalun
 [@wickerwacka]: https://github.com/wickerwaka
 [@willglynn]: https://github.com/willglynn
 [@woodruffw]: https://github.com/woodruffw

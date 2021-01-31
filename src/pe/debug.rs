@@ -2,6 +2,7 @@ use crate::error;
 use scroll::{Pread, Pwrite, SizeWith};
 
 use crate::pe::data_directories;
+use crate::pe::options;
 use crate::pe::section_table;
 use crate::pe::utils;
 
@@ -18,10 +19,26 @@ impl<'a> DebugData<'a> {
         sections: &[section_table::SectionTable],
         file_alignment: u32,
     ) -> error::Result<Self> {
+        Self::parse_with_opts(
+            bytes,
+            dd,
+            sections,
+            file_alignment,
+            &options::ParseOptions::default(),
+        )
+    }
+
+    pub fn parse_with_opts(
+        bytes: &'a [u8],
+        dd: data_directories::DataDirectory,
+        sections: &[section_table::SectionTable],
+        file_alignment: u32,
+        opts: &options::ParseOptions,
+    ) -> error::Result<Self> {
         let image_debug_directory =
-            ImageDebugDirectory::parse(bytes, dd, sections, file_alignment)?;
+            ImageDebugDirectory::parse_with_opts(bytes, dd, sections, file_alignment, opts)?;
         let codeview_pdb70_debug_info =
-            CodeviewPDB70DebugInfo::parse(bytes, &image_debug_directory)?;
+            CodeviewPDB70DebugInfo::parse_with_opts(bytes, &image_debug_directory, opts)?;
 
         Ok(DebugData {
             image_debug_directory,
@@ -59,14 +76,31 @@ pub const IMAGE_DEBUG_TYPE_FIXUP: u32 = 6;
 pub const IMAGE_DEBUG_TYPE_BORLAND: u32 = 9;
 
 impl ImageDebugDirectory {
+    #[allow(unused)]
     fn parse(
         bytes: &[u8],
         dd: data_directories::DataDirectory,
         sections: &[section_table::SectionTable],
         file_alignment: u32,
     ) -> error::Result<Self> {
+        Self::parse_with_opts(
+            bytes,
+            dd,
+            sections,
+            file_alignment,
+            &options::ParseOptions::default(),
+        )
+    }
+
+    fn parse_with_opts(
+        bytes: &[u8],
+        dd: data_directories::DataDirectory,
+        sections: &[section_table::SectionTable],
+        file_alignment: u32,
+        opts: &options::ParseOptions,
+    ) -> error::Result<Self> {
         let rva = dd.virtual_address as usize;
-        let offset = utils::find_offset(rva, sections, file_alignment).ok_or_else(|| {
+        let offset = utils::find_offset(rva, sections, file_alignment, opts).ok_or_else(|| {
             error::Error::Malformed(format!(
                 "Cannot map ImageDebugDirectory rva {:#x} into offset",
                 rva
@@ -94,6 +128,14 @@ pub struct CodeviewPDB70DebugInfo<'a> {
 
 impl<'a> CodeviewPDB70DebugInfo<'a> {
     pub fn parse(bytes: &'a [u8], idd: &ImageDebugDirectory) -> error::Result<Option<Self>> {
+        Self::parse_with_opts(bytes, idd, &options::ParseOptions::default())
+    }
+
+    pub fn parse_with_opts(
+        bytes: &'a [u8],
+        idd: &ImageDebugDirectory,
+        opts: &options::ParseOptions,
+    ) -> error::Result<Option<Self>> {
         if idd.data_type != IMAGE_DEBUG_TYPE_CODEVIEW {
             // not a codeview debug directory
             // that's not an error, but it's not a CodeviewPDB70DebugInfo either
@@ -101,7 +143,10 @@ impl<'a> CodeviewPDB70DebugInfo<'a> {
         }
 
         // ImageDebugDirectory.pointer_to_raw_data stores a raw offset -- not a virtual offset -- which we can use directly
-        let mut offset: usize = idd.pointer_to_raw_data as usize;
+        let mut offset: usize = match opts.resolve_rva {
+            true => idd.pointer_to_raw_data as usize,
+            false => idd.address_of_raw_data as usize,
+        };
 
         // calculate how long the eventual filename will be, which doubles as a check of the record size
         let filename_length = idd.size_of_data as isize - 24;

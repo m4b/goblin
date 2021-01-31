@@ -2,6 +2,7 @@ use crate::error;
 use alloc::string::ToString;
 use scroll::Pread;
 
+use super::options;
 use super::section_table;
 
 use crate::pe::data_directories::DataDirectory;
@@ -62,36 +63,42 @@ pub fn find_offset(
     rva: usize,
     sections: &[section_table::SectionTable],
     file_alignment: u32,
+    opts: &options::ParseOptions,
 ) -> Option<usize> {
-    for (i, section) in sections.iter().enumerate() {
-        debug!(
-            "Checking {} for {:#x} ∈ {:#x}..{:#x}",
-            section.name().unwrap_or(""),
-            rva,
-            section.virtual_address,
-            section.virtual_address + section.virtual_size
-        );
-        if is_in_section(rva, &section, file_alignment) {
-            let offset = rva2offset(rva, &section);
+    if opts.resolve_rva {
+        for (i, section) in sections.iter().enumerate() {
             debug!(
-                "Found in section {}({}), remapped into offset {:#x}",
+                "Checking {} for {:#x} ∈ {:#x}..{:#x}",
                 section.name().unwrap_or(""),
-                i,
-                offset
+                rva,
+                section.virtual_address,
+                section.virtual_address + section.virtual_size
             );
-            return Some(offset);
+            if is_in_section(rva, &section, file_alignment) {
+                let offset = rva2offset(rva, &section);
+                debug!(
+                    "Found in section {}({}), remapped into offset {:#x}",
+                    section.name().unwrap_or(""),
+                    i,
+                    offset
+                );
+                return Some(offset);
+            }
         }
+        None
+    } else {
+        Some(rva)
     }
-    None
 }
 
 pub fn find_offset_or(
     rva: usize,
     sections: &[section_table::SectionTable],
     file_alignment: u32,
+    opts: &options::ParseOptions,
     msg: &str,
 ) -> error::Result<usize> {
-    find_offset(rva, sections, file_alignment)
+    find_offset(rva, sections, file_alignment, opts)
         .ok_or_else(|| error::Error::Malformed(msg.to_string()))
 }
 
@@ -100,8 +107,9 @@ pub fn try_name<'a>(
     rva: usize,
     sections: &[section_table::SectionTable],
     file_alignment: u32,
+    opts: &options::ParseOptions,
 ) -> error::Result<&'a str> {
-    match find_offset(rva, sections, file_alignment) {
+    match find_offset(rva, sections, file_alignment, opts) {
         Some(offset) => Ok(bytes.pread::<&str>(offset)?),
         None => Err(error::Error::Malformed(format!(
             "Cannot find name from rva {:#x} in sections: {:?}",
@@ -119,8 +127,27 @@ pub fn get_data<'a, T>(
 where
     T: scroll::ctx::TryFromCtx<'a, scroll::Endian, Error = scroll::Error>,
 {
+    get_data_with_opts(
+        bytes,
+        sections,
+        directory,
+        file_alignment,
+        &options::ParseOptions::default(),
+    )
+}
+
+pub fn get_data_with_opts<'a, T>(
+    bytes: &'a [u8],
+    sections: &[section_table::SectionTable],
+    directory: DataDirectory,
+    file_alignment: u32,
+    opts: &options::ParseOptions,
+) -> error::Result<T>
+where
+    T: scroll::ctx::TryFromCtx<'a, scroll::Endian, Error = scroll::Error>,
+{
     let rva = directory.virtual_address as usize;
-    let offset = find_offset(rva, sections, file_alignment)
+    let offset = find_offset(rva, sections, file_alignment, opts)
         .ok_or_else(|| error::Error::Malformed(directory.virtual_address.to_string()))?;
     let result: T = bytes.pread_with(offset, scroll::LE)?;
     Ok(result)

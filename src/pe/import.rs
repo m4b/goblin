@@ -7,6 +7,7 @@ use scroll::ctx::TryFromCtx;
 use scroll::{Pread, Pwrite, SizeWith};
 
 use crate::pe::data_directories;
+use crate::pe::options;
 use crate::pe::section_table;
 use crate::pe::utils;
 
@@ -94,9 +95,25 @@ pub type ImportLookupTable<'a> = Vec<SyntheticImportLookupTableEntry<'a>>;
 impl<'a> SyntheticImportLookupTableEntry<'a> {
     pub fn parse<T: Bitfield<'a>>(
         bytes: &'a [u8],
+        offset: usize,
+        sections: &[section_table::SectionTable],
+        file_alignment: u32,
+    ) -> error::Result<ImportLookupTable<'a>> {
+        Self::parse_with_opts::<T>(
+            bytes,
+            offset,
+            sections,
+            file_alignment,
+            &options::ParseOptions::default(),
+        )
+    }
+
+    pub fn parse_with_opts<T: Bitfield<'a>>(
+        bytes: &'a [u8],
         mut offset: usize,
         sections: &[section_table::SectionTable],
         file_alignment: u32,
+        opts: &options::ParseOptions,
     ) -> error::Result<ImportLookupTable<'a>> {
         let le = scroll::LE;
         let offset = &mut offset;
@@ -119,7 +136,7 @@ impl<'a> SyntheticImportLookupTableEntry<'a> {
                         let hentry = {
                             debug!("searching for RVA {:#x}", rva);
                             if let Some(offset) =
-                                utils::find_offset(rva as usize, sections, file_alignment)
+                                utils::find_offset(rva as usize, sections, file_alignment, opts)
                             {
                                 debug!("offset {:#x}", offset);
                                 HintNameTableEntry::parse(bytes, offset)?
@@ -181,15 +198,34 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
         sections: &[section_table::SectionTable],
         file_alignment: u32,
     ) -> error::Result<SyntheticImportDirectoryEntry<'a>> {
+        Self::parse_with_opts::<T>(
+            bytes,
+            import_directory_entry,
+            sections,
+            file_alignment,
+            &options::ParseOptions::default(),
+        )
+    }
+
+    pub fn parse_with_opts<T: Bitfield<'a>>(
+        bytes: &'a [u8],
+        import_directory_entry: ImportDirectoryEntry,
+        sections: &[section_table::SectionTable],
+        file_alignment: u32,
+        opts: &options::ParseOptions,
+    ) -> error::Result<SyntheticImportDirectoryEntry<'a>> {
         const LE: scroll::Endian = scroll::LE;
         let name_rva = import_directory_entry.name_rva;
-        let name = utils::try_name(bytes, name_rva as usize, sections, file_alignment)?;
+        let name = utils::try_name(bytes, name_rva as usize, sections, file_alignment, opts)?;
         let import_lookup_table = {
             let import_lookup_table_rva = import_directory_entry.import_lookup_table_rva;
             let import_address_table_rva = import_directory_entry.import_address_table_rva;
-            if let Some(import_lookup_table_offset) =
-                utils::find_offset(import_lookup_table_rva as usize, sections, file_alignment)
-            {
+            if let Some(import_lookup_table_offset) = utils::find_offset(
+                import_lookup_table_rva as usize,
+                sections,
+                file_alignment,
+                opts,
+            ) {
                 debug!("Synthesizing lookup table imports for {} lib, with import lookup table rva: {:#x}", name, import_lookup_table_rva);
                 let import_lookup_table = SyntheticImportLookupTableEntry::parse::<T>(
                     bytes,
@@ -202,9 +238,12 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
                     import_lookup_table
                 );
                 Some(import_lookup_table)
-            } else if let Some(import_address_table_offset) =
-                utils::find_offset(import_address_table_rva as usize, sections, file_alignment)
-            {
+            } else if let Some(import_address_table_offset) = utils::find_offset(
+                import_address_table_rva as usize,
+                sections,
+                file_alignment,
+                opts,
+            ) {
                 debug!("Synthesizing lookup table imports for {} lib, with import address table rva: {:#x}", name, import_lookup_table_rva);
                 let import_address_table = SyntheticImportLookupTableEntry::parse::<T>(
                     bytes,
@@ -226,6 +265,7 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
             import_directory_entry.import_address_table_rva as usize,
             sections,
             file_alignment,
+            opts,
         )
         .ok_or_else(|| {
             error::Error::Malformed(format!(
@@ -266,12 +306,35 @@ impl<'a> ImportData<'a> {
         sections: &[section_table::SectionTable],
         file_alignment: u32,
     ) -> error::Result<ImportData<'a>> {
+        Self::parse_with_opts::<T>(
+            bytes,
+            dd,
+            sections,
+            file_alignment,
+            &options::ParseOptions::default(),
+        )
+    }
+
+    pub fn parse_with_opts<T: Bitfield<'a>>(
+        bytes: &'a [u8],
+        dd: data_directories::DataDirectory,
+        sections: &[section_table::SectionTable],
+        file_alignment: u32,
+        opts: &options::ParseOptions,
+    ) -> error::Result<ImportData<'a>> {
         let import_directory_table_rva = dd.virtual_address as usize;
         debug!(
             "import_directory_table_rva {:#x}",
             import_directory_table_rva
         );
-        let offset = &mut utils::find_offset(import_directory_table_rva, sections, file_alignment).ok_or_else(|| error::Error::Malformed(format!("Cannot create ImportData; cannot map import_directory_table_rva {:#x} into offset", import_directory_table_rva)))?;
+        let offset =
+            &mut utils::find_offset(import_directory_table_rva, sections, file_alignment, opts)
+                .ok_or_else(|| {
+                    error::Error::Malformed(format!(
+                "Cannot create ImportData; cannot map import_directory_table_rva {:#x} into offset",
+                import_directory_table_rva
+            ))
+                })?;
         debug!("import data offset {:#x}", offset);
         let mut import_data = Vec::new();
         loop {
@@ -281,11 +344,12 @@ impl<'a> ImportData<'a> {
             if import_directory_entry.is_null() {
                 break;
             } else {
-                let entry = SyntheticImportDirectoryEntry::parse::<T>(
+                let entry = SyntheticImportDirectoryEntry::parse_with_opts::<T>(
                     bytes,
                     import_directory_entry,
                     sections,
                     file_alignment,
+                    opts,
                 )?;
                 debug!("entry {:#?}", entry);
                 import_data.push(entry);

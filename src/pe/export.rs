@@ -6,6 +6,7 @@ use log::debug;
 use crate::error;
 
 use crate::pe::data_directories;
+use crate::pe::options;
 use crate::pe::section_table;
 use crate::pe::utils;
 
@@ -71,6 +72,22 @@ impl<'a> ExportData<'a> {
         sections: &[section_table::SectionTable],
         file_alignment: u32,
     ) -> error::Result<ExportData<'a>> {
+        Self::parse_with_opts(
+            bytes,
+            dd,
+            sections,
+            file_alignment,
+            &options::ParseOptions::default(),
+        )
+    }
+
+    pub fn parse_with_opts(
+        bytes: &'a [u8],
+        dd: data_directories::DataDirectory,
+        sections: &[section_table::SectionTable],
+        file_alignment: u32,
+        opts: &options::ParseOptions,
+    ) -> error::Result<ExportData<'a>> {
         let export_rva = dd.virtual_address as usize;
         let size = dd.size as usize;
         debug!("export_rva {:#x} size {:#}", export_rva, size);
@@ -78,6 +95,7 @@ impl<'a> ExportData<'a> {
             export_rva,
             sections,
             file_alignment,
+            opts,
             &format!("cannot map export_rva ({:#x}) into offset", export_rva),
         )?;
         let export_directory_table =
@@ -94,6 +112,7 @@ impl<'a> ExportData<'a> {
             export_directory_table.name_pointer_rva as usize,
             sections,
             file_alignment,
+            opts,
         )
         .map_or(vec![], |table_offset| {
             let mut offset = table_offset;
@@ -114,6 +133,7 @@ impl<'a> ExportData<'a> {
             export_directory_table.ordinal_table_rva as usize,
             sections,
             file_alignment,
+            opts,
         )
         .map_or(vec![], |table_offset| {
             let mut offset = table_offset;
@@ -134,6 +154,7 @@ impl<'a> ExportData<'a> {
             export_directory_table.export_address_table_rva as usize,
             sections,
             file_alignment,
+            opts,
         )
         .map_or(vec![], |table_offset| {
             let mut offset = table_offset;
@@ -159,6 +180,7 @@ impl<'a> ExportData<'a> {
             export_directory_table.name_rva as usize,
             sections,
             file_alignment,
+            opts,
         )
         .and_then(|offset| bytes.pread(offset).ok());
 
@@ -251,6 +273,7 @@ struct ExportCtx<'a> {
     pub file_alignment: u32,
     pub addresses: &'a ExportAddressTable,
     pub ordinals: &'a ExportOrdinalTable,
+    pub opts: options::ParseOptions,
 }
 
 impl<'a, 'b> scroll::ctx::TryFromCtx<'a, ExportCtx<'b>> for Export<'a> {
@@ -265,11 +288,12 @@ impl<'a, 'b> scroll::ctx::TryFromCtx<'a, ExportCtx<'b>> for Export<'a> {
             file_alignment,
             addresses,
             ordinals,
+            opts,
         }: ExportCtx<'b>,
     ) -> Result<(Self, usize), Self::Error> {
         use self::ExportAddressTableEntry::*;
 
-        let name = utils::find_offset(ptr as usize, sections, file_alignment)
+        let name = utils::find_offset(ptr as usize, sections, file_alignment, &opts)
             .and_then(|offset| bytes.pread::<&str>(offset).ok());
 
         if let Some(ordinal) = ordinals.get(idx) {
@@ -281,6 +305,7 @@ impl<'a, 'b> scroll::ctx::TryFromCtx<'a, ExportCtx<'b>> for Export<'a> {
                             rva,
                             sections,
                             file_alignment,
+                            &opts,
                             &format!(
                                 "cannot map RVA ({:#x}) of export ordinal {} into offset",
                                 rva, ordinal
@@ -304,6 +329,7 @@ impl<'a, 'b> scroll::ctx::TryFromCtx<'a, ExportCtx<'b>> for Export<'a> {
                             rva,
                             sections,
                             file_alignment,
+                            &opts,
                             &format!(
                                 "cannot map RVA ({:#x}) of export ordinal {} into offset",
                                 rva, ordinal
@@ -344,6 +370,22 @@ impl<'a> Export<'a> {
         sections: &[section_table::SectionTable],
         file_alignment: u32,
     ) -> error::Result<Vec<Export<'a>>> {
+        Self::parse_with_opts(
+            bytes,
+            export_data,
+            sections,
+            file_alignment,
+            &options::ParseOptions::default(),
+        )
+    }
+
+    pub fn parse_with_opts(
+        bytes: &'a [u8],
+        export_data: &ExportData,
+        sections: &[section_table::SectionTable],
+        file_alignment: u32,
+        opts: &options::ParseOptions,
+    ) -> error::Result<Vec<Export<'a>>> {
         let pointers = &export_data.export_name_pointer_table;
         let addresses = &export_data.export_address_table;
         let ordinals = &export_data.export_ordinal_table;
@@ -359,6 +401,7 @@ impl<'a> Export<'a> {
                     file_alignment,
                     addresses,
                     ordinals,
+                    opts: *opts,
                 },
             ) {
                 exports.push(export);

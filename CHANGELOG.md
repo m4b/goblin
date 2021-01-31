@@ -5,6 +5,13 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.3, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
+## Unreleased
+### BREAKING
+- elf: fix returning invalid ranges for SH_NOBIT sections,
+  method changed to return optional range instead, thanks @Tiwalun: https://github.com/m4b/goblin/pull/253
+### Fixed
+- mach: fix debug print panic, thanks @messense: https://github.com/m4b/goblin/pull/251
+
 ## [0.3.2] - 2021-1-29
 ### Fixed
 - elf: overflow panic when note name is 0, thanks @glandium: https://github.com/m4b/goblin/pull/256

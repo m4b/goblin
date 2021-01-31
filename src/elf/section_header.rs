@@ -426,9 +426,16 @@ if_alloc! {
                 sh_entsize: 0,
             }
         }
-        /// Returns this section header's file offset range
-        pub fn file_range(&self) -> Range<usize> {
-            self.sh_offset as usize..(self.sh_offset as usize).saturating_add(self.sh_size as usize)
+        /// Returns this section header's file offset range,
+        /// if the section occupies space in fhe file.
+        pub fn file_range(&self) -> Option<Range<usize>> {
+            // Sections with type SHT_NOBITS have no data in the file itself,
+            // they only exist in memory.
+            if self.sh_type == SHT_NOBITS {
+                None
+            } else {
+                Some(self.sh_offset as usize..(self.sh_offset as usize).saturating_add(self.sh_size as usize))
+            }
         }
         /// Returns this section header's virtual memory range
         pub fn vm_range(&self) -> Range<usize> {

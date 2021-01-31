@@ -410,7 +410,7 @@ impl<'a> MultiArch<'a> {
 impl<'a> fmt::Debug for MultiArch<'a> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("MultiArch")
-            .field("arches", &self.arches().unwrap())
+            .field("arches", &self.arches().unwrap_or_default())
             .field("data", &self.data.len())
             .finish()
     }

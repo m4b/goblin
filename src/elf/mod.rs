@@ -69,15 +69,15 @@ if_sylvan! {
     use alloc::vec::Vec;
     use core::cmp;
 
-    pub type Header = header::Header;
-    pub type ProgramHeader = program_header::ProgramHeader;
-    pub type SectionHeader = section_header::SectionHeader;
-    pub type Symtab<'a> = sym::Symtab<'a>;
-    pub type Sym = sym::Sym;
-    pub type Dyn = dynamic::Dyn;
-    pub type Dynamic = dynamic::Dynamic;
-    pub type Reloc = reloc::Reloc;
-    pub type RelocSection<'a> = reloc::RelocSection<'a>;
+    pub use header::Header;
+    pub use program_header::ProgramHeader;
+    pub use section_header::SectionHeader;
+    pub use sym::Symtab;
+    pub use sym::Sym;
+    pub use dynamic::Dyn;
+    pub use dynamic::Dynamic;
+    pub use reloc::Reloc;
+    pub use reloc::RelocSection;
 
     pub type ProgramHeaders = Vec<ProgramHeader>;
     pub type SectionHeaders = Vec<SectionHeader>;
@@ -504,5 +504,15 @@ mod tests {
                 panic!("failed: {}", err);
             }
         }
+    }
+    
+    // See https://github.com/m4b/goblin/issues/257
+    #[test]
+    #[allow(unused)]
+    fn no_use_statement_conflict() {
+        use crate::elf::*;
+        use crate::elf::section_header::*;
+        
+        fn f(_: SectionHeader) {}
     }
 }

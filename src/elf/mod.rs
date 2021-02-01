@@ -505,14 +505,14 @@ mod tests {
             }
         }
     }
-    
+
     // See https://github.com/m4b/goblin/issues/257
     #[test]
     #[allow(unused)]
     fn no_use_statement_conflict() {
-        use crate::elf::*;
         use crate::elf::section_header::*;
-        
+        use crate::elf::*;
+
         fn f(_: SectionHeader) {}
     }
 }

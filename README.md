@@ -74,6 +74,8 @@ Here are some things you could do with this crate (or help to implement so they 
 
 <!-- Related projects  -->
 
+[occlum]: https://github.com/occlum/occlum
+[memflow]: https://github.com/memflow/memflow
 [cargo-sym]: https://github.com/m4b/cargo-sym
 [bingrep]: https://github.com/m4b/bingrep
 [faerie]: https://github.com/m4b/faerie
@@ -114,11 +116,13 @@ In lexicographic order:
 - [@ibabushkin]
 - [@jackcmay]
 - [@jan-auer]
+- [@jessehui]
 - [@jdub]
 - [@jrmuizel]
 - [@jsgf]
 - [@keith]
 - [@kjempelodott]
+- [@ko1n]
 - [@le-jzr]
 - [@lion128]
 - [@llogiq]
@@ -158,11 +162,13 @@ In lexicographic order:
 [@ibabushkin]: https://github.com/ibabushkin
 [@jackcmay]: https://github.com/jackcmay
 [@jan-auer]: https://github.com/jan-auer
+[@jessehui]: https://github.com/jessehui
 [@jdub]: https://github.com/jdub
 [@jrmuizel]: https://github.com/jrmuizel
 [@jsgf]: https://github.com/jsgf
 [@keith]: https://github.com/keith
 [@kjempelodott]: https://github.com/kjempelodott
+[@ko1N]: https://github.com/ko1N
 [@le-jzr]: https://github.com/le-jzr
 [@lion128]: https://github.com/lion128
 [@llogiq]: https://github.com/llogiq

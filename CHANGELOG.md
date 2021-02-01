@@ -9,8 +9,17 @@ Goblin is now 0.3, which means we will try our best to ease breaking changes. Tr
 ### BREAKING
 - elf: fix returning invalid ranges for SH_NOBIT sections,
   method changed to return optional range instead, thanks @Tiwalun: https://github.com/m4b/goblin/pull/253
+
+## [0.3.4] - 2021-1-31
+### Added
+- elf: introduce "lazy" parsing of elf structure with new lazy_parse function, which allows user to fill in parts of the ELF struct they need later on; new example provided, as well as some tests, thanks @jessehui: https://github.com/m4b/goblin/pull/254
+- elf: also add new `Elf::parse_header` convenience function, which allows to parse elf header from bytes without e.g., explicitly depending on scroll, etc.
+
+## [0.3.3] - 2021-1-31
 ### Fixed
 - mach: fix debug print panic, thanks @messense: https://github.com/m4b/goblin/pull/251
+### Added
+- pe: allow pe virtual memory resolve to be optional, allowing memory/process dump parsing, thanks @ko1n (as well as patience for very long time to merge PR!): https://github.com/m4b/goblin/pull/188
 
 ## [0.3.2] - 2021-1-29
 ### Fixed

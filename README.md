@@ -132,6 +132,8 @@ In lexicographic order:
 - [@messense]
 - [@mitsuhiko]
 - [@mre]
+- [@Mrmaxmeier]
+- [@nico-abram]
 - [@pchickey]
 - [@philipc]
 - [@Pzixel]
@@ -139,6 +141,7 @@ In lexicographic order:
 - [@raindev]
 - [@rocallahan]
 - [@sanxiyn]
+- [@sollyucko]
 - [@tathanhdinh]
 - [@Techno-coder]
 - [@ticki]
@@ -178,6 +181,8 @@ In lexicographic order:
 [@messense]: https://github.com/messense
 [@mitsuhiko]: https://github.com/mitsuhiko
 [@mre]: https://github.com/mre
+[@Mrmaxmeier]: https://github.com/Mrmaxmeier
+[@nico-abram]: https://github.com/nico-abram
 [@pchickey]: https://github.com/pchickey
 [@philipc]: https://github.com/philipc
 [@Pzixel]: https://github.com/Pzixel
@@ -185,6 +190,7 @@ In lexicographic order:
 [@raindev]: https://github.com/raindev
 [@rocallahan]: https://github.com/rocallahan
 [@sanxiyn]: https://github.com/sanxiyn
+[@sollyucko]: https://github.com/sollyucko
 [@tathanhdinh]: https://github.com/tathanhdinh
 [@Techno-coder]: https://github.com/Techno-coder
 [@ticki]: https://github.com/ticki

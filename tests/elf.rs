@@ -1,5 +1,3 @@
-use std::slice;
-
 use goblin::elf::section_header::SHT_GNU_HASH;
 use goblin::elf::sym::Sym;
 use goblin::elf::Elf;
@@ -17,11 +15,11 @@ fn parse_gnu_hash_section(base: &[u8], symbol_name: &str) -> Result<Sym, &'stati
         .iter()
         .find(|s| s.sh_type == SHT_GNU_HASH)
         .ok_or("object does not contain .gnu.hash section")?;
-    let hashtab: &[u8] = unsafe {
-        let addr = base.as_ptr().add(hash_section.sh_offset as usize);
-        let size = hash_section.sh_size as usize;
-        slice::from_raw_parts(addr, size)
-    };
+    let (start, length) = (
+        hash_section.sh_offset as usize,
+        hash_section.sh_size as usize,
+    );
+    let hashtab: &[u8] = &base[start..(start + length)];
     let dynsyms = obj.dynsyms.to_vec();
     let section = unsafe {
         if obj.is_64 {

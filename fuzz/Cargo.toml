@@ -21,3 +21,7 @@ members = ["."]
 [[bin]]
 name = "parse"
 path = "fuzz_targets/parse.rs"
+
+[[bin]]
+name = "parse_elf"
+path = "fuzz_targets/parse_elf.rs"

@@ -145,7 +145,7 @@ if_sylvan! {
                     iters.push(note::NoteDataIterator {
                         data,
                         offset,
-                        size: offset + phdr.p_filesz as usize,
+                        size: offset.saturating_add(phdr.p_filesz as usize),
                         ctx: (alignment, self.ctx)
                     });
                 }
@@ -185,7 +185,7 @@ if_sylvan! {
                 iters.push(note::NoteDataIterator {
                     data,
                     offset,
-                    size: offset + sect.sh_size as usize,
+                    size: offset.saturating_add(sect.sh_size as usize),
                     ctx: (alignment, self.ctx)
                 });
             }
@@ -406,9 +406,9 @@ if_sylvan! {
     fn hash_len(bytes: &[u8], offset: usize, machine: u16, ctx: Ctx) -> error::Result<usize> {
         // Based on readelf code.
         let nchain = if (machine == header::EM_FAKE_ALPHA || machine == header::EM_S390) && ctx.container.is_big() {
-            bytes.pread_with::<u64>(offset + 4, ctx.le)? as usize
+            bytes.pread_with::<u64>(offset.saturating_add(4), ctx.le)? as usize
         } else {
-            bytes.pread_with::<u32>(offset + 4, ctx.le)? as usize
+            bytes.pread_with::<u32>(offset.saturating_add(4), ctx.le)? as usize
         };
         Ok(nchain)
     }

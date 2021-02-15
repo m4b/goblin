@@ -5,10 +5,17 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.3, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
-## Unreleased
+## [0.4.0] - 2021-4-11
 ### BREAKING
 - elf: fix returning invalid ranges for SH_NOBIT sections,
   method changed to return optional range instead, thanks @Tiwalun: https://github.com/m4b/goblin/pull/253
+### Fixed
+  pe: pass parse opts correctly in pe parser in lookup table, fixes some issues loading and parsing pe libraries: https://github.com/m4b/goblin/pull/268
+  elf: remove unnecessary unsafe blocks, thanks @nico-abram: https://github.com/m4b/goblin/pull/261
+  elf: replace pub type with pub use, thanks @sollyucko: https://github.com/m4b/goblin/pull/259
+### Added
+  elf: add a lazy parse example, thanks @jesseui: https://github.com/m4b/goblin/pull/258
+  elf: add a new fuzzing harness + fix overflows in hash functions and note data iterator construction, thanks @Mrmaxmeier: https://github.com/m4b/goblin/pull/260
 
 ## [0.3.4] - 2021-1-31
 ### Added

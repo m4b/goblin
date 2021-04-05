@@ -232,7 +232,7 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
                     import_lookup_table_offset,
                     sections,
                     file_alignment,
-                    opts
+                    opts,
                 )?;
                 debug!(
                     "Successfully synthesized import lookup table entry from lookup table: {:#?}",
@@ -251,7 +251,7 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
                     import_address_table_offset,
                     sections,
                     file_alignment,
-                    opts
+                    opts,
                 )?;
                 debug!(
                     "Successfully synthesized import lookup table entry from IAT: {:#?}",

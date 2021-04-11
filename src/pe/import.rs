@@ -227,11 +227,12 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
                 opts,
             ) {
                 debug!("Synthesizing lookup table imports for {} lib, with import lookup table rva: {:#x}", name, import_lookup_table_rva);
-                let import_lookup_table = SyntheticImportLookupTableEntry::parse::<T>(
+                let import_lookup_table = SyntheticImportLookupTableEntry::parse_with_opts::<T>(
                     bytes,
                     import_lookup_table_offset,
                     sections,
                     file_alignment,
+                    opts,
                 )?;
                 debug!(
                     "Successfully synthesized import lookup table entry from lookup table: {:#?}",
@@ -245,11 +246,12 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
                 opts,
             ) {
                 debug!("Synthesizing lookup table imports for {} lib, with import address table rva: {:#x}", name, import_lookup_table_rva);
-                let import_address_table = SyntheticImportLookupTableEntry::parse::<T>(
+                let import_address_table = SyntheticImportLookupTableEntry::parse_with_opts::<T>(
                     bytes,
                     import_address_table_offset,
                     sections,
                     file_alignment,
+                    opts,
                 )?;
                 debug!(
                     "Successfully synthesized import lookup table entry from IAT: {:#?}",

@@ -233,63 +233,65 @@ if_alloc! {
     }
 } // end if_alloc
 
-macro_rules! elf_program_header_std_impl { ($size:ty) => {
-
-    #[cfg(test)]
-    mod tests {
-        use super::*;
-        #[test]
-        fn size_of() {
-            assert_eq!(::std::mem::size_of::<ProgramHeader>(), SIZEOF_PHDR);
+macro_rules! elf_program_header_std_impl {
+    ($size:ty) => {
+        #[cfg(test)]
+        mod tests {
+            use super::*;
+            #[test]
+            fn size_of() {
+                assert_eq!(::std::mem::size_of::<ProgramHeader>(), SIZEOF_PHDR);
+            }
         }
-    }
 
-    if_alloc! {
+        if_alloc! {
 
-        use crate::elf::program_header::ProgramHeader as ElfProgramHeader;
-        #[cfg(any(feature = "std", feature = "endian_fd"))]
-        use crate::error::Result;
 
-        use core::slice;
+            use crate::elf::program_header::ProgramHeader as ElfProgramHeader;
+            #[cfg(any(feature = "std", feature = "endian_fd"))]
+            use crate::error::Result;
+
+            use plain::Plain;
+
+            if_std! {
+                use std::fs::File;
+                use std::io::{Seek, Read};
+                use std::io::SeekFrom::Start;
+            }
+
+            impl From<ProgramHeader> for ElfProgramHeader {
+                fn from(ph: ProgramHeader) -> Self {
+                    ElfProgramHeader {
+                        p_type   : ph.p_type,
+                        p_flags  : ph.p_flags,
+                        p_offset : u64::from(ph.p_offset),
+                        p_vaddr  : u64::from(ph.p_vaddr),
+                        p_paddr  : u64::from(ph.p_paddr),
+                        p_filesz : u64::from(ph.p_filesz),
+                        p_memsz  : u64::from(ph.p_memsz),
+                        p_align  : u64::from(ph.p_align),
+                    }
+                }
+            }
+
+            impl From<ElfProgramHeader> for ProgramHeader {
+                fn from(ph: ElfProgramHeader) -> Self {
+                    ProgramHeader {
+                        p_type   : ph.p_type,
+                        p_flags  : ph.p_flags,
+                        p_offset : ph.p_offset as $size,
+                        p_vaddr  : ph.p_vaddr  as $size,
+                        p_paddr  : ph.p_paddr  as $size,
+                        p_filesz : ph.p_filesz as $size,
+                        p_memsz  : ph.p_memsz  as $size,
+                        p_align  : ph.p_align  as $size,
+                    }
+                }
+            }
+        } // end if_alloc
+
         use core::fmt;
-
-        use plain::Plain;
-
-        if_std! {
-            use std::fs::File;
-            use std::io::{Seek, Read};
-            use std::io::SeekFrom::Start;
-        }
-
-        impl From<ProgramHeader> for ElfProgramHeader {
-            fn from(ph: ProgramHeader) -> Self {
-                ElfProgramHeader {
-                    p_type   : ph.p_type,
-                    p_flags  : ph.p_flags,
-                    p_offset : u64::from(ph.p_offset),
-                    p_vaddr  : u64::from(ph.p_vaddr),
-                    p_paddr  : u64::from(ph.p_paddr),
-                    p_filesz : u64::from(ph.p_filesz),
-                    p_memsz  : u64::from(ph.p_memsz),
-                    p_align  : u64::from(ph.p_align),
-                }
-            }
-        }
-
-        impl From<ElfProgramHeader> for ProgramHeader {
-            fn from(ph: ElfProgramHeader) -> Self {
-                ProgramHeader {
-                    p_type   : ph.p_type,
-                    p_flags  : ph.p_flags,
-                    p_offset : ph.p_offset as $size,
-                    p_vaddr  : ph.p_vaddr  as $size,
-                    p_paddr  : ph.p_paddr  as $size,
-                    p_filesz : ph.p_filesz as $size,
-                    p_memsz  : ph.p_memsz  as $size,
-                    p_align  : ph.p_align  as $size,
-                }
-            }
-        }
+        use core::slice;
 
         impl fmt::Debug for ProgramHeader {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -308,7 +310,12 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
 
         impl ProgramHeader {
             #[cfg(feature = "endian_fd")]
-            pub fn parse(bytes: &[u8], mut offset: usize, count: usize, ctx: ::scroll::Endian) -> Result<Vec<ProgramHeader>> {
+            pub fn parse(
+                bytes: &[u8],
+                mut offset: usize,
+                count: usize,
+                ctx: ::scroll::Endian,
+            ) -> Result<Vec<ProgramHeader>> {
                 use scroll::Pread;
                 let mut program_headers = vec![ProgramHeader::default(); count];
                 let offset = &mut offset;
@@ -316,18 +323,22 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
                 Ok(program_headers)
             }
 
+            #[cfg(feature = "alloc")]
             pub fn from_bytes(bytes: &[u8], phnum: usize) -> Vec<ProgramHeader> {
                 let mut phdrs = vec![ProgramHeader::default(); phnum];
-                phdrs.copy_from_bytes(bytes).expect("buffer is too short for given number of entries");
+                phdrs
+                    .copy_from_bytes(bytes)
+                    .expect("buffer is too short for given number of entries");
                 phdrs
             }
 
             /// # Safety
             ///
             /// This function creates a `ProgramHeader` directly from a raw pointer
-            pub unsafe fn from_raw_parts<'a>(phdrp: *const ProgramHeader,
-                                             phnum: usize)
-                                             -> &'a [ProgramHeader] {
+            pub unsafe fn from_raw_parts<'a>(
+                phdrp: *const ProgramHeader,
+                phnum: usize,
+            ) -> &'a [ProgramHeader] {
                 slice::from_raw_parts(phdrp, phnum)
             }
 
@@ -341,8 +352,8 @@ macro_rules! elf_program_header_std_impl { ($size:ty) => {
                 Ok(phdrs)
             }
         }
-    } // end if_alloc
-};}
+    };
+}
 
 #[cfg(feature = "alloc")]
 use scroll::{Pread, Pwrite, SizeWith};

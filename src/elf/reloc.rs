@@ -280,7 +280,6 @@ if_alloc! {
     use core::fmt;
     use core::result;
     use crate::container::{Ctx, Container};
-    #[cfg(feature = "endian_fd")]
     use alloc::vec::Vec;
 
     #[derive(Clone, Copy, PartialEq, Default)]

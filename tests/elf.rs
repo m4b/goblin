@@ -60,7 +60,7 @@ fn parse_text_section_size_lazy(base: &[u8]) -> Result<u64, &'static str> {
     )
     .map_err(|_| "parse string table error")?;
     for (_, section) in obj.section_headers.iter().enumerate() {
-        let section_name = strtab.get(section.sh_name).unwrap().unwrap();
+        let section_name = strtab.get_at(section.sh_name).unwrap();
         if section_name == ".text" {
             return Ok(section.sh_size);
         }

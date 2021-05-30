@@ -5,6 +5,10 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.4, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
+## [0.4.1] - 2021-5-30
+### Fixed
+- elf: fix error when alloc, but not endian, thanks @dancrossnyc: https://github.com/m4b/goblin/pull/273
+
 ## [0.4.0] - 2021-4-11
 ### BREAKING
 - elf: fix returning invalid ranges for SH_NOBIT sections,

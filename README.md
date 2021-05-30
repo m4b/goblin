@@ -110,6 +110,7 @@ In lexicographic order:
 - [@amanieu]
 - [@burjui]
 - [@connorkuehl]
+- [@dancrossnyc]
 - [@ExPixel]
 - [@Evian-Zhang]
 - [@flanfly]
@@ -160,6 +161,7 @@ In lexicographic order:
 [@amanieu]: https://github.com/amanieu
 [@burjui]: https://github.com/burjui
 [@connorkuehl]: https://github.com/connorkuehl
+[@dancrossnyc]: https://github.com/dancrossnyc
 [@Evian-Zhang]: https://github.com/Evian-Zhang
 [@ExPixel]: https://github.com/ExPixel
 [@flanfly]: https://github.com/flanfly

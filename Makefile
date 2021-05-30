@@ -34,6 +34,7 @@ api:
 	cargo build --no-default-features --features="elf32 elf64 std"
 	cargo build --no-default-features --features="elf32 elf64 endian_fd"
 	cargo build --no-default-features --features="elf32 elf64 endian_fd std"
+	cargo build --no-default-features --features="elf32 elf64 alloc"
 	cargo build --no-default-features --features="archive std"
 	cargo build --no-default-features --features="mach64"
 	cargo build --no-default-features --features="mach64 std"

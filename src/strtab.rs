@@ -84,8 +84,19 @@ impl<'a> Strtab<'a> {
     /// Converts the string table to a vector of parsed strings.
     ///
     /// Requires `feature = "alloc"`
-    pub fn to_vec(&self) -> Vec<&'a str> {
-        self.strings.iter().map(|&(_key, value)| value).collect()
+    pub fn to_vec(&self) -> error::Result<Vec<&'a str>> {
+        // Fallback in case `Strtab` was created using `from_slice_unparsed()`.
+        if self.strings.is_empty() {
+            let mut result = Vec::new();
+            let mut i = 0;
+            while i < self.bytes.len() {
+                let string = get_str(i, self.bytes, self.delim)?;
+                result.push(string);
+                i += string.len() + 1;
+            }
+            return Ok(result);
+        }
+        Ok(self.strings.iter().map(|&(_key, value)| value).collect())
     }
     #[cfg(feature = "alloc")]
     /// Safely gets a str reference from the parsed table starting at byte `offset`.

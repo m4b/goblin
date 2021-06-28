@@ -27,7 +27,9 @@ fn get_str(offset: usize, bytes: &[u8], delim: ctx::StrCtx) -> scroll::Result<&s
 
 impl<'a> Strtab<'a> {
     /// Creates a `Strtab` directly without bounds check and without parsing it.
-    pub fn from_slice_unsafe(bytes: &'a [u8], offset: usize, len: usize, delim: u8) -> Self {
+    ///
+    /// This is potentially unsafe and should only be used if `feature = "alloc"` is disabled.
+    pub fn from_slice_unparsed(bytes: &'a [u8], offset: usize, len: usize, delim: u8) -> Self {
         Self {
             delim: ctx::StrCtx::Delimiter(delim),
             bytes: &bytes[offset..offset + len],
@@ -38,7 +40,7 @@ impl<'a> Strtab<'a> {
     /// Gets a str reference from the backing bytes starting at byte `offset`.
     ///
     /// If the index is out of bounds, `None` is returned. Panics if bytes are invalid UTF-8.
-    /// Use this method if the `Strtab` was created using `from_slice_unsafe()`.
+    /// Use this method if the `Strtab` was created using `from_slice_unparsed()`.
     pub fn get_unsafe(&self, offset: usize) -> Option<&'a str> {
         if offset >= self.bytes.len() {
             None
@@ -50,6 +52,7 @@ impl<'a> Strtab<'a> {
     /// Parses a `Strtab` from `bytes` at `offset` with `len` size as the backing string table, using `delim` as the delimiter.
     ///
     /// Errors if bytes are invalid UTF-8.
+    /// Requires `feature = "alloc"`
     pub fn parse(bytes: &'a [u8], offset: usize, len: usize, delim: u8) -> error::Result<Self> {
         let (end, overflow) = offset.overflowing_add(len);
         if overflow || end > bytes.len() {
@@ -61,9 +64,9 @@ impl<'a> Strtab<'a> {
                 overflow
             )));
         }
-        let mut result = Self::from_slice_unsafe(bytes, offset, len, delim);
+        let mut result = Self::from_slice_unparsed(bytes, offset, len, delim);
         let mut i = 0;
-        while i < len {
+        while i < result.bytes.len() {
             let string = get_str(i, result.bytes, result.delim)?;
             result.strings.push((i, string));
             i += string.len() + 1;
@@ -72,11 +75,15 @@ impl<'a> Strtab<'a> {
     }
     #[cfg(feature = "alloc")]
     /// Parses a `Strtab` with `bytes` as the backing string table, using `delim` as the delimiter between entries.
+    ///
+    /// Requires `feature = "alloc"`
     pub fn new(bytes: &'a [u8], delim: u8) -> error::Result<Self> {
         Self::parse(bytes, 0, bytes.len(), delim)
     }
     #[cfg(feature = "alloc")]
     /// Converts the string table to a vector of parsed strings.
+    ///
+    /// Requires `feature = "alloc"`
     pub fn to_vec(&self) -> Vec<&'a str> {
         self.strings.iter().map(|&(_key, value)| value).collect()
     }
@@ -100,12 +107,13 @@ impl<'a> Strtab<'a> {
             }
         }
     }
-    #[deprecated(since = "0.4.2", note = "Use from_slice_unsafe() instead")]
+    #[deprecated(since = "0.4.2", note = "Use from_slice_unparsed() instead")]
     /// Construct a strtab from a `ptr`, and a `size`, using `delim` as the delimiter
     ///
+    /// # Safety
     /// This function creates a `Strtab` directly from a raw pointer and size
     pub unsafe fn from_raw(ptr: *const u8, len: usize, delim: u8) -> Strtab<'a> {
-        Self::from_slice_unsafe(core::slice::from_raw_parts(ptr, len), 0, len, delim)
+        Self::from_slice_unparsed(core::slice::from_raw_parts(ptr, len), 0, len, delim)
     }
     #[deprecated(since = "0.4.2", note = "Bad performance, use get_at() instead")]
     #[cfg(feature = "alloc")]
@@ -158,7 +166,7 @@ impl<'a> Index<usize> for Strtab<'a> {
 #[test]
 fn as_vec_no_final_null() {
     let strtab = Strtab::new(b"\0printf\0memmove\0busta", 0x0).unwrap();
-    let vec = strtab.to_vec();
+    let vec = strtab.to_vec().unwrap();
     assert_eq!(vec.len(), 4);
     assert_eq!(vec, vec!["", "printf", "memmove", "busta"]);
 }
@@ -166,7 +174,7 @@ fn as_vec_no_final_null() {
 #[test]
 fn as_vec_no_first_null_no_final_null() {
     let strtab = Strtab::new(b"printf\0memmove\0busta", 0x0).unwrap();
-    let vec = strtab.to_vec();
+    let vec = strtab.to_vec().unwrap();
     assert_eq!(vec.len(), 3);
     assert_eq!(vec, vec!["printf", "memmove", "busta"]);
 }
@@ -174,7 +182,7 @@ fn as_vec_no_first_null_no_final_null() {
 #[test]
 fn to_vec_final_null() {
     let strtab = Strtab::new(b"\0printf\0memmove\0busta\0", 0x0).unwrap();
-    let vec = strtab.to_vec();
+    let vec = strtab.to_vec().unwrap();
     assert_eq!(vec.len(), 4);
     assert_eq!(vec, vec!["", "printf", "memmove", "busta"]);
 }
@@ -182,7 +190,7 @@ fn to_vec_final_null() {
 #[test]
 fn to_vec_newline_delim() {
     let strtab = Strtab::new(b"\nprintf\nmemmove\nbusta\n", b'\n').unwrap();
-    let vec = strtab.to_vec();
+    let vec = strtab.to_vec().unwrap();
     assert_eq!(vec.len(), 4);
     assert_eq!(vec, vec!["", "printf", "memmove", "busta"]);
 }

@@ -3,7 +3,6 @@
 
 use core::fmt;
 use core::ops::Index;
-use core::slice;
 use core::str;
 use scroll::{ctx, Pread};
 if_alloc! {
@@ -15,8 +14,10 @@ if_alloc! {
 /// member index). Constructed using [`parse`](#method.parse)
 /// with your choice of delimiter. Please be careful.
 pub struct Strtab<'a> {
-    bytes: &'a [u8],
     delim: ctx::StrCtx,
+    bytes: &'a [u8],
+    #[cfg(feature = "alloc")]
+    strings: Vec<(usize, &'a str)>,
 }
 
 #[inline(always)]
@@ -25,31 +26,34 @@ fn get_str(offset: usize, bytes: &[u8], delim: ctx::StrCtx) -> scroll::Result<&s
 }
 
 impl<'a> Strtab<'a> {
-    /// Construct a new strtab with `bytes` as the backing string table, using `delim` as the delimiter between entries
-    pub fn new(bytes: &'a [u8], delim: u8) -> Self {
-        Strtab {
+    /// Creates a `Strtab` directly without bounds check and without parsing it.
+    ///
+    /// This is potentially unsafe and should only be used if `feature = "alloc"` is disabled.
+    pub fn from_slice_unparsed(bytes: &'a [u8], offset: usize, len: usize, delim: u8) -> Self {
+        Self {
             delim: ctx::StrCtx::Delimiter(delim),
-            bytes,
+            bytes: &bytes[offset..offset + len],
+            #[cfg(feature = "alloc")]
+            strings: Vec::new(),
         }
     }
-    /// Construct a strtab from a `ptr`, and a `size`, using `delim` as the delimiter
-    /// # Safety
+    /// Gets a str reference from the backing bytes starting at byte `offset`.
     ///
-    /// This function creates a `Strtab` directly from a raw pointer and size
-    pub unsafe fn from_raw(ptr: *const u8, size: usize, delim: u8) -> Strtab<'a> {
-        Strtab {
-            delim: ctx::StrCtx::Delimiter(delim),
-            bytes: slice::from_raw_parts(ptr, size),
+    /// If the index is out of bounds, `None` is returned. Panics if bytes are invalid UTF-8.
+    /// Use this method if the `Strtab` was created using `from_slice_unparsed()`.
+    pub fn get_unsafe(&self, offset: usize) -> Option<&'a str> {
+        if offset >= self.bytes.len() {
+            None
+        } else {
+            Some(get_str(offset, self.bytes, self.delim).unwrap())
         }
     }
     #[cfg(feature = "alloc")]
-    /// Parses a strtab from `bytes` at `offset` with `len` size as the backing string table, using `delim` as the delimiter
-    pub fn parse(
-        bytes: &'a [u8],
-        offset: usize,
-        len: usize,
-        delim: u8,
-    ) -> error::Result<Strtab<'a>> {
+    /// Parses a `Strtab` from `bytes` at `offset` with `len` size as the backing string table, using `delim` as the delimiter.
+    ///
+    /// Errors if bytes are invalid UTF-8.
+    /// Requires `feature = "alloc"`
+    pub fn parse(bytes: &'a [u8], offset: usize, len: usize, delim: u8) -> error::Result<Self> {
         let (end, overflow) = offset.overflowing_add(len);
         if overflow || end > bytes.len() {
             return Err(error::Error::Malformed(format!(
@@ -60,42 +64,79 @@ impl<'a> Strtab<'a> {
                 overflow
             )));
         }
-        Ok(Strtab {
-            bytes: &bytes[offset..end],
-            delim: ctx::StrCtx::Delimiter(delim),
-        })
+        let mut result = Self::from_slice_unparsed(bytes, offset, len, delim);
+        let mut i = 0;
+        while i < result.bytes.len() {
+            let string = get_str(i, result.bytes, result.delim)?;
+            result.strings.push((i, string));
+            i += string.len() + 1;
+        }
+        Ok(result)
     }
     #[cfg(feature = "alloc")]
-    /// Converts the string table to a vector, with the original `delim` used to separate the strings
-    pub fn to_vec(&self) -> error::Result<Vec<&'a str>> {
-        let len = self.bytes.len();
-        let mut strings = Vec::with_capacity(len);
-        let mut i = 0;
-        while i < len {
-            let string = self.get(i).unwrap()?;
-            i = i + string.len() + 1;
-            strings.push(string);
-        }
-        Ok(strings)
+    /// Parses a `Strtab` with `bytes` as the backing string table, using `delim` as the delimiter between entries.
+    ///
+    /// Requires `feature = "alloc"`
+    pub fn new(bytes: &'a [u8], delim: u8) -> error::Result<Self> {
+        Self::parse(bytes, 0, bytes.len(), delim)
     }
-    /// Safely parses and gets a str reference from the backing bytes starting at byte `offset`.
+    #[cfg(feature = "alloc")]
+    /// Converts the string table to a vector of parsed strings.
+    ///
+    /// Requires `feature = "alloc"`
+    pub fn to_vec(&self) -> error::Result<Vec<&'a str>> {
+        // Fallback in case `Strtab` was created using `from_slice_unparsed()`.
+        if self.strings.is_empty() {
+            let mut result = Vec::new();
+            let mut i = 0;
+            while i < self.bytes.len() {
+                let string = get_str(i, self.bytes, self.delim)?;
+                result.push(string);
+                i += string.len() + 1;
+            }
+            return Ok(result);
+        }
+        Ok(self.strings.iter().map(|&(_key, value)| value).collect())
+    }
+    #[cfg(feature = "alloc")]
+    /// Safely gets a str reference from the parsed table starting at byte `offset`.
+    ///
     /// If the index is out of bounds, `None` is returned.
     /// Requires `feature = "alloc"`
+    pub fn get_at(&self, offset: usize) -> Option<&'a str> {
+        match self
+            .strings
+            .binary_search_by_key(&offset, |&(key, _value)| key)
+        {
+            Ok(index) => Some(self.strings[index].1),
+            Err(index) => {
+                if index == 0 {
+                    return None;
+                }
+                let (string_begin_offset, entire_string) = self.strings[index - 1];
+                entire_string.get(offset - string_begin_offset..)
+            }
+        }
+    }
+    #[deprecated(since = "0.4.2", note = "Use from_slice_unparsed() instead")]
+    /// Construct a strtab from a `ptr`, and a `size`, using `delim` as the delimiter
+    ///
+    /// # Safety
+    /// This function creates a `Strtab` directly from a raw pointer and size
+    pub unsafe fn from_raw(ptr: *const u8, len: usize, delim: u8) -> Strtab<'a> {
+        Self::from_slice_unparsed(core::slice::from_raw_parts(ptr, len), 0, len, delim)
+    }
+    #[deprecated(since = "0.4.2", note = "Bad performance, use get_at() instead")]
     #[cfg(feature = "alloc")]
+    /// Parses a str reference from the parsed table starting at byte `offset`.
+    ///
+    /// If the index is out of bounds, `None` is returned.
+    /// Requires `feature = "alloc"`
     pub fn get(&self, offset: usize) -> Option<error::Result<&'a str>> {
         if offset >= self.bytes.len() {
             None
         } else {
             Some(get_str(offset, self.bytes, self.delim).map_err(core::convert::Into::into))
-        }
-    }
-    /// Gets a str reference from the backing bytes starting at byte `offset`.
-    /// If the index is out of bounds, `None` is returned. Panics if bytes are invalid UTF-8.
-    pub fn get_unsafe(&self, offset: usize) -> Option<&'a str> {
-        if offset >= self.bytes.len() {
-            None
-        } else {
-            Some(get_str(offset, self.bytes, self.delim).unwrap())
         }
     }
 }
@@ -110,10 +151,12 @@ impl<'a> fmt::Debug for Strtab<'a> {
 }
 
 impl<'a> Default for Strtab<'a> {
-    fn default() -> Strtab<'a> {
-        Strtab {
-            bytes: &[],
+    fn default() -> Self {
+        Self {
             delim: ctx::StrCtx::default(),
+            bytes: &[],
+            #[cfg(feature = "alloc")]
+            strings: Vec::new(),
         }
     }
 }
@@ -133,8 +176,7 @@ impl<'a> Index<usize> for Strtab<'a> {
 
 #[test]
 fn as_vec_no_final_null() {
-    let bytes = b"\0printf\0memmove\0busta";
-    let strtab = unsafe { Strtab::from_raw(bytes.as_ptr(), bytes.len(), 0x0) };
+    let strtab = Strtab::new(b"\0printf\0memmove\0busta", 0x0).unwrap();
     let vec = strtab.to_vec().unwrap();
     assert_eq!(vec.len(), 4);
     assert_eq!(vec, vec!["", "printf", "memmove", "busta"]);
@@ -142,8 +184,7 @@ fn as_vec_no_final_null() {
 
 #[test]
 fn as_vec_no_first_null_no_final_null() {
-    let bytes = b"printf\0memmove\0busta";
-    let strtab = unsafe { Strtab::from_raw(bytes.as_ptr(), bytes.len(), 0x0) };
+    let strtab = Strtab::new(b"printf\0memmove\0busta", 0x0).unwrap();
     let vec = strtab.to_vec().unwrap();
     assert_eq!(vec.len(), 3);
     assert_eq!(vec, vec!["printf", "memmove", "busta"]);
@@ -151,8 +192,7 @@ fn as_vec_no_first_null_no_final_null() {
 
 #[test]
 fn to_vec_final_null() {
-    let bytes = b"\0printf\0memmove\0busta\0";
-    let strtab = unsafe { Strtab::from_raw(bytes.as_ptr(), bytes.len(), 0x0) };
+    let strtab = Strtab::new(b"\0printf\0memmove\0busta\0", 0x0).unwrap();
     let vec = strtab.to_vec().unwrap();
     assert_eq!(vec.len(), 4);
     assert_eq!(vec, vec!["", "printf", "memmove", "busta"]);
@@ -160,9 +200,37 @@ fn to_vec_final_null() {
 
 #[test]
 fn to_vec_newline_delim() {
-    let bytes = b"\nprintf\nmemmove\nbusta\n";
-    let strtab = unsafe { Strtab::from_raw(bytes.as_ptr(), bytes.len(), b'\n') };
+    let strtab = Strtab::new(b"\nprintf\nmemmove\nbusta\n", b'\n').unwrap();
     let vec = strtab.to_vec().unwrap();
     assert_eq!(vec.len(), 4);
     assert_eq!(vec, vec!["", "printf", "memmove", "busta"]);
+}
+
+#[test]
+fn parse_utf8() {
+    assert!(match Strtab::new(&[0x80, 0x80], b'\n') {
+        Err(error::Error::Scroll(scroll::Error::BadInput {
+            size: 2,
+            msg: "invalid utf8",
+        })) => true,
+        _ => false,
+    });
+    assert!(match Strtab::new(&[0xC6, 0x92, 0x6F, 0x6F], b'\n') {
+        Ok(_) => true,
+        _ => false,
+    });
+}
+
+#[test]
+fn get_at_utf8() {
+    let strtab = Strtab::new("\nƒoo\nmemmove\n🅱️usta\n".as_bytes(), b'\n').unwrap();
+    assert_eq!(strtab.get_at(0), Some(""));
+    assert_eq!(strtab.get_at(5), Some(""));
+    assert_eq!(strtab.get_at(6), Some("memmove"));
+    assert_eq!(strtab.get_at(14), Some("\u{1f171}\u{fe0f}usta"));
+    assert_eq!(strtab.get_at(16), None);
+    assert_eq!(strtab.get_at(18), Some("\u{fe0f}usta"));
+    assert_eq!(strtab.get_at(21), Some("usta"));
+    assert_eq!(strtab.get_at(25), Some(""));
+    assert_eq!(strtab.get_at(26), None);
 }

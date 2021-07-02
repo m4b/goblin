@@ -282,8 +282,8 @@ impl<'a> Index<'a> {
             let string_offset: u32 = buffer.pread_with(i * 8 + 4, scroll::LE)?;
             let archive_member: u32 = buffer.pread_with(i * 8 + 8, scroll::LE)?;
 
-            let string = match strtab.get(string_offset as usize) {
-                Some(result) => result,
+            let string = match strtab.get_at(string_offset as usize) {
+                Some(result) => Ok(result),
                 None => Err(Error::Malformed(format!(
                     "{} entry {} has string offset {}, which is out of bounds",
                     BSD_SYMDEF_NAME, i, string_offset
@@ -353,8 +353,8 @@ impl<'a> NameIndex<'a> {
         let idx = name.trim_start_matches('/').trim_end();
         match usize::from_str_radix(idx, 10) {
             Ok(idx) => {
-                let name = match self.strtab.get(idx + 1) {
-                    Some(result) => result,
+                let name = match self.strtab.get_at(idx + 1) {
+                    Some(result) => Ok(result),
                     None => Err(Error::Malformed(format!(
                         "Name {} is out of range in archive NameIndex",
                         name

@@ -174,9 +174,7 @@ if_sylvan! {
                     continue;
                 }
 
-                if section_name.is_some() && !self.shdr_strtab
-                    .get(sect.sh_name)
-                    .map_or(false, |r| r.ok() == section_name) {
+                if section_name.is_some() && self.shdr_strtab.get_at(sect.sh_name) != section_name {
                     continue;
                 }
 
@@ -298,7 +296,7 @@ if_sylvan! {
 
                 if dyn_info.soname != 0 {
                     // FIXME: warn! here
-                    soname = match dynstrtab.get(dyn_info.soname) { Some(Ok(soname)) => Some(soname), _ => None };
+                    soname = dynstrtab.get_at(dyn_info.soname);
                 }
                 if dyn_info.needed_count > 0 {
                     libraries = dynamic.get_libraries(&dynstrtab);

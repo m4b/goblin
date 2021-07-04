@@ -26,6 +26,14 @@ fn get_str(offset: usize, bytes: &[u8], delim: ctx::StrCtx) -> scroll::Result<&s
 }
 
 impl<'a> Strtab<'a> {
+    /// Creates a `Strtab` with `bytes` as the backing string table, using `delim` as the delimiter between entries.
+    ///
+    /// NB: this does *not* preparse the string table, which can have non-optimal access patterns.
+    /// See https://github.com/m4b/goblin/pull/275#issue-660364025
+    pub fn new(bytes: &'a [u8], delim: u8) -> Self {
+        Self::from_slice_unparsed(bytes, 0, bytes.len(), delim)
+    }
+
     /// Creates a `Strtab` directly without bounds check and without parsing it.
     ///
     /// This is potentially unsafe and should only be used if `feature = "alloc"` is disabled.
@@ -77,7 +85,7 @@ impl<'a> Strtab<'a> {
     /// Parses a `Strtab` with `bytes` as the backing string table, using `delim` as the delimiter between entries.
     ///
     /// Requires `feature = "alloc"`
-    pub fn new(bytes: &'a [u8], delim: u8) -> error::Result<Self> {
+    pub fn new_preparsed(bytes: &'a [u8], delim: u8) -> error::Result<Self> {
         Self::parse(bytes, 0, bytes.len(), delim)
     }
     #[cfg(feature = "alloc")]
@@ -176,7 +184,7 @@ impl<'a> Index<usize> for Strtab<'a> {
 
 #[test]
 fn as_vec_no_final_null() {
-    let strtab = Strtab::new(b"\0printf\0memmove\0busta", 0x0).unwrap();
+    let strtab = Strtab::new_preparsed(b"\0printf\0memmove\0busta", 0x0).unwrap();
     let vec = strtab.to_vec().unwrap();
     assert_eq!(vec.len(), 4);
     assert_eq!(vec, vec!["", "printf", "memmove", "busta"]);
@@ -184,7 +192,7 @@ fn as_vec_no_final_null() {
 
 #[test]
 fn as_vec_no_first_null_no_final_null() {
-    let strtab = Strtab::new(b"printf\0memmove\0busta", 0x0).unwrap();
+    let strtab = Strtab::new_preparsed(b"printf\0memmove\0busta", 0x0).unwrap();
     let vec = strtab.to_vec().unwrap();
     assert_eq!(vec.len(), 3);
     assert_eq!(vec, vec!["printf", "memmove", "busta"]);
@@ -192,7 +200,7 @@ fn as_vec_no_first_null_no_final_null() {
 
 #[test]
 fn to_vec_final_null() {
-    let strtab = Strtab::new(b"\0printf\0memmove\0busta\0", 0x0).unwrap();
+    let strtab = Strtab::new_preparsed(b"\0printf\0memmove\0busta\0", 0x0).unwrap();
     let vec = strtab.to_vec().unwrap();
     assert_eq!(vec.len(), 4);
     assert_eq!(vec, vec!["", "printf", "memmove", "busta"]);
@@ -200,7 +208,7 @@ fn to_vec_final_null() {
 
 #[test]
 fn to_vec_newline_delim() {
-    let strtab = Strtab::new(b"\nprintf\nmemmove\nbusta\n", b'\n').unwrap();
+    let strtab = Strtab::new_preparsed(b"\nprintf\nmemmove\nbusta\n", b'\n').unwrap();
     let vec = strtab.to_vec().unwrap();
     assert_eq!(vec.len(), 4);
     assert_eq!(vec, vec!["", "printf", "memmove", "busta"]);
@@ -208,22 +216,24 @@ fn to_vec_newline_delim() {
 
 #[test]
 fn parse_utf8() {
-    assert!(match Strtab::new(&[0x80, 0x80], b'\n') {
+    assert!(match Strtab::new_preparsed(&[0x80, 0x80], b'\n') {
         Err(error::Error::Scroll(scroll::Error::BadInput {
             size: 2,
             msg: "invalid utf8",
         })) => true,
         _ => false,
     });
-    assert!(match Strtab::new(&[0xC6, 0x92, 0x6F, 0x6F], b'\n') {
-        Ok(_) => true,
-        _ => false,
-    });
+    assert!(
+        match Strtab::new_preparsed(&[0xC6, 0x92, 0x6F, 0x6F], b'\n') {
+            Ok(_) => true,
+            _ => false,
+        }
+    );
 }
 
 #[test]
 fn get_at_utf8() {
-    let strtab = Strtab::new("\nƒoo\nmemmove\n🅱️usta\n".as_bytes(), b'\n').unwrap();
+    let strtab = Strtab::new_preparsed("\nƒoo\nmemmove\n🅱️usta\n".as_bytes(), b'\n').unwrap();
     assert_eq!(strtab.get_at(0), Some(""));
     assert_eq!(strtab.get_at(5), Some(""));
     assert_eq!(strtab.get_at(6), Some("memmove"));

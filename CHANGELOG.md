@@ -5,6 +5,10 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.4, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
+## [0.4.2] - 2021-7-4
+### Added
+- strtab: preparses the string table to prevent certain class of DoS attacks, thanks @Lichtsto: https://github.com/m4b/goblin/pull/275
+
 ## [0.4.1] - 2021-5-30
 ### Fixed
 - elf: fix error when alloc, but not endian, thanks @dancrossnyc: https://github.com/m4b/goblin/pull/273

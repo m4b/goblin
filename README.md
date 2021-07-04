@@ -126,6 +126,7 @@ In lexicographic order:
 - [@kjempelodott]
 - [@ko1n]
 - [@le-jzr]
+- [@Lichtso]
 - [@lion128]
 - [@llogiq]
 - [@lzutao]
@@ -177,6 +178,7 @@ In lexicographic order:
 [@kjempelodott]: https://github.com/kjempelodott
 [@ko1N]: https://github.com/ko1N
 [@le-jzr]: https://github.com/le-jzr
+[@Lichtso]: https://github.com/Lichtso
 [@lion128]: https://github.com/lion128
 [@llogiq]: https://github.com/llogiq
 [@lzutao]: https://github.com/lzutao

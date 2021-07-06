@@ -54,6 +54,10 @@ pub mod dynamic;
 pub mod reloc;
 pub mod note;
 
+pub mod build_attributes;
+
+pub mod arm;
+
 macro_rules! if_sylvan {
     ($($i:item)*) => ($(
         #[cfg(all(feature = "elf32", feature = "elf64", feature = "endian_fd"))]

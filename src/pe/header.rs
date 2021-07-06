@@ -56,6 +56,8 @@ pub const SIZEOF_COFF_HEADER: usize = 20;
 /// PE\0\0, little endian
 pub const PE_MAGIC: u32 = 0x0000_4550;
 pub const SIZEOF_PE_MAGIC: usize = 4;
+// sizeof(IMAGE_SECTION_HEADER), used for header calculations
+pub const SIZEOF_IMAGE_SECTION_HEADER: usize = 40;
 /// The contents of this field are assumed to be applicable to any machine type
 pub const COFF_MACHINE_UNKNOWN: u16 = 0x0;
 /// Matsushita AM33

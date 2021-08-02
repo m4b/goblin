@@ -90,6 +90,11 @@ pub enum SyntheticImportLookupTableEntry<'a> {
     HintNameTableRVA((u32, HintNameTableEntry<'a>)), // [u8; 31] bitfield :/
 }
 
+pub struct SyntheticImportAddressTableEntry<'a> {
+    pub rva: u64,
+    pub name: &'a str,
+}
+
 pub type ImportLookupTable<'a> = Vec<SyntheticImportLookupTableEntry<'a>>;
 
 impl<'a> SyntheticImportLookupTableEntry<'a> {
@@ -292,6 +297,32 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
             import_lookup_table,
             import_address_table,
         })
+    }
+
+    pub fn get_imports_rva<T: Bitfield<'a>>(
+        &self,
+    ) -> error::Result<Vec<SyntheticImportAddressTableEntry<'a>>> {
+        let mut out = Vec::<SyntheticImportAddressTableEntry>::new();
+        if let Some(import_lookup_table) = &(self.import_lookup_table) {
+            for (i, lookup_entry) in import_lookup_table.iter().enumerate() {
+                match lookup_entry {
+                    SyntheticImportLookupTableEntry::OrdinalNumber(_) => {
+                        continue;
+                    }
+                    SyntheticImportLookupTableEntry::HintNameTableRVA((_, v)) => {
+                        let import_rva = (self.import_directory_entry.import_address_table_rva
+                            as u64)
+                            + ((i * std::mem::size_of::<T>()) as u64);
+                        out.push(SyntheticImportAddressTableEntry {
+                            rva: import_rva,
+                            name: v.name,
+                        });
+                    }
+                };
+            }
+        }
+
+        Ok(out)
     }
 }
 

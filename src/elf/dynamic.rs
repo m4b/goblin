@@ -614,6 +614,8 @@ macro_rules! elf_dynamic_info_std_impl {
             pub pltrelsz: usize,
             pub pltrel: $size,
             pub jmprel: usize,
+            pub verdef: $size,
+            pub verdefnum: $size,
             pub verneed: $size,
             pub verneednum: $size,
             pub versym: $size,
@@ -658,6 +660,8 @@ macro_rules! elf_dynamic_info_std_impl {
                     DT_JMPREL => {
                         self.jmprel = vm_to_offset(phdrs, dynamic.d_val).unwrap_or(0) as usize
                     } // .rela.plt
+                    DT_VERDEF => self.verdef = vm_to_offset(phdrs, dynamic.d_val).unwrap_or(0),
+                    DT_VERDEFNUM => self.verdefnum = vm_to_offset(phdrs, dynamic.d_val).unwrap_or(0),
                     DT_VERNEED => self.verneed = vm_to_offset(phdrs, dynamic.d_val).unwrap_or(0),
                     DT_VERNEEDNUM => self.verneednum = dynamic.d_val as _,
                     DT_VERSYM => self.versym = vm_to_offset(phdrs, dynamic.d_val).unwrap_or(0),
@@ -750,6 +754,8 @@ macro_rules! elf_dynamic_info_std_impl {
                         .field("pltrelsz", &self.pltrelsz)
                         .field("pltrel", &self.pltrel)
                         .field("jmprel", &format_args!("0x{:x}", self.jmprel))
+                        .field("verdef", &format_args!("0x{:x}", self.verdef))
+                        .field("verdefnum", &self.verdefnum)
                         .field("verneed", &format_args!("0x{:x}", self.verneed))
                         .field("verneednum", &self.verneednum)
                         .field("versym", &format_args!("0x{:x}", self.versym))

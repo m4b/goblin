@@ -244,7 +244,7 @@ fn check_symver_expectations(
     let verneed = elf.verneed.unwrap();
 
     // Resolve version strings.
-    let symstr = |idx: u32| verneed.symstr.get_at(idx as usize).unwrap();
+    let symstr = |idx| verneed.symstr.get_at(idx).unwrap();
 
     // ELF file dependencies with version requirements.
     let need_files: Vec<_> = verneed.iter().collect();

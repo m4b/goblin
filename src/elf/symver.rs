@@ -15,10 +15,10 @@
 //!         for need_file in verneed.iter() {
 //!             println!(
 //!                 "Depend on {:?} with version(s):",
-//!                 verneed.symstr.get_at(need_file.vn_file as usize)
+//!                 verneed.symstr.get_at(need_file.vn_file)
 //!             );
 //!             for need_ver in need_file.iter() {
-//!                 println!("{:?}", verneed.symstr.get_at(need_ver.vna_name as usize));
+//!                 println!("{:?}", verneed.symstr.get_at(need_ver.vna_name));
 //!             }
 //!         }
 //!     }
@@ -204,11 +204,11 @@ impl<'a> Iterator for VerneedIterator<'a> {
             self.offset += vn_next as usize;
 
             Some(Verneed {
-                vn_version,
-                vn_cnt,
-                vn_file,
-                vn_aux,
-                vn_next,
+                vn_version : vn_version as usize,
+                vn_cnt : vn_cnt as usize,
+                vn_file : vn_file as usize,
+                vn_aux : vn_aux as usize,
+                vn_next : vn_next as usize,
                 bytes,
                 ctx: self.ctx,
             })
@@ -221,11 +221,11 @@ impl<'a> Iterator for VerneedIterator<'a> {
 /// [lsb-verneed]: https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERNEEDFIG
 #[derive(Debug)]
 pub struct Verneed<'a> {
-    pub vn_version: u16,
-    pub vn_cnt: u16,
-    pub vn_file: u32,
-    pub vn_aux: u32,
-    pub vn_next: u32,
+    pub vn_version: usize,
+    pub vn_cnt: usize,
+    pub vn_file: usize,
+    pub vn_aux: usize,
+    pub vn_next: usize,
 
     bytes: &'a [u8],
     ctx: container::Ctx,
@@ -236,7 +236,7 @@ impl<'a> Verneed<'a> {
     pub fn iter(&'a self) -> VernauxIterator<'a> {
         VernauxIterator {
             bytes: self.bytes,
-            count: self.vn_cnt as usize,
+            count: self.vn_cnt,
             index: 0,
             offset: 0,
             ctx: self.ctx,
@@ -275,11 +275,11 @@ impl<'a> Iterator for VernauxIterator<'a> {
             self.offset += vna_next as usize;
 
             Some(Vernaux {
-                vna_hash,
-                vna_flags,
-                vna_other,
-                vna_name,
-                vna_next,
+                vna_hash : vna_hash as usize,
+                vna_flags : vna_flags as usize,
+                vna_other : vna_other as usize,
+                vna_name : vna_name as usize,
+                vna_next : vna_next as usize,
             })
         }
     }
@@ -290,11 +290,11 @@ impl<'a> Iterator for VernauxIterator<'a> {
 /// [lsb-vernaux]: https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERNEEDEXTFIG
 #[derive(Debug)]
 pub struct Vernaux {
-    pub vna_hash: u32,
-    pub vna_flags: u16,
-    pub vna_other: u16,
-    pub vna_name: u32,
-    pub vna_next: u32,
+    pub vna_hash: usize,
+    pub vna_flags: usize,
+    pub vna_other: usize,
+    pub vna_name: usize,
+    pub vna_next: usize,
 }
 
 #[cfg(test)]

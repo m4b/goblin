@@ -228,3 +228,105 @@ fn test_oom() {
         &mut AlignedData(*include_bytes!("bins/elf/gnu_hash/hello.so"));
     test_oom(&mut aligned_data.0);
 }
+
+type SymverExpectation = std::collections::HashMap<&'static str, Vec<&'static str>>;
+
+fn check_symver_expectations(
+    bytes: &[u8],
+    expect: &SymverExpectation,
+) -> Result<(), goblin::error::Error> {
+    let elf = Elf::parse(bytes)?;
+
+    // We expect a version needed section.
+    assert!(elf.verneed.is_some());
+
+    // Safe to unwrap as asserted above.
+    let verneed = elf.verneed.unwrap();
+
+    // Resolve version strings.
+    let symstr = |idx: u32| verneed.symstr.get_at(idx as usize).unwrap();
+
+    // ELF file dependencies with version requirements.
+    let need_files: Vec<_> = verneed.iter().collect();
+    assert_eq!(
+        expect.keys().len(),
+        need_files.len(),
+        "Expected different number of dependencies with version information!"
+    );
+
+    for need_file in &need_files {
+        // Get file name of the dependency.
+        let file_str = symstr(need_file.vn_file);
+
+        // Check if we expect this dependency.
+        let expect_vers = expect.get(&file_str);
+        assert!(
+            expect_vers.is_some(),
+            "Unexpected FILE dependency {}!",
+            file_str
+        );
+        let expect_vers = expect_vers.unwrap();
+
+        // Version dependencies for this file dependency.
+        let need_vers: Vec<_> = need_file.iter().collect();
+        assert_eq!(
+            expect_vers.len(),
+            need_vers.len(),
+            "Expected different number of version dependencies for {}!",
+            file_str
+        );
+
+        for need_ver in &need_vers {
+            // Get version string.
+            let ver_str = symstr(need_ver.vna_name);
+
+            // Check if we expect this version.
+            assert!(
+                expect_vers
+                    .iter()
+                    .find(|&expect_ver| &ver_str == expect_ver)
+                    .is_some(),
+                "Unexpected VERSION dependency {}",
+                ver_str
+            );
+        }
+    }
+
+    Ok(())
+}
+
+#[rustfmt::skip]
+#[test]
+fn test_symver_verneed() -> Result<(), goblin::error::Error> {
+    // NOTE: Expected Files & Symbol Versions depend on build system of the test ELF binaries.
+    //       When rebuilding the referenced ELF file the version information must be checked and
+    //       potentially updated:
+    //       > readelf -V <elf>
+
+    let expect_lib32: SymverExpectation = [
+        ("libc.so.6", vec!["GLIBC_2.0", "GLIBC_2.1.3"])
+    ].iter().cloned().collect();
+
+    let expect_lib64: SymverExpectation = [
+        ("libc.so.6", vec!["GLIBC_2.2.5"])
+    ].iter().cloned().collect();
+
+    let expect_prog32: SymverExpectation = [
+        ("libc.so.6", vec!["GLIBC_2.0", "GLIBC_2.1.3"]),
+        ("libdl.so.2", vec!["GLIBC_2.0", "GLIBC_2.1"]),
+        ("lib32.so", vec!["v2"]),
+    ].iter().cloned().collect();
+
+    let expect_prog64: SymverExpectation = [
+        ("libdl.so.2", vec!["GLIBC_2.2.5"]),
+        ("libc.so.6", vec!["GLIBC_2.2.5"]),
+        ("lib64.so", vec!["v2"]),
+    ].iter().cloned().collect();
+
+    check_symver_expectations(include_bytes!("bins/elf/symver/lib32.so"), &expect_lib32)?;
+    check_symver_expectations(include_bytes!("bins/elf/symver/lib64.so"), &expect_lib64)?;
+    check_symver_expectations(include_bytes!("bins/elf/symver/prog32"), &expect_prog32)?;
+    check_symver_expectations(include_bytes!("bins/elf/symver/prog64"), &expect_prog64)?;
+
+    Ok(())
+}

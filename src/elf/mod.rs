@@ -53,6 +53,7 @@ pub mod dynamic;
 #[macro_use]
 pub mod reloc;
 pub mod note;
+pub mod symver;
 
 macro_rules! if_sylvan {
     ($($i:item)*) => ($(
@@ -78,6 +79,7 @@ if_sylvan! {
     pub use dynamic::Dynamic;
     pub use reloc::Reloc;
     pub use reloc::RelocSection;
+    pub use symver::VerneedSection;
 
     pub type ProgramHeaders = Vec<ProgramHeader>;
     pub type SectionHeaders = Vec<SectionHeader>;
@@ -130,6 +132,9 @@ if_sylvan! {
         pub entry: u64,
         /// Whether the binary is little endian or not
         pub little_endian: bool,
+        /// Contains the version needed information from the optional section
+        /// [`SHT_GNU_VERNEED`][section_header::SHT_GNU_VERNEED] (GNU extenstion).
+        pub verneed : Option<VerneedSection<'a>>,
         ctx: Ctx,
     }
 
@@ -232,6 +237,7 @@ if_sylvan! {
                 entry: misc.entry,
                 little_endian: misc.little_endian,
                 ctx: misc.ctx,
+                verneed : None,
             })
         }
 
@@ -334,6 +340,8 @@ if_sylvan! {
                 }
             }
 
+            let verneed = symver::VerneedSection::parse(bytes, &section_headers, ctx)?;
+
             Ok(Elf {
                 header,
                 program_headers,
@@ -356,6 +364,7 @@ if_sylvan! {
                 entry: misc.entry,
                 little_endian: misc.little_endian,
                 ctx: ctx,
+                verneed,
             })
         }
     }

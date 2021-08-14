@@ -3,6 +3,8 @@
 //! Implementation of the GNU symbol versioning extension according to
 //! [LSB Core Specification - Symbol Versioning][lsb-symver].
 //!
+//! # Examples
+//!
 //! List the dependencies of an ELF file that have version needed information along with the
 //! versions needed for each dependency.
 //! ```rust
@@ -43,6 +45,7 @@ use crate::strtab::Strtab;
 use crate::elf::section_header::{SectionHeader, SHT_GNU_VERNEED};
 use crate::error::{Error, Result};
 use scroll::Pread;
+use core::iter::FusedIterator;
 
 /// An ELF `Version Need` entry Elfxx_Verneed.
 ///
@@ -141,8 +144,19 @@ impl<'a> VerneedSection<'a> {
     }
 
     /// Get an iterator over the [`Verneed`] entries.
-    pub fn iter(&'a self) -> VerneedIterator<'a> {
-        VerneedIterator {
+    #[inline]
+    pub fn iter(&'a self) -> VerneedIter<'a> {
+        self.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'_ VerneedSection<'a> {
+    type Item = <VerneedIter<'a> as Iterator>::Item;
+    type IntoIter = VerneedIter<'a>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        VerneedIter {
             bytes: self.bytes,
             count: self.count,
             index: 0,
@@ -153,7 +167,7 @@ impl<'a> VerneedSection<'a> {
 }
 
 /// Iterator over the [`Verneed`] entries from the [`SHT_GNU_VERNEED`] section.
-pub struct VerneedIterator<'a> {
+pub struct VerneedIter<'a> {
     bytes: &'a [u8],
     count: usize,
     index: usize,
@@ -161,7 +175,7 @@ pub struct VerneedIterator<'a> {
     ctx: container::Ctx,
 }
 
-impl<'a> Iterator for VerneedIterator<'a> {
+impl<'a> Iterator for VerneedIter<'a> {
     type Item = Verneed<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -192,7 +206,7 @@ impl<'a> Iterator for VerneedIterator<'a> {
                 (vn_next - vn_aux) as usize
             } else {
                 // For the last entry, ElfVerneed->vn_next == 0.
-                // Therefore we compute the remaining length of bytes buffer.
+                // Therefore we compute the remaining length of the bytes buffer.
                 self.bytes.len() - self.offset - vn_aux as usize
             };
             let bytes: &'a [u8] = self
@@ -214,7 +228,17 @@ impl<'a> Iterator for VerneedIterator<'a> {
             })
         }
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.count - self.index;
+        (len, Some(len))
+    }
 }
+
+impl ExactSizeIterator for VerneedIter<'_> {}
+
+impl FusedIterator for VerneedIter<'_> {}
 
 /// An ELF [`Version Need`][lsb-verneed] entry .
 ///
@@ -233,8 +257,19 @@ pub struct Verneed<'a> {
 
 impl<'a> Verneed<'a> {
     /// Get an iterator over the [`Vernaux`] entries of this [`Verneed`] entry.
-    pub fn iter(&'a self) -> VernauxIterator<'a> {
-        VernauxIterator {
+    #[inline]
+    pub fn iter(&'a self) -> VernauxIter<'a> {
+        self.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'_ Verneed<'a> {
+    type Item = <VernauxIter<'a> as Iterator>::Item;
+    type IntoIter = VernauxIter<'a>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        VernauxIter {
             bytes: self.bytes,
             count: self.vn_cnt,
             index: 0,
@@ -245,7 +280,7 @@ impl<'a> Verneed<'a> {
 }
 
 /// Iterator over the [`Vernaux`] entries for an specific [`Verneed`] entry.
-pub struct VernauxIterator<'a> {
+pub struct VernauxIter<'a> {
     bytes: &'a [u8],
     count: usize,
     index: usize,
@@ -253,7 +288,7 @@ pub struct VernauxIterator<'a> {
     ctx: container::Ctx,
 }
 
-impl<'a> Iterator for VernauxIterator<'a> {
+impl<'a> Iterator for VernauxIter<'a> {
     type Item = Vernaux;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -262,7 +297,7 @@ impl<'a> Iterator for VernauxIterator<'a> {
         } else {
             self.index += 1;
 
-            // Safe to unwrap as the length of the byte slice was validated in VerneedIterator::next.
+            // Safe to unwrap as the length of the byte slice was validated in VerneedIter::next.
             let ElfVernaux {
                 vna_hash,
                 vna_flags,
@@ -283,7 +318,17 @@ impl<'a> Iterator for VernauxIterator<'a> {
             })
         }
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.count - self.index;
+        (len, Some(len))
+    }
 }
+
+impl ExactSizeIterator for VernauxIter<'_> {}
+
+impl FusedIterator for VernauxIter<'_> {}
 
 /// An ELF [`Version Need Auxiliary`][lsb-vernaux] entry.
 ///

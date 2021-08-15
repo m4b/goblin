@@ -196,6 +196,12 @@ mod symver_impl {
             self.into_iter()
         }
 
+        /// True if there are no [`Versym`] entries.
+        #[inline]
+        pub fn is_empty(&self) -> bool {
+            self.bytes.is_empty()
+        }
+
         /// Number of [`Versym`] entries.
         #[inline]
         pub fn len(&self) -> usize {
@@ -314,9 +320,12 @@ mod symver_impl {
             // Get string table which is used to resolve version strings.
             let verstr = {
                 // Linked section refers to string table.
-                let shdr_link = shdrs.get(link_idx).ok_or(Error::Malformed(
-                    "Section header of string table for SHT_GNU_VERDEF section not found!".into(),
-                ))?;
+                let shdr_link = shdrs.get(link_idx).ok_or_else(|| {
+                    Error::Malformed(
+                        "Section header of string table for SHT_GNU_VERDEF section not found!"
+                            .into(),
+                    )
+                })?;
 
                 Strtab::parse(
                     bytes,
@@ -569,9 +578,12 @@ mod symver_impl {
             // Get string table which is used to resolve version strings.
             let verstr = {
                 // Linked section refers to string table.
-                let shdr_link = shdrs.get(link_idx).ok_or(Error::Malformed(
-                    "Section header of string table for SHT_GNU_VERNEED section not found!".into(),
-                ))?;
+                let shdr_link = shdrs.get(link_idx).ok_or_else(|| {
+                    Error::Malformed(
+                        "Section header of string table for SHT_GNU_VERNEED section not found!"
+                            .into(),
+                    )
+                })?;
 
                 Strtab::parse(
                     bytes,

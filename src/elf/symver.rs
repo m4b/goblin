@@ -73,6 +73,23 @@ mod symver_impl {
     use core::iter::FusedIterator;
     use scroll::Pread;
 
+    /******************
+     *  ELF Constants *
+     ******************/
+
+    // Versym constants.
+
+    pub const VER_NDX_LOCAL: usize = 0;
+    pub const VER_NDX_GLOBAL: usize = 1;
+    pub const VERSYM_HIDDEN: usize = 0x8000;
+    pub const VERSYM_VERSION: usize = 0x7fff;
+
+    // Verdef constants.
+
+    pub const VER_FLG_BASE: usize = 0x1;
+    pub const VER_FLG_WEAK: usize = 0x2;
+    pub const VER_FLG_INFO: usize = 0x4;
+
     /********************
      *  ELF Structures  *
      ********************/
@@ -271,6 +288,10 @@ mod symver_impl {
         }
     }
 
+    impl ExactSizeIterator for VersymIter<'_> {}
+
+    impl FusedIterator for VersymIter<'_> {}
+
     /// An ELF [Symbol Version][lsb-versym] entry.
     ///
     /// [lsb-versym]: https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#SYMVERTBL
@@ -279,9 +300,33 @@ mod symver_impl {
         pub vs_val: usize,
     }
 
-    impl ExactSizeIterator for VersymIter<'_> {}
+    impl Versym {
+        /// Returns true if the symbol is local and not available outside the object according to
+        /// [`VER_NDX_LOCAL`].
+        #[inline]
+        pub fn is_local(&self) -> bool {
+            self.vs_val == VER_NDX_LOCAL
+        }
 
-    impl FusedIterator for VersymIter<'_> {}
+        /// Returns true if the symbol is defined in this object and globally available according
+        /// to [`VER_NDX_GLOBAL`].
+        #[inline]
+        pub fn is_global(&self) -> bool {
+            self.vs_val == VER_NDX_GLOBAL
+        }
+
+        /// Returns true if the `hidden` bit is set according to the [`VERSYM_HIDDEN`] bitmask.
+        #[inline]
+        pub fn is_hidden(&self) -> bool {
+            (self.vs_val & VERSYM_HIDDEN) == VERSYM_HIDDEN
+        }
+
+        /// Returns the symbol version index according to the [`VERSYM_VERSION`] bitmask.
+        #[inline]
+        pub fn version(&self) -> usize {
+            self.vs_val & VERSYM_VERSION
+        }
+    }
 
     /************************
      *  Version Definition  *
@@ -807,6 +852,7 @@ mod symver_impl {
     #[cfg(test)]
     mod test {
         use super::{ElfVerdaux, ElfVerdef, ElfVernaux, ElfVerneed, ElfVersym};
+        use super::{Versym, VERSYM_HIDDEN, VER_NDX_GLOBAL, VER_NDX_LOCAL};
         use core::mem::size_of;
 
         #[test]
@@ -816,6 +862,41 @@ mod symver_impl {
             assert_eq!(8, size_of::<ElfVerdaux>());
             assert_eq!(16, size_of::<ElfVerneed>());
             assert_eq!(16, size_of::<ElfVernaux>());
+        }
+
+        #[test]
+        fn check_versym() {
+            let local = Versym {
+                vs_val: VER_NDX_LOCAL,
+            };
+            assert_eq!(true, local.is_local());
+            assert_eq!(false, local.is_global());
+            assert_eq!(false, local.is_hidden());
+            assert_eq!(VER_NDX_LOCAL, local.version());
+
+            let global = Versym {
+                vs_val: VER_NDX_GLOBAL,
+            };
+            assert_eq!(false, global.is_local());
+            assert_eq!(true, global.is_global());
+            assert_eq!(false, global.is_hidden());
+            assert_eq!(VER_NDX_GLOBAL, global.version());
+
+            let hidden = Versym {
+                vs_val: VERSYM_HIDDEN,
+            };
+            assert_eq!(false, hidden.is_local());
+            assert_eq!(false, hidden.is_global());
+            assert_eq!(true, hidden.is_hidden());
+            assert_eq!(0, hidden.version());
+
+            let hidden = Versym {
+                vs_val: VERSYM_HIDDEN | 0x123,
+            };
+            assert_eq!(false, hidden.is_local());
+            assert_eq!(false, hidden.is_global());
+            assert_eq!(true, hidden.is_hidden());
+            assert_eq!(0x123, hidden.version());
         }
     }
 }

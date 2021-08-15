@@ -79,6 +79,7 @@ if_sylvan! {
     pub use dynamic::Dynamic;
     pub use reloc::Reloc;
     pub use reloc::RelocSection;
+    pub use symver::VerdefSection;
     pub use symver::VerneedSection;
 
     pub type ProgramHeaders = Vec<ProgramHeader>;
@@ -132,6 +133,9 @@ if_sylvan! {
         pub entry: u64,
         /// Whether the binary is little endian or not
         pub little_endian: bool,
+        /// Contains the version definition information from the optional section
+        /// [`SHT_GNU_VERDEF`][section_header::SHT_GNU_VERDEF] (GNU extenstion).
+        pub verdef : Option<VerdefSection<'a>>,
         /// Contains the version needed information from the optional section
         /// [`SHT_GNU_VERNEED`][section_header::SHT_GNU_VERNEED] (GNU extenstion).
         pub verneed : Option<VerneedSection<'a>>,
@@ -237,6 +241,7 @@ if_sylvan! {
                 entry: misc.entry,
                 little_endian: misc.little_endian,
                 ctx: misc.ctx,
+                verdef : None,
                 verneed : None,
             })
         }
@@ -340,6 +345,7 @@ if_sylvan! {
                 }
             }
 
+            let verdef = symver::VerdefSection::parse(bytes, &section_headers, ctx)?;
             let verneed = symver::VerneedSection::parse(bytes, &section_headers, ctx)?;
 
             Ok(Elf {
@@ -364,6 +370,7 @@ if_sylvan! {
                 entry: misc.entry,
                 little_endian: misc.little_endian,
                 ctx: ctx,
+                verdef,
                 verneed,
             })
         }

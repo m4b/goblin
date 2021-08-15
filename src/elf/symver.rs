@@ -65,7 +65,9 @@ pub use symver_impl::*;
 #[cfg(all(any(feature = "elf32", feature = "elf64"), feature = "alloc"))]
 mod symver_impl {
     use crate::container;
-    use crate::elf::section_header::{SectionHeader, SHT_GNU_VERDEF, SHT_GNU_VERNEED};
+    use crate::elf::section_header::{
+        SectionHeader, SHT_GNU_VERDEF, SHT_GNU_VERNEED, SHT_GNU_VERSYM,
+    };
     use crate::error::{Error, Result};
     use crate::strtab::Strtab;
     use core::iter::FusedIterator;
@@ -74,6 +76,15 @@ mod symver_impl {
     /********************
      *  ELF Structures  *
      ********************/
+
+    /// An ELF `Symbol Version` entry.
+    ///
+    /// https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#SYMVERTBL
+    #[repr(C)]
+    #[derive(Debug, Pread)]
+    struct ElfVersym {
+        vs_val: u16,
+    }
 
     /// An ELF `Version Definition` entry Elfxx_Verdef.
     ///
@@ -148,6 +159,124 @@ mod symver_impl {
         vna_next: u32,
     }
 
+    /********************
+     *  Symbol Version  *
+     ********************/
+
+    /// Helper struct to iterate over [Symbol Version][Versym] entries.
+    #[derive(Debug)]
+    pub struct VersymSection<'a> {
+        bytes: &'a [u8],
+        ctx: container::Ctx,
+    }
+
+    impl<'a> VersymSection<'a> {
+        pub fn parse(
+            bytes: &'a [u8],
+            shdrs: &'_ [SectionHeader],
+            ctx: container::Ctx,
+        ) -> Result<Option<VersymSection<'a>>> {
+            // Get fields needed from optional `symbol version` section.
+            let (offset, size) =
+                if let Some(shdr) = shdrs.iter().find(|shdr| shdr.sh_type == SHT_GNU_VERSYM) {
+                    (shdr.sh_offset as usize, shdr.sh_size as usize)
+                } else {
+                    return Ok(None);
+                };
+
+            // Get a slice of bytes of the `version definition` section content.
+            let bytes: &'a [u8] = bytes.pread_with(offset, size)?;
+
+            Ok(Some(VersymSection { bytes, ctx }))
+        }
+
+        /// Get an iterator over the [`Versym`] entries.
+        #[inline]
+        pub fn iter(&'a self) -> VersymIter<'a> {
+            self.into_iter()
+        }
+
+        /// Number of [`Versym`] entries.
+        #[inline]
+        pub fn len(&self) -> usize {
+            let entsize = core::mem::size_of::<ElfVersym>();
+
+            self.bytes.len() / entsize
+        }
+
+        /// Get [`Versym`] entry at index.
+        #[inline]
+        pub fn get_at(&self, idx: usize) -> Option<Versym> {
+            let entsize = core::mem::size_of::<ElfVersym>();
+            let offset = idx.checked_mul(entsize)?;
+
+            self.bytes
+                .pread_with::<ElfVersym>(offset, self.ctx.le)
+                .ok()
+                .map(|vs| Versym {
+                    vs_val: vs.vs_val as usize,
+                })
+        }
+    }
+
+    impl<'a> IntoIterator for &'_ VersymSection<'a> {
+        type Item = <VersymIter<'a> as Iterator>::Item;
+        type IntoIter = VersymIter<'a>;
+
+        fn into_iter(self) -> Self::IntoIter {
+            VersymIter {
+                bytes: self.bytes,
+                offset: 0,
+                ctx: self.ctx,
+            }
+        }
+    }
+
+    /// Iterator over the [`Versym`] entries from the [`SHT_GNU_VERSYM`] section.
+    pub struct VersymIter<'a> {
+        bytes: &'a [u8],
+        offset: usize,
+        ctx: container::Ctx,
+    }
+
+    impl<'a> Iterator for VersymIter<'a> {
+        type Item = Versym;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.offset >= self.bytes.len() {
+                None
+            } else {
+                // Safe to unwrap as the length of the byte slice was validated in VersymSection::parse.
+                let ElfVersym { vs_val } = self
+                    .bytes
+                    .gread_with(&mut self.offset, self.ctx.le)
+                    .unwrap();
+
+                Some(Versym {
+                    vs_val: vs_val as usize,
+                })
+            }
+        }
+
+        #[inline]
+        fn size_hint(&self) -> (usize, Option<usize>) {
+            let len = self.bytes.len() - self.offset;
+            (len, Some(len))
+        }
+    }
+
+    /// An ELF [Symbol Version][lsb-versym] entry.
+    ///
+    /// [lsb-versym]: https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#SYMVERTBL
+    #[derive(Debug)]
+    pub struct Versym {
+        pub vs_val: usize,
+    }
+
+    impl ExactSizeIterator for VersymIter<'_> {}
+
+    impl FusedIterator for VersymIter<'_> {}
+
     /************************
      *  Version Definition  *
      ************************/
@@ -208,7 +337,7 @@ mod symver_impl {
             }))
         }
 
-        /// Get an iterator over [`Verdef`] entries.
+        /// Get an iterator over the [`Verdef`] entries.
         #[inline]
         pub fn iter(&'a self) -> VerdefIter<'a> {
             self.into_iter()
@@ -665,11 +794,12 @@ mod symver_impl {
 
     #[cfg(test)]
     mod test {
-        use super::{ElfVerdaux, ElfVerdef, ElfVernaux, ElfVerneed};
+        use super::{ElfVerdaux, ElfVerdef, ElfVernaux, ElfVerneed, ElfVersym};
         use core::mem::size_of;
 
         #[test]
         fn check_size() {
+            assert_eq!(2, size_of::<ElfVersym>());
             assert_eq!(20, size_of::<ElfVerdef>());
             assert_eq!(8, size_of::<ElfVerdaux>());
             assert_eq!(16, size_of::<ElfVerneed>());

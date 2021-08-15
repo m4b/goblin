@@ -244,7 +244,7 @@ fn check_symver_expectations(
     let verneed = elf.verneed.unwrap();
 
     // Resolve version strings.
-    let symstr = |idx| verneed.symstr.get_at(idx).unwrap();
+    let verstr = |idx| verneed.verstr.get_at(idx).unwrap();
 
     // ELF file dependencies with version requirements.
     let need_files: Vec<_> = verneed.iter().collect();
@@ -256,7 +256,7 @@ fn check_symver_expectations(
 
     for need_file in &need_files {
         // Get file name of the dependency.
-        let file_str = symstr(need_file.vn_file);
+        let file_str = verstr(need_file.vn_file);
 
         // Check if we expect this dependency.
         let expect_vers = expect.get(&file_str);
@@ -278,7 +278,7 @@ fn check_symver_expectations(
 
         for need_ver in &need_vers {
             // Get version string.
-            let ver_str = symstr(need_ver.vna_name);
+            let ver_str = verstr(need_ver.vna_name);
 
             // Check if we expect this version.
             assert!(

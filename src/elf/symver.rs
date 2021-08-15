@@ -17,10 +17,10 @@
 //!         for need_file in verneed.iter() {
 //!             println!(
 //!                 "Depend on {:?} with version(s):",
-//!                 verneed.symstr.get_at(need_file.vn_file)
+//!                 verneed.verstr.get_at(need_file.vn_file)
 //!             );
 //!             for need_ver in need_file.iter() {
-//!                 println!("{:?}", verneed.symstr.get_at(need_ver.vna_name));
+//!                 println!("{:?}", verneed.verstr.get_at(need_ver.vna_name));
 //!             }
 //!         }
 //!     }
@@ -40,7 +40,7 @@
 //!     if let Some(verdef) = &binary.verdef {
 //!         for def in verdef.iter() {
 //!             for (n, aux) in def.iter().enumerate() {
-//!                 let name = verdef.symstr.get_at(aux.vda_name);
+//!                 let name = verdef.verstr.get_at(aux.vda_name);
 //!                 match n {
 //!                     0 => print!("Name: {:?}", name),
 //!                     1 => print!(" Parent: {:?}", name),
@@ -59,624 +59,621 @@
 //! [lsb-verneed]: https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#SYMVERRQMTS
 //! [lsb-verdef]: https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#SYMVERDEFS
 
-macro_rules! if_cfg_elf {
-    ($($i:item)*) => ($(
-        #[cfg(all(any(feature = "elf32", feature = "elf64"), feature = "alloc"))]
-        $i
-    )*)
-}
+#[cfg(all(any(feature = "elf32", feature = "elf64"), feature = "alloc"))]
+pub use symver_impl::*;
 
-if_cfg_elf! {
+#[cfg(all(any(feature = "elf32", feature = "elf64"), feature = "alloc"))]
+mod symver_impl {
+    use crate::container;
+    use crate::elf::section_header::{SectionHeader, SHT_GNU_VERDEF, SHT_GNU_VERNEED};
+    use crate::error::{Error, Result};
+    use crate::strtab::Strtab;
+    use core::iter::FusedIterator;
+    use scroll::Pread;
 
-use crate::container;
-use crate::strtab::Strtab;
-use crate::elf::section_header::{SectionHeader, SHT_GNU_VERNEED, SHT_GNU_VERDEF};
-use crate::error::{Error, Result};
-use scroll::Pread;
-use core::iter::FusedIterator;
+    /********************
+     *  ELF Structures  *
+     ********************/
 
-/********************
- *  ELF Structures  *
- ********************/
-
-/// An ELF `Version Definition` entry Elfxx_Verdef.
-///
-/// https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERDEFENTRIES
-#[repr(C)]
-#[derive(Debug, Pread)]
-struct ElfVerdef {
-    /// Version revision. This field shall be set to 1.
-    vd_version : u16,
-    /// Version information flag bitmask.
-    vd_flags : u16,
-    /// Version index numeric value referencing the SHT_GNU_versym section.
-    vd_ndx : u16,
-    /// Number of associated verdaux array entries.
-    vd_cnt: u16,
-    /// Version name hash value (ELF hash function).
-    vd_hash : u32,
-    /// Offset in bytes to a corresponding entry in an array of Elfxx_Verdaux structures.
-    vd_aux : u32,
-    /// Offset to the next verdef entry, in bytes.
-    vd_next : u32,
-}
-
-/// An ELF `Version Definition Auxiliary` entry Elfxx_Verdaux.
-///
-/// https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERDEFEXTS
-#[repr(C)]
-#[derive(Debug, Pread)]
-struct ElfVerdaux {
-    /// Offset to the version or dependency name string in the section header, in bytes.
-    vda_name: u32,
-    /// Offset to the next verdaux entry, in bytes.
-    vda_next : u32,
-}
-
-/// An ELF `Version Need` entry Elfxx_Verneed.
-///
-/// https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERNEEDFIG
-#[repr(C)]
-#[derive(Debug, Pread)]
-struct ElfVerneed {
-    /// Version of structure. This value is currently set to 1, and will be reset if the versioning
-    /// implementation is incompatibly altered.
-    vn_version: u16,
-    /// Number of associated verneed array entries.
-    vn_cnt: u16,
-    /// Offset to the file name string in the section header, in bytes.
-    vn_file: u32,
-    /// Offset to a corresponding entry in the vernaux array, in bytes.
-    vn_aux: u32,
-    /// Offset to the next verneed entry, in bytes.
-    vn_next: u32,
-}
-
-/// An ELF `Version Need Auxiliary` entry Elfxx_Vernaux.
-///
-/// https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERNEEDEXTFIG
-#[repr(C)]
-#[derive(Debug, Pread)]
-struct ElfVernaux {
-    /// Dependency name hash value (ELF hash function).
-    vna_hash: u32,
-    /// Dependency information flag bitmask.
-    vna_flags: u16,
-    /// Object file version identifier used in the .gnu.version symbol version array. Bit number 15
-    /// controls whether or not the object is hidden; if this bit is set, the object cannot be used
-    /// and the static linker will ignore the symbol's presence in the object.
-    vna_other: u16,
-    /// Offset to the dependency name string in the section header, in bytes.
-    vna_name: u32,
-    /// Offset to the next vernaux entry, in bytes.
-    vna_next: u32,
-}
-
-/************************
- *  Version Definition  *
- ************************/
-
-/// Helper struct to iterate over [Version Definition][Verdef] and [Version Definition
-/// Auxiliary][Verdaux] entries.
-#[derive(Debug)]
-pub struct VerdefSection<'a> {
-    /// String table used to resolve version strings.
-    pub symstr: Strtab<'a>,
-    bytes: &'a [u8],
-    count: usize,
-    ctx: container::Ctx,
-}
-
-impl<'a> VerdefSection<'a> {
-    pub fn parse(bytes: &'a[u8], shdrs : &'_ [SectionHeader], ctx: container::Ctx) -> Result<Option<VerdefSection<'a>>> {
-        // Get fields needed from optional `version definition` section.
-        let (link_idx, offset, size, count) =
-            if let Some(shdr) = shdrs.iter().find(|shdr| shdr.sh_type == SHT_GNU_VERDEF) {
-                (
-                    shdr.sh_link as usize, // Encodes the string table.
-                    shdr.sh_offset as usize,
-                    shdr.sh_size as usize,
-                    shdr.sh_info as usize, // Encodes the number of ElfVerdef entries.
-                )
-            } else {
-                return Ok(None);
-            };
-
-        // Get string table which is used to resolve version strings.
-        let symstr = {
-            // Linked section refers to string table.
-            let shdr_link = shdrs.get(link_idx).ok_or(Error::Malformed(
-                "Section header of string table for SHT_GNU_VERDEF section not found!".into(),
-            ))?;
-
-            Strtab::parse(
-                bytes,
-                shdr_link.sh_offset as usize,
-                shdr_link.sh_size as usize,
-                0x0, /* Delimiter */
-            )?
-        };
-
-        // Get a slice of bytes of the `version definition` section content.
-        let bytes: &'a [u8] = bytes.pread_with(offset, size)?;
-
-        Ok(Some(VerdefSection {
-            symstr,
-            bytes,
-            count,
-            ctx,
-        }))
+    /// An ELF `Version Definition` entry Elfxx_Verdef.
+    ///
+    /// https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERDEFENTRIES
+    #[repr(C)]
+    #[derive(Debug, Pread)]
+    struct ElfVerdef {
+        /// Version revision. This field shall be set to 1.
+        vd_version: u16,
+        /// Version information flag bitmask.
+        vd_flags: u16,
+        /// Version index numeric value referencing the SHT_GNU_versym section.
+        vd_ndx: u16,
+        /// Number of associated verdaux array entries.
+        vd_cnt: u16,
+        /// Version name hash value (ELF hash function).
+        vd_hash: u32,
+        /// Offset in bytes to a corresponding entry in an array of Elfxx_Verdaux structures.
+        vd_aux: u32,
+        /// Offset to the next verdef entry, in bytes.
+        vd_next: u32,
     }
 
-    /// Get an iterator over [`Verdef`] entries.
-    #[inline]
-    pub fn iter(&'a self) -> VerdefIter<'a> {
-        self.into_iter()
-    }
-}
-
-impl<'a> IntoIterator for &'_ VerdefSection<'a> {
-    type Item = <VerdefIter<'a> as Iterator>::Item;
-    type IntoIter = VerdefIter<'a>;
-
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        VerdefIter {
-            bytes: self.bytes,
-            count: self.count,
-            index: 0,
-            offset: 0,
-            ctx: self.ctx,
-        }
-    }
-}
-
-/// Iterator over the [`Verdef`] entries from the [`SHT_GNU_VERDEF`] section.
-pub struct VerdefIter<'a> {
-    bytes: &'a [u8],
-    count: usize,
-    index: usize,
-    offset: usize,
-    ctx: container::Ctx,
-}
-
-impl<'a> Iterator for VerdefIter<'a> {
-    type Item = Verdef<'a>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= self.count {
-            None
-        } else {
-            self.index += 1;
-
-            // Safe to unwrap as the length of the byte slice was validated in VerdefSection::parse.
-            let ElfVerdef {
-                vd_version,
-                vd_flags,
-                vd_ndx,
-                vd_cnt,
-                vd_hash,
-                vd_aux,
-                vd_next,
-            } = self.bytes.pread_with(self.offset, self.ctx.le).unwrap();
-
-            // Get a slice of bytes of the `Verdaux` entries.
-            //
-            // | Verdef | .. | Verdef | Verdaux | Verdaux | .. | Verdef | ..
-            // ^-------------^
-            //  offset       ^---------^
-            //                vd_aux
-            //               ^---------------------------------^
-            //                 vd_next
-            //
-            // Safe to unwrap as the length of the byte slice was validated in VerdefSection::parse.
-            let len = if vd_next > 0 {
-                (vd_next - vd_aux) as usize
-            } else {
-                // For the last entry, ElfVerdef->vd_next == 0.
-                // Therefore we compute the remaining length of the bytes buffer.
-                self.bytes.len() - self.offset - vd_aux as usize
-            };
-            let bytes : &'a [u8] = self
-                .bytes
-                .pread_with(self.offset + vd_aux as usize, len)
-                .unwrap();
-
-            // Bump the offset to the next ElfVerdef entry.
-            self.offset += vd_next as usize;
-
-            Some(Verdef{
-                vd_version: vd_version as usize,
-                vd_flags: vd_flags as usize,
-                vd_ndx: vd_ndx as usize,
-                vd_cnt: vd_cnt as usize,
-                vd_hash: vd_hash as usize,
-                vd_aux: vd_aux as usize,
-                vd_next: vd_next as usize,
-                bytes,
-                ctx: self.ctx,
-            })
-        }
+    /// An ELF `Version Definition Auxiliary` entry Elfxx_Verdaux.
+    ///
+    /// https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERDEFEXTS
+    #[repr(C)]
+    #[derive(Debug, Pread)]
+    struct ElfVerdaux {
+        /// Offset to the version or dependency name string in the section header, in bytes.
+        vda_name: u32,
+        /// Offset to the next verdaux entry, in bytes.
+        vda_next: u32,
     }
 
-    #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.count - self.index;
-        (len, Some(len))
-    }
-}
-
-impl ExactSizeIterator for VerdefIter<'_> {}
-
-impl FusedIterator for VerdefIter<'_> {}
-
-/// An ELF [Version Definition][lsb-verdef] entry .
-///
-/// [lsb-verdef]: https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERDEFENTRIES
-#[derive(Debug)]
-pub struct Verdef<'a> {
-    pub vd_version: usize,
-    pub vd_flags: usize,
-    pub vd_ndx: usize,
-    pub vd_cnt: usize,
-    pub vd_hash: usize,
-    pub vd_aux : usize,
-    pub vd_next: usize,
-
-    bytes: &'a [u8],
-    ctx: container::Ctx,
-}
-
-impl<'a> Verdef<'a> {
-    /// Get an iterator over the [`Verdaux`] entries of this [`Verdef`] entry.
-    #[inline]
-    pub fn iter(&'a self) -> VerdauxIter<'a> {
-        self.into_iter()
-    }
-}
-
-impl<'a> IntoIterator for &'_ Verdef<'a> {
-    type Item = <VerdauxIter<'a> as Iterator>::Item;
-    type IntoIter = VerdauxIter<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        VerdauxIter {
-            bytes: self.bytes,
-            count: self.vd_cnt,
-            index: 0,
-            offset: 0,
-            ctx: self.ctx,
-        }
-    }
-}
-
-/// Iterator over the [`Verdaux`] entries for an specific [`Verdef`] entry.
-pub struct VerdauxIter<'a> {
-    bytes: &'a [u8],
-    count: usize,
-    index: usize,
-    offset: usize,
-    ctx: container::Ctx,
-}
-
-impl<'a> Iterator for VerdauxIter<'a> {
-    type Item = Verdaux;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= self.count {
-            None
-        } else {
-            self.index += 1;
-
-            // Safe to unwrap as length of the byte slice was validated in the VerdefIter::next.
-            let ElfVerdaux {
-                vda_name,
-                vda_next,
-            } = self.bytes.pread_with(self.offset, self.ctx.le).unwrap();
-
-            // Bump the offset to the next ElfVerdaux entry.
-            self.offset += vda_next as usize;
-
-            Some(Verdaux {
-                vda_name: vda_name as usize,
-                vda_next: vda_next as usize,
-            })
-        }
+    /// An ELF `Version Need` entry Elfxx_Verneed.
+    ///
+    /// https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERNEEDFIG
+    #[repr(C)]
+    #[derive(Debug, Pread)]
+    struct ElfVerneed {
+        /// Version of structure. This value is currently set to 1, and will be reset if the versioning
+        /// implementation is incompatibly altered.
+        vn_version: u16,
+        /// Number of associated verneed array entries.
+        vn_cnt: u16,
+        /// Offset to the file name string in the section header, in bytes.
+        vn_file: u32,
+        /// Offset to a corresponding entry in the vernaux array, in bytes.
+        vn_aux: u32,
+        /// Offset to the next verneed entry, in bytes.
+        vn_next: u32,
     }
 
-    #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.count - self.index;
-        (len, Some(len))
+    /// An ELF `Version Need Auxiliary` entry Elfxx_Vernaux.
+    ///
+    /// https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERNEEDEXTFIG
+    #[repr(C)]
+    #[derive(Debug, Pread)]
+    struct ElfVernaux {
+        /// Dependency name hash value (ELF hash function).
+        vna_hash: u32,
+        /// Dependency information flag bitmask.
+        vna_flags: u16,
+        /// Object file version identifier used in the .gnu.version symbol version array. Bit number 15
+        /// controls whether or not the object is hidden; if this bit is set, the object cannot be used
+        /// and the static linker will ignore the symbol's presence in the object.
+        vna_other: u16,
+        /// Offset to the dependency name string in the section header, in bytes.
+        vna_name: u32,
+        /// Offset to the next vernaux entry, in bytes.
+        vna_next: u32,
     }
-}
 
-impl ExactSizeIterator for VerdauxIter<'_> {}
+    /************************
+     *  Version Definition  *
+     ************************/
 
-impl FusedIterator for VerdauxIter<'_> {}
-
-/// An ELF [Version Definition Auxiliary][lsb-verdaux] entry.
-///
-/// [lsb-verdaux]: https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERDEFEXTS
-#[derive(Debug)]
-pub struct Verdaux {
-    pub vda_name: usize,
-    pub vda_next: usize,
-}
-
-/**************************
- *  Version Requirements  *
- **************************/
-
-/// Helper struct to iterate over [Version Needed][Verneed] and [Version Needed
-/// Auxiliary][Vernaux] entries.
-#[derive(Debug)]
-pub struct VerneedSection<'a> {
-    /// String table used to resolve version strings.
-    pub symstr: Strtab<'a>,
-    bytes: &'a [u8],
-    count: usize,
-    ctx: container::Ctx,
-}
-
-impl<'a> VerneedSection<'a> {
-    /// Try to parse the optional [`SHT_GNU_VERNEED`] section.
-    pub fn parse(
+    /// Helper struct to iterate over [Version Definition][Verdef] and [Version Definition
+    /// Auxiliary][Verdaux] entries.
+    #[derive(Debug)]
+    pub struct VerdefSection<'a> {
+        /// String table used to resolve version strings.
+        pub verstr: Strtab<'a>,
         bytes: &'a [u8],
-        shdrs: &'_ [SectionHeader],
+        count: usize,
         ctx: container::Ctx,
-    ) -> Result<Option<VerneedSection<'a>>> {
-        // Get fields needed from optional `version needed` section.
-        let (link_idx, offset, size, count) =
-            if let Some(shdr) = shdrs.iter().find(|shdr| shdr.sh_type == SHT_GNU_VERNEED) {
-                (
-                    shdr.sh_link as usize, // Encodes the string table.
-                    shdr.sh_offset as usize,
-                    shdr.sh_size as usize,
-                    shdr.sh_info as usize, // Encodes the number of ElfVerneed entries.
-                )
-            } else {
-                return Ok(None);
+    }
+
+    impl<'a> VerdefSection<'a> {
+        pub fn parse(
+            bytes: &'a [u8],
+            shdrs: &'_ [SectionHeader],
+            ctx: container::Ctx,
+        ) -> Result<Option<VerdefSection<'a>>> {
+            // Get fields needed from optional `version definition` section.
+            let (link_idx, offset, size, count) =
+                if let Some(shdr) = shdrs.iter().find(|shdr| shdr.sh_type == SHT_GNU_VERDEF) {
+                    (
+                        shdr.sh_link as usize, // Encodes the string table.
+                        shdr.sh_offset as usize,
+                        shdr.sh_size as usize,
+                        shdr.sh_info as usize, // Encodes the number of ElfVerdef entries.
+                    )
+                } else {
+                    return Ok(None);
+                };
+
+            // Get string table which is used to resolve version strings.
+            let verstr = {
+                // Linked section refers to string table.
+                let shdr_link = shdrs.get(link_idx).ok_or(Error::Malformed(
+                    "Section header of string table for SHT_GNU_VERDEF section not found!".into(),
+                ))?;
+
+                Strtab::parse(
+                    bytes,
+                    shdr_link.sh_offset as usize,
+                    shdr_link.sh_size as usize,
+                    0x0, /* Delimiter */
+                )?
             };
 
-        // Get string table which is used to resolve version strings.
-        let symstr = {
-            // Linked section refers to string table.
-            let shdr_link = shdrs.get(link_idx).ok_or(Error::Malformed(
-                "Section header of string table for SHT_GNU_VERNEED section not found!".into(),
-            ))?;
+            // Get a slice of bytes of the `version definition` section content.
+            let bytes: &'a [u8] = bytes.pread_with(offset, size)?;
 
-            Strtab::parse(
+            Ok(Some(VerdefSection {
+                verstr,
                 bytes,
-                shdr_link.sh_offset as usize,
-                shdr_link.sh_size as usize,
-                0x0, /* Delimiter */
-            )?
-        };
+                count,
+                ctx,
+            }))
+        }
 
-        // Get a slice of bytes of the `version needed` section content.
-        let bytes: &'a [u8] = bytes.pread_with(offset, size)?;
-
-        Ok(Some(VerneedSection {
-            symstr,
-            bytes,
-            count,
-            ctx,
-        }))
-    }
-
-    /// Get an iterator over the [`Verneed`] entries.
-    #[inline]
-    pub fn iter(&'a self) -> VerneedIter<'a> {
-        self.into_iter()
-    }
-}
-
-impl<'a> IntoIterator for &'_ VerneedSection<'a> {
-    type Item = <VerneedIter<'a> as Iterator>::Item;
-    type IntoIter = VerneedIter<'a>;
-
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        VerneedIter {
-            bytes: self.bytes,
-            count: self.count,
-            index: 0,
-            offset: 0,
-            ctx: self.ctx,
+        /// Get an iterator over [`Verdef`] entries.
+        #[inline]
+        pub fn iter(&'a self) -> VerdefIter<'a> {
+            self.into_iter()
         }
     }
-}
 
-/// Iterator over the [`Verneed`] entries from the [`SHT_GNU_VERNEED`] section.
-pub struct VerneedIter<'a> {
-    bytes: &'a [u8],
-    count: usize,
-    index: usize,
-    offset: usize,
-    ctx: container::Ctx,
-}
+    impl<'a> IntoIterator for &'_ VerdefSection<'a> {
+        type Item = <VerdefIter<'a> as Iterator>::Item;
+        type IntoIter = VerdefIter<'a>;
 
-impl<'a> Iterator for VerneedIter<'a> {
-    type Item = Verneed<'a>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= self.count {
-            None
-        } else {
-            self.index += 1;
-
-            // Safe to unwrap as the length of the byte slice was validated in VerneedSection::parse.
-            let ElfVerneed {
-                vn_version,
-                vn_cnt,
-                vn_file,
-                vn_aux,
-                vn_next,
-            } = self.bytes.pread_with(self.offset, self.ctx.le).unwrap();
-
-            // Get a slice of bytes of the `Vernaux` entries.
-            //
-            // | Verneed | .. | Verneed | Vernaux | Vernaux | .. | Verneed | ..
-            // ^--------------^
-            //  offset        ^---------^
-            //                 vn_aux
-            //                ^----------------------------------^
-            //                 vn_next
-            //
-            // Safe to unwrap as the length of the byte slice was validated in VerneedSection::parse.
-            let len = if vn_next > 0 {
-                (vn_next - vn_aux) as usize
-            } else {
-                // For the last entry, ElfVerneed->vn_next == 0.
-                // Therefore we compute the remaining length of the bytes buffer.
-                self.bytes.len() - self.offset - vn_aux as usize
-            };
-            let bytes: &'a [u8] = self
-                .bytes
-                .pread_with(self.offset + vn_aux as usize, len)
-                .unwrap();
-
-            // Bump the offset to the next ElfVerneed entry.
-            self.offset += vn_next as usize;
-
-            Some(Verneed {
-                vn_version : vn_version as usize,
-                vn_cnt : vn_cnt as usize,
-                vn_file : vn_file as usize,
-                vn_aux : vn_aux as usize,
-                vn_next : vn_next as usize,
-                bytes,
+        #[inline]
+        fn into_iter(self) -> Self::IntoIter {
+            VerdefIter {
+                bytes: self.bytes,
+                count: self.count,
+                index: 0,
+                offset: 0,
                 ctx: self.ctx,
-            })
+            }
         }
     }
 
-    #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.count - self.index;
-        (len, Some(len))
+    /// Iterator over the [`Verdef`] entries from the [`SHT_GNU_VERDEF`] section.
+    pub struct VerdefIter<'a> {
+        bytes: &'a [u8],
+        count: usize,
+        index: usize,
+        offset: usize,
+        ctx: container::Ctx,
     }
-}
 
-impl ExactSizeIterator for VerneedIter<'_> {}
+    impl<'a> Iterator for VerdefIter<'a> {
+        type Item = Verdef<'a>;
 
-impl FusedIterator for VerneedIter<'_> {}
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.index >= self.count {
+                None
+            } else {
+                self.index += 1;
 
-/// An ELF [Version Need][lsb-verneed] entry .
-///
-/// [lsb-verneed]: https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERNEEDFIG
-#[derive(Debug)]
-pub struct Verneed<'a> {
-    pub vn_version: usize,
-    pub vn_cnt: usize,
-    pub vn_file: usize,
-    pub vn_aux: usize,
-    pub vn_next: usize,
+                // Safe to unwrap as the length of the byte slice was validated in VerdefSection::parse.
+                let ElfVerdef {
+                    vd_version,
+                    vd_flags,
+                    vd_ndx,
+                    vd_cnt,
+                    vd_hash,
+                    vd_aux,
+                    vd_next,
+                } = self.bytes.pread_with(self.offset, self.ctx.le).unwrap();
 
-    bytes: &'a [u8],
-    ctx: container::Ctx,
-}
+                // Get a slice of bytes of the `Verdaux` entries.
+                //
+                // | Verdef | .. | Verdef | Verdaux | Verdaux | .. | Verdef | ..
+                // ^-------------^
+                //  offset       ^---------^
+                //                vd_aux
+                //               ^---------------------------------^
+                //                 vd_next
+                //
+                // Safe to unwrap as the length of the byte slice was validated in VerdefSection::parse.
+                let len = if vd_next > 0 {
+                    (vd_next - vd_aux) as usize
+                } else {
+                    // For the last entry, ElfVerdef->vd_next == 0.
+                    // Therefore we compute the remaining length of the bytes buffer.
+                    self.bytes.len() - self.offset - vd_aux as usize
+                };
+                let bytes: &'a [u8] = self
+                    .bytes
+                    .pread_with(self.offset + vd_aux as usize, len)
+                    .unwrap();
 
-impl<'a> Verneed<'a> {
-    /// Get an iterator over the [`Vernaux`] entries of this [`Verneed`] entry.
-    #[inline]
-    pub fn iter(&'a self) -> VernauxIter<'a> {
-        self.into_iter()
-    }
-}
+                // Bump the offset to the next ElfVerdef entry.
+                self.offset += vd_next as usize;
 
-impl<'a> IntoIterator for &'_ Verneed<'a> {
-    type Item = <VernauxIter<'a> as Iterator>::Item;
-    type IntoIter = VernauxIter<'a>;
-
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        VernauxIter {
-            bytes: self.bytes,
-            count: self.vn_cnt,
-            index: 0,
-            offset: 0,
-            ctx: self.ctx,
+                Some(Verdef {
+                    vd_version: vd_version as usize,
+                    vd_flags: vd_flags as usize,
+                    vd_ndx: vd_ndx as usize,
+                    vd_cnt: vd_cnt as usize,
+                    vd_hash: vd_hash as usize,
+                    vd_aux: vd_aux as usize,
+                    vd_next: vd_next as usize,
+                    bytes,
+                    ctx: self.ctx,
+                })
+            }
         }
-    }
-}
 
-/// Iterator over the [`Vernaux`] entries for an specific [`Verneed`] entry.
-pub struct VernauxIter<'a> {
-    bytes: &'a [u8],
-    count: usize,
-    index: usize,
-    offset: usize,
-    ctx: container::Ctx,
-}
-
-impl<'a> Iterator for VernauxIter<'a> {
-    type Item = Vernaux;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= self.count {
-            None
-        } else {
-            self.index += 1;
-
-            // Safe to unwrap as the length of the byte slice was validated in VerneedIter::next.
-            let ElfVernaux {
-                vna_hash,
-                vna_flags,
-                vna_other,
-                vna_name,
-                vna_next,
-            } = self.bytes.pread_with(self.offset, self.ctx.le).unwrap();
-
-            // Bump the offset to the next ElfVernaux entry.
-            self.offset += vna_next as usize;
-
-            Some(Vernaux {
-                vna_hash : vna_hash as usize,
-                vna_flags : vna_flags as usize,
-                vna_other : vna_other as usize,
-                vna_name : vna_name as usize,
-                vna_next : vna_next as usize,
-            })
+        #[inline]
+        fn size_hint(&self) -> (usize, Option<usize>) {
+            let len = self.count - self.index;
+            (len, Some(len))
         }
     }
 
-    #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.count - self.index;
-        (len, Some(len))
+    impl ExactSizeIterator for VerdefIter<'_> {}
+
+    impl FusedIterator for VerdefIter<'_> {}
+
+    /// An ELF [Version Definition][lsb-verdef] entry .
+    ///
+    /// [lsb-verdef]: https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERDEFENTRIES
+    #[derive(Debug)]
+    pub struct Verdef<'a> {
+        pub vd_version: usize,
+        pub vd_flags: usize,
+        pub vd_ndx: usize,
+        pub vd_cnt: usize,
+        pub vd_hash: usize,
+        pub vd_aux: usize,
+        pub vd_next: usize,
+
+        bytes: &'a [u8],
+        ctx: container::Ctx,
     }
-}
 
-impl ExactSizeIterator for VernauxIter<'_> {}
-
-impl FusedIterator for VernauxIter<'_> {}
-
-/// An ELF [Version Need Auxiliary][lsb-vernaux] entry.
-///
-/// [lsb-vernaux]: https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERNEEDEXTFIG
-#[derive(Debug)]
-pub struct Vernaux {
-    pub vna_hash: usize,
-    pub vna_flags: usize,
-    pub vna_other: usize,
-    pub vna_name: usize,
-    pub vna_next: usize,
-}
-
-#[cfg(test)]
-mod test {
-    use super::{ElfVerdef, ElfVerdaux, ElfVernaux, ElfVerneed};
-    use core::mem::size_of;
-
-    #[test]
-    fn check_size() {
-        assert_eq!(20, size_of::<ElfVerdef>());
-        assert_eq!(8, size_of::<ElfVerdaux>());
-        assert_eq!(16, size_of::<ElfVerneed>());
-        assert_eq!(16, size_of::<ElfVernaux>());
+    impl<'a> Verdef<'a> {
+        /// Get an iterator over the [`Verdaux`] entries of this [`Verdef`] entry.
+        #[inline]
+        pub fn iter(&'a self) -> VerdauxIter<'a> {
+            self.into_iter()
+        }
     }
-}
 
+    impl<'a> IntoIterator for &'_ Verdef<'a> {
+        type Item = <VerdauxIter<'a> as Iterator>::Item;
+        type IntoIter = VerdauxIter<'a>;
+
+        fn into_iter(self) -> Self::IntoIter {
+            VerdauxIter {
+                bytes: self.bytes,
+                count: self.vd_cnt,
+                index: 0,
+                offset: 0,
+                ctx: self.ctx,
+            }
+        }
+    }
+
+    /// Iterator over the [`Verdaux`] entries for an specific [`Verdef`] entry.
+    pub struct VerdauxIter<'a> {
+        bytes: &'a [u8],
+        count: usize,
+        index: usize,
+        offset: usize,
+        ctx: container::Ctx,
+    }
+
+    impl<'a> Iterator for VerdauxIter<'a> {
+        type Item = Verdaux;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.index >= self.count {
+                None
+            } else {
+                self.index += 1;
+
+                // Safe to unwrap as length of the byte slice was validated in the VerdefIter::next.
+                let ElfVerdaux { vda_name, vda_next } =
+                    self.bytes.pread_with(self.offset, self.ctx.le).unwrap();
+
+                // Bump the offset to the next ElfVerdaux entry.
+                self.offset += vda_next as usize;
+
+                Some(Verdaux {
+                    vda_name: vda_name as usize,
+                    vda_next: vda_next as usize,
+                })
+            }
+        }
+
+        #[inline]
+        fn size_hint(&self) -> (usize, Option<usize>) {
+            let len = self.count - self.index;
+            (len, Some(len))
+        }
+    }
+
+    impl ExactSizeIterator for VerdauxIter<'_> {}
+
+    impl FusedIterator for VerdauxIter<'_> {}
+
+    /// An ELF [Version Definition Auxiliary][lsb-verdaux] entry.
+    ///
+    /// [lsb-verdaux]: https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERDEFEXTS
+    #[derive(Debug)]
+    pub struct Verdaux {
+        pub vda_name: usize,
+        pub vda_next: usize,
+    }
+
+    /**************************
+     *  Version Requirements  *
+     **************************/
+
+    /// Helper struct to iterate over [Version Needed][Verneed] and [Version Needed
+    /// Auxiliary][Vernaux] entries.
+    #[derive(Debug)]
+    pub struct VerneedSection<'a> {
+        /// String table used to resolve version strings.
+        pub verstr: Strtab<'a>,
+        bytes: &'a [u8],
+        count: usize,
+        ctx: container::Ctx,
+    }
+
+    impl<'a> VerneedSection<'a> {
+        /// Try to parse the optional [`SHT_GNU_VERNEED`] section.
+        pub fn parse(
+            bytes: &'a [u8],
+            shdrs: &'_ [SectionHeader],
+            ctx: container::Ctx,
+        ) -> Result<Option<VerneedSection<'a>>> {
+            // Get fields needed from optional `version needed` section.
+            let (link_idx, offset, size, count) =
+                if let Some(shdr) = shdrs.iter().find(|shdr| shdr.sh_type == SHT_GNU_VERNEED) {
+                    (
+                        shdr.sh_link as usize, // Encodes the string table.
+                        shdr.sh_offset as usize,
+                        shdr.sh_size as usize,
+                        shdr.sh_info as usize, // Encodes the number of ElfVerneed entries.
+                    )
+                } else {
+                    return Ok(None);
+                };
+
+            // Get string table which is used to resolve version strings.
+            let verstr = {
+                // Linked section refers to string table.
+                let shdr_link = shdrs.get(link_idx).ok_or(Error::Malformed(
+                    "Section header of string table for SHT_GNU_VERNEED section not found!".into(),
+                ))?;
+
+                Strtab::parse(
+                    bytes,
+                    shdr_link.sh_offset as usize,
+                    shdr_link.sh_size as usize,
+                    0x0, /* Delimiter */
+                )?
+            };
+
+            // Get a slice of bytes of the `version needed` section content.
+            let bytes: &'a [u8] = bytes.pread_with(offset, size)?;
+
+            Ok(Some(VerneedSection {
+                verstr,
+                bytes,
+                count,
+                ctx,
+            }))
+        }
+
+        /// Get an iterator over the [`Verneed`] entries.
+        #[inline]
+        pub fn iter(&'a self) -> VerneedIter<'a> {
+            self.into_iter()
+        }
+    }
+
+    impl<'a> IntoIterator for &'_ VerneedSection<'a> {
+        type Item = <VerneedIter<'a> as Iterator>::Item;
+        type IntoIter = VerneedIter<'a>;
+
+        #[inline]
+        fn into_iter(self) -> Self::IntoIter {
+            VerneedIter {
+                bytes: self.bytes,
+                count: self.count,
+                index: 0,
+                offset: 0,
+                ctx: self.ctx,
+            }
+        }
+    }
+
+    /// Iterator over the [`Verneed`] entries from the [`SHT_GNU_VERNEED`] section.
+    pub struct VerneedIter<'a> {
+        bytes: &'a [u8],
+        count: usize,
+        index: usize,
+        offset: usize,
+        ctx: container::Ctx,
+    }
+
+    impl<'a> Iterator for VerneedIter<'a> {
+        type Item = Verneed<'a>;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.index >= self.count {
+                None
+            } else {
+                self.index += 1;
+
+                // Safe to unwrap as the length of the byte slice was validated in VerneedSection::parse.
+                let ElfVerneed {
+                    vn_version,
+                    vn_cnt,
+                    vn_file,
+                    vn_aux,
+                    vn_next,
+                } = self.bytes.pread_with(self.offset, self.ctx.le).unwrap();
+
+                // Get a slice of bytes of the `Vernaux` entries.
+                //
+                // | Verneed | .. | Verneed | Vernaux | Vernaux | .. | Verneed | ..
+                // ^--------------^
+                //  offset        ^---------^
+                //                 vn_aux
+                //                ^----------------------------------^
+                //                 vn_next
+                //
+                // Safe to unwrap as the length of the byte slice was validated in VerneedSection::parse.
+                let len = if vn_next > 0 {
+                    (vn_next - vn_aux) as usize
+                } else {
+                    // For the last entry, ElfVerneed->vn_next == 0.
+                    // Therefore we compute the remaining length of the bytes buffer.
+                    self.bytes.len() - self.offset - vn_aux as usize
+                };
+                let bytes: &'a [u8] = self
+                    .bytes
+                    .pread_with(self.offset + vn_aux as usize, len)
+                    .unwrap();
+
+                // Bump the offset to the next ElfVerneed entry.
+                self.offset += vn_next as usize;
+
+                Some(Verneed {
+                    vn_version: vn_version as usize,
+                    vn_cnt: vn_cnt as usize,
+                    vn_file: vn_file as usize,
+                    vn_aux: vn_aux as usize,
+                    vn_next: vn_next as usize,
+                    bytes,
+                    ctx: self.ctx,
+                })
+            }
+        }
+
+        #[inline]
+        fn size_hint(&self) -> (usize, Option<usize>) {
+            let len = self.count - self.index;
+            (len, Some(len))
+        }
+    }
+
+    impl ExactSizeIterator for VerneedIter<'_> {}
+
+    impl FusedIterator for VerneedIter<'_> {}
+
+    /// An ELF [Version Need][lsb-verneed] entry .
+    ///
+    /// [lsb-verneed]: https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERNEEDFIG
+    #[derive(Debug)]
+    pub struct Verneed<'a> {
+        pub vn_version: usize,
+        pub vn_cnt: usize,
+        pub vn_file: usize,
+        pub vn_aux: usize,
+        pub vn_next: usize,
+
+        bytes: &'a [u8],
+        ctx: container::Ctx,
+    }
+
+    impl<'a> Verneed<'a> {
+        /// Get an iterator over the [`Vernaux`] entries of this [`Verneed`] entry.
+        #[inline]
+        pub fn iter(&'a self) -> VernauxIter<'a> {
+            self.into_iter()
+        }
+    }
+
+    impl<'a> IntoIterator for &'_ Verneed<'a> {
+        type Item = <VernauxIter<'a> as Iterator>::Item;
+        type IntoIter = VernauxIter<'a>;
+
+        #[inline]
+        fn into_iter(self) -> Self::IntoIter {
+            VernauxIter {
+                bytes: self.bytes,
+                count: self.vn_cnt,
+                index: 0,
+                offset: 0,
+                ctx: self.ctx,
+            }
+        }
+    }
+
+    /// Iterator over the [`Vernaux`] entries for an specific [`Verneed`] entry.
+    pub struct VernauxIter<'a> {
+        bytes: &'a [u8],
+        count: usize,
+        index: usize,
+        offset: usize,
+        ctx: container::Ctx,
+    }
+
+    impl<'a> Iterator for VernauxIter<'a> {
+        type Item = Vernaux;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.index >= self.count {
+                None
+            } else {
+                self.index += 1;
+
+                // Safe to unwrap as the length of the byte slice was validated in VerneedIter::next.
+                let ElfVernaux {
+                    vna_hash,
+                    vna_flags,
+                    vna_other,
+                    vna_name,
+                    vna_next,
+                } = self.bytes.pread_with(self.offset, self.ctx.le).unwrap();
+
+                // Bump the offset to the next ElfVernaux entry.
+                self.offset += vna_next as usize;
+
+                Some(Vernaux {
+                    vna_hash: vna_hash as usize,
+                    vna_flags: vna_flags as usize,
+                    vna_other: vna_other as usize,
+                    vna_name: vna_name as usize,
+                    vna_next: vna_next as usize,
+                })
+            }
+        }
+
+        #[inline]
+        fn size_hint(&self) -> (usize, Option<usize>) {
+            let len = self.count - self.index;
+            (len, Some(len))
+        }
+    }
+
+    impl ExactSizeIterator for VernauxIter<'_> {}
+
+    impl FusedIterator for VernauxIter<'_> {}
+
+    /// An ELF [Version Need Auxiliary][lsb-vernaux] entry.
+    ///
+    /// [lsb-vernaux]: https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERNEEDEXTFIG
+    #[derive(Debug)]
+    pub struct Vernaux {
+        pub vna_hash: usize,
+        pub vna_flags: usize,
+        pub vna_other: usize,
+        pub vna_name: usize,
+        pub vna_next: usize,
+    }
+
+    #[cfg(test)]
+    mod test {
+        use super::{ElfVerdaux, ElfVerdef, ElfVernaux, ElfVerneed};
+        use core::mem::size_of;
+
+        #[test]
+        fn check_size() {
+            assert_eq!(20, size_of::<ElfVerdef>());
+            assert_eq!(8, size_of::<ElfVerdaux>());
+            assert_eq!(16, size_of::<ElfVerneed>());
+            assert_eq!(16, size_of::<ElfVernaux>());
+        }
+    }
 }

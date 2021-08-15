@@ -233,10 +233,22 @@ type SymverExpectation = std::collections::HashMap<&'static str, Vec<&'static st
 
 fn check_symver_expectations(
     bytes: &[u8],
+    expect_versym: &Vec<usize>,
     expect_verneed: &SymverExpectation,
     expect_verdef: &SymverExpectation,
 ) -> Result<(), goblin::error::Error> {
     let elf = Elf::parse(bytes)?;
+
+    if expect_versym.is_empty() {
+        // We dont expect a symbol version section.
+        assert!(elf.versym.is_none());
+    } else {
+        // We expect a symbol version section.
+        assert!(elf.versym.is_some());
+
+        let versym = elf.versym.as_ref().unwrap();
+        check_symver_expectations_versym(versym, &elf.dynsyms, expect_versym);
+    }
 
     if expect_verneed.is_empty() {
         // We dont expect a version definition section.
@@ -261,6 +273,28 @@ fn check_symver_expectations(
     }
 
     Ok(())
+}
+
+fn check_symver_expectations_versym(
+    versym: &goblin::elf::VersymSection<'_>,
+    dynsyms: &goblin::elf::Symtab<'_>,
+    expect_versym: &Vec<usize>,
+) {
+    // VERSYM section must contain one entry per DYNSYM.
+    assert_eq!(dynsyms.len(), versym.len());
+
+    // Check length computation + iteration count.
+    assert_eq!(expect_versym.len(), versym.len());
+    assert_eq!(expect_versym.len(), versym.iter().count());
+
+    // Check symbol version identifier.
+    for versym in versym.iter() {
+        assert!(
+            expect_versym.iter().any(|&expect| expect == versym.vs_val),
+            "Unexpected SYMBOL VERSION index {}",
+            versym.vs_val
+        );
+    }
 }
 
 fn check_symver_expectations_verneed(
@@ -380,6 +414,9 @@ fn test_symver() -> Result<(), goblin::error::Error> {
     //       potentially updated:
     //       > readelf -V <elf>
     //
+    // versym  - Vec<usize>
+    //   value: symbol version identifier
+    //
     // verneed - SymverExpectation
     //   keys : file dependencies
     //   value: vector of version dependencies for given file (key)
@@ -387,6 +424,14 @@ fn test_symver() -> Result<(), goblin::error::Error> {
     // verdef  - SymverExpectation
     //   keys : defined version nodes
     //   value: vector of parent nodes for given version node (key)
+
+    // lib32
+
+    let expect_lib32_versym : Vec<usize> = vec![
+        0,0,4,5,
+        0,0,3,0x8001,
+        0x8002,2,3,
+    ];
 
     let expect_lib32_verneed: SymverExpectation = [
         ("libc.so.6", vec!["GLIBC_2.0", "GLIBC_2.1.3"])
@@ -398,6 +443,14 @@ fn test_symver() -> Result<(), goblin::error::Error> {
         ("v2", vec!["v1"]),
     ].iter().cloned().collect();
 
+    // lib64
+
+    let expect_lib64_versym :Vec<usize> = vec![
+        0,0,4,0,
+        0,4,3,0x8001,
+        0x8002,2,3,
+    ];
+
     let expect_lib64_verneed: SymverExpectation = [
         ("libc.so.6", vec!["GLIBC_2.2.5"])
     ].iter().cloned().collect();
@@ -408,6 +461,14 @@ fn test_symver() -> Result<(), goblin::error::Error> {
         ("v2", vec!["v1"]),
     ].iter().cloned().collect();
 
+    // prog32
+
+    let expect_prog32_versym : Vec<usize> = vec![
+        0,2,0,3,
+        4,0,5,6,
+        0,5,1,
+    ];
+
     let expect_prog32_verneed: SymverExpectation = [
         ("libc.so.6", vec!["GLIBC_2.0", "GLIBC_2.1.3"]),
         ("libdl.so.2", vec!["GLIBC_2.0", "GLIBC_2.1"]),
@@ -415,6 +476,14 @@ fn test_symver() -> Result<(), goblin::error::Error> {
     ].iter().cloned().collect();
 
     let expect_prog32_verdef = SymverExpectation::new();
+
+    // prog64
+
+    let expect_prog64_versym : Vec<usize> = vec![
+        0,2,0,3,
+        3,4,0,0,
+        4,3,
+    ];
 
     let expect_prog64_verneed: SymverExpectation = [
         ("libdl.so.2", vec!["GLIBC_2.2.5"]),
@@ -424,10 +493,10 @@ fn test_symver() -> Result<(), goblin::error::Error> {
 
     let expect_prog64_verdef = SymverExpectation::new();
 
-    check_symver_expectations(include_bytes!("bins/elf/symver/lib32.so"), &expect_lib32_verneed, &expect_lib32_verdef)?;
-    check_symver_expectations(include_bytes!("bins/elf/symver/lib64.so"), &expect_lib64_verneed, &expect_lib64_verdef)?;
-    check_symver_expectations(include_bytes!("bins/elf/symver/prog32"), &expect_prog32_verneed, &expect_prog32_verdef)?;
-    check_symver_expectations(include_bytes!("bins/elf/symver/prog64"), &expect_prog64_verneed, &expect_prog64_verdef)?;
+    check_symver_expectations(include_bytes!("bins/elf/symver/lib32.so"), &expect_lib32_versym, &expect_lib32_verneed, &expect_lib32_verdef)?;
+    check_symver_expectations(include_bytes!("bins/elf/symver/lib64.so"), &expect_lib64_versym, &expect_lib64_verneed, &expect_lib64_verdef)?;
+    check_symver_expectations(include_bytes!("bins/elf/symver/prog32"), &expect_prog32_versym, &expect_prog32_verneed, &expect_prog32_verdef)?;
+    check_symver_expectations(include_bytes!("bins/elf/symver/prog64"), &expect_prog64_versym, &expect_prog64_verneed, &expect_prog64_verdef)?;
 
     Ok(())
 }

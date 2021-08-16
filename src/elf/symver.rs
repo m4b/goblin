@@ -86,9 +86,9 @@ mod symver_impl {
 
     // Verdef constants.
 
-    pub const VER_FLG_BASE: usize = 0x1;
-    pub const VER_FLG_WEAK: usize = 0x2;
-    pub const VER_FLG_INFO: usize = 0x4;
+    pub const VER_FLG_BASE: u16 = 0x1;
+    pub const VER_FLG_WEAK: u16 = 0x2;
+    pub const VER_FLG_INFO: u16 = 0x4;
 
     /********************
      *  ELF Structures  *
@@ -431,52 +431,48 @@ mod symver_impl {
             } else {
                 self.index += 1;
 
-                // Safe to unwrap as the length of the byte slice was validated in VerdefSection::parse.
-                let ElfVerdef {
-                    vd_version,
-                    vd_flags,
-                    vd_ndx,
-                    vd_cnt,
-                    vd_hash,
-                    vd_aux,
-                    vd_next,
-                } = self.bytes.pread_with(self.offset, self.ctx.le).unwrap();
+                let do_next = |iter: &mut Self| {
+                    let ElfVerdef {
+                        vd_version,
+                        vd_flags,
+                        vd_ndx,
+                        vd_cnt,
+                        vd_hash,
+                        vd_aux,
+                        vd_next,
+                    } = iter.bytes.pread_with(iter.offset, iter.ctx.le).ok()?;
 
-                // Get a slice of bytes of the `Verdaux` entries.
-                //
-                // | Verdef | .. | Verdef | Verdaux | Verdaux | .. | Verdef | ..
-                // ^-------------^
-                //  offset       ^---------^
-                //                vd_aux
-                //               ^---------------------------------^
-                //                 vd_next
-                //
-                // Safe to unwrap as the length of the byte slice was validated in VerdefSection::parse.
-                let len = if vd_next > 0 {
-                    (vd_next - vd_aux) as usize
-                } else {
-                    // For the last entry, ElfVerdef->vd_next == 0.
-                    // Therefore we compute the remaining length of the bytes buffer.
-                    self.bytes.len() - self.offset - vd_aux as usize
+                    // Validate offset to first ElfVerdaux entry.
+                    let offset = iter.offset.checked_add(vd_aux as usize)?;
+
+                    // Validate if offset is valid index into bytes slice.
+                    if offset >= iter.bytes.len() {
+                        return None;
+                    }
+
+                    // Get a slice of bytes starting with the first ElfVerdaux entry.
+                    let bytes: &'a [u8] = &iter.bytes[offset..];
+
+                    // Bump the offset to the next ElfVerdef entry.
+                    iter.offset = iter.offset.checked_add(vd_next as usize)?;
+
+                    Some(Verdef {
+                        vd_version,
+                        vd_flags,
+                        vd_ndx,
+                        vd_cnt,
+                        vd_hash,
+                        vd_aux,
+                        vd_next,
+                        bytes,
+                        ctx: iter.ctx,
+                    })
                 };
-                let bytes: &'a [u8] = self
-                    .bytes
-                    .pread_with(self.offset + vd_aux as usize, len)
-                    .unwrap();
 
-                // Bump the offset to the next ElfVerdef entry.
-                self.offset += vd_next as usize;
-
-                Some(Verdef {
-                    vd_version,
-                    vd_flags,
-                    vd_ndx,
-                    vd_cnt,
-                    vd_hash,
-                    vd_aux: vd_aux as usize,
-                    vd_next: vd_next as usize,
-                    bytes,
-                    ctx: self.ctx,
+                do_next(self).or_else(|| {
+                    // Adjust current index to count in case of an error.
+                    self.index = self.count;
+                    None
                 })
             }
         }
@@ -502,8 +498,8 @@ mod symver_impl {
         pub vd_ndx: u16,
         pub vd_cnt: u16,
         pub vd_hash: u32,
-        pub vd_aux: usize,
-        pub vd_next: usize,
+        pub vd_aux: u32,
+        pub vd_next: u32,
 
         bytes: &'a [u8],
         ctx: container::Ctx,
@@ -550,16 +546,23 @@ mod symver_impl {
             } else {
                 self.index += 1;
 
-                // Safe to unwrap as length of the byte slice was validated in the VerdefIter::next.
-                let ElfVerdaux { vda_name, vda_next } =
-                    self.bytes.pread_with(self.offset, self.ctx.le).unwrap();
+                let do_next = |iter: &mut Self| {
+                    let ElfVerdaux { vda_name, vda_next } =
+                        iter.bytes.pread_with(iter.offset, iter.ctx.le).ok()?;
 
-                // Bump the offset to the next ElfVerdaux entry.
-                self.offset += vda_next as usize;
+                    // Bump the offset to the next ElfVerdaux entry.
+                    iter.offset = iter.offset.checked_add(vda_next as usize)?;
 
-                Some(Verdaux {
-                    vda_name: vda_name as usize,
-                    vda_next: vda_next as usize,
+                    Some(Verdaux {
+                        vda_name: vda_name as usize,
+                        vda_next,
+                    })
+                };
+
+                do_next(self).or_else(|| {
+                    // Adjust current index to count in case of an error.
+                    self.index = self.count;
+                    None
                 })
             }
         }
@@ -581,7 +584,7 @@ mod symver_impl {
     #[derive(Debug)]
     pub struct Verdaux {
         pub vda_name: usize,
-        pub vda_next: usize,
+        pub vda_next: u32,
     }
 
     /**************************
@@ -689,48 +692,44 @@ mod symver_impl {
             } else {
                 self.index += 1;
 
-                // Safe to unwrap as the length of the byte slice was validated in VerneedSection::parse.
-                let ElfVerneed {
-                    vn_version,
-                    vn_cnt,
-                    vn_file,
-                    vn_aux,
-                    vn_next,
-                } = self.bytes.pread_with(self.offset, self.ctx.le).unwrap();
+                let do_next = |iter: &mut Self| {
+                    let ElfVerneed {
+                        vn_version,
+                        vn_cnt,
+                        vn_file,
+                        vn_aux,
+                        vn_next,
+                    } = iter.bytes.pread_with(iter.offset, iter.ctx.le).ok()?;
 
-                // Get a slice of bytes of the `Vernaux` entries.
-                //
-                // | Verneed | .. | Verneed | Vernaux | Vernaux | .. | Verneed | ..
-                // ^--------------^
-                //  offset        ^---------^
-                //                 vn_aux
-                //                ^----------------------------------^
-                //                 vn_next
-                //
-                // Safe to unwrap as the length of the byte slice was validated in VerneedSection::parse.
-                let len = if vn_next > 0 {
-                    (vn_next - vn_aux) as usize
-                } else {
-                    // For the last entry, ElfVerneed->vn_next == 0.
-                    // Therefore we compute the remaining length of the bytes buffer.
-                    self.bytes.len() - self.offset - vn_aux as usize
+                    // Validate offset to first ElfVernaux entry.
+                    let offset = iter.offset.checked_add(vn_aux as usize)?;
+
+                    // Validate if offset is valid index into bytes slice.
+                    if offset >= iter.bytes.len() {
+                        return None;
+                    }
+
+                    // Get a slice of bytes starting with the first ElfVernaux entry.
+                    let bytes: &'a [u8] = &iter.bytes[offset..];
+
+                    // Bump the offset to the next ElfVerneed entry.
+                    iter.offset = iter.offset.checked_add(vn_next as usize)?;
+
+                    Some(Verneed {
+                        vn_version,
+                        vn_cnt,
+                        vn_file: vn_file as usize,
+                        vn_aux,
+                        vn_next,
+                        bytes,
+                        ctx: iter.ctx,
+                    })
                 };
-                let bytes: &'a [u8] = self
-                    .bytes
-                    .pread_with(self.offset + vn_aux as usize, len)
-                    .unwrap();
 
-                // Bump the offset to the next ElfVerneed entry.
-                self.offset += vn_next as usize;
-
-                Some(Verneed {
-                    vn_version,
-                    vn_cnt,
-                    vn_file: vn_file as usize,
-                    vn_aux: vn_aux as usize,
-                    vn_next: vn_next as usize,
-                    bytes,
-                    ctx: self.ctx,
+                do_next(self).or_else(|| {
+                    // Adjust current index to count in case of an error.
+                    self.index = self.count;
+                    None
                 })
             }
         }
@@ -754,8 +753,8 @@ mod symver_impl {
         pub vn_version: u16,
         pub vn_cnt: u16,
         pub vn_file: usize,
-        pub vn_aux: usize,
-        pub vn_next: usize,
+        pub vn_aux: u32,
+        pub vn_next: u32,
 
         bytes: &'a [u8],
         ctx: container::Ctx,
@@ -803,24 +802,31 @@ mod symver_impl {
             } else {
                 self.index += 1;
 
-                // Safe to unwrap as the length of the byte slice was validated in VerneedIter::next.
-                let ElfVernaux {
-                    vna_hash,
-                    vna_flags,
-                    vna_other,
-                    vna_name,
-                    vna_next,
-                } = self.bytes.pread_with(self.offset, self.ctx.le).unwrap();
+                let do_next = |iter: &mut Self| {
+                    let ElfVernaux {
+                        vna_hash,
+                        vna_flags,
+                        vna_other,
+                        vna_name,
+                        vna_next,
+                    } = iter.bytes.pread_with(iter.offset, iter.ctx.le).ok()?;
 
-                // Bump the offset to the next ElfVernaux entry.
-                self.offset += vna_next as usize;
+                    // Bump the offset to the next ElfVernaux entry.
+                    iter.offset = iter.offset.checked_add(vna_next as usize)?;
 
-                Some(Vernaux {
-                    vna_hash,
-                    vna_flags,
-                    vna_other,
-                    vna_name: vna_name as usize,
-                    vna_next: vna_next as usize,
+                    Some(Vernaux {
+                        vna_hash,
+                        vna_flags,
+                        vna_other,
+                        vna_name: vna_name as usize,
+                        vna_next,
+                    })
+                };
+
+                do_next(self).or_else(|| {
+                    // Adjust current index to count in case of an error.
+                    self.index = self.count;
+                    None
                 })
             }
         }
@@ -845,7 +851,7 @@ mod symver_impl {
         pub vna_flags: u16,
         pub vna_other: u16,
         pub vna_name: usize,
-        pub vna_next: usize,
+        pub vna_next: u32,
     }
 
     #[cfg(test)]

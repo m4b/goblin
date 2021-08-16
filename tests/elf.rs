@@ -233,7 +233,7 @@ type SymverExpectation = std::collections::HashMap<&'static str, Vec<&'static st
 
 fn check_symver_expectations(
     bytes: &[u8],
-    expect_versym: &Vec<usize>,
+    expect_versym: &Vec<u16>,
     expect_verneed: &SymverExpectation,
     expect_verdef: &SymverExpectation,
 ) -> Result<(), goblin::error::Error> {
@@ -278,7 +278,7 @@ fn check_symver_expectations(
 fn check_symver_expectations_versym(
     versym: &goblin::elf::VersymSection<'_>,
     dynsyms: &goblin::elf::Symtab<'_>,
-    expect_versym: &Vec<usize>,
+    expect_versym: &Vec<u16>,
 ) {
     // VERSYM section must contain one entry per DYNSYM.
     assert_eq!(dynsyms.len(), versym.len());
@@ -414,7 +414,7 @@ fn test_symver() -> Result<(), goblin::error::Error> {
     //       potentially updated:
     //       > readelf -V <elf>
     //
-    // versym  - Vec<usize>
+    // versym  - Vec<u16>
     //   value: symbol version identifier
     //
     // verneed - SymverExpectation
@@ -427,7 +427,7 @@ fn test_symver() -> Result<(), goblin::error::Error> {
 
     // lib32
 
-    let expect_lib32_versym : Vec<usize> = vec![
+    let expect_lib32_versym : Vec<u16> = vec![
         0,0,4,5,
         0,0,3,0x8001,
         0x8002,2,3,
@@ -445,7 +445,7 @@ fn test_symver() -> Result<(), goblin::error::Error> {
 
     // lib64
 
-    let expect_lib64_versym :Vec<usize> = vec![
+    let expect_lib64_versym :Vec<u16> = vec![
         0,0,4,0,
         0,4,3,0x8001,
         0x8002,2,3,
@@ -463,7 +463,7 @@ fn test_symver() -> Result<(), goblin::error::Error> {
 
     // prog32
 
-    let expect_prog32_versym : Vec<usize> = vec![
+    let expect_prog32_versym : Vec<u16> = vec![
         0,2,0,3,
         4,0,5,6,
         0,5,1,
@@ -479,7 +479,7 @@ fn test_symver() -> Result<(), goblin::error::Error> {
 
     // prog64
 
-    let expect_prog64_versym : Vec<usize> = vec![
+    let expect_prog64_versym : Vec<u16> = vec![
         0,2,0,3,
         3,4,0,0,
         4,3,

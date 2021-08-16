@@ -79,10 +79,10 @@ mod symver_impl {
 
     // Versym constants.
 
-    pub const VER_NDX_LOCAL: usize = 0;
-    pub const VER_NDX_GLOBAL: usize = 1;
-    pub const VERSYM_HIDDEN: usize = 0x8000;
-    pub const VERSYM_VERSION: usize = 0x7fff;
+    pub const VER_NDX_LOCAL: u16 = 0;
+    pub const VER_NDX_GLOBAL: u16 = 1;
+    pub const VERSYM_HIDDEN: u16 = 0x8000;
+    pub const VERSYM_VERSION: u16 = 0x7fff;
 
     // Verdef constants.
 
@@ -236,9 +236,7 @@ mod symver_impl {
             self.bytes
                 .pread_with::<ElfVersym>(offset, self.ctx.le)
                 .ok()
-                .map(|vs| Versym {
-                    vs_val: vs.vs_val as usize,
-                })
+                .map(|ElfVersym { vs_val }| Versym { vs_val })
         }
     }
 
@@ -269,21 +267,22 @@ mod symver_impl {
             if self.offset >= self.bytes.len() {
                 None
             } else {
-                // Safe to unwrap as the length of the byte slice was validated in VersymSection::parse.
-                let ElfVersym { vs_val } = self
-                    .bytes
-                    .gread_with(&mut self.offset, self.ctx.le)
-                    .unwrap();
-
-                Some(Versym {
-                    vs_val: vs_val as usize,
-                })
+                self.bytes
+                    .gread_with::<ElfVersym>(&mut self.offset, self.ctx.le)
+                    .ok()
+                    .map(|ElfVersym { vs_val }| Versym { vs_val })
+                    .or_else(|| {
+                        // self.bytes are not a multiple of ElfVersym.
+                        // Adjust offset to continue yielding Nones.
+                        self.offset = self.bytes.len();
+                        None
+                    })
             }
         }
 
         #[inline]
         fn size_hint(&self) -> (usize, Option<usize>) {
-            let len = self.bytes.len() - self.offset;
+            let len = (self.bytes.len() - self.offset) / core::mem::size_of::<Self::Item>();
             (len, Some(len))
         }
     }
@@ -297,7 +296,7 @@ mod symver_impl {
     /// [lsb-versym]: https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#SYMVERTBL
     #[derive(Debug)]
     pub struct Versym {
-        pub vs_val: usize,
+        pub vs_val: u16,
     }
 
     impl Versym {
@@ -323,7 +322,7 @@ mod symver_impl {
 
         /// Returns the symbol version index according to the [`VERSYM_VERSION`] bitmask.
         #[inline]
-        pub fn version(&self) -> usize {
+        pub fn version(&self) -> u16 {
             self.vs_val & VERSYM_VERSION
         }
     }
@@ -469,11 +468,11 @@ mod symver_impl {
                 self.offset += vd_next as usize;
 
                 Some(Verdef {
-                    vd_version: vd_version as usize,
-                    vd_flags: vd_flags as usize,
-                    vd_ndx: vd_ndx as usize,
-                    vd_cnt: vd_cnt as usize,
-                    vd_hash: vd_hash as usize,
+                    vd_version,
+                    vd_flags,
+                    vd_ndx,
+                    vd_cnt,
+                    vd_hash,
                     vd_aux: vd_aux as usize,
                     vd_next: vd_next as usize,
                     bytes,
@@ -498,11 +497,11 @@ mod symver_impl {
     /// [lsb-verdef]: https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERDEFENTRIES
     #[derive(Debug)]
     pub struct Verdef<'a> {
-        pub vd_version: usize,
-        pub vd_flags: usize,
-        pub vd_ndx: usize,
-        pub vd_cnt: usize,
-        pub vd_hash: usize,
+        pub vd_version: u16,
+        pub vd_flags: u16,
+        pub vd_ndx: u16,
+        pub vd_cnt: u16,
+        pub vd_hash: u32,
         pub vd_aux: usize,
         pub vd_next: usize,
 
@@ -536,8 +535,8 @@ mod symver_impl {
     /// Iterator over the [`Verdaux`] entries for an specific [`Verdef`] entry.
     pub struct VerdauxIter<'a> {
         bytes: &'a [u8],
-        count: usize,
-        index: usize,
+        count: u16,
+        index: u16,
         offset: usize,
         ctx: container::Ctx,
     }
@@ -567,7 +566,7 @@ mod symver_impl {
 
         #[inline]
         fn size_hint(&self) -> (usize, Option<usize>) {
-            let len = self.count - self.index;
+            let len = usize::from(self.count - self.index);
             (len, Some(len))
         }
     }
@@ -725,8 +724,8 @@ mod symver_impl {
                 self.offset += vn_next as usize;
 
                 Some(Verneed {
-                    vn_version: vn_version as usize,
-                    vn_cnt: vn_cnt as usize,
+                    vn_version,
+                    vn_cnt,
                     vn_file: vn_file as usize,
                     vn_aux: vn_aux as usize,
                     vn_next: vn_next as usize,
@@ -752,8 +751,8 @@ mod symver_impl {
     /// [lsb-verneed]: https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERNEEDFIG
     #[derive(Debug)]
     pub struct Verneed<'a> {
-        pub vn_version: usize,
-        pub vn_cnt: usize,
+        pub vn_version: u16,
+        pub vn_cnt: u16,
         pub vn_file: usize,
         pub vn_aux: usize,
         pub vn_next: usize,
@@ -789,8 +788,8 @@ mod symver_impl {
     /// Iterator over the [`Vernaux`] entries for an specific [`Verneed`] entry.
     pub struct VernauxIter<'a> {
         bytes: &'a [u8],
-        count: usize,
-        index: usize,
+        count: u16,
+        index: u16,
         offset: usize,
         ctx: container::Ctx,
     }
@@ -817,9 +816,9 @@ mod symver_impl {
                 self.offset += vna_next as usize;
 
                 Some(Vernaux {
-                    vna_hash: vna_hash as usize,
-                    vna_flags: vna_flags as usize,
-                    vna_other: vna_other as usize,
+                    vna_hash,
+                    vna_flags,
+                    vna_other,
                     vna_name: vna_name as usize,
                     vna_next: vna_next as usize,
                 })
@@ -828,7 +827,7 @@ mod symver_impl {
 
         #[inline]
         fn size_hint(&self) -> (usize, Option<usize>) {
-            let len = self.count - self.index;
+            let len = usize::from(self.count - self.index);
             (len, Some(len))
         }
     }
@@ -842,9 +841,9 @@ mod symver_impl {
     /// [lsb-vernaux]: https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERNEEDEXTFIG
     #[derive(Debug)]
     pub struct Vernaux {
-        pub vna_hash: usize,
-        pub vna_flags: usize,
-        pub vna_other: usize,
+        pub vna_hash: u32,
+        pub vna_flags: u16,
+        pub vna_other: u16,
         pub vna_name: usize,
         pub vna_next: usize,
     }

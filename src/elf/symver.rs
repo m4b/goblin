@@ -456,6 +456,11 @@ mod symver_impl {
                     // Bump the offset to the next ElfVerdef entry.
                     iter.offset = iter.offset.checked_add(vd_next as usize)?;
 
+                    // Start yielding None on the next call if there is no next offset.
+                    if vd_next == 0 {
+                        iter.index = iter.count;
+                    }
+
                     Some(Verdef {
                         vd_version,
                         vd_flags,
@@ -480,7 +485,7 @@ mod symver_impl {
         #[inline]
         fn size_hint(&self) -> (usize, Option<usize>) {
             let len = self.count - self.index;
-            (len, Some(len))
+            (0, Some(len))
         }
     }
 
@@ -553,6 +558,11 @@ mod symver_impl {
                     // Bump the offset to the next ElfVerdaux entry.
                     iter.offset = iter.offset.checked_add(vda_next as usize)?;
 
+                    // Start yielding None on the next call if there is no next offset.
+                    if vda_next == 0 {
+                        iter.index = iter.count;
+                    }
+
                     Some(Verdaux {
                         vda_name: vda_name as usize,
                         vda_next,
@@ -570,7 +580,7 @@ mod symver_impl {
         #[inline]
         fn size_hint(&self) -> (usize, Option<usize>) {
             let len = usize::from(self.count - self.index);
-            (len, Some(len))
+            (0, Some(len))
         }
     }
 
@@ -715,6 +725,11 @@ mod symver_impl {
                     // Bump the offset to the next ElfVerneed entry.
                     iter.offset = iter.offset.checked_add(vn_next as usize)?;
 
+                    // Start yielding None on the next call if there is no next offset.
+                    if vn_next == 0 {
+                        iter.index = iter.count;
+                    }
+
                     Some(Verneed {
                         vn_version,
                         vn_cnt,
@@ -737,7 +752,7 @@ mod symver_impl {
         #[inline]
         fn size_hint(&self) -> (usize, Option<usize>) {
             let len = self.count - self.index;
-            (len, Some(len))
+            (0, Some(len))
         }
     }
 
@@ -814,6 +829,11 @@ mod symver_impl {
                     // Bump the offset to the next ElfVernaux entry.
                     iter.offset = iter.offset.checked_add(vna_next as usize)?;
 
+                    // Start yielding None on the next call if there is no next offset.
+                    if vna_next == 0 {
+                        iter.index = iter.count;
+                    }
+
                     Some(Vernaux {
                         vna_hash,
                         vna_flags,
@@ -834,7 +854,7 @@ mod symver_impl {
         #[inline]
         fn size_hint(&self) -> (usize, Option<usize>) {
             let len = usize::from(self.count - self.index);
-            (len, Some(len))
+            (0, Some(len))
         }
     }
 

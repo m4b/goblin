@@ -79,15 +79,22 @@ mod symver_impl {
 
     // Versym constants.
 
+    /// Constant describing a local symbol, see [`Versym::is_local`].
     pub const VER_NDX_LOCAL: u16 = 0;
+    /// Constant describing a global symbol, see [`Versym::is_global`].
     pub const VER_NDX_GLOBAL: u16 = 1;
+    /// Bitmask to check hidden bit, see [`Versym::is_hidden`].
     pub const VERSYM_HIDDEN: u16 = 0x8000;
+    /// Bitmask to get version information, see [`Versym::version`].
     pub const VERSYM_VERSION: u16 = 0x7fff;
 
     // Verdef constants.
 
+    /// Bitmask to check `base` flag in [`Verdef::vd_flags`].
     pub const VER_FLG_BASE: u16 = 0x1;
+    /// Bitmask to check `weak` flag in [`Verdef::vd_flags`].
     pub const VER_FLG_WEAK: u16 = 0x2;
+    /// Bitmask to check `info` flag in [`Verdef::vd_flags`].
     pub const VER_FLG_INFO: u16 = 0x4;
 
     /********************
@@ -109,19 +116,12 @@ mod symver_impl {
     #[repr(C)]
     #[derive(Debug, Pread)]
     struct ElfVerdef {
-        /// Version revision. This field shall be set to 1.
         vd_version: u16,
-        /// Version information flag bitmask.
         vd_flags: u16,
-        /// Version index numeric value referencing the SHT_GNU_versym section.
         vd_ndx: u16,
-        /// Number of associated verdaux array entries.
         vd_cnt: u16,
-        /// Version name hash value (ELF hash function).
         vd_hash: u32,
-        /// Offset in bytes to a corresponding entry in an array of Elfxx_Verdaux structures.
         vd_aux: u32,
-        /// Offset to the next verdef entry, in bytes.
         vd_next: u32,
     }
 
@@ -131,9 +131,7 @@ mod symver_impl {
     #[repr(C)]
     #[derive(Debug, Pread)]
     struct ElfVerdaux {
-        /// Offset to the version or dependency name string in the section header, in bytes.
         vda_name: u32,
-        /// Offset to the next verdaux entry, in bytes.
         vda_next: u32,
     }
 
@@ -143,16 +141,10 @@ mod symver_impl {
     #[repr(C)]
     #[derive(Debug, Pread)]
     struct ElfVerneed {
-        /// Version of structure. This value is currently set to 1, and will be reset if the versioning
-        /// implementation is incompatibly altered.
         vn_version: u16,
-        /// Number of associated verneed array entries.
         vn_cnt: u16,
-        /// Offset to the file name string in the section header, in bytes.
         vn_file: u32,
-        /// Offset to a corresponding entry in the vernaux array, in bytes.
         vn_aux: u32,
-        /// Offset to the next verneed entry, in bytes.
         vn_next: u32,
     }
 
@@ -162,17 +154,10 @@ mod symver_impl {
     #[repr(C)]
     #[derive(Debug, Pread)]
     struct ElfVernaux {
-        /// Dependency name hash value (ELF hash function).
         vna_hash: u32,
-        /// Dependency information flag bitmask.
         vna_flags: u16,
-        /// Object file version identifier used in the .gnu.version symbol version array. Bit number 15
-        /// controls whether or not the object is hidden; if this bit is set, the object cannot be used
-        /// and the static linker will ignore the symbol's presence in the object.
         vna_other: u16,
-        /// Offset to the dependency name string in the section header, in bytes.
         vna_name: u32,
-        /// Offset to the next vernaux entry, in bytes.
         vna_next: u32,
     }
 
@@ -498,12 +483,19 @@ mod symver_impl {
     /// [lsb-verdef]: https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERDEFENTRIES
     #[derive(Debug)]
     pub struct Verdef<'a> {
+        /// Version revision. This field shall be set to 1.
         pub vd_version: u16,
+        /// Version information flag bitmask.
         pub vd_flags: u16,
+        /// Version index numeric value referencing the SHT_GNU_versym section.
         pub vd_ndx: u16,
+        /// Number of associated verdaux array entries.
         pub vd_cnt: u16,
+        /// Version name hash value (ELF hash function).
         pub vd_hash: u32,
+        /// Offset in bytes to a corresponding entry in an array of Elfxx_Verdaux structures.
         pub vd_aux: u32,
+        /// Offset to the next verdef entry, in bytes.
         pub vd_next: u32,
 
         bytes: &'a [u8],
@@ -593,7 +585,9 @@ mod symver_impl {
     /// [lsb-verdaux]: https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERDEFEXTS
     #[derive(Debug)]
     pub struct Verdaux {
+        /// Offset to the version or dependency name string in the section header, in bytes.
         pub vda_name: usize,
+        /// Offset to the next verdaux entry, in bytes.
         pub vda_next: u32,
     }
 
@@ -765,10 +759,16 @@ mod symver_impl {
     /// [lsb-verneed]: https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERNEEDFIG
     #[derive(Debug)]
     pub struct Verneed<'a> {
+        /// Version of structure. This value is currently set to 1, and will be reset if the versioning
+        /// implementation is incompatibly altered.
         pub vn_version: u16,
+        /// Number of associated verneed array entries.
         pub vn_cnt: u16,
+        /// Offset to the file name string in the section header, in bytes.
         pub vn_file: usize,
+        /// Offset to a corresponding entry in the vernaux array, in bytes.
         pub vn_aux: u32,
+        /// Offset to the next verneed entry, in bytes.
         pub vn_next: u32,
 
         bytes: &'a [u8],
@@ -867,10 +867,17 @@ mod symver_impl {
     /// [lsb-vernaux]: https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#VERNEEDEXTFIG
     #[derive(Debug)]
     pub struct Vernaux {
+        /// Dependency name hash value (ELF hash function).
         pub vna_hash: u32,
+        /// Dependency information flag bitmask.
         pub vna_flags: u16,
+        /// Object file version identifier used in the .gnu.version symbol version array. Bit number 15
+        /// controls whether or not the object is hidden; if this bit is set, the object cannot be used
+        /// and the static linker will ignore the symbol's presence in the object.
         pub vna_other: u16,
+        /// Offset to the dependency name string in the section header, in bytes.
         pub vna_name: usize,
+        /// Offset to the next vernaux entry, in bytes.
         pub vna_next: u32,
     }
 

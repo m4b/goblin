@@ -51,6 +51,10 @@ pub const PF_X: u32 = 1;
 pub const PF_W: u32 = 1 << 1;
 /// Segment is readable
 pub const PF_R: u32 = 1 << 2;
+/// Bits reserved for OS-specific usage
+pub const PF_MASKOS: u32 = 0x0ff0_0000;
+/// Bits reserved for processor-specific usage
+pub const PF_MASKPROC: u32 = 0xf000_0000;
 
 pub fn pt_to_str(pt: u32) -> &'static str {
     match pt {

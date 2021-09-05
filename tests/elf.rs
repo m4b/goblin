@@ -262,10 +262,10 @@ fn check_symver_expectations(
     }
 
     if expect_verdef.is_empty() {
-        // We dont expect a version definition section.
+        // We dont expect a version needed section.
         assert!(elf.verdef.is_none());
     } else {
-        // We expect a version definition section.
+        // We expect a version needed section.
         assert!(elf.verdef.is_some());
 
         let verdef = elf.verdef.as_ref().unwrap();
@@ -355,7 +355,7 @@ fn check_symver_expectations_verdef(
     // Resolve version strings.
     let verstr = |idx| verdef.verstr.get_at(idx).unwrap();
 
-    // ELF version deinitions.
+    // ELF version definitions.
     let defined_vers: Vec<_> = verdef.iter().collect();
     assert_eq!(
         expect_verdef.keys().len(),
@@ -425,7 +425,7 @@ fn test_symver() -> Result<(), goblin::error::Error> {
     //   keys : defined version nodes
     //   value: vector of parent nodes for given version node (key)
 
-    // lib32
+    // lib32 expectations
 
     let expect_lib32_versym : Vec<u16> = vec![
         0,0,4,5,
@@ -443,7 +443,7 @@ fn test_symver() -> Result<(), goblin::error::Error> {
         ("v2", vec!["v1"]),
     ].iter().cloned().collect();
 
-    // lib64
+    // lib64 expectations
 
     let expect_lib64_versym :Vec<u16> = vec![
         0,0,4,0,
@@ -461,7 +461,7 @@ fn test_symver() -> Result<(), goblin::error::Error> {
         ("v2", vec!["v1"]),
     ].iter().cloned().collect();
 
-    // prog32
+    // prog32 expectations
 
     let expect_prog32_versym : Vec<u16> = vec![
         0,2,0,3,
@@ -477,7 +477,7 @@ fn test_symver() -> Result<(), goblin::error::Error> {
 
     let expect_prog32_verdef = SymverExpectation::new();
 
-    // prog64
+    // prog64 expectations
 
     let expect_prog64_versym : Vec<u16> = vec![
         0,2,0,3,

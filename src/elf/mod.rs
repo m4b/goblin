@@ -53,6 +53,7 @@ pub mod dynamic;
 #[macro_use]
 pub mod reloc;
 pub mod note;
+#[cfg(all(any(feature = "elf32", feature = "elf64"), feature = "alloc"))]
 pub mod symver;
 
 macro_rules! if_sylvan {

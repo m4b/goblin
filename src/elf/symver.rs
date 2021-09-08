@@ -17,10 +17,10 @@
 //!         for need_file in verneed.iter() {
 //!             println!(
 //!                 "Depend on {:?} with version(s):",
-//!                 verneed.verstr.get_at(need_file.vn_file)
+//!                 binary.dynstrtab.get_at(need_file.vn_file)
 //!             );
 //!             for need_ver in need_file.iter() {
-//!                 println!("{:?}", verneed.verstr.get_at(need_ver.vna_name));
+//!                 println!("{:?}", binary.dynstrtab.get_at(need_ver.vna_name));
 //!             }
 //!         }
 //!     }
@@ -40,7 +40,7 @@
 //!     if let Some(verdef) = &binary.verdef {
 //!         for def in verdef.iter() {
 //!             for (n, aux) in def.iter().enumerate() {
-//!                 let name = verdef.verstr.get_at(aux.vda_name);
+//!                 let name = binary.dynstrtab.get_at(aux.vda_name);
 //!                 match n {
 //!                     0 => print!("Name: {:?}", name),
 //!                     1 => print!(" Parent: {:?}", name),
@@ -61,8 +61,7 @@
 
 use crate::container;
 use crate::elf::section_header::{SectionHeader, SHT_GNU_VERDEF, SHT_GNU_VERNEED, SHT_GNU_VERSYM};
-use crate::error::{Error, Result};
-use crate::strtab::Strtab;
+use crate::error::Result;
 use core::iter::FusedIterator;
 use scroll::Pread;
 
@@ -320,7 +319,6 @@ impl From<ElfVersym> for Versym {
 #[derive(Debug)]
 pub struct VerdefSection<'a> {
     /// String table used to resolve version strings.
-    pub verstr: Strtab<'a>,
     bytes: &'a [u8],
     count: usize,
     ctx: container::Ctx,
@@ -333,10 +331,9 @@ impl<'a> VerdefSection<'a> {
         ctx: container::Ctx,
     ) -> Result<Option<VerdefSection<'a>>> {
         // Get fields needed from optional `version definition` section.
-        let (link_idx, offset, size, count) =
+        let (offset, size, count) =
             if let Some(shdr) = shdrs.iter().find(|shdr| shdr.sh_type == SHT_GNU_VERDEF) {
                 (
-                    shdr.sh_link as usize, // Encodes the string table.
                     shdr.sh_offset as usize,
                     shdr.sh_size as usize,
                     shdr.sh_info as usize, // Encodes the number of ElfVerdef entries.
@@ -345,32 +342,10 @@ impl<'a> VerdefSection<'a> {
                 return Ok(None);
             };
 
-        // Get string table which is used to resolve version strings.
-        let verstr = {
-            // Linked section refers to string table.
-            let shdr_link = shdrs.get(link_idx).ok_or_else(|| {
-                Error::Malformed(
-                    "Section header of string table for SHT_GNU_VERDEF section not found!".into(),
-                )
-            })?;
-
-            Strtab::parse(
-                bytes,
-                shdr_link.sh_offset as usize,
-                shdr_link.sh_size as usize,
-                0x0, /* Delimiter */
-            )?
-        };
-
         // Get a slice of bytes of the `version definition` section content.
         let bytes: &'a [u8] = bytes.pread_with(offset, size)?;
 
-        Ok(Some(VerdefSection {
-            verstr,
-            bytes,
-            count,
-            ctx,
-        }))
+        Ok(Some(VerdefSection { bytes, count, ctx }))
     }
 
     /// Get an iterator over the [`Verdef`] entries.
@@ -597,8 +572,6 @@ pub struct Verdaux {
 /// Auxiliary][Vernaux] entries.
 #[derive(Debug)]
 pub struct VerneedSection<'a> {
-    /// String table used to resolve version strings.
-    pub verstr: Strtab<'a>,
     bytes: &'a [u8],
     count: usize,
     ctx: container::Ctx,
@@ -612,10 +585,9 @@ impl<'a> VerneedSection<'a> {
         ctx: container::Ctx,
     ) -> Result<Option<VerneedSection<'a>>> {
         // Get fields needed from optional `version needed` section.
-        let (link_idx, offset, size, count) =
+        let (offset, size, count) =
             if let Some(shdr) = shdrs.iter().find(|shdr| shdr.sh_type == SHT_GNU_VERNEED) {
                 (
-                    shdr.sh_link as usize, // Encodes the string table.
                     shdr.sh_offset as usize,
                     shdr.sh_size as usize,
                     shdr.sh_info as usize, // Encodes the number of ElfVerneed entries.
@@ -624,32 +596,10 @@ impl<'a> VerneedSection<'a> {
                 return Ok(None);
             };
 
-        // Get string table which is used to resolve version strings.
-        let verstr = {
-            // Linked section refers to string table.
-            let shdr_link = shdrs.get(link_idx).ok_or_else(|| {
-                Error::Malformed(
-                    "Section header of string table for SHT_GNU_VERNEED section not found!".into(),
-                )
-            })?;
-
-            Strtab::parse(
-                bytes,
-                shdr_link.sh_offset as usize,
-                shdr_link.sh_size as usize,
-                0x0, /* Delimiter */
-            )?
-        };
-
         // Get a slice of bytes of the `version needed` section content.
         let bytes: &'a [u8] = bytes.pread_with(offset, size)?;
 
-        Ok(Some(VerneedSection {
-            verstr,
-            bytes,
-            count,
-            ctx,
-        }))
+        Ok(Some(VerneedSection { bytes, count, ctx }))
     }
 
     /// Get an iterator over the [`Verneed`] entries.

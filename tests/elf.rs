@@ -1,8 +1,10 @@
 use goblin::elf::section_header::SHT_GNU_HASH;
-use goblin::elf::sym::Sym;
+use goblin::elf::sym::{Sym, Symtab};
+use goblin::elf::symver::{VerdefSection, VerneedSection, VersymSection};
 use goblin::elf::Elf;
 use goblin::elf32::gnu_hash::GnuHash as GnuHash32;
 use goblin::elf64::gnu_hash::GnuHash as GnuHash64;
+use goblin::strtab::Strtab;
 
 #[repr(C)]
 #[repr(align(64))] // Align to cache lines
@@ -39,7 +41,6 @@ fn parse_text_section_size_lazy(base: &[u8]) -> Result<u64, &'static str> {
 
     use goblin::container::{Container, Ctx};
     use goblin::elf::SectionHeader;
-    use goblin::strtab::Strtab;
 
     let ctx = Ctx {
         le: scroll::Endian::Little,
@@ -258,7 +259,7 @@ fn check_symver_expectations(
         assert!(elf.verneed.is_some());
 
         let verneed = elf.verneed.as_ref().unwrap();
-        check_symver_expectations_verneed(verneed, expect_verneed);
+        check_symver_expectations_verneed(verneed, expect_verneed, &elf.dynstrtab);
     }
 
     if expect_verdef.is_empty() {
@@ -269,15 +270,15 @@ fn check_symver_expectations(
         assert!(elf.verdef.is_some());
 
         let verdef = elf.verdef.as_ref().unwrap();
-        check_symver_expectations_verdef(verdef, expect_verdef);
+        check_symver_expectations_verdef(verdef, expect_verdef, &elf.dynstrtab);
     }
 
     Ok(())
 }
 
 fn check_symver_expectations_versym(
-    versym: &goblin::elf::VersymSection<'_>,
-    dynsyms: &goblin::elf::Symtab<'_>,
+    versym: &VersymSection<'_>,
+    dynsyms: &Symtab<'_>,
     expect_versym: &Vec<u16>,
 ) {
     // VERSYM section must contain one entry per DYNSYM.
@@ -298,11 +299,12 @@ fn check_symver_expectations_versym(
 }
 
 fn check_symver_expectations_verneed(
-    verneed: &goblin::elf::VerneedSection<'_>,
+    verneed: &VerneedSection<'_>,
     expect_verneed: &SymverExpectation,
+    strtab: &Strtab<'_>,
 ) {
     // Resolve version strings.
-    let verstr = |idx| verneed.verstr.get_at(idx).unwrap();
+    let verstr = |idx| strtab.get_at(idx).unwrap();
 
     // ELF file dependencies with version requirements.
     let need_files: Vec<_> = verneed.iter().collect();
@@ -349,11 +351,12 @@ fn check_symver_expectations_verneed(
 }
 
 fn check_symver_expectations_verdef(
-    verdef: &goblin::elf::VerdefSection<'_>,
+    verdef: &VerdefSection<'_>,
     expect_verdef: &SymverExpectation,
+    strtab: &Strtab<'_>,
 ) {
     // Resolve version strings.
-    let verstr = |idx| verdef.verstr.get_at(idx).unwrap();
+    let verstr = |idx| strtab.get_at(idx).unwrap();
 
     // ELF version definitions.
     let defined_vers: Vec<_> = verdef.iter().collect();

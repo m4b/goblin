@@ -168,7 +168,7 @@ pub struct VersymSection<'a> {
 impl<'a> VersymSection<'a> {
     pub fn parse(
         bytes: &'a [u8],
-        shdrs: &'_ [SectionHeader],
+        shdrs: &[SectionHeader],
         ctx: container::Ctx,
     ) -> Result<Option<VersymSection<'a>>> {
         // Get fields needed from optional `symbol version` section.
@@ -214,7 +214,7 @@ impl<'a> VersymSection<'a> {
         self.bytes
             .pread_with::<ElfVersym>(offset, self.ctx.le)
             .ok()
-            .map(|ElfVersym { vs_val }| Versym { vs_val })
+            .map(Versym::from)
     }
 }
 
@@ -248,7 +248,7 @@ impl<'a> Iterator for VersymIter<'a> {
             self.bytes
                 .gread_with::<ElfVersym>(&mut self.offset, self.ctx.le)
                 .ok()
-                .map(|ElfVersym { vs_val }| Versym { vs_val })
+                .map(Versym::from)
                 .or_else(|| {
                     // self.bytes are not a multiple of ElfVersym.
                     // Adjust offset to continue yielding Nones.
@@ -305,6 +305,12 @@ impl Versym {
     }
 }
 
+impl From<ElfVersym> for Versym {
+    fn from(ElfVersym { vs_val }: ElfVersym) -> Self {
+        Versym { vs_val }
+    }
+}
+
 /************************
  *  Version Definition  *
  ************************/
@@ -323,7 +329,7 @@ pub struct VerdefSection<'a> {
 impl<'a> VerdefSection<'a> {
     pub fn parse(
         bytes: &'a [u8],
-        shdrs: &'_ [SectionHeader],
+        shdrs: &[SectionHeader],
         ctx: container::Ctx,
     ) -> Result<Option<VerdefSection<'a>>> {
         // Get fields needed from optional `version definition` section.
@@ -602,7 +608,7 @@ impl<'a> VerneedSection<'a> {
     /// Try to parse the optional [`SHT_GNU_VERNEED`] section.
     pub fn parse(
         bytes: &'a [u8],
-        shdrs: &'_ [SectionHeader],
+        shdrs: &[SectionHeader],
         ctx: container::Ctx,
     ) -> Result<Option<VerneedSection<'a>>> {
         // Get fields needed from optional `version needed` section.

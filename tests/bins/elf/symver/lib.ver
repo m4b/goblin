@@ -1,0 +1,11 @@
+v1 {
+  global:
+    some_func;
+  local:
+    *;
+};
+
+v2 {
+  global:
+    some_func;
+} v1;

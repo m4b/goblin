@@ -53,6 +53,8 @@ pub mod dynamic;
 #[macro_use]
 pub mod reloc;
 pub mod note;
+#[cfg(all(any(feature = "elf32", feature = "elf64"), feature = "alloc"))]
+pub mod symver;
 
 macro_rules! if_sylvan {
     ($($i:item)*) => ($(
@@ -78,6 +80,7 @@ if_sylvan! {
     pub use dynamic::Dynamic;
     pub use reloc::Reloc;
     pub use reloc::RelocSection;
+    pub use symver::{VersymSection, VerdefSection, VerneedSection};
 
     pub type ProgramHeaders = Vec<ProgramHeader>;
     pub type SectionHeaders = Vec<SectionHeader>;
@@ -130,6 +133,15 @@ if_sylvan! {
         pub entry: u64,
         /// Whether the binary is little endian or not
         pub little_endian: bool,
+        /// Contains the symbol version information from the optional section
+        /// [`SHT_GNU_VERSYM`][section_header::SHT_GNU_VERSYM] (GNU extenstion).
+        pub versym : Option<VersymSection<'a>>,
+        /// Contains the version definition information from the optional section
+        /// [`SHT_GNU_VERDEF`][section_header::SHT_GNU_VERDEF] (GNU extenstion).
+        pub verdef : Option<VerdefSection<'a>>,
+        /// Contains the version needed information from the optional section
+        /// [`SHT_GNU_VERNEED`][section_header::SHT_GNU_VERNEED] (GNU extenstion).
+        pub verneed : Option<VerneedSection<'a>>,
         ctx: Ctx,
     }
 
@@ -232,6 +244,9 @@ if_sylvan! {
                 entry: misc.entry,
                 little_endian: misc.little_endian,
                 ctx: misc.ctx,
+                versym: None,
+                verdef: None,
+                verneed: None,
             })
         }
 
@@ -334,6 +349,10 @@ if_sylvan! {
                 }
             }
 
+            let versym = symver::VersymSection::parse(bytes, &section_headers, ctx)?;
+            let verdef = symver::VerdefSection::parse(bytes, &section_headers, ctx)?;
+            let verneed = symver::VerneedSection::parse(bytes, &section_headers, ctx)?;
+
             Ok(Elf {
                 header,
                 program_headers,
@@ -356,6 +375,9 @@ if_sylvan! {
                 entry: misc.entry,
                 little_endian: misc.little_endian,
                 ctx: ctx,
+                versym,
+                verdef,
+                verneed,
             })
         }
     }

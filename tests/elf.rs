@@ -1,8 +1,10 @@
 use goblin::elf::section_header::SHT_GNU_HASH;
-use goblin::elf::sym::Sym;
+use goblin::elf::sym::{Sym, Symtab};
+use goblin::elf::symver::{VerdefSection, VerneedSection, VersymSection};
 use goblin::elf::Elf;
 use goblin::elf32::gnu_hash::GnuHash as GnuHash32;
 use goblin::elf64::gnu_hash::GnuHash as GnuHash64;
+use goblin::strtab::Strtab;
 
 #[repr(C)]
 #[repr(align(64))] // Align to cache lines
@@ -39,7 +41,6 @@ fn parse_text_section_size_lazy(base: &[u8]) -> Result<u64, &'static str> {
 
     use goblin::container::{Container, Ctx};
     use goblin::elf::SectionHeader;
-    use goblin::strtab::Strtab;
 
     let ctx = Ctx {
         le: scroll::Endian::Little,
@@ -227,4 +228,278 @@ fn test_oom() {
     let aligned_data: &mut AlignedData<[u8]> =
         &mut AlignedData(*include_bytes!("bins/elf/gnu_hash/hello.so"));
     test_oom(&mut aligned_data.0);
+}
+
+type SymverExpectation = std::collections::HashMap<&'static str, Vec<&'static str>>;
+
+fn check_symver_expectations(
+    bytes: &[u8],
+    expect_versym: &Vec<u16>,
+    expect_verneed: &SymverExpectation,
+    expect_verdef: &SymverExpectation,
+) -> Result<(), goblin::error::Error> {
+    let elf = Elf::parse(bytes)?;
+
+    if expect_versym.is_empty() {
+        // We dont expect a symbol version section.
+        assert!(elf.versym.is_none());
+    } else {
+        // We expect a symbol version section.
+        assert!(elf.versym.is_some());
+
+        let versym = elf.versym.as_ref().unwrap();
+        check_symver_expectations_versym(versym, &elf.dynsyms, expect_versym);
+    }
+
+    if expect_verneed.is_empty() {
+        // We dont expect a version definition section.
+        assert!(elf.verneed.is_none());
+    } else {
+        // We expect a version definition section.
+        assert!(elf.verneed.is_some());
+
+        let verneed = elf.verneed.as_ref().unwrap();
+        check_symver_expectations_verneed(verneed, expect_verneed, &elf.dynstrtab);
+    }
+
+    if expect_verdef.is_empty() {
+        // We dont expect a version needed section.
+        assert!(elf.verdef.is_none());
+    } else {
+        // We expect a version needed section.
+        assert!(elf.verdef.is_some());
+
+        let verdef = elf.verdef.as_ref().unwrap();
+        check_symver_expectations_verdef(verdef, expect_verdef, &elf.dynstrtab);
+    }
+
+    Ok(())
+}
+
+fn check_symver_expectations_versym(
+    versym: &VersymSection<'_>,
+    dynsyms: &Symtab<'_>,
+    expect_versym: &Vec<u16>,
+) {
+    // VERSYM section must contain one entry per DYNSYM.
+    assert_eq!(dynsyms.len(), versym.len());
+
+    // Check length computation + iteration count.
+    assert_eq!(expect_versym.len(), versym.len());
+    assert_eq!(expect_versym.len(), versym.iter().count());
+
+    // Check symbol version identifier.
+    for versym in versym.iter() {
+        assert!(
+            expect_versym.iter().any(|&expect| expect == versym.vs_val),
+            "Unexpected SYMBOL VERSION index {}",
+            versym.vs_val
+        );
+    }
+}
+
+fn check_symver_expectations_verneed(
+    verneed: &VerneedSection<'_>,
+    expect_verneed: &SymverExpectation,
+    strtab: &Strtab<'_>,
+) {
+    // Resolve version strings.
+    let verstr = |idx| strtab.get_at(idx).unwrap();
+
+    // ELF file dependencies with version requirements.
+    let need_files: Vec<_> = verneed.iter().collect();
+    assert_eq!(
+        expect_verneed.keys().len(),
+        need_files.len(),
+        "Expected different number of dependencies with version information!"
+    );
+
+    for need_file in &need_files {
+        // Get file name of the dependency.
+        let file_str = verstr(need_file.vn_file);
+
+        // Check if we expect this dependency.
+        let expect_vers = expect_verneed.get(&file_str);
+        assert!(
+            expect_vers.is_some(),
+            "Unexpected FILE dependency {}!",
+            file_str
+        );
+        let expect_vers = expect_vers.unwrap();
+
+        // Version dependencies for this file dependency.
+        let need_vers: Vec<_> = need_file.iter().collect();
+        assert_eq!(
+            expect_vers.len(),
+            need_vers.len(),
+            "Expected different number of version dependencies for {}!",
+            file_str
+        );
+
+        for need_ver in &need_vers {
+            // Get version string.
+            let ver_str = verstr(need_ver.vna_name);
+
+            // Check if we expect this version.
+            assert!(
+                expect_vers.iter().any(|&expect_ver| ver_str == expect_ver),
+                "Unexpected VERSION dependency {}",
+                ver_str
+            );
+        }
+    }
+}
+
+fn check_symver_expectations_verdef(
+    verdef: &VerdefSection<'_>,
+    expect_verdef: &SymverExpectation,
+    strtab: &Strtab<'_>,
+) {
+    // Resolve version strings.
+    let verstr = |idx| strtab.get_at(idx).unwrap();
+
+    // ELF version definitions.
+    let defined_vers: Vec<_> = verdef.iter().collect();
+    assert_eq!(
+        expect_verdef.keys().len(),
+        defined_vers.len(),
+        "Expected different number of defined versions!"
+    );
+
+    for defined_ver in &defined_vers {
+        // [0]   Defined version
+        // [1..] Parent nodes
+        let verdaux: Vec<_> = defined_ver.iter().collect();
+        assert!(verdaux.len() >= 1);
+        let version = &verdaux[0];
+        let parents = &verdaux[1..];
+
+        let version_str = verstr(version.vda_name);
+
+        // Check if we expect this dependency.
+        let expect_parents = expect_verdef.get(&version_str);
+        assert!(
+            expect_parents.is_some(),
+            "Unexpected VERSION definition {}!",
+            version_str
+        );
+        let expect_parents = expect_parents.unwrap();
+
+        // Validate name of parent version nodes if we expect
+        assert_eq!(
+            expect_parents.len(),
+            parents.len(),
+            "Expected different number of parent nodes for {}!",
+            version_str
+        );
+
+        for parent in parents {
+            // Get parent string.
+            let parent_str = verstr(parent.vda_name);
+
+            // Check if we expect this parent.
+            assert!(
+                expect_parents
+                    .iter()
+                    .any(|&expect_parent| parent_str == expect_parent),
+                "Unexpected PARENT node {}",
+                parent_str
+            );
+        }
+    }
+}
+
+#[rustfmt::skip]
+#[test]
+fn test_symver() -> Result<(), goblin::error::Error> {
+    // NOTE: Expected Files & Symbol Versions depend on build system of the test ELF binaries.
+    //       When rebuilding the referenced ELF file the version information must be checked and
+    //       potentially updated:
+    //       > readelf -V <elf>
+    //
+    // versym  - Vec<u16>
+    //   value: symbol version identifier
+    //
+    // verneed - SymverExpectation
+    //   keys : file dependencies
+    //   value: vector of version dependencies for given file (key)
+    //
+    // verdef  - SymverExpectation
+    //   keys : defined version nodes
+    //   value: vector of parent nodes for given version node (key)
+
+    // lib32 expectations
+
+    let expect_lib32_versym : Vec<u16> = vec![
+        0,0,4,5,
+        0,0,3,0x8001,
+        0x8002,2,3,
+    ];
+
+    let expect_lib32_verneed: SymverExpectation = [
+        ("libc.so.6", vec!["GLIBC_2.0", "GLIBC_2.1.3"])
+    ].iter().cloned().collect();
+
+    let expect_lib32_verdef: SymverExpectation = [
+        ("lib32.so", vec![]),
+        ("v1", vec![]),
+        ("v2", vec!["v1"]),
+    ].iter().cloned().collect();
+
+    // lib64 expectations
+
+    let expect_lib64_versym :Vec<u16> = vec![
+        0,0,4,0,
+        0,4,3,0x8001,
+        0x8002,2,3,
+    ];
+
+    let expect_lib64_verneed: SymverExpectation = [
+        ("libc.so.6", vec!["GLIBC_2.2.5"])
+    ].iter().cloned().collect();
+
+    let expect_lib64_verdef: SymverExpectation = [
+        ("lib64.so", vec![]),
+        ("v1", vec![]),
+        ("v2", vec!["v1"]),
+    ].iter().cloned().collect();
+
+    // prog32 expectations
+
+    let expect_prog32_versym : Vec<u16> = vec![
+        0,2,0,3,
+        4,0,5,6,
+        0,5,1,
+    ];
+
+    let expect_prog32_verneed: SymverExpectation = [
+        ("libc.so.6", vec!["GLIBC_2.0", "GLIBC_2.1.3"]),
+        ("libdl.so.2", vec!["GLIBC_2.0", "GLIBC_2.1"]),
+        ("lib32.so", vec!["v2"]),
+    ].iter().cloned().collect();
+
+    let expect_prog32_verdef = SymverExpectation::new();
+
+    // prog64 expectations
+
+    let expect_prog64_versym : Vec<u16> = vec![
+        0,2,0,3,
+        3,4,0,0,
+        4,3,
+    ];
+
+    let expect_prog64_verneed: SymverExpectation = [
+        ("libdl.so.2", vec!["GLIBC_2.2.5"]),
+        ("libc.so.6", vec!["GLIBC_2.2.5"]),
+        ("lib64.so", vec!["v2"]),
+    ].iter().cloned().collect();
+
+    let expect_prog64_verdef = SymverExpectation::new();
+
+    check_symver_expectations(include_bytes!("bins/elf/symver/lib32.so"), &expect_lib32_versym, &expect_lib32_verneed, &expect_lib32_verdef)?;
+    check_symver_expectations(include_bytes!("bins/elf/symver/lib64.so"), &expect_lib64_versym, &expect_lib64_verneed, &expect_lib64_verdef)?;
+    check_symver_expectations(include_bytes!("bins/elf/symver/prog32"), &expect_prog32_versym, &expect_prog32_verneed, &expect_prog32_verdef)?;
+    check_symver_expectations(include_bytes!("bins/elf/symver/prog64"), &expect_prog64_versym, &expect_prog64_verneed, &expect_prog64_verdef)?;
+
+    Ok(())
 }

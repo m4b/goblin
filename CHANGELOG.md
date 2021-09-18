@@ -5,6 +5,11 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.4, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
+## [0.4.3] - 2021-9-18
+### Added
+- elf: add initial versioned symbols support, thanks @johannst: https://github.com/m4b/goblin/pull/280
+- elf: add some missing constants, `PF_MASKOS` and `PF_MASKPROC`, thanks @npmccallum: https://github.com/m4b/goblin/pull/281
+
 ## [0.4.2] - 2021-7-4
 ### Added
 - strtab: preparses the string table to prevent certain class of DoS attacks, thanks @Lichtsto: https://github.com/m4b/goblin/pull/275

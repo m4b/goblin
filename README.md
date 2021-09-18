@@ -74,6 +74,7 @@ Here are some things you could do with this crate (or help to implement so they 
 
 <!-- Related projects  -->
 
+[PyO3/maturin]: https://github.com/PyO3/maturin
 [occlum]: https://github.com/occlum/occlum
 [memflow]: https://github.com/memflow/memflow
 [cargo-sym]: https://github.com/m4b/cargo-sym
@@ -120,6 +121,7 @@ In lexicographic order:
 - [@jan-auer]
 - [@jessehui]
 - [@jdub]
+- [@johannst]
 - [@jrmuizel]
 - [@jsgf]
 - [@keith]
@@ -137,6 +139,7 @@ In lexicographic order:
 - [@mre]
 - [@Mrmaxmeier]
 - [@nico-abram]
+- [@npmccallum]
 - [@pchickey]
 - [@philipc]
 - [@Pzixel]
@@ -171,6 +174,7 @@ In lexicographic order:
 [@jackcmay]: https://github.com/jackcmay
 [@jan-auer]: https://github.com/jan-auer
 [@jessehui]: https://github.com/jessehui
+[@johannst]: https://github.com/johannst
 [@jdub]: https://github.com/jdub
 [@jrmuizel]: https://github.com/jrmuizel
 [@jsgf]: https://github.com/jsgf
@@ -189,6 +193,7 @@ In lexicographic order:
 [@mre]: https://github.com/mre
 [@Mrmaxmeier]: https://github.com/Mrmaxmeier
 [@nico-abram]: https://github.com/nico-abram
+[@npmccallum]: https://github.com/npmccallum
 [@pchickey]: https://github.com/pchickey
 [@philipc]: https://github.com/philipc
 [@Pzixel]: https://github.com/Pzixel

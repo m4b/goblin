@@ -23,6 +23,12 @@ impl DosHeader {
         let signature = bytes.pread_with(0, scroll::LE).map_err(|_| {
             error::Error::Malformed(format!("cannot parse DOS signature (offset {:#x})", 0))
         })?;
+        if signature != DOS_MAGIC {
+            return Err(error::Error::Malformed(format!(
+                "DOS header is malformed (signature {:#x})",
+                signature
+            )));
+        }
         let pe_pointer = bytes
             .pread_with(PE_POINTER_OFFSET as usize, scroll::LE)
             .map_err(|_| {
@@ -31,6 +37,21 @@ impl DosHeader {
                     PE_POINTER_OFFSET
                 ))
             })?;
+        let pe_signature: u32 =
+            bytes
+                .pread_with(pe_pointer as usize, scroll::LE)
+                .map_err(|_| {
+                    error::Error::Malformed(format!(
+                        "cannot parse PE header signature (offset {:#x})",
+                        pe_pointer
+                    ))
+                })?;
+        if pe_signature != PE_MAGIC {
+            return Err(error::Error::Malformed(format!(
+                "PE header is malformed (signature {:#x})",
+                pe_signature
+            )));
+        }
         Ok(DosHeader {
             signature,
             pe_pointer,

@@ -32,9 +32,9 @@ fn section_read_size(section: &section_table::SectionTable, file_alignment: u32)
     let size_of_raw_data = section.size_of_raw_data as usize;
     let virtual_size = section.virtual_size as usize;
     let read_size = {
-        let read_size = (section.pointer_to_raw_data as usize + size_of_raw_data + file_alignment
+        let read_size = ((section.pointer_to_raw_data as usize + size_of_raw_data + file_alignment
             - 1)
-            & !(file_alignment - 1);
+            & !(file_alignment - 1)) - aligned_pointer_to_raw_data(section.pointer_to_raw_data as usize);
         cmp::min(read_size, round_size(size_of_raw_data))
     };
 

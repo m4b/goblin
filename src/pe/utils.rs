@@ -38,11 +38,7 @@ fn section_read_size(section: &section_table::SectionTable, file_alignment: u32)
         cmp::min(read_size, round_size(size_of_raw_data))
     };
 
-    if virtual_size == 0 {
-        read_size
-    } else {
-        cmp::min(read_size, round_size(virtual_size))
-    }
+    cmp::max(read_size, round_size(virtual_size))
 }
 
 fn rva2offset(rva: usize, section: &section_table::SectionTable) -> usize {

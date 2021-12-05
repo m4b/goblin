@@ -119,6 +119,40 @@ pub const EV_CURRENT: u8 = 1;
 pub const EI_OSABI: usize = 7;
 /// UNIX System V ABI.
 pub const ELFOSABI_NONE: u8 = 0;
+/// UNIX System V ABI.
+///
+/// Alias.
+pub const ELFOSABI_SYSV: u8 = ELFOSABI_NONE;
+/// HP-UX.
+pub const ELFOSABI_HPUX: u8 = 1;
+/// NetBSD.
+pub const ELFOSABI_NETBSD: u8 = 2;
+/// Object uses GNU ELF extensions.
+pub const ELFOSABI_GNU: u8 = 3;
+/// Object uses GNU ELF extensions.
+///
+/// Alias.
+pub const ELFOSABI_LINUX: u8 = ELFOSABI_GNU;
+/// Sun Solaris.
+pub const ELFOSABI_SOLARIS: u8 = 6;
+/// IBM AIX.
+pub const ELFOSABI_AIX: u8 = 7;
+/// SGI Irix.
+pub const ELFOSABI_IRIX: u8 = 8;
+/// FreeBSD
+pub const ELFOSABI_FREEBSD: u8 = 9;
+/// Compaq TRU64 UNIX.
+pub const ELFOSABI_TRU64: u8 = 10;
+/// Novell Modesto.
+pub const ELFOSABI_MODESTO: u8 = 11;
+/// OpenBSD.
+pub const ELFOSABI_OPENBSD: u8 = 12;
+/// ARM EABI.
+pub const ELFOSABI_ARM_AEABI: u8 = 64;
+/// ARM.
+pub const ELFOSABI_ARM: u8 = 97;
+/// Standalone (embedded) application.
+pub const ELFOSABI_STANDALONE: u8 = 255;
 
 /// ABI version byte index.
 pub const EI_ABIVERSION: usize = 8;

@@ -125,6 +125,12 @@ if_sylvan! {
         pub interpreter: Option<&'a str>,
         /// A list of this binary's dynamic libraries it uses, if there are any
         pub libraries: Vec<&'a str>,
+        /// A list of runtime search paths for this binary's dynamic libraries it uses, if there
+        /// are any. (deprecated)
+        pub rpaths: Vec<&'a str>,
+        /// A list of runtime search paths for this binary's dynamic libraries it uses, if there
+        /// are any.
+        pub runpaths: Vec<&'a str>,
         /// Whether this is a 64-bit elf or not
         pub is_64: bool,
         /// Whether this is a shared object or not
@@ -239,6 +245,8 @@ if_sylvan! {
                 soname: None,
                 interpreter: None,
                 libraries: vec![],
+                rpaths: vec![],
+                runpaths: vec![],
                 is_64: misc.is_64,
                 is_lib: misc.is_lib,
                 entry: misc.entry,
@@ -296,6 +304,8 @@ if_sylvan! {
 
             let mut soname = None;
             let mut libraries = vec![];
+            let mut rpaths = vec![];
+            let mut runpaths = vec![];
             let mut dynsyms = Symtab::default();
             let mut dynrelas = RelocSection::default();
             let mut dynrels = RelocSection::default();
@@ -315,6 +325,17 @@ if_sylvan! {
                 }
                 if dyn_info.needed_count > 0 {
                     libraries = dynamic.get_libraries(&dynstrtab);
+                }
+                for dyn_ in &dynamic.dyns {
+                    if dyn_.d_tag == dynamic::DT_RPATH {
+                        if let Some(path) = dynstrtab.get_at(dyn_.d_val as usize) {
+                            rpaths.push(path);
+                        }
+                    } else if dyn_.d_tag == dynamic::DT_RUNPATH {
+                        if let Some(path) = dynstrtab.get_at(dyn_.d_val as usize) {
+                            runpaths.push(path);
+                        }
+                    }
                 }
                 // parse the dynamic relocations
                 dynrelas = RelocSection::parse(bytes, dyn_info.rela, dyn_info.relasz, true, ctx)?;
@@ -370,6 +391,8 @@ if_sylvan! {
                 soname,
                 interpreter,
                 libraries,
+                rpaths,
+                runpaths,
                 is_64: misc.is_64,
                 is_lib: misc.is_lib,
                 entry: misc.entry,

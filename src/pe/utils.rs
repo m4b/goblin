@@ -28,13 +28,36 @@ fn section_read_size(section: &section_table::SectionTable, file_alignment: u32)
         (size + PAGE_MASK) & !PAGE_MASK
     }
 
+    // Paraphrased from https://reverseengineering.stackexchange.com/a/4326 (by Peter Ferrie).
+    //
+    // Handles the corner cases such as mis-aligned pointers (round down) and sizes (round up)
+    // Further rounding corner cases:
+    // - the physical pointer should be rounded down to a multiple of 512, regardless of the value in the header
+    // - the read size is rounded up by using a combination of the file alignment and 4kb
+    // - the virtual size is always rounded up to a multiple of 4kb, regardless of the value in the header.
+    //
+    // Reference C implementation:
+    //
+    // long pointerToRaw = section.get(POINTER_TO_RAW_DATA);
+    // long alignedpointerToRaw = pointerToRaw & ~0x1ff;
+    // long sizeOfRaw = section.get(SIZE_OF_RAW_DATA);
+    // long readsize = ((pointerToRaw + sizeOfRaw) + filealign - 1) & ~(filealign - 1)) - alignedpointerToRaw;
+    // readsize = min(readsize, (sizeOfRaw + 0xfff) & ~0xfff);
+    // long virtsize = section.get(VIRTUAL_SIZE);
+    //
+    // if (virtsize)
+    // {
+    //     readsize = min(readsize, (virtsize + 0xfff) & ~0xfff);
+    // }
+
     let file_alignment = file_alignment as usize;
     let size_of_raw_data = section.size_of_raw_data as usize;
     let virtual_size = section.virtual_size as usize;
     let read_size = {
-        let read_size = (section.pointer_to_raw_data as usize + size_of_raw_data + file_alignment
-            - 1)
-            & !(file_alignment - 1);
+        let read_size =
+            ((section.pointer_to_raw_data as usize + size_of_raw_data + file_alignment - 1)
+                & !(file_alignment - 1))
+                - aligned_pointer_to_raw_data(section.pointer_to_raw_data as usize);
         cmp::min(read_size, round_size(size_of_raw_data))
     };
 

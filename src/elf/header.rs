@@ -84,6 +84,14 @@ pub const ET_DYN: u16 = 3;
 pub const ET_CORE: u16 = 4;
 /// Number of defined types.
 pub const ET_NUM: u16 = 5;
+/// OS-specific range start
+pub const ET_LOOS: u16 = 0xfe00;
+/// OS-specific range end
+pub const ET_HIOS: u16 = 0xfeff;
+/// Processor-specific range start
+pub const ET_LOPROC: u16 = 0xff00;
+/// Processor-specific range end
+pub const ET_HIPROC: u16 = 0xffff;
 
 /// The ELF magic number.
 pub const ELFMAG: &[u8; 4] = b"\x7FELF";

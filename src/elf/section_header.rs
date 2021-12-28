@@ -188,7 +188,7 @@ pub const SHF_ORDERED: u32 = 1 << 30;
 /// Number of "regular" section header flags
 pub const SHF_NUM_REGULAR_FLAGS: usize = 12;
 // /// Section is excluded unless referenced or allocated (Solaris).
-// pub const SHF_EXCLUDE: u32 = 1U << 31;
+pub const SHF_EXCLUDE: u32 = 0x80000000; // 1U << 31
 
 pub const SHF_FLAGS: [u32; SHF_NUM_REGULAR_FLAGS] = [
     SHF_WRITE,

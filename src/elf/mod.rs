@@ -293,13 +293,11 @@ if_sylvan! {
 
             let mut syms = Symtab::default();
             let mut strtab = Strtab::default();
-            for shdr in &section_headers {
-                if shdr.sh_type as u32 == section_header::SHT_SYMTAB {
-                    let size = shdr.sh_entsize;
-                    let count = if size == 0 { 0 } else { shdr.sh_size / size };
-                    syms = Symtab::parse(bytes, shdr.sh_offset as usize, count as usize, ctx)?;
-                    strtab = get_strtab(&section_headers, shdr.sh_link as usize)?;
-                }
+            if let Some(shdr) = section_headers.iter().rfind(|shdr| shdr.sh_type as u32 == section_header::SHT_SYMTAB) {
+                let size = shdr.sh_entsize;
+                let count = if size == 0 { 0 } else { shdr.sh_size / size };
+                syms = Symtab::parse(bytes, shdr.sh_offset as usize, count as usize, ctx)?;
+                strtab = get_strtab(&section_headers, shdr.sh_link as usize)?;
             }
 
             let mut soname = None;

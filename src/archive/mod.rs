@@ -216,6 +216,12 @@ impl<'a> Index<'a> {
     pub fn parse_sysv_index(buffer: &'a [u8]) -> Result<Self> {
         let offset = &mut 0;
         let sizeof_table = buffer.gread_with::<u32>(offset, scroll::BE)? as usize;
+
+        if sizeof_table > buffer.len() / 4 {
+            let message = format!("Buffer is too short for {} indices", sizeof_table);
+            return Err(Error::Malformed(message));
+        }
+
         let mut indexes = Vec::with_capacity(sizeof_table);
         for _ in 0..sizeof_table {
             indexes.push(buffer.gread_with::<u32>(offset, scroll::BE)?);
@@ -270,6 +276,11 @@ impl<'a> Index<'a> {
         let strtab_bytes = buffer.pread_with::<u32>(entries_bytes + 4, scroll::LE)? as usize;
         let strtab = strtab::Strtab::parse(buffer, entries_bytes + 8, strtab_bytes, 0x0)?;
 
+        if entries_bytes > buffer.len() {
+            let message = format!("Buffer is too short for {} entries", entries);
+            return Err(Error::Malformed(message));
+        }
+
         // build the index
         let mut indexes = Vec::with_capacity(entries);
         let mut strings = Vec::with_capacity(entries);
@@ -311,11 +322,24 @@ impl<'a> Index<'a> {
     pub fn parse_windows_linker_member(buffer: &'a [u8]) -> Result<Self> {
         let offset = &mut 0;
         let members = buffer.gread_with::<u32>(offset, scroll::LE)? as usize;
+
+        if members > buffer.len() / 4 {
+            let message = format!("Buffer is too short for {} members", members);
+            return Err(Error::Malformed(message));
+        }
+
         let mut member_offsets = Vec::with_capacity(members);
         for _ in 0..members {
             member_offsets.push(buffer.gread_with::<u32>(offset, scroll::LE)?);
         }
+
         let symbols = buffer.gread_with::<u32>(offset, scroll::LE)? as usize;
+
+        if symbols > buffer.len() / 2 {
+            let message = format!("Buffer is too short for {} symbols", symbols);
+            return Err(Error::Malformed(message));
+        }
+
         let mut symbol_offsets = Vec::with_capacity(symbols);
         for _ in 0..symbols {
             symbol_offsets

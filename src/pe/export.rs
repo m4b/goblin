@@ -108,6 +108,21 @@ impl<'a> ExportData<'a> {
         let number_of_name_pointers = export_directory_table.number_of_name_pointers as usize;
         let address_table_entries = export_directory_table.address_table_entries as usize;
 
+        if number_of_name_pointers > bytes.len() {
+            let message = format!(
+                "Buffer is too short for {} name pointers",
+                number_of_name_pointers
+            );
+            return Err(error::Error::Malformed(message));
+        }
+        if address_table_entries > bytes.len() {
+            let message = format!(
+                "Buffer is too short for {} address table entries",
+                address_table_entries
+            );
+            return Err(error::Error::Malformed(message));
+        }
+
         let export_name_pointer_table = utils::find_offset(
             export_directory_table.name_pointer_rva as usize,
             sections,

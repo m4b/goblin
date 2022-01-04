@@ -388,6 +388,10 @@ impl Sym {
     #[cfg(feature = "endian_fd")]
     /// Parse `count` vector of ELF symbols from `offset`
     pub fn parse(bytes: &[u8], mut offset: usize, count: usize, ctx: Ctx) -> Result<Vec<Sym>> {
+        if count > bytes.len() / Sym::size_with(&ctx) {
+            let message = format!("Buffer is too short for {} symbols", count);
+            return Err(crate::error::Error::Malformed(message));
+        }
         let mut syms = Vec::with_capacity(count);
         for _ in 0..count {
             let sym = bytes.gread_with(&mut offset, ctx)?;

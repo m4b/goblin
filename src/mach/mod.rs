@@ -162,6 +162,14 @@ impl<'a> MachO<'a> {
         let is_64 = ctx.container.is_big();
         *offset += header::Header::size_with(&ctx.container);
         let ncmds = header.ncmds;
+
+        let sizeofcmds = header.sizeofcmds as usize;
+        // a load cmd is at least 2 * 4 bytes, (type, sizeof)
+        if ncmds > sizeofcmds / 8 || sizeofcmds > bytes.len() {
+            let message = format!("Buffer is too short for {} load commands", ncmds);
+            return Err(error::Error::Malformed(message));
+        }
+
         let mut cmds: Vec<load_command::LoadCommand> = Vec::with_capacity(ncmds);
         let mut symbols = None;
         let mut libs = vec!["self"];
@@ -364,6 +372,11 @@ impl<'a> MultiArch<'a> {
     }
     /// Return all the architectures in this binary
     pub fn arches(&self) -> error::Result<Vec<fat::FatArch>> {
+        if self.narches > self.data.len() / fat::SIZEOF_FAT_ARCH {
+            let message = format!("Buffer is too short for {} arches", self.narches);
+            return Err(error::Error::Malformed(message));
+        }
+
         let mut arches = Vec::with_capacity(self.narches);
         for arch in self.iter_arches() {
             arches.push(arch?);

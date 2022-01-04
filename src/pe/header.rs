@@ -3,6 +3,7 @@ use crate::pe::{optional_header, section_table, symbol};
 use crate::strtab;
 use alloc::vec::Vec;
 use log::debug;
+use scroll::ctx::SizeWith;
 use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith};
 
 /// DOS header present in all PE binaries
@@ -143,6 +144,13 @@ impl CoffHeader {
         offset: &mut usize,
     ) -> error::Result<Vec<section_table::SectionTable>> {
         let nsections = self.number_of_sections as usize;
+
+        // a section table is at least 40 bytes
+        if nsections > bytes.len() / 40 {
+            let message = format!("Buffer is too short for {} sections", nsections);
+            return Err(error::Error::Malformed(message));
+        }
+
         let mut sections = Vec::with_capacity(nsections);
         // Note that if we are handling a BigCoff, the size of the symbol will be different!
         let string_table_offset = self.pointer_to_symbol_table as usize

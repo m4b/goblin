@@ -62,6 +62,7 @@ impl<'a> Strtab<'a> {
     /// Errors if bytes are invalid UTF-8.
     /// Requires `feature = "alloc"`
     pub fn parse(bytes: &'a [u8], offset: usize, len: usize, delim: u8) -> error::Result<Self> {
+        println!("{:#?}", bytes.iter().map(|c| *c as char).collect::<String>().split('\u{0}').into_iter().filter(|s| s.contains("plt")).collect::<Vec<&str>>());
         let (end, overflow) = offset.overflowing_add(len);
         if overflow || end > bytes.len() {
             return Err(error::Error::Malformed(format!(
@@ -105,6 +106,13 @@ impl<'a> Strtab<'a> {
             return Ok(result);
         }
         Ok(self.strings.iter().map(|&(_key, value)| value).collect())
+    }
+    #[cfg(feature = "alloc")]
+    /// Converts `bytes` to `Vec` and returns it without considering `delim`.
+    ///
+    /// Requires `feature = "alloc"`
+    pub fn to_raw_vec(&self) -> Vec<u8> {
+        self.bytes.to_vec()
     }
     #[cfg(feature = "alloc")]
     /// Safely gets a str reference from the parsed table starting at byte `offset`.

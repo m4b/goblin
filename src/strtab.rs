@@ -107,6 +107,13 @@ impl<'a> Strtab<'a> {
         Ok(self.strings.iter().map(|&(_key, value)| value).collect())
     }
     #[cfg(feature = "alloc")]
+    /// converts `bytes` to `Vec` and returns it without considering `delim`.
+    ///
+    /// Requires `feature = "alloc"
+    pub fn to_raw_vec(&self) -> Vec<u8> {
+        self.bytes.to_vec()
+    }
+    #[cfg(feature = "alloc")]
     /// Safely gets a str reference from the parsed table starting at byte `offset`.
     ///
     /// If the index is out of bounds, `None` is returned.

@@ -91,7 +91,8 @@ impl<'a> Strtab<'a> {
     #[cfg(feature = "alloc")]
     /// Converts the string table to a vector of parsed strings.
     ///
-    /// Note: If you want to get the correct `Vec` of shdr_strtab, don't use this method but use `get_at` to get it sequentially.
+    /// Note: This method is used to check the parsed contents of `strtab`.
+    /// If you want to get the correct contents of `strtab` as `Vec`, use the following example.
     ///
     /// # Examples
     /// ```rust

@@ -91,6 +91,24 @@ impl<'a> Strtab<'a> {
     #[cfg(feature = "alloc")]
     /// Converts the string table to a vector of parsed strings.
     ///
+    /// Note: This method is used to check the parsed contents of `strtab`.
+    /// If you want to get the correct contents of `strtab` as `Vec`, use the following example.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use goblin::error::Error;
+    ///
+    /// pub fn show_shdr_strtab(bytes: &[u8]) -> Result<(), Error> {
+    ///     let elf = goblin::elf::Elf::parse(&bytes)?;
+    ///
+    ///     for section in elf.section_headers {
+    ///         println!("{}", elf.shdr_strtab.get_at(section.sh_name).unwrap_or(""));
+    ///     }
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
     /// Requires `feature = "alloc"`
     pub fn to_vec(&self) -> error::Result<Vec<&'a str>> {
         // Fallback in case `Strtab` was created using `from_slice_unparsed()`.

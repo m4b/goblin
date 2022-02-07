@@ -92,8 +92,16 @@ impl FatArch {
         // FIXME: This function should ideally validate the inputs and return a `Result`.
         // Best we can do for now without `panic`ing is return an empty slice.
         let start = self.offset as usize;
-        let end = start.saturating_add(self.size as usize);
-        bytes.get(start..end).unwrap_or_default()
+        match start
+            .checked_add(self.size as usize)
+            .and_then(|end| bytes.get(start..end))
+        {
+            Some(slice) => slice,
+            None => {
+                log::warn!("invalid `FatArch` offset");
+                &[]
+            }
+        }
     }
 
     /// Returns the cpu type

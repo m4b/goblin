@@ -218,8 +218,7 @@ impl<'a> Index<'a> {
         let sizeof_table = buffer.gread_with::<u32>(offset, scroll::BE)? as usize;
 
         if sizeof_table > buffer.len() / 4 {
-            let message = format!("Buffer is too short for {} indices", sizeof_table);
-            return Err(Error::Malformed(message));
+            return Err(Error::BufferTooShort(sizeof_table, "indices"));
         }
 
         let mut indexes = Vec::with_capacity(sizeof_table);
@@ -277,8 +276,7 @@ impl<'a> Index<'a> {
         let strtab = strtab::Strtab::parse(buffer, entries_bytes + 8, strtab_bytes, 0x0)?;
 
         if entries_bytes > buffer.len() {
-            let message = format!("Buffer is too short for {} entries", entries);
-            return Err(Error::Malformed(message));
+            return Err(Error::BufferTooShort(entries, "entries"));
         }
 
         // build the index
@@ -324,8 +322,7 @@ impl<'a> Index<'a> {
         let members = buffer.gread_with::<u32>(offset, scroll::LE)? as usize;
 
         if members > buffer.len() / 4 {
-            let message = format!("Buffer is too short for {} members", members);
-            return Err(Error::Malformed(message));
+            return Err(Error::BufferTooShort(members, "members"));
         }
 
         let mut member_offsets = Vec::with_capacity(members);
@@ -336,8 +333,7 @@ impl<'a> Index<'a> {
         let symbols = buffer.gread_with::<u32>(offset, scroll::LE)? as usize;
 
         if symbols > buffer.len() / 2 {
-            let message = format!("Buffer is too short for {} symbols", symbols);
-            return Err(Error::Malformed(message));
+            return Err(Error::BufferTooShort(symbols, "symbols"));
         }
 
         let mut symbol_offsets = Vec::with_capacity(symbols);

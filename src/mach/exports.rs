@@ -200,8 +200,7 @@ impl<'a> ExportTrie<'a> {
         mut offset: usize,
     ) -> error::Result<Vec<(String, usize)>> {
         if nbranches > self.data.len() {
-            let message = format!("Buffer is too short for {} branches", nbranches);
-            return Err(error::Error::Malformed(message));
+            return Err(error::Error::BufferTooShort(nbranches, "branches"));
         }
         let mut branches = Vec::with_capacity(nbranches);
         //println!("\t@{:#x}", *offset);

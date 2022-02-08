@@ -147,8 +147,7 @@ impl CoffHeader {
 
         // a section table is at least 40 bytes
         if nsections > bytes.len() / 40 {
-            let message = format!("Buffer is too short for {} sections", nsections);
-            return Err(error::Error::Malformed(message));
+            return Err(error::Error::BufferTooShort(nsections, "sections"));
         }
 
         let mut sections = Vec::with_capacity(nsections);

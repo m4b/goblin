@@ -459,8 +459,7 @@ if_alloc! {
 
             // Sanity check to avoid OOM
             if count > bytes.len() / Self::size(ctx) {
-                let message = format!("Buffer is too short for {} section headers", count);
-                return Err(error::Error::Malformed(message));
+                return Err(error::Error::BufferTooShort(count, "section headers"));
             }
             let mut section_headers = Vec::with_capacity(count);
             section_headers.push(empty_sh);

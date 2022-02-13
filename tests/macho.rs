@@ -640,3 +640,10 @@ fn invalid_sym_offset() {
     ];
     assert!(Mach::parse(&data).is_err());
 }
+
+// See https://github.com/getsentry/symbolic/issues/479
+#[test]
+fn fuzzed_memory_growth() {
+    let bytes = b"\xfe\xed\xfa\xce\xce\xfa\xff\xfe\xcf*\x06;\xfe\xfa\xce\xff\xff\xff\xff0\xce:\xfa\xffj\xfe\xcf*\x06\x00;\xc6";
+    assert!(Mach::parse(&bytes[..]).is_err());
+}

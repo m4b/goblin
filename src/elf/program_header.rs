@@ -161,8 +161,7 @@ if_alloc! {
             use scroll::Pread;
             // Sanity check to avoid OOM
             if count > bytes.len() / Self::size(ctx) {
-                let message = format!("Buffer is too short for {} program headers", count);
-                return Err(error::Error::Malformed(message));
+                return Err(error::Error::BufferTooShort(count, "program headers"));
             }
             let mut program_headers = Vec::with_capacity(count);
             for _ in 0..count {

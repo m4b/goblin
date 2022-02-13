@@ -427,6 +427,7 @@ if_alloc! {
                         &[]
                     };
                     let size = Dyn::size_with(&ctx);
+                    // the validity of `count` was implicitly checked by reading `bytes`.
                     let count = filesz / size;
                     let mut dyns = Vec::with_capacity(count);
                     let mut offset = 0;
@@ -449,7 +450,7 @@ if_alloc! {
 
         pub fn get_libraries<'a>(&self, strtab: &Strtab<'a>) -> Vec<&'a str> {
             use log::warn;
-            let count = self.info.needed_count;
+            let count = self.info.needed_count.min(self.dyns.len());
             let mut needed = Vec::with_capacity(count);
             for dynamic in &self.dyns {
                 if dynamic.d_tag as u64 == DT_NEEDED {
@@ -565,7 +566,7 @@ macro_rules! elf_dyn_std_impl {
 
             /// Gets the needed libraries from the `_DYNAMIC` array, with the str slices lifetime tied to the dynamic array/strtab's lifetime(s)
             pub unsafe fn get_needed<'a>(dyns: &[Dyn], strtab: *const Strtab<'a>, count: usize) -> Vec<&'a str> {
-                let mut needed = Vec::with_capacity(count);
+                let mut needed = Vec::with_capacity(count.min(dyns.len()));
                 for dynamic in dyns {
                     if u64::from(dynamic.d_tag) == DT_NEEDED {
                         let lib = &(*strtab)[dynamic.d_val as usize];

@@ -418,10 +418,6 @@ pub enum IndexType {
 #[derive(Debug)]
 /// An in-memory representation of a parsed Unix Archive
 pub struct Archive<'a> {
-    // we can chuck this because the symbol index is a better representation, but we keep for
-    // debugging
-    index: Index<'a>,
-    sysv_name_index: NameIndex<'a>,
     // The array of members, which are indexed by the members hash and symbol index.
     // These are in the same order they are found in the file.
     member_array: Vec<Member<'a>>,
@@ -429,8 +425,6 @@ pub struct Archive<'a> {
     members: BTreeMap<&'a str, usize>,
     // symbol -> member
     symbol_index: BTreeMap<&'a str, usize>,
-    /// Type of the symbol index that was found in the archive.
-    index_type: IndexType,
 }
 
 impl<'a> Archive<'a> {
@@ -526,12 +520,9 @@ impl<'a> Archive<'a> {
         }
 
         Ok(Archive {
-            index,
             member_array,
-            sysv_name_index,
             members,
             symbol_index,
-            index_type,
         })
     }
 

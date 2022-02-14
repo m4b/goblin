@@ -332,8 +332,7 @@ use crate::container::{Container, Ctx};
 use crate::error::Result;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
-use core::fmt::{self, Debug};
-use core::result;
+use core::fmt;
 use scroll::ctx;
 use scroll::ctx::SizeWith;
 
@@ -438,6 +437,8 @@ impl ctx::SizeWith<Ctx> for Sym {
 }
 
 if_alloc! {
+    use core::result;
+
     impl<'a> ctx::TryFromCtx<'a, Ctx> for Sym {
         type Error = crate::error::Error;
         #[inline]
@@ -499,7 +500,7 @@ if_alloc! {
         end: usize,
     }
 
-    impl<'a> Debug for Symtab<'a> {
+    impl<'a> fmt::Debug for Symtab<'a> {
         fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
             let len = self.bytes.len();
             fmt.debug_struct("Symtab")

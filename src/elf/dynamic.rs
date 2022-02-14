@@ -403,7 +403,6 @@ if_alloc! {
     pub struct Dynamic {
         pub dyns: Vec<Dyn>,
         pub info: DynamicInfo,
-        count: usize,
     }
 
     impl Dynamic {
@@ -441,8 +440,7 @@ if_alloc! {
                     for dynamic in &dyns {
                         info.update(phdrs, dynamic);
                     }
-                    let count = dyns.len();
-                    return Ok(Some(Dynamic { dyns: dyns, info: info, count: count }));
+                    return Ok(Some(Dynamic { dyns: dyns, info: info, }));
                 }
             }
             Ok(None)

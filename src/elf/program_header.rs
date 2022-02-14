@@ -1,6 +1,6 @@
 /* Legal values for p_type (segment type).  */
 
-/// Program header table entry unused
+/// Programg header table entry unused
 pub const PT_NULL: u32 = 0;
 /// Loadable program segment
 pub const PT_LOAD: u32 = 1;
@@ -87,7 +87,6 @@ if_alloc! {
     use core::result;
     use core::ops::Range;
     use crate::container::{Ctx, Container};
-    use crate::error;
     use alloc::vec::Vec;
 
     #[derive(Default, PartialEq, Clone)]
@@ -161,7 +160,7 @@ if_alloc! {
             use scroll::Pread;
             // Sanity check to avoid OOM
             if count > bytes.len() / Self::size(ctx) {
-                return Err(error::Error::BufferTooShort(count, "program headers"));
+                return Err(crate::error::Error::BufferTooShort(count, "program headers"));
             }
             let mut program_headers = Vec::with_capacity(count);
             for _ in 0..count {

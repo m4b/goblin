@@ -520,7 +520,6 @@ impl<'a> Segment<'a> {
 /// An opaque 32/64-bit container for Mach-o segments
 pub struct Segments<'a> {
     segments: Vec<Segment<'a>>,
-    ctx: container::Ctx,
 }
 
 impl<'a> Deref for Segments<'a> {
@@ -546,10 +545,9 @@ impl<'a, 'b> IntoIterator for &'b Segments<'a> {
 
 impl<'a> Segments<'a> {
     /// Construct a new generalized segment container from this `ctx`
-    pub fn new(ctx: container::Ctx) -> Self {
+    pub fn new(_ctx: container::Ctx) -> Self {
         Segments {
             segments: Vec::new(),
-            ctx,
         }
     }
     /// Get every section from every segment

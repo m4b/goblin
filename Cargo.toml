@@ -10,7 +10,7 @@ authors = [
 ]
 categories = ["parsing", "development-tools::debugging"]
 documentation = "https://docs.rs/goblin"
-edition = "2018"
+edition = "2021"
 include = [
     "src",
     "CHANGELOG.md",

@@ -20,7 +20,7 @@ https://docs.rs/goblin/
 
 ### Usage
 
-Goblin requires `rustc` 1.40.0.
+Goblin requires `rustc` 1.56.0 (Rust 2021 edition).
 
 Add to your `Cargo.toml`
 

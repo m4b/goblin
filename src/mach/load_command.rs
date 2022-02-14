@@ -507,24 +507,26 @@ impl<'a> ctx::TryFromCtx<'a, Endian> for ThreadCommand {
         let flavor: u32 = bytes.pread_with(8, le)?;
         let count: u32 = bytes.pread_with(12, le)?;
 
-        // get a byte slice of the thread state
-        let thread_state_byte_length = count as usize * 4;
-        let thread_state_bytes = &bytes[16..16 + thread_state_byte_length];
-
-        // check the length
-        if thread_state_bytes.len() < thread_state_byte_length {
-            return Err(error::Error::Malformed(format!(
-                "thread command specifies {} bytes for thread state but has only {}",
-                thread_state_byte_length,
-                thread_state_bytes.len()
-            )));
-        }
         if count > 70 {
             return Err(error::Error::Malformed(format!(
                 "thread command specifies {} longs for thread state but we handle only 70",
                 count
             )));
         }
+
+        // get a byte slice of the thread state
+        let thread_state_byte_length = count as usize * 4;
+
+        // check the length
+        if bytes.len() < 16 + thread_state_byte_length {
+            return Err(error::Error::Malformed(format!(
+                "thread command specifies {} bytes for thread state but has only {}",
+                thread_state_byte_length,
+                bytes.len()
+            )));
+        }
+
+        let thread_state_bytes = &bytes[16..16 + thread_state_byte_length];
 
         // read the thread state
         let mut thread_state: [u32; 70] = [0; 70];

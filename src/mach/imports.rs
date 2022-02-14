@@ -143,7 +143,10 @@ impl<'a> Debug for BindInterpreter<'a> {
 impl<'a> BindInterpreter<'a> {
     /// Construct a new import binding interpreter from `bytes` and the load `command`
     pub fn new(bytes: &'a [u8], command: &load_command::DyldInfoCommand) -> Self {
-        let get_pos = |off: u32, size: u32| -> Range<usize> { off as usize..(off + size) as usize };
+        let get_pos = |off: u32, size: u32| -> Range<usize> {
+            let start = off as usize;
+            start..start.saturating_add(size as usize)
+        };
         let location = get_pos(command.bind_off, command.bind_size);
         let lazy_location = get_pos(command.lazy_bind_off, command.lazy_bind_size);
         BindInterpreter {

@@ -277,10 +277,21 @@ impl<'a> ExportTrie<'a> {
     /// Create a new, lazy, zero-copy export trie from the `DyldInfo` `command`
     pub fn new(bytes: &'a [u8], command: &load_command::DyldInfoCommand) -> Self {
         let start = command.export_off as usize;
-        let end = (command.export_size + command.export_off) as usize;
+        // FIXME: Ideally, this should validate `command`, but the best we can
+        // do for now is return an empty `Range`.
+        let location = match start
+            .checked_add(command.export_size as usize)
+            .and_then(|end| bytes.get(start..end).map(|_| start..end))
+        {
+            Some(location) => location,
+            None => {
+                log::warn!("Invalid `DyldInfo` `command`.");
+                0..0
+            }
+        };
         ExportTrie {
             data: bytes,
-            location: start..end,
+            location,
         }
     }
 }
@@ -318,5 +329,16 @@ mod tests {
         let exports = trie.exports(&libs).unwrap();
         println!("len: {} exports: {:#?}", exports.len(), &exports);
         assert_eq!(exports.len() as usize, 3usize)
+    }
+
+    #[test]
+    fn invalid_range() {
+        let mut command = load_command::DyldInfoCommand::default();
+        command.export_off = 0xffff_ff00;
+        command.export_size = 0x00ff_ff00;
+        let trie = ExportTrie::new(&[], &command);
+        // FIXME: it would have been nice if this were an `Err`.
+        let exports = trie.exports(&[]).unwrap();
+        assert_eq!(exports.len(), 0);
     }
 }

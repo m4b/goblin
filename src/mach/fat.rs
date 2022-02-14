@@ -89,9 +89,19 @@ impl fmt::Debug for FatArch {
 impl FatArch {
     /// Get the slice of bytes this header describes from `bytes`
     pub fn slice<'a>(&self, bytes: &'a [u8]) -> &'a [u8] {
+        // FIXME: This function should ideally validate the inputs and return a `Result`.
+        // Best we can do for now without `panic`ing is return an empty slice.
         let start = self.offset as usize;
-        let end = (self.offset + self.size) as usize;
-        &bytes[start..end]
+        match start
+            .checked_add(self.size as usize)
+            .and_then(|end| bytes.get(start..end))
+        {
+            Some(slice) => slice,
+            None => {
+                log::warn!("invalid `FatArch` offset");
+                &[]
+            }
+        }
     }
 
     /// Returns the cpu type

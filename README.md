@@ -26,7 +26,7 @@ Add to your `Cargo.toml`
 
 ```toml
 [dependencies]
-goblin = "0.4"
+goblin = "0.5"
 ```
 
 ### Features
@@ -112,8 +112,9 @@ In lexicographic order:
 - [@burjui]
 - [@connorkuehl]
 - [@dancrossnyc]
-- [@ExPixel]
+- [@dureuill]
 - [@Evian-Zhang]
+- [@ExPixel]
 - [@flanfly]
 - [@glandium]
 - [@ibabushkin]
@@ -138,6 +139,7 @@ In lexicographic order:
 - [@mitsuhiko]
 - [@mre]
 - [@Mrmaxmeier]
+- [n01e0]
 - [@nico-abram]
 - [@npmccallum]
 - [@pchickey]
@@ -147,7 +149,9 @@ In lexicographic order:
 - [@raindev]
 - [@rocallahan]
 - [@sanxiyn]
+- [@skdltmxn]
 - [@sollyucko]
+- [@Swatinem]
 - [@tathanhdinh]
 - [@Techno-coder]
 - [@ticki]
@@ -166,6 +170,7 @@ In lexicographic order:
 [@burjui]: https://github.com/burjui
 [@connorkuehl]: https://github.com/connorkuehl
 [@dancrossnyc]: https://github.com/dancrossnyc
+[@dureuill]: https://github.com/dureuill
 [@Evian-Zhang]: https://github.com/Evian-Zhang
 [@ExPixel]: https://github.com/ExPixel
 [@flanfly]: https://github.com/flanfly
@@ -192,6 +197,7 @@ In lexicographic order:
 [@mitsuhiko]: https://github.com/mitsuhiko
 [@mre]: https://github.com/mre
 [@Mrmaxmeier]: https://github.com/Mrmaxmeier
+[n01e0]: https://github.com/n01e0
 [@nico-abram]: https://github.com/nico-abram
 [@npmccallum]: https://github.com/npmccallum
 [@pchickey]: https://github.com/pchickey
@@ -201,7 +207,9 @@ In lexicographic order:
 [@raindev]: https://github.com/raindev
 [@rocallahan]: https://github.com/rocallahan
 [@sanxiyn]: https://github.com/sanxiyn
+[@skdltmxn]: https://github.com/skdltmxn
 [@sollyucko]: https://github.com/sollyucko
+[@Swatinem]: https://github.com/Swatinem
 [@tathanhdinh]: https://github.com/tathanhdinh
 [@Techno-coder]: https://github.com/Techno-coder
 [@ticki]: https://github.com/ticki

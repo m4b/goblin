@@ -3,7 +3,21 @@ All notable changes to this project will be documented in this file.
 
 Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-Goblin is now 0.4, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
+Goblin is now 0.5, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
+
+## [0.5.0] - 2022-2-13
+### BREAKING
+goblin: guard all capacity allocations with bounds checks, this is breaking because we introduced a new error enum, which is now marked as non_exhaustive, thanks @Swatinem: https://github.com/m4b/goblin/pull/298
+pe: support exports without an offset, thanks @dureuill: https://github.com/m4b/goblin/pull/293
+### Fixed
+mach: fix overflow panics, thanks @Swatinem: https://github.com/m4b/goblin/pull/302
+pe: add signature header check, thanks @skdltmxn: https://github.com/m4b/goblin/pull/286
+elf: improve parsing `SHT_SYMTAB` complexity from O(N^2) to O(N), thanks @Lichsto: https://github.com/m4b/goblin/pull/297
+### Added
+elf: clarify documentation on strtab behavior better, and add nice doc example, thanks @n01e0: https://github.com/m4b/goblin/pull/301
+elf: add rpaths and runpath to elf, thanks @messense: https://github.com/m4b/goblin/pull/294
+elf: complete elf OSABI constants, thanks @messense: https://github.com/m4b/goblin/pull/295
+elf: fill out more elf constants, thanks @n01e0: https://github.com/m4b/goblin/pull/296
 
 ## [0.4.3] - 2021-9-18
 ### Added

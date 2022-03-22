@@ -265,6 +265,25 @@ impl<'a> ExportTrie<'a> {
         }
     }
 
+    fn new_impl(bytes: &'a [u8], start: usize, size: usize) -> Self {
+        // FIXME: Ideally, this should validate `command`, but the best we can
+        // do for now is return an empty `Range`.
+        let location = match start
+            .checked_add(size)
+            .and_then(|end| bytes.get(start..end).map(|_| start..end))
+        {
+            Some(location) => location,
+            None => {
+                log::warn!("Invalid `DyldInfo` `command`.");
+                0..0
+            }
+        };
+        ExportTrie {
+            data: bytes,
+            location,
+        }
+    }
+
     /// Walk the export trie for symbols exported by this binary, using the provided `libs` to resolve re-exports
     pub fn exports(&self, libs: &[&'a str]) -> error::Result<Vec<Export<'a>>> {
         let offset = self.location.start;
@@ -276,23 +295,11 @@ impl<'a> ExportTrie<'a> {
 
     /// Create a new, lazy, zero-copy export trie from the `DyldInfo` `command`
     pub fn new(bytes: &'a [u8], command: &load_command::DyldInfoCommand) -> Self {
-        let start = command.export_off as usize;
-        // FIXME: Ideally, this should validate `command`, but the best we can
-        // do for now is return an empty `Range`.
-        let location = match start
-            .checked_add(command.export_size as usize)
-            .and_then(|end| bytes.get(start..end).map(|_| start..end))
-        {
-            Some(location) => location,
-            None => {
-                log::warn!("Invalid `DyldInfo` `command`.");
-                0..0
-            }
-        };
-        ExportTrie {
-            data: bytes,
-            location,
-        }
+        Self::new_impl(
+            bytes,
+            command.export_off as usize,
+            command.export_size as usize,
+        )
     }
 
     /// Create a new, lazy, zero-copy export trie from the `LinkeditDataCommand` `command`
@@ -300,23 +307,7 @@ impl<'a> ExportTrie<'a> {
         bytes: &'a [u8],
         command: &load_command::LinkeditDataCommand,
     ) -> Self {
-        let start = command.dataoff as usize;
-        // FIXME: Ideally, this should validate `command`, but the best we can
-        // do for now is return an empty `Range`.
-        let location = match start
-            .checked_add(command.datasize as usize)
-            .and_then(|end| bytes.get(start..end).map(|_| start..end))
-        {
-            Some(location) => location,
-            None => {
-                log::warn!("Invalid `DyldInfo` `command`.");
-                0..0
-            }
-        };
-        ExportTrie {
-            data: bytes,
-            location,
-        }
+        Self::new_impl(bytes, command.dataoff as usize, command.datasize as usize)
     }
 }
 

@@ -265,22 +265,11 @@ impl<'a> ExportTrie<'a> {
         }
     }
 
-    /// Walk the export trie for symbols exported by this binary, using the provided `libs` to resolve re-exports
-    pub fn exports(&self, libs: &[&'a str]) -> error::Result<Vec<Export<'a>>> {
-        let offset = self.location.start;
-        let current_symbol = String::new();
-        let mut exports = Vec::new();
-        self.walk_trie(libs, current_symbol, offset, &mut exports)?;
-        Ok(exports)
-    }
-
-    /// Create a new, lazy, zero-copy export trie from the `DyldInfo` `command`
-    pub fn new(bytes: &'a [u8], command: &load_command::DyldInfoCommand) -> Self {
-        let start = command.export_off as usize;
+    fn new_impl(bytes: &'a [u8], start: usize, size: usize) -> Self {
         // FIXME: Ideally, this should validate `command`, but the best we can
         // do for now is return an empty `Range`.
         let location = match start
-            .checked_add(command.export_size as usize)
+            .checked_add(size)
             .and_then(|end| bytes.get(start..end).map(|_| start..end))
         {
             Some(location) => location,
@@ -293,6 +282,32 @@ impl<'a> ExportTrie<'a> {
             data: bytes,
             location,
         }
+    }
+
+    /// Walk the export trie for symbols exported by this binary, using the provided `libs` to resolve re-exports
+    pub fn exports(&self, libs: &[&'a str]) -> error::Result<Vec<Export<'a>>> {
+        let offset = self.location.start;
+        let current_symbol = String::new();
+        let mut exports = Vec::new();
+        self.walk_trie(libs, current_symbol, offset, &mut exports)?;
+        Ok(exports)
+    }
+
+    /// Create a new, lazy, zero-copy export trie from the `DyldInfo` `command`
+    pub fn new(bytes: &'a [u8], command: &load_command::DyldInfoCommand) -> Self {
+        Self::new_impl(
+            bytes,
+            command.export_off as usize,
+            command.export_size as usize,
+        )
+    }
+
+    /// Create a new, lazy, zero-copy export trie from the `LinkeditDataCommand` `command`
+    pub fn new_from_linkedit_data_command(
+        bytes: &'a [u8],
+        command: &load_command::LinkeditDataCommand,
+    ) -> Self {
+        Self::new_impl(bytes, command.dataoff as usize, command.datasize as usize)
     }
 }
 
@@ -329,6 +344,28 @@ mod tests {
         let exports = trie.exports(&libs).unwrap();
         println!("len: {} exports: {:#?}", exports.len(), &exports);
         assert_eq!(exports.len() as usize, 3usize)
+    }
+
+    #[test]
+    fn export_trie_linkedit_data() {
+        const EXPORTS: [u8; 64] = [
+            0x00, 0x01, 0x5f, 0x00, 0x05, 0x00, 0x02, 0x5f, 0x6d, 0x68, 0x5f, 0x65, 0x78, 0x65,
+            0x63, 0x75, 0x74, 0x65, 0x5f, 0x68, 0x65, 0x61, 0x64, 0x65, 0x72, 0x00, 0x1f, 0x6d,
+            0x61, 0x00, 0x23, 0x02, 0x00, 0x00, 0x00, 0x00, 0x02, 0x78, 0x69, 0x6d, 0x75, 0x6d,
+            0x00, 0x30, 0x69, 0x6e, 0x00, 0x35, 0x03, 0x00, 0xc0, 0x1e, 0x00, 0x03, 0x00, 0xd0,
+            0x1e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
+        let exports = &EXPORTS[..];
+        let libs = vec!["/usr/lib/libderp.so", "/usr/lib/libthuglife.so"];
+        let command = load_command::LinkeditDataCommand {
+            datasize: exports.len() as u32,
+            ..Default::default()
+        };
+        let trie = ExportTrie::new_from_linkedit_data_command(exports, &command);
+        println!("trie: {:#?}", &trie);
+        let exports = trie.exports(&libs).unwrap();
+        println!("len: {} exports: {:#?}", exports.len(), &exports);
+        assert_eq!(exports.len() as usize, 3usize);
     }
 
     #[test]

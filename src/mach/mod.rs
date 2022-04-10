@@ -210,6 +210,11 @@ impl<'a> MachO<'a> {
                     export_trie = Some(exports::ExportTrie::new(bytes, &command));
                     bind_interpreter = Some(imports::BindInterpreter::new(bytes, &command));
                 }
+                load_command::CommandVariant::DyldExportsTrie(command) => {
+                    export_trie = Some(exports::ExportTrie::new_from_linkedit_data_command(
+                        bytes, &command,
+                    ));
+                }
                 load_command::CommandVariant::Unixthread(command) => {
                     // dyld cares only about the first LC_UNIXTHREAD
                     if unixthread_entry_address.is_none() {

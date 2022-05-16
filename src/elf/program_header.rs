@@ -233,118 +233,127 @@ if_alloc! {
     }
 } // end if_alloc
 
-macro_rules! elf_program_header_std_impl { ($size:ty) => {
-
-    #[cfg(test)]
-    mod tests {
-        use super::*;
-        #[test]
-        fn size_of() {
-            assert_eq!(::std::mem::size_of::<ProgramHeader>(), SIZEOF_PHDR);
-        }
-    }
-
-    if_alloc! {
-
-
-        use crate::elf::program_header::ProgramHeader as ElfProgramHeader;
-        #[cfg(any(feature = "std", feature = "endian_fd"))]
-        use crate::error::Result;
-
-        use plain::Plain;
-
-        if_std! {
-            use std::fs::File;
-            use std::io::{Seek, Read};
-            use std::io::SeekFrom::Start;
+macro_rules! elf_program_header_std_impl {
+    ($size:ty) => {
+        #[cfg(test)]
+        mod tests {
+            use super::*;
+            #[test]
+            fn size_of() {
+                assert_eq!(::std::mem::size_of::<ProgramHeader>(), SIZEOF_PHDR);
+            }
         }
 
-        impl From<ProgramHeader> for ElfProgramHeader {
-            fn from(ph: ProgramHeader) -> Self {
-                ElfProgramHeader {
-                    p_type   : ph.p_type,
-                    p_flags  : ph.p_flags,
-                    p_offset : u64::from(ph.p_offset),
-                    p_vaddr  : u64::from(ph.p_vaddr),
-                    p_paddr  : u64::from(ph.p_paddr),
-                    p_filesz : u64::from(ph.p_filesz),
-                    p_memsz  : u64::from(ph.p_memsz),
-                    p_align  : u64::from(ph.p_align),
+        if_alloc! {
+
+
+            use crate::elf::program_header::ProgramHeader as ElfProgramHeader;
+            #[cfg(any(feature = "std", feature = "endian_fd"))]
+            use crate::error::Result;
+
+            use plain::Plain;
+
+            if_std! {
+                use std::fs::File;
+                use std::io::{Seek, Read};
+                use std::io::SeekFrom::Start;
+            }
+
+            impl From<ProgramHeader> for ElfProgramHeader {
+                fn from(ph: ProgramHeader) -> Self {
+                    ElfProgramHeader {
+                        p_type   : ph.p_type,
+                        p_flags  : ph.p_flags,
+                        p_offset : u64::from(ph.p_offset),
+                        p_vaddr  : u64::from(ph.p_vaddr),
+                        p_paddr  : u64::from(ph.p_paddr),
+                        p_filesz : u64::from(ph.p_filesz),
+                        p_memsz  : u64::from(ph.p_memsz),
+                        p_align  : u64::from(ph.p_align),
+                    }
                 }
             }
-        }
 
-        impl From<ElfProgramHeader> for ProgramHeader {
-            fn from(ph: ElfProgramHeader) -> Self {
-                ProgramHeader {
-                    p_type   : ph.p_type,
-                    p_flags  : ph.p_flags,
-                    p_offset : ph.p_offset as $size,
-                    p_vaddr  : ph.p_vaddr  as $size,
-                    p_paddr  : ph.p_paddr  as $size,
-                    p_filesz : ph.p_filesz as $size,
-                    p_memsz  : ph.p_memsz  as $size,
-                    p_align  : ph.p_align  as $size,
+            impl From<ElfProgramHeader> for ProgramHeader {
+                fn from(ph: ElfProgramHeader) -> Self {
+                    ProgramHeader {
+                        p_type   : ph.p_type,
+                        p_flags  : ph.p_flags,
+                        p_offset : ph.p_offset as $size,
+                        p_vaddr  : ph.p_vaddr  as $size,
+                        p_paddr  : ph.p_paddr  as $size,
+                        p_filesz : ph.p_filesz as $size,
+                        p_memsz  : ph.p_memsz  as $size,
+                        p_align  : ph.p_align  as $size,
+                    }
                 }
             }
-        }
-    } // end if_alloc
+        } // end if_alloc
 
-    use core::fmt;
-    use core::slice;
+        use core::fmt;
+        use core::slice;
 
-    impl fmt::Debug for ProgramHeader {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            f.debug_struct("ProgramHeader")
-                .field("p_type", &pt_to_str(self.p_type))
-                .field("p_flags", &format_args!("0x{:x}", self.p_flags))
-                .field("p_offset", &format_args!("0x{:x}", self.p_offset))
-                .field("p_vaddr", &format_args!("0x{:x}", self.p_vaddr))
-                .field("p_paddr", &format_args!("0x{:x}", self.p_paddr))
-                .field("p_filesz", &format_args!("0x{:x}", self.p_filesz))
-                .field("p_memsz", &format_args!("0x{:x}", self.p_memsz))
-                .field("p_align", &self.p_align)
-                .finish()
-        }
-    }
-
-    impl ProgramHeader {
-        #[cfg(feature = "endian_fd")]
-        pub fn parse(bytes: &[u8], mut offset: usize, count: usize, ctx: ::scroll::Endian) -> Result<Vec<ProgramHeader>> {
-            use scroll::Pread;
-            let mut program_headers = vec![ProgramHeader::default(); count];
-            let offset = &mut offset;
-            bytes.gread_inout_with(offset, &mut program_headers, ctx)?;
-            Ok(program_headers)
-        }
-
-        #[cfg(feature = "alloc")]
-        pub fn from_bytes(bytes: &[u8], phnum: usize) -> Vec<ProgramHeader> {
-            let mut phdrs = vec![ProgramHeader::default(); phnum];
-            phdrs.copy_from_bytes(bytes).expect("buffer is too short for given number of entries");
-            phdrs
-        }
-
-        /// # Safety
-        ///
-        /// This function creates a `ProgramHeader` directly from a raw pointer
-        pub unsafe fn from_raw_parts<'a>(phdrp: *const ProgramHeader,
-                                         phnum: usize)
-                                         -> &'a [ProgramHeader] {
-            slice::from_raw_parts(phdrp, phnum)
-        }
-
-        #[cfg(feature = "std")]
-        pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> Result<Vec<ProgramHeader>> {
-            let mut phdrs = vec![ProgramHeader::default(); count];
-            fd.seek(Start(offset))?;
-            unsafe {
-                fd.read_exact(plain::as_mut_bytes(&mut *phdrs))?;
+        impl fmt::Debug for ProgramHeader {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.debug_struct("ProgramHeader")
+                    .field("p_type", &pt_to_str(self.p_type))
+                    .field("p_flags", &format_args!("0x{:x}", self.p_flags))
+                    .field("p_offset", &format_args!("0x{:x}", self.p_offset))
+                    .field("p_vaddr", &format_args!("0x{:x}", self.p_vaddr))
+                    .field("p_paddr", &format_args!("0x{:x}", self.p_paddr))
+                    .field("p_filesz", &format_args!("0x{:x}", self.p_filesz))
+                    .field("p_memsz", &format_args!("0x{:x}", self.p_memsz))
+                    .field("p_align", &self.p_align)
+                    .finish()
             }
-            Ok(phdrs)
         }
-    }
-};}
+
+        impl ProgramHeader {
+            #[cfg(feature = "endian_fd")]
+            pub fn parse(
+                bytes: &[u8],
+                mut offset: usize,
+                count: usize,
+                ctx: ::scroll::Endian,
+            ) -> Result<Vec<ProgramHeader>> {
+                use scroll::Pread;
+                let mut program_headers = vec![ProgramHeader::default(); count];
+                let offset = &mut offset;
+                bytes.gread_inout_with(offset, &mut program_headers, ctx)?;
+                Ok(program_headers)
+            }
+
+            #[cfg(feature = "alloc")]
+            pub fn from_bytes(bytes: &[u8], phnum: usize) -> Vec<ProgramHeader> {
+                let mut phdrs = vec![ProgramHeader::default(); phnum];
+                phdrs
+                    .copy_from_bytes(bytes)
+                    .expect("buffer is too short for given number of entries");
+                phdrs
+            }
+
+            /// # Safety
+            ///
+            /// This function creates a `ProgramHeader` directly from a raw pointer
+            pub unsafe fn from_raw_parts<'a>(
+                phdrp: *const ProgramHeader,
+                phnum: usize,
+            ) -> &'a [ProgramHeader] {
+                slice::from_raw_parts(phdrp, phnum)
+            }
+
+            #[cfg(feature = "std")]
+            pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> Result<Vec<ProgramHeader>> {
+                let mut phdrs = vec![ProgramHeader::default(); count];
+                fd.seek(Start(offset))?;
+                unsafe {
+                    fd.read_exact(plain::as_mut_bytes(&mut *phdrs))?;
+                }
+                Ok(phdrs)
+            }
+        }
+    };
+}
 
 #[cfg(feature = "alloc")]
 use scroll::{Pread, Pwrite, SizeWith};

@@ -125,11 +125,11 @@ if_alloc! {
         }
         /// Returns this program header's file offset range
         pub fn file_range(&self) -> Range<usize> {
-            self.p_offset as usize..self.p_offset as usize + self.p_filesz as usize
+            self.p_offset as usize..self.p_offset.saturating_add(self.p_filesz) as usize
         }
         /// Returns this program header's virtual memory range
         pub fn vm_range(&self) -> Range<usize> {
-            self.p_vaddr as usize..self.p_vaddr as usize + self.p_memsz as usize
+            self.p_vaddr as usize..self.p_vaddr.saturating_add(self.p_memsz) as usize
         }
         /// Sets the executable flag
         pub fn executable(&mut self) {

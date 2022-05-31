@@ -174,7 +174,7 @@ impl CoffHeader {
         let mut offset = self.pointer_to_symbol_table as usize
             + symbol::SymbolTable::size(self.number_of_symbol_table as usize);
 
-        let length_field_size = std::mem::size_of::<u32>();
+        let length_field_size = core::mem::size_of::<u32>();
         let length = bytes.pread_with::<u32>(offset, scroll::LE)? as usize - length_field_size;
 
         // The offset needs to be advanced in order to read the strings.

@@ -150,8 +150,8 @@ impl<'a> CodeviewPDB70DebugInfo<'a> {
 
         // calculate how long the eventual filename will be, which doubles as a check of the record size
         let filename_length = idd.size_of_data as isize - 24;
-        if filename_length < 0 || filename_length > 1024 {
-            // the record is too short or too long to be plausible
+        if filename_length < 0 {
+            // the record is too short to be plausible
             return Err(error::Error::Malformed(format!(
                 "ImageDebugDirectory size of data seems wrong: {:?}",
                 idd.size_of_data

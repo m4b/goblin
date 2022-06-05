@@ -171,9 +171,15 @@ impl CoffHeader {
 
     /// Return the COFF string table.
     pub fn strings<'a>(&self, bytes: &'a [u8]) -> error::Result<strtab::Strtab<'a>> {
-        let offset = self.pointer_to_symbol_table as usize
+        let mut offset = self.pointer_to_symbol_table as usize
             + symbol::SymbolTable::size(self.number_of_symbol_table as usize);
-        let length = bytes.pread_with::<u32>(offset, scroll::LE)? as usize;
+
+        let length_field_size = core::mem::size_of::<u32>();
+        let length = bytes.pread_with::<u32>(offset, scroll::LE)? as usize - length_field_size;
+
+        // The offset needs to be advanced in order to read the strings.
+        offset += length_field_size;
+
         Ok(strtab::Strtab::parse(bytes, offset, length, 0)?)
     }
 }

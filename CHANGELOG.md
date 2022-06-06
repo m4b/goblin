@@ -5,7 +5,16 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.5, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
-## [0.5.0] - 2022-2-13
+## [0.5.2] - 2022-6-5
+### Fixed
+elf: fix arithmetic overflows in `file_range()` and `vm_range()`, thanks @alessandron: https://github.com/m4b/goblin/pull/306
+pe: fix string table containing empty strings, thanks @track-5: https://github.com/m4b/goblin/pull/310
+pe: remove check on debug directory size, thanks @lzybkr: https://github.com/m4b/goblin/pull/313
+### Added
+elf: expose more of programheader impl regardless of alloc feature flag, thanks @dancrossnyc: https://github.com/m4b/goblin/pull/308
+mach.parse: Handle DyldExportsTrie, thanks @apalm: https://github.com/m4b/goblin/pull/303
+
+## [0.5.1] - 2022-2-13
 ### BREAKING
 goblin: guard all capacity allocations with bounds checks, this is breaking because we introduced a new error enum, which is now marked as non_exhaustive, thanks @Swatinem: https://github.com/m4b/goblin/pull/298
 pe: support exports without an offset, thanks @dureuill: https://github.com/m4b/goblin/pull/293
@@ -18,6 +27,9 @@ elf: clarify documentation on strtab behavior better, and add nice doc example, 
 elf: add rpaths and runpath to elf, thanks @messense: https://github.com/m4b/goblin/pull/294
 elf: complete elf OSABI constants, thanks @messense: https://github.com/m4b/goblin/pull/295
 elf: fill out more elf constants, thanks @n01e0: https://github.com/m4b/goblin/pull/296
+
+## [0.5.0] - 2022-2-13
+YANKED, see 0.5.1
 
 ## [0.4.3] - 2021-9-18
 ### Added

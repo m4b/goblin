@@ -108,7 +108,9 @@ Thank you all :heart: !
 In lexicographic order:
 
 - [@2vg]
+- [@alessandrod]
 - [@amanieu]
+- [@apalm]
 - [@burjui]
 - [@connorkuehl]
 - [@dancrossnyc]
@@ -157,6 +159,7 @@ In lexicographic order:
 - [@ticki]
 - [@Timmmm]
 - [@Tiwalun]
+- [@track-5]
 - [@wickerwacka]
 - [@willglynn]
 - [@woodruffw]
@@ -166,7 +169,9 @@ In lexicographic order:
 <!-- Contributors -->
 
 [@2vg]: https://github.com/2vg
+[@alessandrod]: https://github.com/alessandrod
 [@amanieu]: https://github.com/amanieu
+[@apalm]: https://github.com/apalm
 [@burjui]: https://github.com/burjui
 [@connorkuehl]: https://github.com/connorkuehl
 [@dancrossnyc]: https://github.com/dancrossnyc
@@ -215,6 +220,7 @@ In lexicographic order:
 [@ticki]: https://github.com/ticki
 [@Timmmm]: https://github.com/Timmmm
 [@Tiwalun]: https://github.com/Tiwalun
+[@track-5]: https://github.com/track-5
 [@wickerwacka]: https://github.com/wickerwaka
 [@willglynn]: https://github.com/willglynn
 [@woodruffw]: https://github.com/woodruffw

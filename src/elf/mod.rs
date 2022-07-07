@@ -277,7 +277,14 @@ if_sylvan! {
 
             let section_headers = SectionHeader::parse(bytes, header.e_shoff as usize, header.e_shnum as usize, ctx)?;
 
-            let get_strtab = |section_headers: &[SectionHeader], section_idx: usize| {
+            let get_strtab = |section_headers: &[SectionHeader], mut section_idx: usize| {
+                if section_idx == section_header::SHN_XINDEX as usize {
+                    if section_headers.is_empty() {
+                        return Ok(Strtab::default())
+                    }
+                    section_idx = section_headers[0].sh_link as usize;
+                }
+
                 if section_idx >= section_headers.len() {
                     // FIXME: warn! here
                     Ok(Strtab::default())

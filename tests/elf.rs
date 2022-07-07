@@ -1,4 +1,4 @@
-use goblin::elf::section_header::SHT_GNU_HASH;
+use goblin::elf::section_header::{SHN_XINDEX, SHT_GNU_HASH};
 use goblin::elf::sym::{Sym, Symtab};
 use goblin::elf::symver::{VerdefSection, VerneedSection, VersymSection};
 use goblin::elf::Elf;
@@ -51,7 +51,12 @@ fn parse_text_section_size_lazy(base: &[u8]) -> Result<u64, &'static str> {
         SectionHeader::parse(base, header.e_shoff as usize, header.e_shnum as usize, ctx)
             .map_err(|_| "parse section headers error")?;
 
-    let strtab_idx = header.e_shstrndx as usize;
+    let strtab_idx = if header.e_shstrndx as u32 == SHN_XINDEX {
+        obj.section_headers[0].sh_link as usize
+    } else {
+        header.e_shstrndx as usize
+    };
+
     let strtab_shdr = &obj.section_headers[strtab_idx];
     let strtab = Strtab::parse(
         base,

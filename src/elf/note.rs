@@ -68,6 +68,9 @@ pub struct Nhdr32 {
     pub n_type: u32,
 }
 
+// Declare that this is a plain type.
+unsafe impl plain::Plain for Nhdr32 {}
+
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, IOread, IOwrite, SizeWith))]
 #[repr(C)]
@@ -81,6 +84,9 @@ pub struct Nhdr64 {
     /// Type of the note.
     pub n_type: u64,
 }
+
+// Declare that this is a plain type.
+unsafe impl plain::Plain for Nhdr64 {}
 
 if_alloc! {
     use crate::error;

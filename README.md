@@ -139,6 +139,7 @@ In lexicographic order:
 - [@m4b]
 - [@messense]
 - [@mitsuhiko]
+- [@mkroening]
 - [@mre]
 - [@Mrmaxmeier]
 - [n01e0]
@@ -160,6 +161,7 @@ In lexicographic order:
 - [@Timmmm]
 - [@Tiwalun]
 - [@track-5]
+- [@tux3]
 - [@wickerwacka]
 - [@willglynn]
 - [@woodruffw]
@@ -200,6 +202,7 @@ In lexicographic order:
 [@m4b]: https://github.com/m4b
 [@messense]: https://github.com/messense
 [@mitsuhiko]: https://github.com/mitsuhiko
+[@mkroening]: https://github.com/mkroening
 [@mre]: https://github.com/mre
 [@Mrmaxmeier]: https://github.com/Mrmaxmeier
 [n01e0]: https://github.com/n01e0
@@ -221,6 +224,7 @@ In lexicographic order:
 [@Timmmm]: https://github.com/Timmmm
 [@Tiwalun]: https://github.com/Tiwalun
 [@track-5]: https://github.com/track-5
+[@tux3]: https://github.com/tux3
 [@wickerwacka]: https://github.com/wickerwaka
 [@willglynn]: https://github.com/willglynn
 [@woodruffw]: https://github.com/woodruffw

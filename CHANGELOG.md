@@ -5,6 +5,12 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.5, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
+## [0.5.3] - 2022-7-16
+### Fixed
+elf: fix elf strtab parsing, thanks @tux3: https://github.com/m4b/goblin/pull/316
+### Added
+elf: implement plain for note headers, thanks @mkroening: https://github.com/m4b/goblin/pull/317
+
 ## [0.5.2] - 2022-6-5
 ### Fixed
 elf: fix arithmetic overflows in `file_range()` and `vm_range()`, thanks @alessandron: https://github.com/m4b/goblin/pull/306

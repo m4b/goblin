@@ -352,7 +352,7 @@ pub fn peek_bytes(bytes: &[u8; 16]) -> error::Result<crate::Hint> {
             fat::FAT_MAGIC => {
                 // should probably verify this is always Big Endian...
                 let narchitectures = bytes.pread_with::<u32>(4, BE)? as usize;
-                Ok(Hint::MachFat(narchitectures))
+                Ok(crate::Hint::MachFat(narchitectures))
             }
             _ => Ok(crate::Hint::Unknown(bytes.pread::<u64>(0)?)),
         }
@@ -518,6 +518,69 @@ impl<'a> Mach<'a> {
                 let binary = MachO::parse(bytes, 0)?;
                 Ok(Mach::Binary(binary))
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::{Mach, SingleArch};
+
+    #[test]
+    fn parse_multi_arch_of_macho_binaries() {
+        // Create via:
+        // clang -arch arm64 -shared -o /tmp/hello_world_arm hello_world.c
+        // clang -arch x86_64 -shared -o /tmp/hello_world_x86_64 hello_world.c
+        // lipo -create -output hello_world_fat_binaries /tmp/hello_world_arm /tmp/hello_world_x86_64
+        // strip hello_world_fat_binaries
+        let bytes = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/assets/hello_world_fat_binaries"
+        ));
+        let mach = Mach::parse(bytes).expect("failed to parse input file");
+        match mach {
+            Mach::Fat(fat) => {
+                assert!(fat.into_iter().count() > 0);
+                for entry in fat.into_iter() {
+                    let entry = entry.expect("failed to read entry");
+                    match entry {
+                        SingleArch::MachO(macho) => {
+                            assert!(macho.symbols().count() > 0);
+                        }
+                        _ => panic!("expected MultiArchEntry::MachO, got {:?}", entry),
+                    }
+                }
+            }
+            Mach::Binary(_) => panic!("expected Mach::Fat, got Mach::Binary"),
+        }
+    }
+
+    #[test]
+    fn parse_multi_arch_of_archives() {
+        // Created with:
+        // clang -c -o /tmp/hello_world.o hello_world.c
+        // ar -r /tmp/hello_world.a /tmp/hello_world.o
+        // lipo -create -output hello_world_fat_archives /tmp/hello_world.a
+        // strip hello_world_fat_archives
+        let bytes = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/assets/hello_world_fat_archives"
+        ));
+        let mach = Mach::parse(bytes).expect("failed to parse input file");
+        match mach {
+            Mach::Fat(fat) => {
+                assert!(fat.into_iter().count() > 0);
+                for entry in fat.into_iter() {
+                    let entry = entry.expect("failed to read entry");
+                    match entry {
+                        SingleArch::Archive(archive) => {
+                            assert!(!archive.members().is_empty())
+                        }
+                        _ => panic!("expected MultiArchEntry::Archive, got {:?}", entry),
+                    }
+                }
+            }
+            Mach::Binary(_) => panic!("expected Mach::Fat, got Mach::Binary"),
         }
     }
 }

@@ -1,4 +1,5 @@
 use goblin::mach;
+use goblin::mach::SingleArch;
 use std::borrow::Cow;
 use std::env;
 use std::fs;
@@ -125,11 +126,17 @@ fn print_multi_arch(
         if let Some((cputype, _)) = mach::constants::cputype::get_arch_from_flag(&arch) {
             for bin in multi_arch.into_iter() {
                 match bin {
-                    Ok(bin) => {
+                    Ok(SingleArch::MachO(bin)) => {
                         if bin.header.cputype == cputype {
                             print(&bin, bind, lazy_bind);
                             process::exit(0);
                         }
+                    }
+                    Ok(SingleArch::Archive(_)) => {
+                        // dyld_info doesn't seem to handle archives
+                        // in fat binaries, so neither do we.
+                        println!("Does not contain specified arches");
+                        process::exit(1);
                     }
                     Err(err) => {
                         println!("err: {:?}", err);

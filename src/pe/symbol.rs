@@ -230,8 +230,14 @@ impl Symbol {
     ///
     /// Returns `None` if the name is inline.
     pub fn name_offset(&self) -> Option<u32> {
+        // Symbol offset starts at the strtable's length, so let's adjust it
+        let length_field_size = core::mem::size_of::<u32>() as u32;
+
         if self.name[0] == 0 {
-            self.name.pread_with(4, scroll::LE).ok()
+            self.name
+                .pread_with(4, scroll::LE)
+                .ok()
+                .map(|offset: u32| offset - length_field_size)
         } else {
             None
         }

@@ -343,11 +343,24 @@ mod tests {
     ];
 
     #[test]
-    fn issue_309() {
+    fn string_table_excludes_length() {
         let coff = Coff::parse(&&COFF_FILE_SINGLE_STRING_IN_STRING_TABLE[..]).unwrap();
         let string_table = coff.strings.to_vec().unwrap();
 
         assert!(string_table == vec!["ExitProcess"]);
+    }
+
+    #[test]
+    fn symbol_name_excludes_length() {
+        let coff = Coff::parse(&COFF_FILE_SINGLE_STRING_IN_STRING_TABLE).unwrap();
+        let strings = coff.strings;
+        let symbols = coff
+            .symbols
+            .iter()
+            .filter(|(_, name, _)| name.is_none())
+            .map(|(_, _, sym)| sym.name(&strings).unwrap().to_owned())
+            .collect::<Vec<_>>();
+        assert_eq!(symbols, vec!["ExitProcess"])
     }
 
     #[test]

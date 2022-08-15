@@ -155,6 +155,7 @@ In lexicographic order:
 - [@skdltmxn]
 - [@sollyucko]
 - [@Swatinem]
+- [@SquareMan]
 - [@tathanhdinh]
 - [@Techno-coder]
 - [@ticki]
@@ -218,6 +219,7 @@ In lexicographic order:
 [@skdltmxn]: https://github.com/skdltmxn
 [@sollyucko]: https://github.com/sollyucko
 [@Swatinem]: https://github.com/Swatinem
+[@SquareMan]: https://github.com/SquareMan
 [@tathanhdinh]: https://github.com/tathanhdinh
 [@Techno-coder]: https://github.com/Techno-coder
 [@ticki]: https://github.com/ticki

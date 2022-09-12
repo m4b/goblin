@@ -338,8 +338,13 @@ impl<'a> Index<'a> {
 
         let mut symbol_offsets = Vec::with_capacity(symbols);
         for _ in 0..symbols {
-            symbol_offsets
-                .push(member_offsets[buffer.gread_with::<u16>(offset, scroll::LE)? as usize - 1]);
+            if let Some(symbol_offset) =
+                member_offsets.get(buffer.gread_with::<u16>(offset, scroll::LE)? as usize - 1)
+            {
+                symbol_offsets.push(*symbol_offset);
+            } else {
+                return Err(Error::BufferTooShort(members, "members"));
+            }
         }
         let strtab = strtab::Strtab::parse(buffer, *offset, buffer.len() - *offset, 0x0)?;
         Ok(Index {

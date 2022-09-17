@@ -132,11 +132,15 @@ impl<'a> Member<'a> {
             )?;
 
             // adjust the offset and size accordingly
-            *offset = header_offset + SIZEOF_HEADER + len;
-            header.size -= len;
+            if header.size > len {
+                *offset = header_offset + SIZEOF_HEADER + len;
+                header.size -= len;
 
-            // the name may have trailing NULs which we don't really want to keep
-            Some(name.trim_end_matches('\0'))
+                // the name may have trailing NULs which we don't really want to keep
+                Some(name.trim_end_matches('\0'))
+            } else {
+                None
+            }
         } else {
             None
         };

@@ -164,8 +164,8 @@ impl<'a> Member<'a> {
     fn bsd_filename_length(name: &str) -> Option<usize> {
         use core::str::FromStr;
 
-        if name.len() > 3 && &name[0..3] == "#1/" {
-            let trimmed_name = &name[3..].trim_end_matches(' ');
+        if let Some(name) = name.strip_prefix("#1/") {
+            let trimmed_name = name.trim_end_matches(' ');
             if let Ok(len) = usize::from_str(trimmed_name) {
                 Some(len)
             } else {
@@ -620,6 +620,7 @@ mod tests {
         assert_eq!(Member::bsd_filename_length("#2/1"), None);
         assert_eq!(Member::bsd_filename_length(INDEX_NAME), None);
         assert_eq!(Member::bsd_filename_length(NAME_INDEX_NAME), None);
+        assert_eq!(Member::bsd_filename_length("👺"), None);
 
         // #1/<len> should be parsed as Some(len), with or without whitespace
         assert_eq!(Member::bsd_filename_length("#1/1"), Some(1));

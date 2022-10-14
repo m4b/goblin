@@ -1,5 +1,6 @@
 use std::process;
 
+#[cfg(target_os = "macos")]
 fn get_realpath(cmd: &str) -> String {
     let output = process::Command::new("/usr/bin/xcrun")
         .arg("-f")

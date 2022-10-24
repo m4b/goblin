@@ -11,6 +11,9 @@ cargo-fuzz = true
 [dependencies.goblin]
 path = ".."
 
+[profile.release]
+debug = true
+
 [dependencies.libfuzzer-sys]
 git = "https://github.com/rust-fuzz/libfuzzer-sys.git"
 

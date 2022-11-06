@@ -1185,6 +1185,35 @@ pub struct EntryPointCommand {
 
 pub const SIZEOF_ENTRY_POINT_COMMAND: usize = 24;
 
+/// The build_version_command contains the min OS version on which this
+/// binary was built to run for its platform.  The list of known platforms and
+/// tool values following it.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
+pub struct BuildVersionCommand {
+    /// LC_BUILD_VERSION
+    pub cmd: u32,
+    pub cmdsize: u32,
+    /// platform
+    pub platform: u32,
+    /// X.Y.Z is encoded in nibbles xxxx.yy.zz
+    pub minos: u32,
+    /// X.Y.Z is encoded in nibbles xxxx.yy.zz
+    pub sdk: u32,
+    /// number of tool entries following this
+    pub ntools: u32,
+}
+
+/// Build tool version
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
+pub struct BuildToolVersion {
+    /// enum for the tool
+    pub tool: u32,
+    /// version number of the tool
+    pub version: u32,
+}
+
 /// The source_version_command is an optional load command containing
 /// the version of the sources used to build the binary.
 #[repr(C)]
@@ -1269,6 +1298,19 @@ pub const LC_VERSION_MIN_TVOS: u32 = 0x2F;
 pub const LC_VERSION_MIN_WATCHOS: u32 = 0x30;
 pub const LC_NOTE: u32 = 0x31;
 pub const LC_BUILD_VERSION: u32 = 0x32;
+pub const PLATFORM_MACOS: u32 = 1;
+pub const PLATFORM_IOS: u32 = 2;
+pub const PLATFORM_TVOS: u32 = 3;
+pub const PLATFORM_WATCHOS: u32 = 4;
+pub const PLATFORM_BRIDGEOS: u32 = 5;
+pub const PLATFORM_MACCATALYST: u32 = 6;
+pub const PLATFORM_IOSSIMULATOR: u32 = 7;
+pub const PLATFORM_TVOSSIMULATOR: u32 = 8;
+pub const PLATFORM_WATCHOSSIMULATOR: u32 = 9;
+pub const PLATFORM_DRIVERKIT: u32 = 10;
+pub const TOOL_CLANG: u32 = 1;
+pub const TOOL_SWIFT: u32 = 2;
+pub const TOOL_LD: u32 = 3;
 
 pub fn cmd_to_str(cmd: u32) -> &'static str {
     match cmd {
@@ -1380,6 +1422,7 @@ pub enum CommandVariant {
     DyldEnvironment(DylinkerCommand),
     Main(EntryPointCommand),
     DataInCode(LinkeditDataCommand),
+    BuildVersion(BuildVersionCommand),
     SourceVersion(SourceVersionCommand),
     DylibCodeSignDrs(LinkeditDataCommand),
     LinkerOption(LinkeditDataCommand),
@@ -1578,6 +1621,10 @@ impl<'a> ctx::TryFromCtx<'a, Endian> for CommandVariant {
                 let comm = bytes.pread_with::<LinkeditDataCommand>(0, le)?;
                 Ok((DataInCode(comm), size))
             }
+            LC_BUILD_VERSION => {
+                let comm = bytes.pread_with::<BuildVersionCommand>(0, le)?;
+                Ok((BuildVersion(comm), size))
+            }
             LC_SOURCE_VERSION => {
                 let comm = bytes.pread_with::<SourceVersionCommand>(0, le)?;
                 Ok((SourceVersion(comm), size))
@@ -1610,9 +1657,8 @@ impl<'a> ctx::TryFromCtx<'a, Endian> for CommandVariant {
                 let comm = bytes.pread_with::<LinkeditDataCommand>(0, le)?;
                 Ok((DyldChainedFixups(comm), size))
             }
-            // TODO: LC_NOTE (NoteCommand) and LC_BUILD_VERSION (BuildVersionCommand)
-            // are unimplemented.
-            LC_NOTE | LC_BUILD_VERSION | _ => Ok((Unimplemented(lc), size)),
+            // TODO: LC_NOTE (NoteCommand) is unimplemented.
+            LC_NOTE | _ => Ok((Unimplemented(lc), size)),
         }
     }
 }
@@ -1664,6 +1710,7 @@ impl CommandVariant {
             DyldEnvironment(comm) => comm.cmdsize,
             Main(comm) => comm.cmdsize,
             DataInCode(comm) => comm.cmdsize,
+            BuildVersion(comm) => comm.cmdsize,
             SourceVersion(comm) => comm.cmdsize,
             DylibCodeSignDrs(comm) => comm.cmdsize,
             LinkerOption(comm) => comm.cmdsize,
@@ -1722,6 +1769,7 @@ impl CommandVariant {
             DyldEnvironment(comm) => comm.cmd,
             Main(comm) => comm.cmd,
             DataInCode(comm) => comm.cmd,
+            BuildVersion(comm) => comm.cmd,
             SourceVersion(comm) => comm.cmd,
             DylibCodeSignDrs(comm) => comm.cmd,
             LinkerOption(comm) => comm.cmd,

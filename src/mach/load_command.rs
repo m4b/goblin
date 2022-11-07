@@ -1240,6 +1240,22 @@ pub struct DataInCodeEntry {
     pub kind: u16,
 }
 
+/// LC_NOTE commands describe a region of arbitrary data included in a Mach-O
+/// file.  Its initial use is to record extra data in MH_CORE files.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
+pub struct NoteCommand {
+    /// LC_NOTE
+    pub cmd: u32,
+    pub cmdsize: u32,
+    /// owner name for this LC_NOTE
+    pub data_owner: [u8; 16],
+    /// file offset of this data
+    pub offset: u64,
+    /// length of data region
+    pub size: u64,
+}
+
 ///////////////////////////////////////
 // Constants, et. al
 ///////////////////////////////////////
@@ -1431,6 +1447,7 @@ pub enum CommandVariant {
     VersionMinWatchos(VersionMinCommand),
     DyldExportsTrie(LinkeditDataCommand),
     DyldChainedFixups(LinkeditDataCommand),
+    Note(NoteCommand),
     Unimplemented(LoadCommandHeader),
 }
 
@@ -1657,8 +1674,11 @@ impl<'a> ctx::TryFromCtx<'a, Endian> for CommandVariant {
                 let comm = bytes.pread_with::<LinkeditDataCommand>(0, le)?;
                 Ok((DyldChainedFixups(comm), size))
             }
-            // TODO: LC_NOTE (NoteCommand) is unimplemented.
-            LC_NOTE | _ => Ok((Unimplemented(lc), size)),
+            LC_NOTE => {
+                let comm = bytes.pread_with::<NoteCommand>(0, le)?;
+                Ok((Note(comm), size))
+            }
+            _ => Ok((Unimplemented(lc), size)),
         }
     }
 }
@@ -1719,6 +1739,7 @@ impl CommandVariant {
             VersionMinWatchos(comm) => comm.cmdsize,
             DyldExportsTrie(comm) => comm.cmdsize,
             DyldChainedFixups(comm) => comm.cmdsize,
+            Note(comm) => comm.cmdsize,
             Unimplemented(comm) => comm.cmdsize,
         };
         cmdsize as usize
@@ -1778,6 +1799,7 @@ impl CommandVariant {
             VersionMinWatchos(comm) => comm.cmd,
             DyldExportsTrie(comm) => comm.cmd,
             DyldChainedFixups(comm) => comm.cmd,
+            Note(comm) => comm.cmd,
             Unimplemented(comm) => comm.cmd,
         }
     }

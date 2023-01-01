@@ -1,0 +1,27 @@
+[package]
+name = "goblin-fuzz-afl"
+version = "0.0.1"
+authors = ["Andrey Fedotov <fedotoff@ispras.ru>"]
+edition = "2018"
+publish = false
+
+[dependencies.goblin]
+path = ".."
+
+[dependencies]
+afl = "*"
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = true
+
+[[bin]]
+name = "afl_parse"
+path = "fuzz_targets/afl_parse.rs"
+
+[[bin]]
+name = "afl_parse_elf"
+path = "fuzz_targets/afl_parse_elf.rs"

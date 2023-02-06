@@ -51,32 +51,37 @@ pub fn compare(args: Vec<&str>) {
     }
 }
 
-#[cfg(target_os = "macos")]
-#[test]
-fn compare_binds() {
-    let dyldinfo = get_realpath("dyldinfo");
-    let clang = get_realpath("clang");
-    compare(vec!["-bind", &dyldinfo]);
-    compare(vec!["-bind", &clang]);
-    compare(vec!["-bind", "/usr/bin/tmutil"]);
-}
+// DISABLED: dyldinfo is now dyld_info and cli has changed
+// significantly, so these tests all fail until someone
+// figures out the correct translation to new dyld_info api
+// (which will likely cause the dyldinfo example to be fixed up too)
 
-#[cfg(target_os = "macos")]
-#[test]
-fn compare_lazy_binds() {
-    let dyldinfo = get_realpath("dyldinfo");
-    let clang = get_realpath("clang");
-    compare(vec!["-lazy_bind", &dyldinfo]);
-    compare(vec!["-lazy_bind", &clang]);
-    compare(vec!["-lazy_bind", "/usr/bin/tmutil"]);
-}
+// #[cfg(target_os = "macos")]
+// #[test]
+// fn compare_binds() {
+//     let dyldinfo = get_realpath("dyldinfo");
+//     let clang = get_realpath("clang");
+//     compare(vec!["-bind", &dyldinfo]);
+//     compare(vec!["-bind", &clang]);
+//     compare(vec!["-bind", "/usr/bin/tmutil"]);
+// }
 
-#[cfg(target_os = "macos")]
-#[test]
-fn compare_combined_options() {
-    let dyldinfo = get_realpath("dyldinfo");
-    compare(vec!["-lazy_bind", "-bind", &dyldinfo]);
-}
+// #[cfg(target_os = "macos")]
+// #[test]
+// fn compare_lazy_binds() {
+//     let dyldinfo = get_realpath("dyldinfo");
+//     let clang = get_realpath("clang");
+//     compare(vec!["-lazy_bind", &dyldinfo]);
+//     compare(vec!["-lazy_bind", &clang]);
+//     compare(vec!["-lazy_bind", "/usr/bin/tmutil"]);
+// }
+
+// #[cfg(target_os = "macos")]
+// #[test]
+// fn compare_combined_options() {
+//     let dyldinfo = get_realpath("dyldinfo");
+//     compare(vec!["-lazy_bind", "-bind", &dyldinfo]);
+// }
 
 #[cfg(not(target_os = "macos"))]
 #[test]

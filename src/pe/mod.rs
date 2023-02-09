@@ -58,6 +58,8 @@ pub struct PE<'a> {
     pub debug_data: Option<debug::DebugData<'a>>,
     /// Exception handling and stack unwind information, if any, contained in the PE header
     pub exception_data: Option<exception::ExceptionData<'a>>,
+    /// The raw, unparsed section table.
+    pub section_table: &'a [u8],
 }
 
 impl<'a> PE<'a> {
@@ -74,6 +76,21 @@ impl<'a> PE<'a> {
             + header::SIZEOF_PE_MAGIC
             + header::SIZEOF_COFF_HEADER
             + header.coff_header.size_of_optional_header as usize);
+
+        let section_end_offset = *offset
+            + header.coff_header.number_of_sections as usize * header::SIZEOF_IMAGE_SECTION_HEADER;
+
+        if bytes.len() < section_end_offset {
+            // The section table contains more entries than the binary can provide given the size
+            return Err(error::Error::Malformed(format!(
+                "Corrupted PE: Expected at least {:#X} bytes but got {:#X}",
+                section_end_offset,
+                bytes.len()
+            )));
+        }
+
+        let section_table = &bytes[*offset..section_end_offset];
+
         let sections = header.coff_header.sections(bytes, offset)?;
         let is_lib = characteristic::is_dll(header.coff_header.characteristics);
         let mut entry = 0;
@@ -194,6 +211,7 @@ impl<'a> PE<'a> {
             libraries,
             debug_data,
             exception_data,
+            section_table,
         })
     }
 }

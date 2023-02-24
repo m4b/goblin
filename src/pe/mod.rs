@@ -5,6 +5,7 @@
 
 use alloc::vec::Vec;
 
+pub mod certificate_table;
 pub mod characteristic;
 pub mod data_directories;
 pub mod debug;
@@ -58,6 +59,8 @@ pub struct PE<'a> {
     pub debug_data: Option<debug::DebugData<'a>>,
     /// Exception handling and stack unwind information, if any, contained in the PE header
     pub exception_data: Option<exception::ExceptionData<'a>>,
+    /// Certificates present, if any, described by the Certificate Table
+    pub certificates: certificate_table::CertificateDirectoryTable<'a>,
 }
 
 impl<'a> PE<'a> {
@@ -86,6 +89,7 @@ impl<'a> PE<'a> {
         let mut libraries = vec![];
         let mut debug_data = None;
         let mut exception_data = None;
+        let mut certificates = Default::default();
         let mut is_64 = false;
         if let Some(optional_header) = header.optional_header {
             entry = optional_header.standard_fields.address_of_entry_point as usize;
@@ -177,6 +181,16 @@ impl<'a> PE<'a> {
                     )?);
                 }
             }
+
+            if let Some(certificate_table) =
+                *optional_header.data_directories.get_certificate_table()
+            {
+                certificates = certificate_table::enumerate_certificates(
+                    bytes,
+                    certificate_table.virtual_address,
+                    certificate_table.size,
+                )?;
+            }
         }
         Ok(PE {
             header,
@@ -194,6 +208,7 @@ impl<'a> PE<'a> {
             libraries,
             debug_data,
             exception_data,
+            certificates,
         })
     }
 }

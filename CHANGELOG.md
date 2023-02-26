@@ -3,7 +3,20 @@ All notable changes to this project will be documented in this file.
 
 Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-Goblin is now 0.6, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
+Goblin is now 0.7, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
+
+## [0.7.0] - unreleased
+### Breaking
+mach: Implement `LC_NOTE`, (breakage=load commands are marked non-exhaustive), thanks @messense: https://github.com/m4b/goblin/pull/342
+### Fixed
+elf: fix is_lib detection, thanks @m-hilgendorf: https://github.com/m4b/goblin/pull/366
+pe: fix out of bounds access while parsing AttributeCertificate, thanks @anfedotoff: https://github.com/m4b/goblin/pull/368
+### Added
+pe: support basic certificates enumeration, thanks @RaitoBezarius: https://github.com/m4b/goblin/pull/354
+pe: fix certificate tables parsing, thanks @baloo: https://github.com/m4b/goblin/pull/359
+pe: add pe authenticode support, thanks @baloo: https://github.com/m4b/goblin/pull/362
+mach: implement `LC_FILESET_ENTRY`, thanks @mmaekr: https://github.com/m4b/goblin/pull/369
+build: add afl fuzzing support, thanks @anfedotoff: https://github.com/m4b/goblin/pull/351
 
 ## [0.6.1] - 2023-2-26
 ### Fixed

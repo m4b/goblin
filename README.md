@@ -112,6 +112,7 @@ In lexicographic order:
 - [@amanieu]
 - [@anfedotoff]
 - [@apalm]
+- [@baloo]
 - [@burjui]
 - [@connorkuehl]
 - [@dancrossnyc]
@@ -139,6 +140,8 @@ In lexicographic order:
 - [@lumag]
 - [@lzutao]
 - [@lzybkr]
+- [@m-hilgendorf]
+- [@mmaekr]
 - [@m4b]
 - [@messense]
 - [@mitsuhiko]
@@ -155,6 +158,7 @@ In lexicographic order:
 - [@Pzixel]
 - [@quake]
 - [@raindev]
+- [@RaitoBezarius]
 - [@rocallahan]
 - [@sanxiyn]
 - [@skdltmxn]
@@ -183,6 +187,7 @@ In lexicographic order:
 [@amanieu]: https://github.com/amanieu
 [@anfedotoff]: https://github.com/anfedotoff
 [@apalm]: https://github.com/apalm
+[@baloo]: https://github.com/baloo
 [@burjui]: https://github.com/burjui
 [@connorkuehl]: https://github.com/connorkuehl
 [@dancrossnyc]: https://github.com/dancrossnyc
@@ -210,6 +215,8 @@ In lexicographic order:
 [@lumag]: https://github.com/lumag
 [@lzutao]: https://github.com/lzutao
 [@lzybkr]: https://github.com/lzybkr
+[@m-hilgendorf]: https://github.com/m-hilgendorf
+[@mmaekr]: https://github.com/mmaekr
 [@m4b]: https://github.com/m4b
 [@messense]: https://github.com/messense
 [@mitsuhiko]: https://github.com/mitsuhiko
@@ -226,6 +233,7 @@ In lexicographic order:
 [@Pzixel]: https://github.com/Pzixel
 [@quake]: https://github.com/quake
 [@raindev]: https://github.com/raindev
+[@RaitoBezarius]: https://github.com/RaitoBezarius
 [@rocallahan]: https://github.com/rocallahan
 [@sanxiyn]: https://github.com/sanxiyn
 [@skdltmxn]: https://github.com/skdltmxn

@@ -3,7 +3,15 @@ All notable changes to this project will be documented in this file.
 
 Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-Goblin is now 0.5, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
+Goblin is now 0.6, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
+
+## [0.6.1] - 2023-2-26
+### Fixed
+elf.section_header: additional workaround for 0-length sections, thanks @Jhynjhiruu: https://github.com/m4b/goblin/pull/347
+pe.utils: file alignment check, thanks @anfedotoff: https://github.com/m4b/goblin/pull/340
+### Added
+elf: Add basic GNU PROPERTY note support, thanks @x64k: https://github.com/m4b/goblin/pull/352
+mach: Implement `LC_BUILD_VERSION`, thanks @messense: https://github.com/m4b/goblin/pull/341
 
 ## [0.6.0] - 2022-10-23
 ### Breaking

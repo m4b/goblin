@@ -125,6 +125,7 @@ In lexicographic order:
 - [@jan-auer]
 - [@jessehui]
 - [@jdub]
+- [@Jhynjhiruu]
 - [@johannst]
 - [@jrmuizel]
 - [@jsgf]
@@ -173,6 +174,7 @@ In lexicographic order:
 - [@woodruffw]
 - [@wyxloading]
 - [@xcoldhandsx]
+- [@x64k]
 
 <!-- Contributors -->
 
@@ -193,6 +195,7 @@ In lexicographic order:
 [@jackcmay]: https://github.com/jackcmay
 [@jan-auer]: https://github.com/jan-auer
 [@jessehui]: https://github.com/jessehui
+[@Jhynjhiruu]: https://github.com/Jhynjhiruu
 [@johannst]: https://github.com/johannst
 [@jdub]: https://github.com/jdub
 [@jrmuizel]: https://github.com/jrmuizel
@@ -242,6 +245,7 @@ In lexicographic order:
 [@woodruffw]: https://github.com/woodruffw
 [@wyxloading]: https://github.com/wyxloading
 [@xcoldhandsx]: https://github.com/xcoldhandsx
+[@x64k]: https://github.com/x64k
 
 ## Contributing
 

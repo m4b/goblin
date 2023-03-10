@@ -27,6 +27,7 @@ description = "An impish, cross-platform, ELF, Mach-o, and PE binary parsing and
 
 [dependencies]
 plain = "0.2.3"
+digest = { version = "0.10.6", optional = true }
 
 [dependencies.log]
 version = "0.4"
@@ -50,6 +51,8 @@ mach64 = ["alloc", "endian_fd", "archive"]
 pe32 = ["alloc", "endian_fd"]
 pe64 = ["alloc", "endian_fd"]
 archive = ["alloc"]
+pe_source = []
+pe_authenticode = ["pe_source", "digest"]
 
 [badges.travis-ci]
 branch = "master"

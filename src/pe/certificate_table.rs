@@ -139,7 +139,7 @@ pub(crate) fn enumerate_certificates(
     let mut attrs = vec![];
 
     // End offset cannot be further than the binary we have at hand.
-    if table_end_offset >= bytes.len() {
+    if table_end_offset > bytes.len() {
         return Err(error::Error::Malformed(
             "End of attribute certificates table is after the end of the PE binary".to_string(),
         ));

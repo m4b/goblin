@@ -37,6 +37,16 @@ optional = true
 version = "0.11"
 default_features = false
 
+[dependencies.der]
+version = "0.7.1"
+default-features = false
+optional = true
+
+[dependencies.pkcs7]
+version = "0.4.0-pre.1"
+default-features = false
+optional = true
+
 [features]
 default = ["std", "elf32", "elf64", "mach32", "mach64", "pe32", "pe64", "archive", "endian_fd"]
 std = ["alloc", "scroll/std"]
@@ -50,6 +60,7 @@ mach64 = ["alloc", "endian_fd", "archive"]
 pe32 = ["alloc", "endian_fd"]
 pe64 = ["alloc", "endian_fd"]
 archive = ["alloc"]
+pe_pkcs7 = ["der", "pkcs7"]
 
 [badges.travis-ci]
 branch = "master"

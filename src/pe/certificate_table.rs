@@ -38,7 +38,7 @@ impl TryFrom<u16> for AttributeCertificateRevision {
 }
 
 #[repr(u16)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum AttributeCertificateType {
     /// WIN_CERT_TYPE_X509
     X509 = 0x0001,
@@ -153,4 +153,25 @@ pub(crate) fn enumerate_certificates(
     }
 
     Ok(attrs)
+}
+
+#[cfg(feature = "pe_pkcs7")]
+mod pkcs7 {
+    use super::{AttributeCertificate, AttributeCertificateType};
+    use der::{Decode, Result};
+    use pkcs7::ContentInfo;
+
+    #[cfg(doc)]
+    use crate::pe::Pe;
+
+    impl<'a> AttributeCertificate<'a> {
+        /// Return the pkcs7 [`ContentInfo`] attached to the [`PE`]
+        pub fn as_signed_data(&self) -> Option<Result<ContentInfo>> {
+            if self.certificate_type == AttributeCertificateType::PkcsSignedData {
+                Some(ContentInfo::from_der(self.certificate))
+            } else {
+                None
+            }
+        }
+    }
 }

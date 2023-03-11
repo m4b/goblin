@@ -1,5 +1,5 @@
 use crate::error;
-use scroll::{Pread, Pwrite, SizeWith};
+use scroll::{ctx, Pread, Pwrite, SizeWith};
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default, Pread, Pwrite, SizeWith)]
@@ -21,6 +21,22 @@ impl DataDirectory {
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub struct DataDirectories {
     pub data_directories: [Option<DataDirectory>; NUM_DATA_DIRECTORIES],
+}
+
+impl ctx::TryIntoCtx<scroll::Endian> for DataDirectories {
+    type Error = error::Error;
+
+    fn try_into_ctx(self, bytes: &mut [u8], ctx: scroll::Endian) -> Result<usize, Self::Error> {
+        let mut offset = &mut 0;
+        for opt_dd in self.data_directories {
+            if let Some(dd) = opt_dd {
+                bytes.gwrite_with(dd, offset, ctx)?;
+            } else {
+                bytes.gwrite(&[0; SIZEOF_DATA_DIRECTORY][..], offset)?;
+            }
+        }
+        Ok(NUM_DATA_DIRECTORIES * SIZEOF_DATA_DIRECTORY)
+    }
 }
 
 impl DataDirectories {

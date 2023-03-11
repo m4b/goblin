@@ -54,3 +54,6 @@ archive = ["alloc"]
 [badges.travis-ci]
 branch = "master"
 repository = "m4b/goblin"
+
+[dev-dependencies]
+stderrlog = "0.5.4"

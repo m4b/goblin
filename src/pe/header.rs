@@ -3,11 +3,11 @@ use crate::pe::{optional_header, section_table, symbol};
 use crate::strtab;
 use alloc::vec::Vec;
 use log::debug;
-use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith};
+use scroll::{ctx, IOread, IOwrite, Pread, Pwrite, SizeWith};
 
 /// DOS header present in all PE binaries
 #[repr(C)]
-#[derive(Debug, PartialEq, Copy, Clone, Default)]
+#[derive(Debug, PartialEq, Copy, Clone, Default, Pwrite)]
 pub struct DosHeader {
     /// Magic number: 5a4d
     pub signature: u16,
@@ -80,14 +80,16 @@ impl DosHeader {
         let file_address_of_relocation_table = bytes.gread_with(&mut offset, scroll::LE)?;
         let overlay_number = bytes.gread_with(&mut offset, scroll::LE)?;
         let reserved = [0x0; 4];
-        //let reserved = bytes.gread_with(&mut offset, scroll::LE)?;
+        offset += core::mem::size_of_val(&reserved);
         let oem_id = bytes.gread_with(&mut offset, scroll::LE)?;
         let oem_info = bytes.gread_with(&mut offset, scroll::LE)?;
         let reserved2 = [0x0; 10];
+        offset += core::mem::size_of_val(&reserved2);
 
         debug_assert!(
             offset == PE_POINTER_OFFSET as usize,
-            "expected offset after reading DOS header to be at 0x3C"
+            "expected offset ({:#x}) after reading DOS header to be at 0x3C",
+            offset
         );
 
         let pe_pointer = bytes
@@ -318,6 +320,22 @@ impl Header {
             coff_header,
             optional_header,
         })
+    }
+}
+
+impl ctx::TryIntoCtx<scroll::Endian> for Header {
+    type Error = error::Error;
+
+    fn try_into_ctx(self, bytes: &mut [u8], ctx: scroll::Endian) -> Result<usize, Self::Error> {
+        let offset = &mut 0;
+        bytes.gwrite_with(self.dos_header, offset, ctx)?;
+        bytes.gwrite_with(self.dos_stub, offset, ctx)?;
+        bytes.gwrite_with(self.signature, offset, scroll::LE)?;
+        bytes.gwrite_with(self.coff_header, offset, ctx)?;
+        if let Some(opt_header) = self.optional_header {
+            bytes.gwrite_with(opt_header, offset, ctx)?;
+        }
+        Ok(*offset)
     }
 }
 

@@ -4,7 +4,7 @@ use libfuzzer_sys::fuzz_target;
 fuzz_target!(|data: &[u8]| {
     if let Ok(elf) = goblin::elf::Elf::parse(data) {
         for section_header in &elf.section_headers {
-            let _ = elf.shdr_strtab.get(section_header.sh_name);
+            let _ = elf.shdr_strtab.get_at(section_header.sh_name);
         }
 
         for _relocation in &elf.dynrels {}

@@ -383,7 +383,7 @@ if_sylvan! {
             let verdef = symver::VerdefSection::parse(bytes, &section_headers, ctx)?;
             let verneed = symver::VerneedSection::parse(bytes, &section_headers, ctx)?;
 
-            let is_lib = misc.is_lib && (!is_pie) && interpreter.is_none();
+            let is_lib = misc.is_lib && !is_pie;
 
             Ok(Elf {
                 header,

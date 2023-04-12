@@ -219,10 +219,10 @@ if_alloc! {
             if header.n_namesz > 0 {
                 *offset += 1;
             }
-            align(alignment, offset);
+            align(4, offset);
             debug!("note name {} - {:#x}", name, *offset);
             let desc = bytes.gread_with::<&'a [u8]>(offset, header.n_descsz)?;
-            align(alignment, offset);
+            align(4, offset);
             debug!("desc {:?} - {:#x}", desc, *offset);
             Ok((Note {
                 name,
@@ -235,6 +235,29 @@ if_alloc! {
     #[cfg(test)]
     mod tests {
         use super::*;
+
+        // See <https://github.com/m4b/goblin/issues/364>
+        #[test]
+        fn notes_align_to_4() {
+            let data = &[
+                0x08, 0x00, 0x00, 0x00, 0x14, 0x00, 0x00, 0x00,
+                0x01, 0x00, 0x00, 0x00, b'F', b'O', b'O', b'B',
+                b'A', b'R', 0x00, 0x00, 0x00, 0x01, 0x02, 0x03,
+                0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
+                0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13];
+            // the program header says the NOTE as a whole has 8-byte alignment
+            let ctx = (8, container::Ctx::default());
+            let mut iter = NoteDataIterator {
+                data,
+                size: data.len(),
+                offset: 0,
+                ctx,
+            };
+            let note = iter.next().unwrap().unwrap();
+            assert_eq!(note.name, "FOOBAR\0");
+            assert_eq!(note.desc, &data[0x14..]);
+            assert!(iter.next().is_none());
+        }
 
         static NOTE_DATA: [u8; 132] = [0x04, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
                                       0x01, 0x00, 0x00, 0x00, 0x47, 0x4e, 0x55, 0x00,

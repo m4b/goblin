@@ -321,8 +321,7 @@ if_sylvan! {
             if let Some(ref dynamic) = dynamic {
                 let dyn_info = &dynamic.info;
 
-                is_pie = misc.is_lib && dyn_info.flags_1 != 0;
-
+                is_pie = dyn_info.flags_1 & dynamic::DF_1_PIE != 0;
                 dynstrtab = Strtab::parse(bytes,
                                           dyn_info.strtab,
                                           dyn_info.strsz,

@@ -104,18 +104,26 @@ impl<'a> AttributeCertificate<'a> {
                     "Attribute certificate size do not fit in usize".to_string(),
                 )
             })?;
-        let attr = Self {
-            length: header.length,
-            revision: header.revision.try_into()?,
-            certificate_type: header.certificate_type.try_into()?,
-            certificate: &bytes[*current_offset..(*current_offset + cert_size)],
-        };
-        // Moving past the certificate data.
-        // Prevent the current_offset to wrap and ensure current_offset is strictly increasing.
-        *current_offset = current_offset.saturating_add(cert_size);
-        // Round to the next 8-bytes.
-        *current_offset = (*current_offset + 7) & !7;
-        Ok(attr)
+
+        if let Some(bytes) = bytes.get(*current_offset..(*current_offset + cert_size)) {
+            let attr = Self {
+                length: header.length,
+                revision: header.revision.try_into()?,
+                certificate_type: header.certificate_type.try_into()?,
+                certificate: bytes,
+            };
+            // Moving past the certificate data.
+            // Prevent the current_offset to wrap and ensure current_offset is strictly increasing.
+            *current_offset = current_offset.saturating_add(cert_size);
+            // Round to the next 8-bytes.
+            *current_offset = (*current_offset + 7) & !7;
+            Ok(attr)
+        } else {
+            Err(error::Error::Malformed(format!(
+                "Unable to extract certificate. Probably cert_size:{} is malformed",
+                cert_size
+            )))
+        }
     }
 }
 

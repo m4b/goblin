@@ -1,5 +1,6 @@
 use crate::error::{self, Error};
 use crate::pe::relocation;
+use alloc::borrow::Cow;
 use alloc::string::{String, ToString};
 use scroll::{ctx, Pread, Pwrite};
 
@@ -77,6 +78,32 @@ impl SectionTable {
             table.real_name = Some(bytes.pread::<&str>(string_table_offset + idx)?.to_string());
         }
         Ok(table)
+    }
+
+    pub fn data<'a, 'b: 'a>(&'a self, pe_bytes: &'b [u8]) -> error::Result<Option<Cow<[u8]>>> {
+        let section_start: usize = self.pointer_to_raw_data.try_into().map_err(|_| {
+            Error::Malformed(format!("Virtual address cannot fit in platform `usize`"))
+        })?;
+
+        // assert!(self.virtual_size <= self.size_of_raw_data);
+        // if vsize > size_of_raw_data, the section is zero padded.
+        let section_end: usize = section_start
+            + usize::try_from(self.size_of_raw_data).map_err(|_| {
+                Error::Malformed(format!("Virtual size cannot fit in platform `usize`"))
+            })?;
+
+        let original_bytes = pe_bytes.get(section_start..section_end).map(Cow::Borrowed);
+
+        if original_bytes.is_some() && self.virtual_size > self.size_of_raw_data {
+            let mut bytes: Vec<u8> = Vec::new();
+            bytes.resize(self.size_of_raw_data.try_into()?, 0);
+            bytes.copy_from_slice(&original_bytes.unwrap());
+            bytes.resize(self.virtual_size.try_into()?, 0);
+
+            Ok(Some(Cow::Owned(bytes)))
+        } else {
+            Ok(original_bytes)
+        }
     }
 
     pub fn name_offset(&self) -> error::Result<Option<usize>> {

@@ -140,7 +140,7 @@ impl<'a> PE<'a> {
                 entry, image_base, is_64
             );
             let file_alignment = optional_header.windows_fields.file_alignment;
-            if let Some(export_table) = *optional_header.data_directories.get_export_table() {
+            if let Some(&export_table) = optional_header.data_directories.get_export_table() {
                 if let Ok(ed) = export::ExportData::parse_with_opts(
                     bytes,
                     export_table,
@@ -162,7 +162,7 @@ impl<'a> PE<'a> {
                 }
             }
             debug!("exports: {:#?}", exports);
-            if let Some(import_table) = *optional_header.data_directories.get_import_table() {
+            if let Some(&import_table) = optional_header.data_directories.get_import_table() {
                 let id = if is_64 {
                     import::ImportData::parse_with_opts::<u64>(
                         bytes,
@@ -196,7 +196,7 @@ impl<'a> PE<'a> {
                 import_data = Some(id);
             }
             debug!("imports: {:#?}", imports);
-            if let Some(debug_table) = *optional_header.data_directories.get_debug_table() {
+            if let Some(&debug_table) = optional_header.data_directories.get_debug_table() {
                 debug_data = Some(debug::DebugData::parse_with_opts(
                     bytes,
                     debug_table,
@@ -209,8 +209,8 @@ impl<'a> PE<'a> {
             if header.coff_header.machine == header::COFF_MACHINE_X86_64 {
                 // currently only x86_64 is supported
                 debug!("exception data: {:#?}", exception_data);
-                if let Some(exception_table) =
-                    *optional_header.data_directories.get_exception_table()
+                if let Some(&exception_table) =
+                    optional_header.data_directories.get_exception_table()
                 {
                     exception_data = Some(exception::ExceptionData::parse_with_opts(
                         bytes,
@@ -224,8 +224,8 @@ impl<'a> PE<'a> {
 
             // Parse attribute certificates unless opted out of
             let certtable = if opts.parse_attribute_certificates {
-                if let Some(certificate_table) =
-                    *optional_header.data_directories.get_certificate_table()
+                if let Some(&certificate_table) =
+                    optional_header.data_directories.get_certificate_table()
                 {
                     certificates = certificate_table::enumerate_certificates(
                         bytes,

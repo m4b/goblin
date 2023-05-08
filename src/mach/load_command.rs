@@ -1214,6 +1214,24 @@ pub struct BuildToolVersion {
     pub version: u32,
 }
 
+/// The LC_FILESET_ENTRY command is used for Mach-O filesets which contain
+/// multiple Mach-O's, such as the dyld shared cache and kernelcache
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Pread, Pwrite, IOread, IOwrite, SizeWith)]
+pub struct FilesetEntryCommand {
+    /// LC_FILSET_ENTRY
+    pub cmd: u32,
+    pub cmdsize: u32,
+    /// memory address of the dylib
+    pub vmaddr: u64,
+    /// file offset of the dylib
+    pub fileoff: u64,
+    /// contained entry id
+    pub entry_id: LcStr,
+    /// reserved
+    pub reserved: u32,
+}
+
 /// The source_version_command is an optional load command containing
 /// the version of the sources used to build the binary.
 #[repr(C)]
@@ -1314,6 +1332,7 @@ pub const LC_VERSION_MIN_TVOS: u32 = 0x2F;
 pub const LC_VERSION_MIN_WATCHOS: u32 = 0x30;
 pub const LC_NOTE: u32 = 0x31;
 pub const LC_BUILD_VERSION: u32 = 0x32;
+pub const LC_FILESET_ENTRY: u32 = 0x35 | LC_REQ_DYLD;
 pub const PLATFORM_MACOS: u32 = 1;
 pub const PLATFORM_IOS: u32 = 2;
 pub const PLATFORM_TVOS: u32 = 3;
@@ -1381,6 +1400,7 @@ pub fn cmd_to_str(cmd: u32) -> &'static str {
         LC_VERSION_MIN_WATCHOS => "LC_VERSION_MIN_WATCHOS",
         LC_NOTE => "LC_NOTE",
         LC_BUILD_VERSION => "LC_BUILD_VERSION",
+        LC_FILESET_ENTRY => "LC_FILESET_ENTRY",
         LC_DYLD_EXPORTS_TRIE => "LC_DYLD_EXPORTS_TRIE",
         LC_DYLD_CHAINED_FIXUPS => "LC_DYLD_CHAINED_FIXUPS",
         _ => "LC_UNKNOWN",
@@ -1440,6 +1460,7 @@ pub enum CommandVariant {
     Main(EntryPointCommand),
     DataInCode(LinkeditDataCommand),
     BuildVersion(BuildVersionCommand),
+    FilesetEntry(FilesetEntryCommand),
     SourceVersion(SourceVersionCommand),
     DylibCodeSignDrs(LinkeditDataCommand),
     LinkerOption(LinkeditDataCommand),
@@ -1643,6 +1664,10 @@ impl<'a> ctx::TryFromCtx<'a, Endian> for CommandVariant {
                 let comm = bytes.pread_with::<BuildVersionCommand>(0, le)?;
                 Ok((BuildVersion(comm), size))
             }
+            LC_FILESET_ENTRY => {
+                let comm = bytes.pread_with::<FilesetEntryCommand>(0, le)?;
+                Ok((FilesetEntry(comm), size))
+            }
             LC_SOURCE_VERSION => {
                 let comm = bytes.pread_with::<SourceVersionCommand>(0, le)?;
                 Ok((SourceVersion(comm), size))
@@ -1732,6 +1757,7 @@ impl CommandVariant {
             Main(comm) => comm.cmdsize,
             DataInCode(comm) => comm.cmdsize,
             BuildVersion(comm) => comm.cmdsize,
+            FilesetEntry(comm) => comm.cmdsize,
             SourceVersion(comm) => comm.cmdsize,
             DylibCodeSignDrs(comm) => comm.cmdsize,
             LinkerOption(comm) => comm.cmdsize,
@@ -1792,6 +1818,7 @@ impl CommandVariant {
             Main(comm) => comm.cmd,
             DataInCode(comm) => comm.cmd,
             BuildVersion(comm) => comm.cmd,
+            FilesetEntry(comm) => comm.cmd,
             SourceVersion(comm) => comm.cmd,
             DylibCodeSignDrs(comm) => comm.cmd,
             LinkerOption(comm) => comm.cmd,

@@ -26,7 +26,7 @@ Add to your `Cargo.toml`
 
 ```toml
 [dependencies]
-goblin = "0.6"
+goblin = "0.7"
 ```
 
 ### Features

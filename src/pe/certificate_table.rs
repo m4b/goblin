@@ -9,6 +9,7 @@ use alloc::string::ToString;
 use alloc::vec::Vec;
 
 #[repr(u16)]
+#[non_exhaustive]
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum AttributeCertificateRevision {
     /// WIN_CERT_REVISION_1_0

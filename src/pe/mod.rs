@@ -212,7 +212,6 @@ impl<'a> PE<'a> {
                 if let Some(exception_table) =
                     *optional_header.data_directories.get_exception_table()
                 {
-                    debug!("about to parse exception data");
                     exception_data = Some(exception::ExceptionData::parse_with_opts(
                         bytes,
                         exception_table,
@@ -220,9 +219,6 @@ impl<'a> PE<'a> {
                         file_alignment,
                         opts,
                     )?);
-                    debug!("successfully parsed exception data");
-                } else {
-                    debug!("exception_table is None, skipping attempt to parse exception data");
                 }
             }
 
@@ -232,13 +228,11 @@ impl<'a> PE<'a> {
                 if let Some(certificate_table) =
                     *optional_header.data_directories.get_certificate_table()
                 {
-                    debug!("about to enumerate_certificates");
                     certificates = certificate_table::enumerate_certificates(
                         bytes,
                         certificate_table.virtual_address,
                         certificate_table.size,
                     )?;
-                    debug!("successfully enumerated certificates");
 
                     let start = certificate_table.virtual_address as usize;
                     let end = start + certificate_table.size as usize;

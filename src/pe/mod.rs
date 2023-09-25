@@ -228,11 +228,7 @@ impl<'a> PE<'a> {
 
             // Parse attribute certificates unless opted out of via
             // the in_memory feature and the parse_attribute_certificates parsing option.
-            #[cfg(feature = "in_memory")]
-            let parse_attribute_certificates = opts.parse_attribute_certificates;
-            #[cfg(not(feature = "in_memory"))]
-            let parse_attribute_certificates = true;
-            let certtable = if parse_attribute_certificates {
+            let certtable = if opts.parse_attribute_certificates {
                 if let Some(certificate_table) =
                     *optional_header.data_directories.get_certificate_table()
                 {

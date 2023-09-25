@@ -50,7 +50,6 @@ mach64 = ["alloc", "endian_fd", "archive"]
 pe32 = ["alloc", "endian_fd"]
 pe64 = ["alloc", "endian_fd"]
 archive = ["alloc"]
-in_memory = []
 
 [badges.travis-ci]
 branch = "master"

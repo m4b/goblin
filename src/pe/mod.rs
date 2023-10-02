@@ -3,7 +3,12 @@
 
 // TODO: panics with unwrap on None for apisetschema.dll, fhuxgraphics.dll and some others
 
+use core::cmp::max;
+
+use alloc::borrow::Cow;
+use alloc::string::String;
 use alloc::vec::Vec;
+use log::warn;
 
 pub mod authenticode;
 pub mod certificate_table;
@@ -23,7 +28,10 @@ pub mod utils;
 
 use crate::container;
 use crate::error;
+use crate::pe::utils::pad;
 use crate::strtab;
+
+use scroll::{ctx, Pwrite};
 
 use log::debug;
 
@@ -269,6 +277,219 @@ impl<'a> PE<'a> {
             exception_data,
             certificates,
         })
+    }
+
+    pub fn write_sections(
+        &self,
+        bytes: &mut [u8],
+        offset: &mut usize,
+        file_alignment: Option<usize>,
+        ctx: scroll::Endian,
+    ) -> Result<usize, error::Error> {
+        // sections table and data
+        for section in self.sections {
+            let section_data = section.data(&self.bytes)?.ok_or_else(|| {
+                error::Error::Malformed(format!(
+                    "Section data `{}` is malformed",
+                    section.name().unwrap_or("unknown name")
+                ))
+            })?;
+            let file_section_offset =
+                usize::try_from(section.pointer_to_raw_data).map_err(|_| {
+                    error::Error::Malformed(format!(
+                        "Section `{}`'s pointer to raw data does not fit in platform `usize`",
+                        section.name().unwrap_or("unknown name")
+                    ))
+                })?;
+            let vsize: usize = section.virtual_size.try_into()?;
+            let ondisk_size: usize = section.size_of_raw_data.try_into()?;
+            let section_name = String::from(section.name().unwrap_or("unknown name"));
+
+            let mut file_offset = file_section_offset;
+            // `file_section_offset` is a on-disk offset which can be anywhere in the file.
+            // Write section data first to avoid the final consumption.
+            match section_data {
+                Cow::Borrowed(borrowed) => bytes.gwrite(borrowed, &mut file_offset)?,
+                Cow::Owned(owned) => bytes.gwrite(owned.as_slice(), &mut file_offset)?,
+            };
+
+            // Section tables follows the header.
+            bytes.gwrite_with(section, offset, ctx)?;
+
+            // for size size_of_raw_data
+            // if < virtual_size, pad with 0
+            // Pad with zeros if necessary
+            if file_offset < vsize {
+                bytes.gwrite(vec![0u8; vsize - file_offset].as_slice(), &mut file_offset)?;
+            }
+
+            // Align on a boundary as per file alignement field.
+            if let Some(pad) = pad(file_offset - file_section_offset, file_alignment) {
+                debug!(
+                    "aligning `{}` {:#x} -> {:#x} bytes'",
+                    section_name,
+                    file_offset - file_section_offset,
+                    file_offset - file_section_offset + pad.len()
+                );
+                bytes.gwrite(pad.as_slice(), &mut file_offset)?;
+            }
+
+            let written_data_size = file_offset - file_section_offset;
+            if ondisk_size != written_data_size {
+                warn!("Original PE is inefficient or bug (on-disk data size in PE: {:#x}), we wrote {:#x} bytes",
+                    ondisk_size,
+                    written_data_size);
+            }
+        }
+        // COFF Symbol Table
+        // Auxiliary Symbol Records
+        // COFF String Table
+        {
+            // Jump offset to COFF Symbol Table, so we can jump to String Table.
+            let coff_sym_offset = usize::try_from(self.header.coff_header.pointer_to_symbol_table)
+                .map_err(|_| {
+                    Self::Error::Malformed(format!(
+                        "COFF Header's symbol table offset does not fit in platform `usize`"
+                    ))
+                })?;
+            offset = coff_sym_offset;
+            bytes.gwrite_with(
+                self.header.coff_header.symbols(self.bytes)?,
+                &mut offset,
+                ctx,
+            )?;
+            max_offset = max(offset, max_offset);
+            // TODO: empty string table?!
+            //            let coff_strings = self.header.coff_header.strings(self.bytes)?;
+
+            // FIXME: this can truncate a wrong length
+            // should we catch this earlier in the signature of `len` directly?
+            //written += bytes.gwrite_with(coff_strings.len() as u32, &mut offset, ctx)?;
+            //written += bytes.gwrite(coff_strings.bytes, &mut offset)?;
+        }
+        if let Some(opt_header) = self.header.optional_header {
+            // Takes care of:
+            // - export table (.edata)
+            // - import table (.idata)
+            // - bound import table
+            // - import address table
+            // - delay import tables
+            // - resource table (.rsrc)
+            // - exception table (.pdata)
+            // - base relocation table (.reloc)
+            // - debug table (.debug)
+            // - load config table
+            // - tls table (.tls)
+            // - architecture (reserved, 0 for now)
+            // - global ptr is a "empty" data directory (header-only)
+            // - clr runtime header (.cormeta is object-only)
+            for (dt_type, dd) in opt_header.data_directories.dirs() {
+                // - attribute certificate table is a bit special
+                // its size is not the real size of all certificates
+                // you can check the parse logic to understand how that works
+                if dt_type == DataDirectoryType::CertificateTable {
+                    let mut certificate_start = dd.virtual_address.try_into()?;
+                    for certificate in &self.certificates {
+                        bytes.gwrite_with(certificate, &mut certificate_start, ctx)?;
+                        max_offset = max(max_offset, certificate_start);
+                    }
+                } else {
+                    let offset = dd.offset.ok_or(Self::Error::Malformed(
+                        "Data directory was not read with offset information, cannot rewrite"
+                            .into(),
+                    ))?;
+                    let dd_written = bytes.pwrite(dd.data(&self.bytes)?, offset)?;
+                    max_offset = max(max_offset, offset);
+                    debug!(
+                        "writing {:?} at {} for {} bytes",
+                        dt_type, offset, dd_written
+                    );
+                }
+            }
+        }
+
+        Ok(max_offset)
+    }
+}
+
+impl<'a> ctx::TryIntoCtx<scroll::Endian> for PE<'a> {
+    type Error = error::Error;
+
+    fn try_into_ctx(self, bytes: &mut [u8], ctx: scroll::Endian) -> Result<usize, Self::Error> {
+        let mut offset = 0;
+        // We need to maintain a `max_offset` because
+        // we could be writing sections in the wrong order (i.e. not an increasing order for the
+        // pointer on raw disk)
+        // and there could be holes between sections.
+        // If we don't re-layout sections, we cannot fix that ourselves.
+        // Same can be said about the certificate table, there could be a hole between sections
+        // and the certificate data.
+        // To avoid those troubles, we maintain the max over all offsets we see so far.
+        let mut max_offset = 0;
+        let file_alignment: Option<usize> = match self.header.optional_header {
+            Some(opt_header) => {
+                debug_assert!(
+                    opt_header.windows_fields.file_alignment.count_ones() == 1,
+                    "file alignment should be a power of 2"
+                );
+                Some(opt_header.windows_fields.file_alignment.try_into()?)
+            }
+            _ => None,
+        };
+        bytes.gwrite_with(self.header, &mut offset, ctx)?;
+        max_offset = max(offset, max_offset);
+        self.write_sections(bytes, &mut offset, file_alignment, ctx)?;
+        // We want the section offset for which we have the highest pointer on disk.
+        // The next offset is reserved for debug tables (outside of sections) and/or certificate
+        // tables.
+        max_offset = max(
+            self.sections
+                .iter()
+                .max_by_key(|section| section.pointer_to_raw_data as usize)
+                .map(|section| (section.pointer_to_raw_data + section.size_of_raw_data) as usize)
+                .unwrap_or(offset),
+            max_offset,
+        );
+
+        // COFF Symbol Table
+        // Auxiliary Symbol Records
+        // COFF String Table
+        assert!(
+            self.header.coff_header.pointer_to_symbol_table == 0,
+            "Symbol tables in PE are deprecated and not supported to write"
+        );
+
+        // The following data directories are
+        // taken care inside a section:
+        // - export table (.edata)
+        // - import table (.idata)
+        // - bound import table
+        // - import address table
+        // - delay import tables
+        // - resource table (.rsrc)
+        // - exception table (.pdata)
+        // - base relocation table (.reloc)
+        // - debug table (.debug) <- this one is special, it can be outside of a
+        // section.
+        // - load config table
+        // - tls table (.tls)
+        // - architecture (reserved, 0 for now)
+        // - global ptr is a "empty" data directory (header-only)
+        // - clr runtime header (.cormeta is object-only)
+        //
+        // Nonetheless, we need to write the attribute certificate table one.
+        max_offset = max(max_offset, self.write_certificates(bytes, ctx)?);
+
+        // TODO: we would like to support debug table outside of a section.
+        // i.e. debug tables that are never mapped in memory
+        // See https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#debug-directory-image-only
+        // > The debug directory can be in a discardable .debug section (if one exists), or it can be included in any other section in the image file, or not be in a section at all.
+        // In case it's not in a section at all, we need to find a way
+        // to rewrite it again.
+        // and we need to respect the ordering between attribute certificates
+        // and debug table.
+
+        Ok(max_offset)
     }
 }
 

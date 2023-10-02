@@ -1,9 +1,13 @@
 use crate::error::{self, Error};
 use crate::pe::relocation;
 use alloc::borrow::Cow;
+use alloc::borrow::ToOwned;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use scroll::{ctx, Pread, Pwrite};
+
+use super::utils::align_to;
+use super::PE;
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Clone, Default)]
@@ -22,6 +26,46 @@ pub struct SectionTable {
 }
 
 pub const SIZEOF_SECTION_TABLE: usize = 8 * 5;
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Section<'a> {
+    pub(crate) table: SectionTable,
+    pub(crate) contents: Option<Cow<'a, [u8]>>,
+    pub(crate) relocations: Vec<relocation::Relocation>,
+}
+
+impl<'a> Section<'a> {
+    pub fn new(
+        name: &[u8; 8],
+        contents: Option<Cow<'a, [u8]>>,
+        characteristics: u32,
+    ) -> error::Result<Self> {
+        let mut table = SectionTable::default();
+
+        table.name = *name;
+        table.characteristics = characteristics;
+
+        // Filling this data requires a complete overview
+        // of the final PE which may involve rewriting
+        // the complete PE.
+        table.size_of_raw_data = 0;
+        table.pointer_to_raw_data = 0;
+        table.pointer_to_relocations = 0;
+
+        table.pointer_to_linenumbers = 0;
+        table.number_of_linenumbers = 0;
+        table.pointer_to_relocations = 0;
+
+        table.virtual_size = 0;
+        table.virtual_address = 0;
+
+        Ok(Self {
+            table,
+            contents,
+            relocations: Vec::new(),
+        })
+    }
+}
 
 // Based on https://github.com/llvm-mirror/llvm/blob/af7b1832a03ab6486c42a40d21695b2c03b2d8a3/lib/Object/COFFObjectFile.cpp#L70
 // Decodes a string table entry in base 64 (//AAAAAA). Expects string without
@@ -55,6 +99,52 @@ fn base64_decode_string_entry(s: &str) -> Result<usize, ()> {
 }
 
 impl SectionTable {
+    pub fn new(
+        pe: &PE,
+        name: &[u8; 8],
+        contents: &[u8],
+        characteristics: u32,
+        section_alignment: u32,
+    ) -> error::Result<Self> {
+        let mut table = SectionTable::default();
+        // VA is needed only if characteristics is
+        // execute | read | write.
+        let need_virtual_address = true;
+
+        table.name = *name;
+        table.size_of_raw_data = contents.len().try_into()?;
+        table.characteristics = characteristics;
+
+        // Filling this data requires a complete overview
+        // of the final PE which may involve rewriting
+        // the complete PE.
+        table.pointer_to_raw_data = 0;
+        table.pointer_to_relocations = 0;
+
+        table.pointer_to_linenumbers = 0;
+        table.number_of_linenumbers = 0;
+        table.pointer_to_relocations = 0;
+
+        if need_virtual_address {
+            table.virtual_size = contents.len().try_into()?;
+            let mut sections = pe.sections.clone();
+            sections.sort_by_key(|sect| sect.virtual_address);
+            // Base VA = 0 ?
+            let last_section_offset = sections
+                .last()
+                .map(|last_section| last_section.virtual_address + last_section.virtual_size)
+                .ok_or(0u32)
+                .unwrap();
+
+            table.virtual_address = align_to(last_section_offset, section_alignment);
+        } else {
+            table.virtual_size = 0;
+            table.virtual_address = 0;
+        }
+
+        Ok(table)
+    }
+
     pub fn parse(
         bytes: &[u8],
         offset: &mut usize,

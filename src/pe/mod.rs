@@ -356,32 +356,6 @@ impl<'a> PE<'a> {
                     written_data_size);
             }
         }
-        // COFF Symbol Table
-        // Auxiliary Symbol Records
-        // COFF String Table
-        {
-            // Jump offset to COFF Symbol Table, so we can jump to String Table.
-            let coff_sym_offset = usize::try_from(self.header.coff_header.pointer_to_symbol_table)
-                .map_err(|_| {
-                    Self::Error::Malformed(format!(
-                        "COFF Header's symbol table offset does not fit in platform `usize`"
-                    ))
-                })?;
-            offset = coff_sym_offset;
-            bytes.gwrite_with(
-                self.header.coff_header.symbols(self.bytes)?,
-                &mut offset,
-                ctx,
-            )?;
-            max_offset = max(offset, max_offset);
-            // TODO: empty string table?!
-            //            let coff_strings = self.header.coff_header.strings(self.bytes)?;
-
-            // FIXME: this can truncate a wrong length
-            // should we catch this earlier in the signature of `len` directly?
-            //written += bytes.gwrite_with(coff_strings.len() as u32, &mut offset, ctx)?;
-            //written += bytes.gwrite(coff_strings.bytes, &mut offset)?;
-        }
         if let Some(opt_header) = self.header.optional_header {
             // Takes care of:
             // - export table (.edata)
@@ -515,10 +489,12 @@ pub struct Coff<'a> {
     pub header: header::CoffHeader,
     /// A list of the sections in this COFF binary
     pub sections: Vec<section_table::SectionTable>,
-    /// The COFF symbol table.
-    pub symbols: symbol::SymbolTable<'a>,
-    /// The string table.
-    pub strings: strtab::Strtab<'a>,
+    /// The COFF symbol table, they are not guaranteed to exist.
+    /// For an image, this is expected to be None as COFF debugging information
+    /// has been deprecated.
+    pub symbols: Option<symbol::SymbolTable<'a>>,
+    /// The string table, they don't exist if COFF symbol table does not exist.
+    pub strings: Option<strtab::Strtab<'a>>,
 }
 
 impl<'a> Coff<'a> {
@@ -655,7 +631,7 @@ mod tests {
     #[test]
     fn string_table_excludes_length() {
         let coff = Coff::parse(&&COFF_FILE_SINGLE_STRING_IN_STRING_TABLE[..]).unwrap();
-        let string_table = coff.strings.to_vec().unwrap();
+        let string_table = coff.strings.unwrap().to_vec().unwrap();
 
         assert!(string_table == vec!["ExitProcess"]);
     }
@@ -663,9 +639,10 @@ mod tests {
     #[test]
     fn symbol_name_excludes_length() {
         let coff = Coff::parse(&COFF_FILE_SINGLE_STRING_IN_STRING_TABLE).unwrap();
-        let strings = coff.strings;
+        let strings = coff.strings.unwrap();
         let symbols = coff
             .symbols
+            .unwrap()
             .iter()
             .filter(|(_, name, _)| name.is_none())
             .map(|(_, _, sym)| sym.name(&strings).unwrap().to_owned())

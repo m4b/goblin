@@ -262,14 +262,24 @@ impl CoffHeader {
     }
 
     /// Return the COFF symbol table.
-    pub fn symbols<'a>(&self, bytes: &'a [u8]) -> error::Result<symbol::SymbolTable<'a>> {
+    pub fn symbols<'a>(&self, bytes: &'a [u8]) -> error::Result<Option<symbol::SymbolTable<'a>>> {
         let offset = self.pointer_to_symbol_table as usize;
         let number = self.number_of_symbol_table as usize;
-        symbol::SymbolTable::parse(bytes, offset, number)
+        if offset == 0 {
+            Ok(None)
+        } else {
+            symbol::SymbolTable::parse(bytes, offset, number).map(Some)
+        }
     }
 
     /// Return the COFF string table.
-    pub fn strings<'a>(&self, bytes: &'a [u8]) -> error::Result<strtab::Strtab<'a>> {
+    pub fn strings<'a>(&self, bytes: &'a [u8]) -> error::Result<Option<strtab::Strtab<'a>>> {
+        // > The file offset of the COFF symbol table, or zero if no COFF symbol table is present.
+        // > This value should be zero for an image because COFF debugging information is deprecated.
+        if self.pointer_to_symbol_table == 0 {
+            return Ok(None);
+        }
+
         let mut offset = self.pointer_to_symbol_table as usize
             + symbol::SymbolTable::size(self.number_of_symbol_table as usize);
 
@@ -279,7 +289,7 @@ impl CoffHeader {
         // The offset needs to be advanced in order to read the strings.
         offset += length_field_size;
 
-        Ok(strtab::Strtab::parse(bytes, offset, length, 0)?)
+        Ok(Some(strtab::Strtab::parse(bytes, offset, length, 0)?))
     }
 }
 

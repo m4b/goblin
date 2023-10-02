@@ -2,6 +2,7 @@ use crate::error::{self, Error};
 use crate::pe::relocation;
 use alloc::borrow::Cow;
 use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 use scroll::{ctx, Pread, Pwrite};
 
 #[repr(C)]
@@ -198,7 +199,7 @@ impl ctx::SizeWith<scroll::Endian> for SectionTable {
     }
 }
 
-impl ctx::TryIntoCtx<scroll::Endian> for SectionTable {
+impl ctx::TryIntoCtx<scroll::Endian> for &SectionTable {
     type Error = error::Error;
     fn try_into_ctx(self, bytes: &mut [u8], ctx: scroll::Endian) -> Result<usize, Self::Error> {
         let offset = &mut 0;
@@ -216,7 +217,7 @@ impl ctx::TryIntoCtx<scroll::Endian> for SectionTable {
     }
 }
 
-impl ctx::IntoCtx<scroll::Endian> for SectionTable {
+impl ctx::IntoCtx<scroll::Endian> for &SectionTable {
     fn into_ctx(self, bytes: &mut [u8], ctx: scroll::Endian) {
         bytes.pwrite_with(self, 0, ctx).unwrap();
     }

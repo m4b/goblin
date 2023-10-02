@@ -191,6 +191,15 @@ impl SectionTable {
         let number = self.number_of_relocations as usize;
         relocation::Relocations::parse(bytes, offset, number)
     }
+
+    /// Tests if `another_section` on-disk ranges will collide.
+    pub fn overlaps_with(&self, another_section: &SectionTable) -> bool {
+        let self_end = self.pointer_to_raw_data + self.size_of_raw_data;
+        let another_end = another_section.pointer_to_raw_data + another_section.size_of_raw_data;
+
+        !((self_end <= another_section.pointer_to_raw_data)
+            || (another_end <= self.pointer_to_raw_data))
+    }
 }
 
 impl ctx::SizeWith<scroll::Endian> for SectionTable {

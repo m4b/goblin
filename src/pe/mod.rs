@@ -287,7 +287,22 @@ impl<'a> PE<'a> {
         ctx: scroll::Endian,
     ) -> Result<usize, error::Error> {
         // sections table and data
-        for section in self.sections {
+        debug_assert!(
+            self.sections
+                .iter()
+                .flat_map(|section_a| {
+                    self.sections
+                        .iter()
+                        .map(move |section_b| (section_a, section_b))
+                })
+                // given sections = (s_1, …, s_n)
+                // for all (s_i, s_j), i != j, verify that s_i does not overlap with s_j and vice versa.
+                .all(|(section_i, section_j)| section_i == section_j
+                    || !section_i.overlaps_with(section_j)),
+            "Overlapping sections were found, this is not supported."
+        );
+
+        for section in &self.sections {
             let section_data = section.data(&self.bytes)?.ok_or_else(|| {
                 error::Error::Malformed(format!(
                     "Section data `{}` is malformed",

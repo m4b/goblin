@@ -25,6 +25,7 @@ pub mod relocation;
 pub mod section_table;
 pub mod symbol;
 pub mod utils;
+pub mod writer;
 
 use crate::container;
 use crate::error;
@@ -34,6 +35,9 @@ use crate::strtab;
 use scroll::{ctx, Pwrite};
 
 use log::debug;
+
+use self::data_directories::DataDirectories;
+use self::data_directories::DataDirectoryType;
 
 #[derive(Debug)]
 /// An analyzed PE32/PE32+ binary
@@ -278,6 +282,69 @@ impl<'a> PE<'a> {
         })
     }
 
+    /// This will write the data directories contents,
+    /// e.g. edata, idata, bound import table, import address table, delay import tables
+    /// .src, .pdata, .reloc, .debug, load config table, .tls, architecture table, global ptr
+    /// and clr runtime header (.cormeta) and finally the certificate table.
+    /// This will return a pair of (written data, maximum encountered offset)
+    /// This has to be done in this way because consumers are not necessarily in the same thing.
+    pub(crate) fn write_data_directories(
+        &self,
+        bytes: &mut [u8],
+        data_directories: &DataDirectories,
+        ctx: scroll::Endian,
+    ) -> Result<(usize, usize), error::Error> {
+        let mut max_offset = 0;
+        let mut written = 0;
+        // Takes care of:
+        // - export table (.edata)
+        // - import table (.idata)
+        // - bound import table
+        // - import address table
+        // - delay import tables
+        // - resource table (.rsrc)
+        // - exception table (.pdata)
+        // - base relocation table (.reloc)
+        // - debug table (.debug)
+        // - load config table
+        // - tls table (.tls)
+        // - architecture (reserved, 0 for now)
+        // - global ptr is a "empty" data directory (header-only)
+        // - clr runtime header (.cormeta is object-only)
+        for (dt_type, offset, dd) in data_directories.dirs_with_offset() {
+            // - attribute certificate table is a bit special
+            // its size is not the real size of all certificates
+            // you can check the parse logic to understand how that works
+            if dt_type == DataDirectoryType::CertificateTable {
+                let mut certificate_start = dd.virtual_address.try_into()?;
+                for certificate in &self.certificates {
+                    debug!("certificate size: {}", certificate.length);
+                    debug!("writing certificate at offset {}", certificate_start);
+                    written += bytes.gwrite_with(certificate, &mut certificate_start, ctx)?;
+                    max_offset = max(max_offset, certificate_start);
+                }
+            } else {
+                // FIXME: wow, this is very ugly. This is copying the whole PE.
+                // This should be replaced by a CoW pointer.
+                // Ideally, we should be able to explain to Rust that we
+                // are extracting from the `dd.data` location
+                // to write in the "dd.data" new location.
+                // This should be achieved with a smart usage of std::mem::take.
+                let mut view = Vec::with_capacity(bytes.len());
+                view.resize(bytes.len(), 0);
+                view.clone_from_slice(&bytes);
+                let dd_written = bytes.pwrite(dd.data(&view, offset)?, offset)?;
+                written += dd_written;
+                max_offset = max(max_offset, offset);
+                debug!(
+                    "writing {:?} at {} for {} bytes",
+                    dt_type, offset, dd_written
+                );
+            }
+        }
+        Ok((written, max_offset))
+    }
+
     pub fn write_sections(
         &self,
         bytes: &mut [u8],
@@ -502,6 +569,8 @@ impl<'a> Coff<'a> {
 
 #[cfg(test)]
 mod tests {
+    use scroll::Pwrite;
+
     use super::Coff;
     use super::PE;
 

@@ -90,9 +90,8 @@ impl ctx::TryIntoCtx<scroll::Endian> for DataDirectories {
     fn try_into_ctx(self, bytes: &mut [u8], ctx: scroll::Endian) -> Result<usize, Self::Error> {
         let offset = &mut 0;
         for opt_dd in self.data_directories {
-            if let Some((dd_offset, dd)) = opt_dd {
-                bytes.pwrite_with(dd, dd_offset, ctx)?;
-                *offset += dd_offset;
+            if let Some((_, dd)) = opt_dd {
+                bytes.gwrite_with(dd, offset, ctx)?;
             } else {
                 bytes.gwrite(&[0; SIZEOF_DATA_DIRECTORY][..], offset)?;
             }

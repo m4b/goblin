@@ -171,7 +171,21 @@ impl SectionTable {
         Ok(table)
     }
 
-    pub fn data<'a, 'b: 'a>(&'a self, pe_bytes: &'b [u8]) -> error::Result<Option<Cow<[u8]>>> {
+    /// Consumes this header into a fully-fledged and self-contained Section
+    /// The section may need to outlive the PE bytes.
+    pub fn into_section<'b, 'a: 'b>(mut self, pe_bytes: &'a [u8]) -> error::Result<Section<'b>> {
+        let contents: Option<Cow<[u8]>> = self.data(pe_bytes)?.to_owned();
+        let relocations = self.relocations(pe_bytes)?.collect::<Vec<_>>();
+        let table = core::mem::take(&mut self);
+
+        Ok(Section {
+            table,
+            contents,
+            relocations,
+        })
+    }
+
+    pub fn data<'a, 'b: 'a>(&'a self, pe_bytes: &'b [u8]) -> error::Result<Option<Cow<'b, [u8]>>> {
         let section_start: usize = self.pointer_to_raw_data.try_into().map_err(|_| {
             Error::Malformed(format!("Virtual address cannot fit in platform `usize`"))
         })?;

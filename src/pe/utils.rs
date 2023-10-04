@@ -86,7 +86,7 @@ fn section_read_size(section: &section_table::SectionTable, file_alignment: u32)
     }
 }
 
-fn rva2offset(rva: usize, section: &section_table::SectionTable) -> usize {
+pub(crate) fn rva2offset(rva: usize, section: &section_table::SectionTable) -> usize {
     (rva - section.virtual_address as usize)
         + aligned_pointer_to_raw_data(section.pointer_to_raw_data as usize)
 }

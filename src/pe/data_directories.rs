@@ -49,6 +49,7 @@ pub enum DataDirectoryType {
     ImportAddressTable,
     DelayImportDescriptor,
     ClrRuntimeHeader,
+    Reserved,
 }
 
 impl TryFrom<usize> for DataDirectoryType {
@@ -70,6 +71,7 @@ impl TryFrom<usize> for DataDirectoryType {
             12 => Self::ImportAddressTable,
             13 => Self::DelayImportDescriptor,
             14 => Self::ClrRuntimeHeader,
+            15 => Self::Reserved,
             _ => {
                 return Err(error::Error::Malformed(
                     "Wrong data directory index number".into(),

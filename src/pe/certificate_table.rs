@@ -3,6 +3,7 @@
 /// https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#the-attribute-certificate-table-image-only
 /// https://learn.microsoft.com/en-us/windows/win32/api/wintrust/ns-wintrust-win_certificate
 use crate::error;
+use crate::pe::debug;
 use scroll::{ctx, Pread, Pwrite};
 
 use alloc::string::ToString;
@@ -77,7 +78,7 @@ impl TryFrom<u16> for AttributeCertificateType {
     }
 }
 
-#[derive(Clone, Pread)]
+#[derive(Debug, Clone, Pread)]
 struct AttributeCertificateHeader {
     /// dwLength
     length: u32,
@@ -99,6 +100,7 @@ impl<'a> AttributeCertificate<'a> {
         bytes: &'a [u8],
         current_offset: &mut usize,
     ) -> Result<AttributeCertificate<'a>, error::Error> {
+        debug!("reading certificate header at {current_offset}");
         // `current_offset` is moved sizeof(AttributeCertificateHeader) = 8 bytes further.
         let header: AttributeCertificateHeader = bytes.gread_with(current_offset, scroll::LE)?;
         let cert_size = usize::try_from(header.length.saturating_sub(CERTIFICATE_DATA_OFFSET))
@@ -107,6 +109,11 @@ impl<'a> AttributeCertificate<'a> {
                     "Attribute certificate size do not fit in usize".to_string(),
                 )
             })?;
+
+        debug!(
+            "parsing certificate header {:#?}, predicted certificate size: {}",
+            header, cert_size
+        );
 
         if let Some(bytes) = bytes.get(*current_offset..(*current_offset + cert_size)) {
             let attr = Self {

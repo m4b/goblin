@@ -253,6 +253,7 @@ impl CoffHeader {
         let string_table_offset = self.pointer_to_symbol_table as usize
             + symbol::SymbolTable::size(self.number_of_symbol_table as usize);
         for i in 0..nsections {
+            debug!("parsing section at offset {offset}");
             let section =
                 section_table::SectionTable::parse(bytes, offset, string_table_offset as usize)?;
             debug!("({}) {:#?}", i, section);
@@ -342,6 +343,7 @@ impl ctx::TryIntoCtx<scroll::Endian> for Header {
         bytes.gwrite_with(self.dos_stub, offset, ctx)?;
         bytes.gwrite_with(self.signature, offset, scroll::LE)?;
         bytes.gwrite_with(self.coff_header, offset, ctx)?;
+        debug!("Non-optional header written, current offset: {}", offset);
         if let Some(opt_header) = self.optional_header {
             bytes.gwrite_with(opt_header, offset, ctx)?;
         }

@@ -149,6 +149,7 @@ impl<'a> AttributeCertificate<'a> {
         bytes: &'a [u8],
         current_offset: &mut usize,
     ) -> Result<AttributeCertificate<'a>, error::Error> {
+        debug!("reading certificate header at {current_offset}");
         // `current_offset` is moved sizeof(AttributeCertificateHeader) = 8 bytes further.
         let header: AttributeCertificateHeader = bytes.gread_with(current_offset, scroll::LE)?;
         let cert_size = usize::try_from(
@@ -159,6 +160,11 @@ impl<'a> AttributeCertificate<'a> {
         .map_err(|_err| {
             error::Error::Malformed("Attribute certificate size do not fit in usize".to_string())
         })?;
+
+        debug!(
+            "parsing certificate header {:#?}, predicted certificate size: {}",
+            header, cert_size
+        );
 
         if let Some(bytes) = bytes.get(*current_offset..(*current_offset + cert_size)) {
             let attr = Self {
@@ -195,6 +201,13 @@ impl<'a> ctx::TryIntoCtx<scroll::Endian> for &AttributeCertificate<'a> {
         let maybe_certificate_padding = pad(self.certificate.len(), Some(16usize));
         bytes.gwrite(self.certificate, offset)?;
         if let Some(cert_padding) = maybe_certificate_padding {
+            debug!(
+                "Extending the buffer ({}) at offset {} with {} extra bytes for quadword alignment",
+                bytes.len(),
+                *offset,
+                cert_padding.len()
+            );
+
             bytes.gwrite(&cert_padding[..], offset)?;
         }
 

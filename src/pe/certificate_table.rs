@@ -8,7 +8,7 @@ use scroll::{ctx, Pread, Pwrite};
 use alloc::string::ToString;
 use alloc::vec::Vec;
 
-use super::utils::pad;
+use super::utils::{align_to, pad};
 
 #[repr(u16)]
 #[non_exhaustive]
@@ -85,8 +85,12 @@ struct AttributeCertificateHeader {
     certificate_type: u16,
 }
 
-const CERTIFICATE_DATA_OFFSET: u32 = 8;
-#[derive(Debug)]
+pub const ATTRIBUTE_CERTIFICATE_HEADER_SIZEOF: usize =
+    core::mem::size_of::<AttributeCertificateHeader>();
+
+/// PE-specific structure to hold certificates to associate verifiable statements about this image.
+/// The header [`AttributeCertificateHeader`] is inlined in there.
+#[derive(Debug, Clone)]
 pub struct AttributeCertificate<'a> {
     pub length: u32,
     pub revision: AttributeCertificateRevision,
@@ -95,18 +99,50 @@ pub struct AttributeCertificate<'a> {
 }
 
 impl<'a> AttributeCertificate<'a> {
+    /// Takes the raw bytes constituting a certificate
+    /// and wrap it into an AttributeCertificate.
+    /// Caller is responsible for ensuring the consistency between
+    /// the certificate type and what is in the certificate (DER, etc.).
+    pub fn from_bytes(
+        certificate: &'a [u8],
+        revision: AttributeCertificateRevision,
+        certificate_type: AttributeCertificateType,
+    ) -> error::Result<Self> {
+        // SAFETY: `ATTRIBUTE_CERTIFICATE_HEADER_SIZEOF` should always fit in a
+        // `u32`
+        // as its value fits in a `u8`.
+        let length = (align_to(certificate.len(), 8usize) + ATTRIBUTE_CERTIFICATE_HEADER_SIZEOF)
+            .try_into()
+            .map_err(|_| {
+                error::Error::Malformed(
+                    "Attribute certificate length does not fit in a `u32`".to_string(),
+                )
+            })?;
+
+        debug_assert!(length as usize >= certificate.len(), "Attribute certificate length cannot be smaller than the actual certificate contents length (potentially unaligned)");
+
+        Ok(Self {
+            length,
+            revision,
+            certificate_type,
+            certificate,
+        })
+    }
+
     pub fn parse(
         bytes: &'a [u8],
         current_offset: &mut usize,
     ) -> Result<AttributeCertificate<'a>, error::Error> {
         // `current_offset` is moved sizeof(AttributeCertificateHeader) = 8 bytes further.
         let header: AttributeCertificateHeader = bytes.gread_with(current_offset, scroll::LE)?;
-        let cert_size = usize::try_from(header.length.saturating_sub(CERTIFICATE_DATA_OFFSET))
-            .map_err(|_err| {
-                error::Error::Malformed(
-                    "Attribute certificate size do not fit in usize".to_string(),
-                )
-            })?;
+        let cert_size = usize::try_from(
+            header
+                .length
+                .saturating_sub(ATTRIBUTE_CERTIFICATE_HEADER_SIZEOF as u32),
+        )
+        .map_err(|_err| {
+            error::Error::Malformed("Attribute certificate size do not fit in usize".to_string())
+        })?;
 
         if let Some(bytes) = bytes.get(*current_offset..(*current_offset + cert_size)) {
             let attr = Self {

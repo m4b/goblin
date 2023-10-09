@@ -222,18 +222,23 @@ impl<'a> PE<'a> {
                 }
             }
 
-            let certtable = if let Some(certificate_table) =
-                *optional_header.data_directories.get_certificate_table()
-            {
-                certificates = certificate_table::enumerate_certificates(
-                    bytes,
-                    certificate_table.virtual_address,
-                    certificate_table.size,
-                )?;
+            // Parse attribute certificates unless opted out of
+            let certtable = if opts.parse_attribute_certificates {
+                if let Some(certificate_table) =
+                    *optional_header.data_directories.get_certificate_table()
+                {
+                    certificates = certificate_table::enumerate_certificates(
+                        bytes,
+                        certificate_table.virtual_address,
+                        certificate_table.size,
+                    )?;
 
-                let start = certificate_table.virtual_address as usize;
-                let end = start + certificate_table.size as usize;
-                Some(start..end)
+                    let start = certificate_table.virtual_address as usize;
+                    let end = start + certificate_table.size as usize;
+                    Some(start..end)
+                } else {
+                    None
+                }
             } else {
                 None
             };

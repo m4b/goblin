@@ -52,6 +52,10 @@ pub enum AttributeCertificateType {
     Reserved1 = 0x0003,
     /// WIN_CERT_TYPE_TS_STACK_SIGNED
     TsStackSigned = 0x0004,
+    /// WIN_CERT_TYPE_EFI_PKCS115
+    EfiPkcs115 = 0xEF0,
+    /// WIN_CERT_TYPE_EFI_GUID
+    EfiGuid = 0x0EF1,
 }
 
 impl TryFrom<u16> for AttributeCertificateType {

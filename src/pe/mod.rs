@@ -356,44 +356,28 @@ impl<'a> PE<'a> {
                     written_data_size);
             }
         }
-        if let Some(opt_header) = self.header.optional_header {
-            // Takes care of:
-            // - export table (.edata)
-            // - import table (.idata)
-            // - bound import table
-            // - import address table
-            // - delay import tables
-            // - resource table (.rsrc)
-            // - exception table (.pdata)
-            // - base relocation table (.reloc)
-            // - debug table (.debug)
-            // - load config table
-            // - tls table (.tls)
-            // - architecture (reserved, 0 for now)
-            // - global ptr is a "empty" data directory (header-only)
-            // - clr runtime header (.cormeta is object-only)
-            for (dt_type, dd) in opt_header.data_directories.dirs() {
-                // - attribute certificate table is a bit special
-                // its size is not the real size of all certificates
-                // you can check the parse logic to understand how that works
-                if dt_type == DataDirectoryType::CertificateTable {
-                    let mut certificate_start = dd.virtual_address.try_into()?;
-                    for certificate in &self.certificates {
-                        bytes.gwrite_with(certificate, &mut certificate_start, ctx)?;
-                        max_offset = max(max_offset, certificate_start);
-                    }
-                } else {
-                    let offset = dd.offset.ok_or(Self::Error::Malformed(
-                        "Data directory was not read with offset information, cannot rewrite"
-                            .into(),
-                    ))?;
-                    let dd_written = bytes.pwrite(dd.data(&self.bytes)?, offset)?;
-                    max_offset = max(max_offset, offset);
-                    debug!(
-                        "writing {:?} at {} for {} bytes",
-                        dt_type, offset, dd_written
-                    );
-                }
+
+        Ok(*offset)
+    }
+
+    pub fn write_certificates(
+        &self,
+        bytes: &mut [u8],
+        ctx: scroll::Endian,
+    ) -> Result<usize, error::Error> {
+        let opt_header = self
+            .header
+            .optional_header
+            .ok_or(error::Error::Malformed(format!(
+                "This PE binary has no optional header; it is required to write certificates"
+            )))?;
+        let mut max_offset = 0;
+
+        if let Some(certificate_directory) = opt_header.data_directories.get_certificate_table() {
+            let mut certificate_start = certificate_directory.virtual_address.try_into()?;
+            for certificate in &self.certificates {
+                bytes.gwrite_with(certificate, &mut certificate_start, ctx)?;
+                max_offset = max(certificate_start, max_offset);
             }
         }
 

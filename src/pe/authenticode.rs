@@ -12,6 +12,8 @@ use core::ops::Range;
 
 use super::PE;
 
+static PADDING: [u8; 7] = [0; 7];
+
 impl PE<'_> {
     /// [`authenticode_ranges`] returns the various ranges of the binary that are relevant for
     /// signature.
@@ -57,6 +59,7 @@ enum IterState {
     DatadirEntry(usize),
     CertTable(usize),
     Final(usize),
+    Padding(usize),
     Done,
 }
 
@@ -92,8 +95,17 @@ impl<'s> Iterator for ExcludedSectionsIter<'s> {
                         }
                     }
                     IterState::Final(start) => {
+                        let buf = &bytes[start..];
+                        self.state = IterState::Padding(buf.len());
+                        return Some(buf);
+                    }
+                    IterState::Padding(hash_size) => {
                         self.state = IterState::Done;
-                        return Some(&bytes[start..]);
+
+                        if hash_size % 8 != 0 {
+                            let pad_size = 8 - hash_size % 8;
+                            return Some(&PADDING[..pad_size]);
+                        }
                     }
                     IterState::Done => return None,
                 }

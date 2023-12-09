@@ -9,7 +9,7 @@
 //   - certtable
 
 use alloc::collections::VecDeque;
-use core::{mem, ops::Range};
+use core::ops::Range;
 use log::debug;
 
 use super::{section_table::SectionTable, PE};
@@ -23,6 +23,7 @@ impl PE<'_> {
         ExcludedSectionsIter {
             pe: self,
             state: IterState::default(),
+            sections: VecDeque::default(),
         }
     }
 }
@@ -56,6 +57,7 @@ impl ExcludedSections {
 pub struct ExcludedSectionsIter<'s> {
     pe: &'s PE<'s>,
     state: IterState,
+    sections: VecDeque<SectionTable>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -68,7 +70,6 @@ enum IterState {
         sum_of_bytes_hashed: usize,
     },
     Sections {
-        sections: VecDeque<SectionTable>,
         tail: usize,
         sum_of_bytes_hashed: usize,
     },
@@ -77,8 +78,6 @@ enum IterState {
     },
     Padding(usize),
     Done,
-
-    Pending,
 }
 
 impl Default for IterState {
@@ -95,7 +94,7 @@ impl<'s> Iterator for ExcludedSectionsIter<'s> {
 
         if let Some(sections) = self.pe.authenticode_excluded_sections.as_ref() {
             loop {
-                match mem::replace(&mut self.state, IterState::Pending) {
+                match self.state {
                     IterState::Initial => {
                         // 3. Hash the image header from its base to immediately before the start of the
                         //    checksum address, as specified in Optional Header Windows-Specific Fields.
@@ -171,21 +170,21 @@ impl<'s> Iterator for ExcludedSectionsIter<'s> {
                             .make_contiguous()
                             .sort_by_key(|section| section.pointer_to_raw_data);
 
+                        self.sections = sections;
+
                         self.state = IterState::Sections {
-                            sections,
                             tail: end_image_header,
                             sum_of_bytes_hashed,
                         };
                     }
                     IterState::Sections {
-                        mut sections,
                         mut tail,
                         mut sum_of_bytes_hashed,
                     } => {
                         // 11. Walk through the sorted table, load the corresponding section into memory,
                         //     and hash the entire section. Use the SizeOfRawData field in the SectionHeader
                         //     structure to determine the amount of data to hash.
-                        if let Some(section) = sections.pop_front() {
+                        if let Some(section) = self.sections.pop_front() {
                             let start = section.pointer_to_raw_data as usize;
                             let end = start + section.size_of_raw_data as usize;
                             tail = end;
@@ -198,7 +197,6 @@ impl<'s> Iterator for ExcludedSectionsIter<'s> {
 
                             // 13. Repeat steps 11 and 12 for all of the sections in the sorted table.
                             self.state = IterState::Sections {
-                                sections,
                                 tail,
                                 sum_of_bytes_hashed,
                             };
@@ -249,10 +247,6 @@ impl<'s> Iterator for ExcludedSectionsIter<'s> {
                         }
                     }
                     IterState::Done => return None,
-
-                    IterState::Pending => {
-                        panic!("implementation error, state machine left in pending state");
-                    }
                 }
             }
         } else {

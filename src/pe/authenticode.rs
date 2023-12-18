@@ -154,6 +154,10 @@ impl<'s> Iterator for ExcludedSectionsIter<'s> {
                         //    image. The NumberOfSections field of COFF File Header indicates how big
                         //    the table should be. Do not include any section headers in the table whose
                         //    SizeOfRawData field is zero.
+
+                        // Implementation detail:
+                        // We require allocation here because the section table has a variable size and
+                        // needs to be sorted.
                         let mut sections: VecDeque<SectionTable> = self
                             .pe
                             .sections

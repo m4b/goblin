@@ -226,6 +226,12 @@ impl<'s> Iterator for ExcludedSectionsIter<'s> {
                         //       ULONG value in the Certificate Table entry (32 bit: offset 132,
                         //       64 bit: offset 148) in Optional Header Data Directories.
                         let file_size = bytes.len();
+
+                        // If FILE_SIZE is not a multiple of 8 bytes, the data added to the hash must
+                        // be appended with zero padding of length (8 – (FILE_SIZE % 8)) bytes
+                        let pad_size = (8 - file_size % 8) % 8;
+                        self.state = IterState::Padding(pad_size);
+
                         if file_size > sum_of_bytes_hashed {
                             let extra_data_start = sum_of_bytes_hashed;
                             let len =
@@ -234,19 +240,20 @@ impl<'s> Iterator for ExcludedSectionsIter<'s> {
                             debug!("hashing {extra_data_start:#x} {len:#x}",);
                             let buf = &bytes[extra_data_start..extra_data_start + len];
 
-                            self.state = IterState::Padding(buf.len());
                             return Some(buf);
-                        } else {
-                            self.state = IterState::Done;
                         }
                     }
-                    IterState::Padding(hash_size) => {
+                    IterState::Padding(pad_size) => {
                         self.state = IterState::Done;
 
-                        if hash_size % 8 != 0 {
-                            let pad_size = 8 - hash_size % 8;
+                        if pad_size != 0 {
+                            debug!("hashing {pad_size:#x}");
 
-                            debug!("hashing {hash_size:#x} {pad_size:#x}");
+                            // NOTE (safety): pad size will be at most 7, and PADDING has a size of 7
+                            //                pad_size is computed ~10 lines above.
+                            debug_assert!(pad_size <= 7);
+                            debug_assert_eq!(PADDING.len(), 7);
+
                             return Some(&PADDING[..pad_size]);
                         }
                     }

@@ -51,7 +51,8 @@
 //!                 Object::Archive(archive) => {
 //!                     println!("archive: {:#?}", &archive);
 //!                 },
-//!                 Object::Unknown(magic) => { println!("unknown magic: {:#x}", magic) }
+//!                 Object::Unknown(magic) => { println!("unknown magic: {:#x}", magic) },
+//!                 _ => { }
 //!             }
 //!         }
 //!     }
@@ -221,6 +222,7 @@ pub struct HintData {
 }
 
 #[derive(Debug)]
+#[non_exhaustive]
 /// A hint at the underlying binary format for 16 bytes of arbitrary data
 pub enum Hint {
     Elf(HintData),
@@ -281,6 +283,7 @@ if_everything! {
 
     #[derive(Debug)]
     #[allow(clippy::large_enum_variant)]
+    #[non_exhaustive]
     /// A parseable object that goblin understands
     pub enum Object<'a> {
         /// An ELF32/ELF64!

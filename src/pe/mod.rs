@@ -231,7 +231,7 @@ impl<'a> PE<'a> {
             }
 
             // Parse attribute certificates unless opted out of
-            let certtable = if opts.parse_attribute_certificates {
+            let certificate_table_size = if opts.parse_attribute_certificates {
                 if let Some(&certificate_table) =
                     optional_header.data_directories.get_certificate_table()
                 {
@@ -241,20 +241,19 @@ impl<'a> PE<'a> {
                         certificate_table.size,
                     )?;
 
-                    let start = certificate_table.virtual_address as usize;
-                    let end = start + certificate_table.size as usize;
-                    Some(start..end)
+                    certificate_table.size as usize
                 } else {
-                    None
+                    0
                 }
             } else {
-                None
+                0
             };
 
             authenticode_excluded_sections = Some(authenticode::ExcludedSections::new(
                 checksum,
                 datadir_entry_certtable,
-                certtable,
+                certificate_table_size,
+                optional_header.windows_fields.size_of_headers as usize,
             ));
         }
         Ok(PE {

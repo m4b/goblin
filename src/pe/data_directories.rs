@@ -18,6 +18,18 @@ impl DataDirectory {
     pub fn parse(bytes: &[u8], offset: &mut usize) -> error::Result<Self> {
         Ok(bytes.gread_with(offset, scroll::LE)?)
     }
+
+    pub fn data<'a>(&self, bytes: &'a [u8], disk_offset: usize) -> error::Result<&'a [u8]> {
+        bytes
+            .get(disk_offset..disk_offset + self.size as usize)
+            .ok_or(error::Error::Malformed(format!(
+                "Requesting bytes from data directory at {} (end: {}) of size {}, buffer is {}",
+                disk_offset,
+                disk_offset + self.size as usize,
+                self.size,
+                bytes.len()
+            )))
+    }
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -136,6 +148,14 @@ impl DataDirectories {
     build_dd_getter!(get_clr_runtime_header, 14);
 
     pub fn dirs(&self) -> impl Iterator<Item = (DataDirectoryType, DataDirectory)> {
+        self.dirs_with_offset().map(|(a, _b, c)| (a, c))
+    }
+
+    /// Returns all data directories
+    /// with their types, offsets and contents.
+    pub fn dirs_with_offset(
+        &self,
+    ) -> impl Iterator<Item = (DataDirectoryType, usize, DataDirectory)> {
         self.data_directories
             .into_iter()
             .enumerate()
@@ -148,6 +168,6 @@ impl DataDirectories {
                 // takes into account the N possible data directories.
                 // Therefore, the unwrap can never fail as long as Rust guarantees
                 // on types are honored.
-                o.map(|(_, v)| (i.try_into().unwrap(), v)))
+                o.map(|(offset, v)| (i.try_into().unwrap(), offset, v)))
     }
 }

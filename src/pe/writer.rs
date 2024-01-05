@@ -482,61 +482,7 @@ impl<'a, 'b> PEWriter<'a, 'b> {
         // if cert table exist, it should be the last element
         // if debug table exist, it should be the last element
         // This is important because they are not mapped in memory.
-        debug_assert!(
-            self.pe
-                .header
-                .optional_header
-                .map(|opt_header| {
-                    // This test is incorrect
-                    // We need to find the section enclosing the debug data directory
-                    // and verify if it's a .debug section, if it is, it must be at the end
-                    // if it's not enclosed by a section (which apparently can happen??)…
-                    // and finally if it's in .data (which happens sometimes), let's ignore the debug
-                    // table ordering.
-                    let dd_end = opt_header.data_directories.data_directories[6]
-                        .and_then(|(offset, debug_table)| Some(offset as u32 + debug_table.size));
-                    let cert_attr_end = opt_header
-                        .data_directories
-                        .get_certificate_table()
-                        .and_then(|cert_table| {
-                            enumerate_certificates(
-                                &buffer,
-                                cert_table.virtual_address,
-                                cert_table.size,
-                            )
-                            .ok()
-                        })
-                        .and_then(|certificates| {
-                            certificates
-                                .last()
-                                .map(|(last_offset, cert)| *last_offset as u32 + cert.length)
-                        });
-
-                    debug!("debug table end: {:?}", dd_end);
-                    debug!("cert attribute end: {:?}", cert_attr_end);
-                    debug!("file size: {}", self.file_size);
-
-                    // it is sufficient to prove:
-                    // cert attributes end <= debug table end <= align(debug table or cert attributes
-                    // end, file alignment)
-                    // where any end can be None.
-                    match (cert_attr_end, dd_end) {
-                        (Some(cert_end), Some(dd_end)) => {
-                            cert_end <= dd_end
-                                && align_to(dd_end, self.file_alignment) == self.file_size
-                        }
-                        (None, Some(dd_end)) => {
-                            align_to(dd_end, self.file_alignment) == self.file_size
-                        }
-                        (Some(cert_end), None) => {
-                            align_to(cert_end, self.file_alignment) == self.file_size
-                        }
-                        (None, None) => true,
-                    }
-                })
-                .unwrap_or(true),
-            "certificate attributes and debug information are incorrectly placed"
-        );
+        // TODO: reintroduce it.
 
         // We cannot guarantee that written == self.file_size
         // as PE cannot be perfectly efficient vs. how we do write them.

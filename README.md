@@ -260,6 +260,8 @@ In lexicographic order:
 
 ## Contributing
 
+Unless explicitly stated otherwise, you agree that your contributions are licensed as described in the accompanying LICENSE file (MIT).
+
 1. Please prefix commits with the affected binary component; the more specific the better, e.g.,
    if you only modify relocations in the elf module, then do "elf.reloc: added new constants for Z80"
 1. Commit messages must explain their change, no generic "changed", or "fix"; if you push commits

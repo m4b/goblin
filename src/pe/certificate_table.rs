@@ -194,11 +194,23 @@ impl<'a> ctx::TryIntoCtx<scroll::Endian> for &AttributeCertificate<'a> {
     /// Writes an aligned attribute certificate in the buffer.
     fn try_into_ctx(self, bytes: &mut [u8], ctx: scroll::Endian) -> Result<usize, Self::Error> {
         let offset = &mut 0;
+        debug_assert!(
+            (self.length - ATTRIBUTE_CERTIFICATE_HEADER_SIZEOF as u32) % 8 == 0,
+            "Attribute certificate's length field is unaligned"
+        );
+        debug_assert!(
+            bytes.len() >= self.length as usize,
+            "Insufficient buffer to write an aligned certificate"
+        );
         bytes.gwrite_with(self.length, offset, ctx)?;
         bytes.gwrite_with(self.revision as u16, offset, ctx)?;
         bytes.gwrite_with(self.certificate_type as u16, offset, ctx)?;
-        // Extend by zero the buffer until it is aligned on a quadword (16 bytes).
-        let maybe_certificate_padding = pad(self.certificate.len(), Some(16usize));
+        // Extend by zero the buffer until it is aligned on a quadword (16 bytes), according to
+        // spec:
+        // > If the bCertificate content does not end on a quadword boundary, the attribute
+        // > certificate entry is padded with zeros, from the end of bCertificate to the next
+        // > quadword boundary.
+        let maybe_certificate_padding = pad(self.certificate.len(), Some(8usize));
         bytes.gwrite(self.certificate, offset)?;
         if let Some(cert_padding) = maybe_certificate_padding {
             debug!(

@@ -8,14 +8,30 @@ use scroll::{ctx, IOread, IOwrite, Pread, Pwrite, SizeWith};
 /// In `winnt.h` and `pe.h`, it's `IMAGE_DOS_HEADER`. It's a DOS header present in all PE binaries.
 ///
 /// The DOS header is a relic from the MS-DOS era. It used to be useful to display an
-/// error message if the binary is run in MS-DOS. Nowadays, only two fields from
+/// error message if the binary is run in MS-DOS.
+///
+/// Nowadays, only two fields from
 /// the DOS header are used on Windows: [`signature` (aka `e_magic`)](DosHeader::signature)
 /// and [`pe_pointer` (aka `e_lfanew`)](DosHeader::pe_pointer).
+///
+/// ## Note on the archaic "formatted header"
+///
+/// The subset of the structure spanning from its start to the [`overlay_number` (aka `e_ovno`)](DosHeader::overlay_number) field
+/// included (i.e. till the offset 0x1C) used to be commonly known as "formatted header", since their position and contents were
+/// fixed. Optional information used by overlay managers could have followed the formatted header. In the absence of optional
+/// information, the formatted header was followed by the ["relocation pointer table"](https://www.tavi.co.uk/phobos/exeformat.html#reloctable).
+///
+/// Overlays were sections of a program that remained on disk until the program actually required them. Different overlays
+/// could thus share the same memory area. The overlays were loaded and unloaded by special code provided by the program
+/// or its run-time library.
+///
+/// [Source](https://www.tavi.co.uk/phobos/exeformat.html#:~:text=Format%20of%20the%20.EXE%20file%20header).
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default, Pwrite)]
 #[doc(alias("IMAGE_DOS_HEADER"))]
 pub struct DosHeader {
-    /// Magic number: `[0x5A, 0x4D]` (if read in little endian [ASCII](https://en.wikipedia.org/wiki/ASCII), "MZ" for [Mark Zbikowski](https://en.wikipedia.org/wiki/Mark_Zbikowski)).
+    /// Magic number: `[0x5A, 0x4D]`. In [little endian](https://en.wikipedia.org/wiki/Endianness)
+    /// [ASCII](https://en.wikipedia.org/wiki/ASCII), it reads "MZ" for [Mark Zbikowski](https://en.wikipedia.org/wiki/Mark_Zbikowski)).
     ///
     /// ## Non-MZ DOS executables
     ///
@@ -58,8 +74,8 @@ pub struct DosHeader {
     /// In `winnt.h` and `pe.h`, it's `e_crlc`.
     ///
     /// It used to specify the number of "relocation items", i.e. the number of entries that
-    /// existed in the "relocation pointer table". If there were no relocations, this field
-    /// would contain 0x0000.
+    /// existed in the ["relocation pointer table"](https://www.tavi.co.uk/phobos/exeformat.html#reloctable).
+    /// If there were no relocations, this field would contain 0x0000.
     /// [Source](https://stixproject.github.io/data-model/1.2/WinExecutableFileObj/DOSHeaderType/).
     ///
     /// ## On relocation items and relocation pointer table
@@ -85,7 +101,7 @@ pub struct DosHeader {
     /// In `winnt.h` and `pe.h`, it's `e_cparhdr`.
     ///
     /// It used to specify the size of the "executable header" in terms of "paragraphs" (16 byte chunks). It used to indicate
-    /// the offset of the program's compiled/assembled and linked image (the load module) within the executable file. The size
+    /// the offset of the program's compiled/assembled and linked image (the [load module](https://www.tavi.co.uk/phobos/exeformat.html#loadmodule)) within the executable file. The size
     /// of the load module could have been deduced by substructing this value (converted to bytes) from the overall size that could
     /// have been derived from combining the value of [`pages_in_file` (aka `e_cp`)](DosHeader::pages_in_file) and the value of
     /// [`bytes_on_last_page` (aka `e_cblp)`](DosHeader::bytes_on_last_page). The header used to always span an even number of
@@ -95,16 +111,21 @@ pub struct DosHeader {
     /// The "executable header" in this context refers to the DOS header itself.
     ///
     /// Typically, this field is set to 4. [Source](https://offwhitesecurity.dev/malware-development/portable-executable-pe/dos-header/).
-    /// This is because the DOS header is 64 bytes long, and 64 / 16 = 4.
+    /// This is because the modern DOS header is 64 bytes long, and 64 / 16 = 4.
     #[doc(alias("e_cparhdr"))]
     pub size_of_header_in_paragraphs: u16,
     /// In `winnt.h` and `pe.h`, it's `e_minalloc`.
     ///
     /// It used to specify the minimum number of extra paragraphs needed to be allocated to begin execution. This is
-    /// **in addition** to the memory required to hold the load module. This value normally represented the total size
+    /// **in addition** to the memory required to hold the [load module](https://www.tavi.co.uk/phobos/exeformat.html#loadmodule). This value normally represented the total size
     /// of any uninitialized data and/or stack segments that were linked at the end of the program. This space was not
     /// directly included in the load module, since there were no particular initializing values and it would simply waste
     /// disk space.
+    /// [Source](https://stixproject.github.io/data-model/1.2/WinExecutableFileObj/DOSHeaderType/).
+    ///
+    /// If both the [`minimum_extra_paragraphs_needed` (aka `e_minalloc`)](DosHeader::minimum_extra_paragraphs_needed) and
+    /// [`maximum_extra_paragraphs_needed` (aka `e_maxalloc`)](DosHeader::maximum_extra_paragraphs_needed) fields were set to 0x0000,
+    /// the program would be allocated as much memory as available. [Source](https://www.tavi.co.uk/phobos/exeformat.html)
     ///
     /// Typically, this field is set to 0x10. [Source](https://offwhitesecurity.dev/malware-development/portable-executable-pe/dos-header/).
     #[doc(alias("e_minalloc"))]
@@ -112,9 +133,14 @@ pub struct DosHeader {
     /// In `winnt.h` and `pe.h`, it's `e_maxalloc`.
     ///
     /// It used to specify the maximum number of extra paragraphs needed to be allocated by to begin execution. This indicated
-    /// **additional** memory over and above that required by the load module and the value specified in
+    /// **additional** memory over and above that required by the [load module](https://www.tavi.co.uk/phobos/exeformat.html#loadmodule) and the value specified in
     /// [`minimum_extra_paragraphs_needed` (aka `e_minalloc`)](DosHeader::minimum_extra_paragraphs_needed).
     /// If the request could not be satisfied, the program would be allocated as much memory as available.
+    /// [Source](https://stixproject.github.io/data-model/1.2/WinExecutableFileObj/DOSHeaderType/).
+    ///
+    /// If both the [`minimum_extra_paragraphs_needed` (aka `e_minalloc`)](DosHeader::minimum_extra_paragraphs_needed) and
+    /// [`maximum_extra_paragraphs_needed` (aka `e_maxalloc`)](DosHeader::maximum_extra_paragraphs_needed) fields were set to 0x0000,
+    /// the program would be allocated as much memory as available. [Source](https://www.tavi.co.uk/phobos/exeformat.html)
     ///
     /// Typically, this field is set to 0xFFFF. [Source](https://offwhitesecurity.dev/malware-development/portable-executable-pe/dos-header/).
     #[doc(alias("e_maxalloc"))]
@@ -122,7 +148,7 @@ pub struct DosHeader {
     /// In `winnt.h` and `pe.h`, it's `e_ss`.
     ///
     /// It used to specify the initial SS ("stack segment") value. SS value was a paragraph address of the stack segment
-    /// relative to the start of the load module. At load time, the value was relocated by adding the address of the
+    /// relative to the start of the [load module](https://www.tavi.co.uk/phobos/exeformat.html#loadmodule). At load time, the value was relocated by adding the address of the
     /// start segment of the program to it, and the resulting value was placed in the SS register before the program is
     /// started. To read more about x86 memory segmentation and SS register, see the
     /// [wikipedia article](https://en.wikipedia.org/wiki/X86_memory_segmentation) on this topic. In DOS, the start segment
@@ -159,34 +185,103 @@ pub struct DosHeader {
     // TODO: Clarify what exactly is meany by "this was merely a value within that segment".
     #[doc(alias("e_sp"))]
     pub initial_sp: u16,
-    /// e_csum
+    /// In `winnt.h` and `pe.h`, it's `e_csum`.
+    ///
+    /// It used to specify the checksum of the contents of the executable file It used to ensure the integrity of the data
+    /// within the file. For full details on how this checksum was calculated, see <http://www.tavi.co.uk/phobos/exeformat.html#checksum>.
+    /// [Source](https://stixproject.github.io/data-model/1.2/WinExecutableFileObj/DOSHeaderType/).
+    ///
+    /// Typically, this field is set to 0. [Source](https://offwhitesecurity.dev/malware-development/portable-executable-pe/dos-header/).
     #[doc(alias("e_csum"))]
     pub checksum: u16,
-    /// e_ip
+    /// In `winnt.h` and `pe.h`, it's `e_ip`.
+    ///
+    /// It used to specify the initial IP ("instruction pointer") value. IP value was the absolute value that must have been
+    /// loaded into the IP register in order to transfer control to the program. Since the actual code segment was determined
+    /// by the loader and, and this was merely a value within that segment, it didn't need to be relocated.
+    /// [Source](https://stixproject.github.io/data-model/1.2/WinExecutableFileObj/DOSHeaderType/).
+    ///
+    /// Typically, this field is set to 0. [Source](https://offwhitesecurity.dev/malware-development/portable-executable-pe/dos-header/).
+    // TODO: Clarify what exactly is meany by "this was merely a value within that segment".
     #[doc(alias("e_ip"))]
     pub initial_ip: u16,
-    /// e_cs
+    /// In `winnt.h` and `pe.h`, it's `e_cs`.
+    ///
+    /// It used to specify the pre-relocated initial CS ("code segment") value relative to the start of the [load module](https://www.tavi.co.uk/phobos/exeformat.html#loadmodule),
+    /// that should have been placed in the CS register in order to transfer control to the program. At load time, this value
+    /// was relocated by adding the address of the start segment of the program to it, and the resulting value was placed in
+    /// the CS register when control is transferred.
+    /// [Source](https://stixproject.github.io/data-model/1.2/WinExecutableFileObj/DOSHeaderType/).
+    ///
+    /// Typically, this field is set to 0. [Source](https://offwhitesecurity.dev/malware-development/portable-executable-pe/dos-header/).
     #[doc(alias("e_cs"))]
     pub initial_relative_cs: u16,
-    /// e_lfarlc
+    /// In `winnt.h` and `pe.h`, it's `e_lfarlc`.
+    ///
+    /// It used to specify the logical file address of the relocation table, or more specifically, the offset from the start
+    /// of the file to the [relocation pointer table](https://www.tavi.co.uk/phobos/exeformat.html#reloctable). This value
+    /// must have been used to locate the relocation table (rather than assuming a fixed location) because variable-length
+    /// information pertaining to program overlays could have occurred before this table, causing its position to vary.
+    /// A value of 0x40 in this field generally indicated a different kind of executable, not a DOS 'MZ' type.
+    /// [Source](https://stixproject.github.io/data-model/1.2/WinExecutableFileObj/DOSHeaderType/).
+    ///
+    /// Typically, this field is set to 0x40. [Source](https://offwhitesecurity.dev/malware-development/portable-executable-pe/dos-header/).
     #[doc(alias("e_lfarlc"))]
     pub file_address_of_relocation_table: u16,
-    /// e_ovno
+    /// In `winnt.h` and `pe.h`, it's `e_ovno`.
+    ///
+    /// It used to specify the overlay number, which was normally set to 0x0000, because few programs actually had overlays.
+    /// It changed only in files containing programs that used overlays.
+    /// [Source](https://stixproject.github.io/data-model/1.2/WinExecutableFileObj/DOSHeaderType/).
+    ///
+    /// Overlays were sections of a program that remained on disk until the program actually required them. Different overlays
+    /// could thus share the same memory area. The overlays were loaded and unloaded by special code provided by the program
+    /// or its run-time library.
+    ///
+    /// Typically, this field is set to 0. [Source](https://offwhitesecurity.dev/malware-development/portable-executable-pe/dos-header/).
     #[doc(alias("e_ovno"))]
     pub overlay_number: u16,
-    /// e_res[4]
+    /// In `winnt.h` and `pe.h`, it's `e_res[4]`.
+    ///
+    /// It used to specify the reserved words for the program, i.e. an array reserved for future use.
+    /// Usually, the array was zeroed by the linker.
+    /// [Source](https://stixproject.github.io/data-model/1.2/WinExecutableFileObj/DOSHeaderType/).
+    ///
+    /// Typically, this field is set to 0. [Source](https://offwhitesecurity.dev/malware-development/portable-executable-pe/dos-header/).
     #[doc(alias("e_res"))]
     pub reserved: [u16; 4],
-    /// e_oemid
+    /// In `winnt.h` and `pe.h`, it's `e_oemid`.
+    ///
+    /// It used to specify the identifier for the OEM ("Original Equipment Manufacturer") for [`oem_info` aka `e_oeminfo`](DosHeader::oem_info).
+    /// [Source](https://stixproject.github.io/data-model/1.2/WinExecutableFileObj/DOSHeaderType/).
+    ///
+    /// More specifically, it used to specify the OEM of the system or hardware platform for which the executable file was created.
+    /// This field was used to specify certain characteristics or requirements related to the hardware environment in which the
+    /// executable was intended to run.
+    ///
+    /// Typically, this field is set to 0. [Source](https://offwhitesecurity.dev/malware-development/portable-executable-pe/dos-header/).
     #[doc(alias("e_oemid"))]
     pub oem_id: u16,
-    /// e_oeminfo
+    /// In `winnt.h` and `pe.h`, it's `e_oeminfo`.
+    ///
+    /// It used to specify the extra information, the kind of which was specific to the OEM identified by [`oem_id` aka `e_oemid`](DosHeader::oem_id).
     #[doc(alias("e_oeminfo"))]
     pub oem_info: u16,
-    /// e_res2[10]
+    /// In `winnt.h` and `pe.h`, it's `e_res2[10]`.
+    ///
+    /// It used to specify the reserved words for the program, i.e. an array reserved for future use.
+    /// Usually, the array was zeroed by the linker.
+    /// [Source](https://stixproject.github.io/data-model/1.2/WinExecutableFileObj/DOSHeaderType/).
+    ///
+    /// Typically, this field is set to 0. [Source](https://offwhitesecurity.dev/malware-development/portable-executable-pe/dos-header/).
     #[doc(alias("e_res2"))]
     pub reserved2: [u16; 10],
-    /// e_lfanew: pointer to PE header, always at offset 0x3c
+    /// In `winnt.h` and `pe.h`, it's `e_lfanew`.
+    ///
+    /// Today, it specifies the logcal file address of the of the new exe header. In particular, it is a 4-byte offset into
+    /// the file where the PE file header is located. It is necessary to use this offset to locate the PE header in the file.
+    ///
+    /// Typically, this field is set to 0x3c ([`PE_POINTER_OFFSET`]).
     #[doc(alias("e_lfanew"))]
     pub pe_pointer: u32,
 }

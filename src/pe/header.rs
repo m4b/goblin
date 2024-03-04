@@ -5,50 +5,193 @@ use alloc::vec::Vec;
 use log::debug;
 use scroll::{ctx, IOread, IOwrite, Pread, Pwrite, SizeWith};
 
-/// DOS header present in all PE binaries
+/// In `winnt.h` and `pe.h`, it's `IMAGE_DOS_HEADER`. It's a DOS header present in all PE binaries.
+///
+/// The DOS header is a relic from the MS-DOS era. It used to be useful to display an
+/// error message if the binary is run in MS-DOS. Nowadays, only two fields from
+/// the DOS header are used on Windows: [`signature` (aka `e_magic`)](DosHeader::signature)
+/// and [`pe_pointer` (aka `e_lfanew`)](DosHeader::pe_pointer).
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default, Pwrite)]
+#[doc(alias("IMAGE_DOS_HEADER"))]
 pub struct DosHeader {
-    /// Magic number: 5a4d
+    /// Magic number: `[0x5A, 0x4D]` (if read in little endian [ASCII](https://en.wikipedia.org/wiki/ASCII), "MZ" for [Mark Zbikowski](https://en.wikipedia.org/wiki/Mark_Zbikowski)).
+    ///
+    /// ## Non-MZ DOS executables
+    ///
+    /// * For [IBM OS/2](https://www.britannica.com/technology/IBM-OS-2), the value was "NE".
+    /// * For IBM OS/2 LE, the value was "LE".
+    /// * For [NT](https://en.wikipedia.org/wiki/Windows_NT), the value was "PE00".
+    ///
+    /// Sources:
+    ///
+    /// * <https://stixproject.github.io/data-model/1.2/WinExecutableFileObj/DOSHeaderType/>
+    /// * <https://learn.microsoft.com/en-us/archive/msdn-magazine/2002/february/inside-windows-win32-portable-executable-file-format-in-detail>
+    #[doc(alias("e_magic"))]
     pub signature: u16,
-    /// e_cblp
+    /// In `winnt.h` and `pe.h`, it's `e_cblp`.
+    ///
+    /// It used to specify the number of bytes actually used in the last "page".
+    /// Page used to refer to a segment of memory, usually of 512 bytes size.
+    ///
+    /// The case of full page was represented by 0x0000 (since the last page is never empty).
+    ///
+    /// For example, assuming a page size of 512 bytes, this value would
+    /// be 0x0000 for a 1024 byte file, and 0x0001 for a 1025 byte file
+    /// (since it only contains one valid byte).
+    /// [Source](https://stixproject.github.io/data-model/1.2/WinExecutableFileObj/DOSHeaderType/).
+    ///
+    /// Typically, this field is set to 0. [Source](https://offwhitesecurity.dev/malware-development/portable-executable-pe/dos-header/).
+    #[doc(alias("e_cblp"))]
     pub bytes_on_last_page: u16,
-    /// e_cp
+    /// In `winnt.h` and `pe.h`, it's `e_cp`.
+    ///
+    /// It used to specify the number of pages required to hold a file. For example,
+    /// if the file contained 1024 bytes, and the file had pages of a size of 512 bytes,
+    /// this [word](https://en.wikipedia.org/wiki/Word_(computer_architecture)) would contain
+    /// 0x0002 (2 pages); if the file contained 1025 bytes, this word would contain 0x0003 (3 pages).
+    /// [Source](https://stixproject.github.io/data-model/1.2/WinExecutableFileObj/DOSHeaderType/).
+    ///
+    /// Typically, this field is set to 0. [Source](https://offwhitesecurity.dev/malware-development/portable-executable-pe/dos-header/).
+    #[doc(alias("e_cp"))]
     pub pages_in_file: u16,
-    /// e_crlc
+    /// In `winnt.h` and `pe.h`, it's `e_crlc`.
+    ///
+    /// It used to specify the number of "relocation items", i.e. the number of entries that
+    /// existed in the "relocation pointer table". If there were no relocations, this field
+    /// would contain 0x0000.
+    /// [Source](https://stixproject.github.io/data-model/1.2/WinExecutableFileObj/DOSHeaderType/).
+    ///
+    /// ## On relocation items and relocation pointer table
+    ///
+    /// When a program is compiled, memory addresses are often hard-coded into the binary code.
+    /// These addresses are usually relative to the base address where the program expects to be loaded into memory.
+    /// However, when the program is loaded into memory, it might not be loaded at its preferred base address due to
+    /// various reasons such as memory fragmentation or other programs already occupying that space.
+    ///
+    /// Relocation items, also known as fixups or relocations, are pieces of data embedded within the executable file
+    /// that indicate which memory addresses need to be adjusted when the program is loaded at a different base address.
+    /// These relocations specify the location and type of adjustment needed.
+    ///
+    /// The relocation pointer table is a data structure that contains pointers to the locations within the executable file
+    /// where relocations need to be applied. It allows the operating system's loader to efficiently locate and process the
+    /// relocation data during the loading process.
+    ///
+    /// ---
+    ///
+    /// Typically, this field is set to 0. [Source](https://offwhitesecurity.dev/malware-development/portable-executable-pe/dos-header/).
+    #[doc(alias("e_crlc"))]
     pub relocations: u16,
-    /// e_cparhdr
+    /// In `winnt.h` and `pe.h`, it's `e_cparhdr`.
+    ///
+    /// It used to specify the size of the "executable header" in terms of "paragraphs" (16 byte chunks). It used to indicate
+    /// the offset of the program's compiled/assembled and linked image (the load module) within the executable file. The size
+    /// of the load module could have been deduced by substructing this value (converted to bytes) from the overall size that could
+    /// have been derived from combining the value of [`pages_in_file` (aka `e_cp`)](DosHeader::pages_in_file) and the value of
+    /// [`bytes_on_last_page` (aka `e_cblp)`](DosHeader::bytes_on_last_page). The header used to always span an even number of
+    /// paragraphs.
+    /// [Source](https://stixproject.github.io/data-model/1.2/WinExecutableFileObj/DOSHeaderType/).
+    ///
+    /// The "executable header" in this context refers to the DOS header itself.
+    ///
+    /// Typically, this field is set to 4. [Source](https://offwhitesecurity.dev/malware-development/portable-executable-pe/dos-header/).
+    /// This is because the DOS header is 64 bytes long, and 64 / 16 = 4.
+    #[doc(alias("e_cparhdr"))]
     pub size_of_header_in_paragraphs: u16,
-    /// e_minalloc
+    /// In `winnt.h` and `pe.h`, it's `e_minalloc`.
+    ///
+    /// It used to specify the minimum number of extra paragraphs needed to be allocated to begin execution. This is
+    /// **in addition** to the memory required to hold the load module. This value normally represented the total size
+    /// of any uninitialized data and/or stack segments that were linked at the end of the program. This space was not
+    /// directly included in the load module, since there were no particular initializing values and it would simply waste
+    /// disk space.
+    ///
+    /// Typically, this field is set to 0x10. [Source](https://offwhitesecurity.dev/malware-development/portable-executable-pe/dos-header/).
+    #[doc(alias("e_minalloc"))]
     pub minimum_extra_paragraphs_needed: u16,
-    /// e_maxalloc
+    /// In `winnt.h` and `pe.h`, it's `e_maxalloc`.
+    ///
+    /// It used to specify the maximum number of extra paragraphs needed to be allocated by to begin execution. This indicated
+    /// **additional** memory over and above that required by the load module and the value specified in
+    /// [`minimum_extra_paragraphs_needed` (aka `e_minalloc`)](DosHeader::minimum_extra_paragraphs_needed).
+    /// If the request could not be satisfied, the program would be allocated as much memory as available.
+    ///
+    /// Typically, this field is set to 0xFFFF. [Source](https://offwhitesecurity.dev/malware-development/portable-executable-pe/dos-header/).
+    #[doc(alias("e_maxalloc"))]
     pub maximum_extra_paragraphs_needed: u16,
-    /// e_ss
+    /// In `winnt.h` and `pe.h`, it's `e_ss`.
+    ///
+    /// It used to specify the initial SS ("stack segment") value. SS value was a paragraph address of the stack segment
+    /// relative to the start of the load module. At load time, the value was relocated by adding the address of the
+    /// start segment of the program to it, and the resulting value was placed in the SS register before the program is
+    /// started. To read more about x86 memory segmentation and SS register, see the
+    /// [wikipedia article](https://en.wikipedia.org/wiki/X86_memory_segmentation) on this topic. In DOS, the start segment
+    /// boundary of the program was the first segment boundary in memory after
+    /// [Program Segment Prefix (PSP)](https://en.wikipedia.org/wiki/Program_Segment_Prefix).
+    /// [Source](https://stixproject.github.io/data-model/1.2/WinExecutableFileObj/DOSHeaderType/).
+    ///
+    /// The Program Segment Prefix (PSP) was a data structure used in DOS (Disk Operating System) environments.
+    /// It was located at the beginning of the memory allocated for a running program and it contained various
+    /// pieces of information about the program, including command-line arguments, environment variables,
+    /// and pointers to various system resources.
+    ///
+    /// [According to Wikipedia](https://en.wikipedia.org/wiki/Data_segment#Stack), the stack segment contains the call stack,
+    /// a LIFO structure, typically located in the higher parts of memory. A "stack pointer" register tracks the top of the
+    /// stack; it is adjusted each time a value is "pushed" onto the stack. The set of values pushed for one function call
+    /// is termed a "stack frame".
+    ///
+    /// Typically, this field is set to 0. [Source](https://offwhitesecurity.dev/malware-development/portable-executable-pe/dos-header/).
+    #[doc(alias("e_ss"))]
     pub initial_relative_ss: u16,
-    /// e_sp
+    /// In `winnt.h` and `pe.h`, it's `e_sp`.
+    ///
+    /// It used to specify the initial SP ("stack pointer") value. SP value was the absolute value that must have been loaded
+    /// into the SP register before the program is given control. Since the actual stack segment was determined by the loader,
+    /// and this was merely a value within that segment, it didn't need to be relocated.
+    ///
+    /// [According to Wikipedia](https://en.wikipedia.org/wiki/Data_segment#Stack), the stack segment contains the call stack,
+    /// a LIFO structure, typically located in the higher parts of memory. A "stack pointer" register tracks the top of the
+    /// stack; it is adjusted each time a value is "pushed" onto the stack. The set of values pushed for one function call
+    /// is termed a "stack frame".
+    /// [Source](https://stixproject.github.io/data-model/1.2/WinExecutableFileObj/DOSHeaderType/).
+    ///
+    /// Typically, this field is set to 0xB8. [Source](https://offwhitesecurity.dev/malware-development/portable-executable-pe/dos-header/).
+    // TODO: Clarify what exactly is meany by "this was merely a value within that segment".
+    #[doc(alias("e_sp"))]
     pub initial_sp: u16,
     /// e_csum
+    #[doc(alias("e_csum"))]
     pub checksum: u16,
     /// e_ip
+    #[doc(alias("e_ip"))]
     pub initial_ip: u16,
     /// e_cs
+    #[doc(alias("e_cs"))]
     pub initial_relative_cs: u16,
     /// e_lfarlc
+    #[doc(alias("e_lfarlc"))]
     pub file_address_of_relocation_table: u16,
     /// e_ovno
+    #[doc(alias("e_ovno"))]
     pub overlay_number: u16,
     /// e_res[4]
+    #[doc(alias("e_res"))]
     pub reserved: [u16; 4],
     /// e_oemid
+    #[doc(alias("e_oemid"))]
     pub oem_id: u16,
     /// e_oeminfo
+    #[doc(alias("e_oeminfo"))]
     pub oem_info: u16,
     /// e_res2[10]
+    #[doc(alias("e_res2"))]
     pub reserved2: [u16; 10],
     /// e_lfanew: pointer to PE header, always at offset 0x3c
+    #[doc(alias("e_lfanew"))]
     pub pe_pointer: u32,
 }
 
+#[doc(alias("IMAGE_DOS_SIGNATURE"))]
 pub const DOS_MAGIC: u16 = 0x5a4d;
 pub const PE_POINTER_OFFSET: u32 = 0x3c;
 pub const DOS_STUB_OFFSET: u32 = PE_POINTER_OFFSET + (core::mem::size_of::<u32>() as u32);

@@ -52,6 +52,7 @@ pub struct StandardFields {
     pub address_of_entry_point: u64,
     pub base_of_code: u64,
     /// absent in 64-bit PE32+
+    // Q (JohnScience): Why is this a u32 and not an Option<u32>?
     pub base_of_data: u32,
 }
 
@@ -299,7 +300,18 @@ impl TryFrom<WindowsFields64> for WindowsFields32 {
 
 pub type WindowsFields = WindowsFields64;
 
+/// Either 32 or 64-bit optional header.
+///
+/// Whether it's 32 or 64-bit is determined by the `magic` field and the value of
+/// [`CoffHeader::size_of_optional_header`](crate::pe::header::CoffHeader::size_of_optional_header).
+///
+/// ## Position in PE binary
+///
+/// The optional header is located after [`CoffHeader`](crate::pe::header::CoffHeader) and before
+/// section table.
 #[derive(Debug, PartialEq, Copy, Clone)]
+#[doc(alias = "IMAGE_OPTIONAL_HEADER32")]
+#[doc(alias = "IMAGE_OPTIONAL_HEADER64")]
 pub struct OptionalHeader {
     pub standard_fields: StandardFields,
     pub windows_fields: WindowsFields,

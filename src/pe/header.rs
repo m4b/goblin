@@ -14,6 +14,10 @@ use scroll::{ctx, IOread, IOwrite, Pread, Pwrite, SizeWith};
 /// the DOS header are used on Windows: [`signature` (aka `e_magic`)](DosHeader::signature)
 /// and [`pe_pointer` (aka `e_lfanew`)](DosHeader::pe_pointer).
 ///
+/// ## Position in a modern PE file
+///
+/// The DOS header is located at the beginning of the PE file and is usually followed by the [DosStub].
+///
 /// ## Note on the archaic "formatted header"
 ///
 /// The subset of the structure spanning from its start to the [`overlay_number` (aka `e_ovno`)](DosHeader::overlay_number) field
@@ -381,7 +385,14 @@ impl DosHeader {
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Pread, Pwrite)]
-/// The DOS stub program which should be executed in DOS mode
+/// The DOS stub program which should be executed in DOS mode. It prints the message "This program cannot be run in DOS mode" and exits.
+///
+/// ## Position in a modern PE file
+///
+/// The [DosStub] is usually located immediately after the [DosHeader] and...
+///
+/// * De facto, can be followed by a non-standard ["Rich header"](https://0xrick.github.io/win-internals/pe3/#rich-header).
+/// * According to the standard, is followed by the  [Header::signature] and then the [CoffHeader].
 pub struct DosStub(pub [u8; 0x40]);
 impl Default for DosStub {
     fn default() -> Self {
@@ -397,6 +408,17 @@ impl Default for DosStub {
 }
 
 /// In `winnt.h`, it's `IMAGE_FILE_HEADER`. COFF Header.
+///
+/// Together with the [Header::signature] and the [Header::optional_header], it forms the
+/// [`IMAGE_NT_HEADERS`](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-image_nt_headers32).
+///
+/// ## Position in a modern PE file
+///
+/// The COFF header is located after the [Header::signature], which in turn is located after the
+/// non-standard ["Rich header"](https://0xrick.github.io/win-internals/pe3/#rich-header), if present,
+/// and after the [DosStub], according to the standard.
+///
+/// COFF header is followed by the [Header::optional_header].
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 #[doc(alias("IMAGE_FILE_HEADER"))]
@@ -454,17 +476,28 @@ pub struct CoffHeader {
     #[doc(alias("TimeDateStamp"))]
     pub time_date_stamp: u32,
     /// The offset of the symbol table, in bytes, or zero if no COFF symbol table exists.
+    ///
+    /// Typically, this field is set to 0 because COFF debugging information is deprecated.
+    /// [Source](https://0xrick.github.io/win-internals/pe4/#file-header-image_file_header).
     // TODO: further explain the COFF symbol table. This seems to be a nuanced topic.
     #[doc(alias("PointerToSymbolTable"))]
     pub pointer_to_symbol_table: u32,
     /// The number of symbols in the symbol table.
+    ///
+    /// Typically, this field is set to 0 because COFF debugging information is deprecated.
+    /// [Source](https://0xrick.github.io/win-internals/pe4/#file-header-image_file_header).
     // Q (JohnScience): Why is the name `number_of_symbol_table` and not `number_of_symbols`?
     #[doc(alias("NumberOfSymbols"))]
     pub number_of_symbol_table: u32,
     /// The size of the optional header, in bytes. This value should be zero for object files.
+    ///
+    /// The [`goblin::pe::optional_header::OptionalHeader`](crate::pe::optional_header::OptionalHeader) is meant to
+    /// represent either the 32-bit or the 64-bit optional header. The size of the optional header is used to determine
+    /// which one it is.
     #[doc(alias("SizeOfOptionalHeader"))]
     pub size_of_optional_header: u16,
-    /// The characteristics of the image.
+    /// The [characteristics](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#characteristics) of the image.
+    // TODO: add characteristics constants (https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#characteristics)
     #[doc(alias("Characteristics"))]
     pub characteristics: u16,
 }
@@ -482,7 +515,7 @@ pub const SIZEOF_PE_MAGIC: usize = 4;
 //
 // * `IMAGE_FILE_MACHINE_LOONGARCH32`,
 // * `IMAGE_FILE_MACHINE_LOONGARCH64`,
-// * `IMAGE_FILE_MACHINE__ALPHA`,
+// * `IMAGE_FILE_MACHINE_ALPHA`,
 // * `IMAGE_FILE_MACHINE_ALPHA64`
 //
 // didn't trigger the exhaustiveness check because there was a necessary default case.
@@ -735,6 +768,12 @@ impl CoffHeader {
     }
 }
 
+/// The PE header.
+///
+/// ## Position in a modern PE file
+///
+/// The PE header is located at the very beginning of the file and
+/// is followed by the section table and sections.
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub struct Header {
     pub dos_header: DosHeader,

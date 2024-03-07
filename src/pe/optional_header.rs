@@ -6,52 +6,112 @@ use crate::pe::data_directories;
 use scroll::{ctx, Endian, LE};
 use scroll::{Pread, Pwrite, SizeWith};
 
-/// standard COFF fields
+/// Standard 32-bit COFF fields (for `PE32`).
+///
+/// In `winnt.h`, this is a subset of [`IMAGE_OPTIONAL_HEADER32`](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-image_optional_header32).
+///
+/// * For 64-bit version, see [`StandardFields64`].
+/// * For unified version, see [`StandardFields`].
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default, Pread, Pwrite, SizeWith)]
 pub struct StandardFields32 {
+    /// See docs for [`StandardFields::magic`](crate::pe::optional_header::StandardFields::magic).
     pub magic: u16,
+    /// See docs for [`StandardFields::major_linker_version`].
     pub major_linker_version: u8,
+    /// See docs for [`StandardFields::minor_linker_version`].
     pub minor_linker_version: u8,
+    /// See docs for [`StandardFields::size_of_code`].
     pub size_of_code: u32,
+    /// See docs for [`StandardFields::size_of_initialized_data`].
     pub size_of_initialized_data: u32,
+    /// See docs for [`StandardFields::size_of_uninitialized_data`].
     pub size_of_uninitialized_data: u32,
+    /// See docs for [`StandardFields::address_of_entry_point`].
     pub address_of_entry_point: u32,
+    /// See docs for [`StandardFields::base_of_code`].
     pub base_of_code: u32,
-    /// absent in 64-bit PE32+
+    /// See docs for [`StandardFields::base_of_data`].
     pub base_of_data: u32,
 }
 
 pub const SIZEOF_STANDARD_FIELDS_32: usize = 28;
 
-/// standard 64-bit COFF fields
+/// Standard 64-bit COFF fields (for `PE32+`).
+///
+/// In `winnt.h`, this is a subset of [`IMAGE_OPTIONAL_HEADER64`](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-image_optional_header64).
+///
+/// * For 32-bit version, see [`StandardFields32`].
+/// * For unified version, see [`StandardFields`].
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default, Pread, Pwrite, SizeWith)]
 pub struct StandardFields64 {
+    /// See docs for [`StandardFields::magic`](crate::pe::optional_header::StandardFields::magic).
     pub magic: u16,
+    /// See docs for [`StandardFields::major_linker_version`].
     pub major_linker_version: u8,
+    /// See docs for [`StandardFields::minor_linker_version`].
     pub minor_linker_version: u8,
+    /// See docs for [`StandardFields::size_of_code`].
     pub size_of_code: u32,
+    /// See docs for [`StandardFields::size_of_initialized_data`].
     pub size_of_initialized_data: u32,
+    /// See docs for [`StandardFields::size_of_uninitialized_data`].
     pub size_of_uninitialized_data: u32,
+    /// See docs for [`StandardFields::address_of_entry_point`].
     pub address_of_entry_point: u32,
+    /// See docs for [`StandardFields::base_of_code`].
     pub base_of_code: u32,
 }
 
 pub const SIZEOF_STANDARD_FIELDS_64: usize = 24;
 
-/// Unified 32/64-bit COFF fields
+/// Unified 32/64-bit COFF fields (for `PE32` and `PE32+`).
+///
+/// Notably, a value of this type is a member of
+/// [`goblin::pe::optional_header::OptionalHeader`](crate::pe::optional_header::OptionalHeader),
+/// which represents either
+/// * [`IMAGE_OPTIONAL_HEADER32`](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-image_optional_header32); or
+/// * [`IMAGE_OPTIONAL_HEADER64`](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-image_optional_header64)
+///
+/// from `winnt.h`, depending on the value of [`StandardFields::magic`].
+///
+/// * For 32-bit version, see [`StandardFields32`].
+/// * For 64-bit version, see [`StandardFields64`].
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub struct StandardFields {
+    /// The state of the image file. This member can be one of the following values:
+    ///
+    /// * [`IMAGE_NT_OPTIONAL_HDR32_MAGIC`].
+    /// * [`IMAGE_NT_OPTIONAL_HDR64_MAGIC`].
+    /// * [`IMAGE_ROM_OPTIONAL_HDR_MAGIC`].
+    #[doc(alias = "Magic")]
     pub magic: u16,
+    /// The major version number of the linker.
+    #[doc(alias = "MajorLinkerVersion")]
     pub major_linker_version: u8,
+    /// The minor version number of the linker.
+    #[doc(alias = "MinorLinkerVersion")]
     pub minor_linker_version: u8,
+    /// The size of the code section, in bytes, or the sum of all such sections if there are multiple code sections.
+    #[doc(alias = "SizeOfCode")]
     pub size_of_code: u64,
+    /// The size of the initialized data section, in bytes, or the sum of all such sections if there are multiple initialized data sections.
+    #[doc(alias = "SizeOfInitializedData")]
     pub size_of_initialized_data: u64,
+    /// The size of the uninitialized data section, in bytes, or the sum of all such sections if there are multiple uninitialized data sections.
+    #[doc(alias = "SizeOfUninitializedData")]
     pub size_of_uninitialized_data: u64,
+    /// A pointer to the entry point function, relative to the image base address.
+    ///
+    /// * For executable files, this is the starting address.
+    /// * For device drivers, this is the address of the initialization function.
+    ///
+    /// The entry point function is optional for DLLs. When no entry point is present, this member is zero.
     pub address_of_entry_point: u64,
+    /// A pointer to the beginning of the code section, relative to the image base.
     pub base_of_code: u64,
-    /// absent in 64-bit PE32+
+    /// A pointer to the beginning of the data section, relative to the image base. Absent in 64-bit PE32+
     // Q (JohnScience): Why is this a u32 and not an Option<u32>?
     pub base_of_data: u32,
 }
@@ -302,7 +362,7 @@ pub type WindowsFields = WindowsFields64;
 
 /// Either 32 or 64-bit optional header.
 ///
-/// Whether it's 32 or 64-bit is determined by the `magic` field and the value of
+/// Whether it's 32 or 64-bit is determined by the [`StandardFields::magic`] and by the value
 /// [`CoffHeader::size_of_optional_header`](crate::pe::header::CoffHeader::size_of_optional_header).
 ///
 /// ## Position in PE binary
@@ -317,6 +377,15 @@ pub struct OptionalHeader {
     pub windows_fields: WindowsFields,
     pub data_directories: data_directories::DataDirectories,
 }
+
+/// Magic number for 32-bit binary (`PE32`).
+pub const IMAGE_NT_OPTIONAL_HDR32_MAGIC: u16 = 0x10b;
+/// Magic number for 64-bit binary (`PE32+`).
+pub const IMAGE_NT_OPTIONAL_HDR64_MAGIC: u16 = 0x20b;
+/// Magic number for a ROM image.
+///
+/// More info: <https://superuser.com/questions/156994/what-sort-of-program-has-its-pe-executable-header-set-to-rom-image>.
+pub const IMAGE_ROM_OPTIONAL_HDR_MAGIC: u16 = 0x107;
 
 impl OptionalHeader {
     pub fn container(&self) -> error::Result<container::Container> {

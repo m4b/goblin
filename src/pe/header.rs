@@ -543,14 +543,18 @@ pub struct Header {
 }
 
 impl Header {
+    /// Parses PE header from the given bytes, use default DosHeader if missed
     pub fn parse(bytes: &[u8]) -> error::Result<Self> {
-        let dos_header = DosHeader::parse(&bytes)?;
-        let dos_stub = bytes.pread(DOS_STUB_OFFSET as usize).map_err(|_| {
-            error::Error::Malformed(format!(
-                "cannot parse DOS stub (offset {:#x})",
-                DOS_STUB_OFFSET
-            ))
-        })?;
+        let dos_header = DosHeader::parse(&bytes).unwrap_or_default();
+        let dos_stub = bytes
+            .pread(DOS_STUB_OFFSET as usize)
+            .map_err(|_| {
+                error::Error::Malformed(format!(
+                    "cannot parse DOS stub (offset {:#x})",
+                    DOS_STUB_OFFSET
+                ))
+            })
+            .unwrap_or_default();
         let mut offset = dos_header.pe_pointer as usize;
         let signature = bytes.gread_with(&mut offset, scroll::LE).map_err(|_| {
             error::Error::Malformed(format!("cannot parse PE signature (offset {:#x})", offset))

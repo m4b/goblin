@@ -497,7 +497,8 @@ pub struct CoffHeader {
     #[doc(alias("SizeOfOptionalHeader"))]
     pub size_of_optional_header: u16,
     /// The [characteristics](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#characteristics) of the image.
-    // TODO: add characteristics constants (https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#characteristics)
+    ///
+    /// The constants for the characteristics are available in the [`goblin::pe::characteristic`](crate::pe::characteristic) module.
     #[doc(alias("Characteristics"))]
     pub characteristics: u16,
 }

@@ -75,6 +75,36 @@ fn parse_text_section_size_lazy(base: &[u8]) -> Result<u64, &'static str> {
     Err("Didn't find text section")
 }
 
+fn parse_from_text_section_size_lazy(base: &[u8]) -> Result<bool, &'static str> {
+    let header = Elf::parse_header(base).map_err(|_| "parse elf header error")?;
+
+    use goblin::container::{Container, Ctx};
+    use goblin::elf::SectionHeader;
+
+    let ctx = Ctx {
+        le: scroll::Endian::Little,
+        container: Container::Big,
+    };
+
+    let sh_from_orig =
+        SectionHeader::parse(base, header.e_shoff as usize, header.e_shnum as usize, ctx)
+            .map_err(|_| "parse() section headers error")?;
+
+    let sh_from_offset = SectionHeader::parse_from(
+        &base[header.e_shoff as usize..],
+        0,
+        header.e_shnum as usize,
+        ctx,
+    )
+    .map_err(|_| "parse_from() section headers error")?;
+
+    if sh_from_orig == sh_from_offset {
+        return Ok(true);
+    }
+
+    Err("Mismatching offset reading")
+}
+
 #[test]
 fn test_parse_gnu_hash_section_64bit() {
     static ALIGNED_DATA: &AlignedData<[u8]> =
@@ -146,6 +176,13 @@ fn test_parse_text_section_size_lazy() {
     static ALIGNED_DATA: &AlignedData<[u8]> =
         &AlignedData(*include_bytes!("bins/elf/gnu_hash/hello.so"));
     assert_eq!(parse_text_section_size_lazy(&ALIGNED_DATA.0), Ok(0x126));
+}
+
+#[test]
+fn test_parse_from_text_section_size_lazy() {
+    static ALIGNED_DATA: &AlignedData<[u8]> =
+        &AlignedData(*include_bytes!("bins/elf/gnu_hash/hello.so"));
+    assert_eq!(parse_from_text_section_size_lazy(&ALIGNED_DATA.0), Ok(true));
 }
 
 #[test]

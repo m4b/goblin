@@ -469,19 +469,23 @@ impl<'a> ctx::TryIntoCtx<scroll::Endian> for PE<'a> {
 
 /// An analyzed TE binary
 ///
-/// A TE binary is a PE/PE32+ binary that has had it's header stripped
-/// and re-formatted to the TE specification. This presents a challenge
-/// for parsing, as all relative addresses (RVAs) are not updated to
-/// take this into account, and are thus incorrect. The parsing of a TE
-/// must take this into account by using the `stripped_size` field of the
-/// TE header to adjust the RVAs during parsing.
+/// A TE binary is a PE/PE32+ binary that has had it's header stripped and
+/// re-formatted to the TE specification. This presents a challenge for
+/// parsing, as all relative addresses (RVAs) are not updated to take this into
+/// account, and are thus incorrect. The parsing of a TE must take this into
+/// account by using the [header::TeHeader::stripped_size`] field of the TE
+/// header to adjust the RVAs during parsing.
 #[cfg(feature = "te")]
 #[derive(Debug)]
 pub struct TE<'a> {
     /// The TE header
     pub header: header::TeHeader,
+    /// A list of the sections in this TE binary
     pub sections: Vec<section_table::SectionTable>,
+    /// Debug information, contained in the PE header
     pub debug_data: debug::DebugData<'a>,
+    /// The offset to apply to addresses not parsed by the TE parser
+    /// itself: [header::TeHeader::stripped_size] - size_of::<[header::TeHeader]>()
     pub rva_offset: usize,
 }
 

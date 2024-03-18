@@ -837,9 +837,11 @@ impl ctx::TryIntoCtx<scroll::Endian> for Header {
     }
 }
 
-/// The TE header is a reduced PE32/PE32+ header containing only fields required for
-/// execution in the PI architecture. The TE header is described in by the PI spec:
-/// https://uefi.org/specs/PI/1.8/V1_TE_Image.html#te-header
+/// The TE header is a reduced PE32/PE32+ header containing only fields
+/// required for execution in the Platform Initialization
+/// ([PI](https://uefi.org/specs/PI/1.8/V1_Introduction.html)) architecture.
+/// The TE header is described in this specification:
+/// <https://uefi.org/specs/PI/1.8/V1_TE_Image.html#te-header>
 #[cfg(feature = "te")]
 #[repr(C)]
 #[derive(Debug, Default, PartialEq, Copy, Clone, Pread, Pwrite)]
@@ -850,7 +852,7 @@ pub struct TeHeader {
     pub machine: u16,
     /// The number of sections
     pub number_of_sections: u8,
-    /// The subystem
+    /// The subsystem
     pub subsystem: u8,
     /// the amount of bytes stripped from the header when converting from a
     /// PE32/PE32+ header to a TE header. Used to resolve addresses

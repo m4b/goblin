@@ -819,6 +819,29 @@ impl Header {
             optional_header,
         })
     }
+
+    pub fn parse_without_dos(bytes: &[u8]) -> error::Result<Self> {
+        let dos_header = DosHeader::default();
+        let mut offset = dos_header.pe_pointer as usize;
+        let signature = bytes.gread_with(&mut offset, scroll::LE).map_err(|_| {
+            error::Error::Malformed(format!("cannot parse PE signature (offset {:#x})", offset))
+        })?;
+        let coff_header = CoffHeader::parse(bytes, &mut offset)?;
+        let optional_header = if coff_header.size_of_optional_header > 0 {
+            let opt_hdr = bytes.pread::<optional_header::OptionalHeader>(offset)?;
+            Some(opt_hdr)
+        } else {
+            None
+        };
+
+        Ok(Header {
+            dos_header,
+            dos_stub: DosStub::default(),
+            signature,
+            coff_header,
+            optional_header,
+        })
+    }
 }
 
 impl ctx::TryIntoCtx<scroll::Endian> for Header {

@@ -8,11 +8,15 @@ use scroll::{ctx, IOread, IOwrite, Pread, Pwrite, SizeWith};
 /// In `winnt.h` and `pe.h`, it's `IMAGE_DOS_HEADER`. It's a DOS header present in all PE binaries.
 ///
 /// The DOS header is a relic from the MS-DOS era. It used to be useful to display an
-/// error message if the binary is run in MS-DOS.
+/// error message if the binary is run in MS-DOS by utilizing the DOS stub.
 ///
 /// Nowadays, only two fields from
 /// the DOS header are used on Windows: [`signature` (aka `e_magic`)](DosHeader::signature)
 /// and [`pe_pointer` (aka `e_lfanew`)](DosHeader::pe_pointer).
+///
+/// ## Position in a modern PE file
+///
+/// The DOS header is located at the beginning of the PE file and is usually followed by the [DosStub].
 ///
 /// ## Note on the archaic "formatted header"
 ///
@@ -381,7 +385,14 @@ impl DosHeader {
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Pread, Pwrite)]
-/// The DOS stub program which should be executed in DOS mode
+/// The DOS stub program which should be executed in DOS mode. It prints the message "This program cannot be run in DOS mode" and exits.
+///
+/// ## Position in a modern PE file
+///
+/// The [DosStub] is usually located immediately after the [DosHeader] and...
+///
+/// * De facto, can be followed by a non-standard ["Rich header"](https://0xrick.github.io/win-internals/pe3/#rich-header).
+/// * According to the standard, is followed by the  [Header::signature] and then the [CoffHeader].
 pub struct DosStub(pub [u8; 0x40]);
 impl Default for DosStub {
     fn default() -> Self {
@@ -396,17 +407,99 @@ impl Default for DosStub {
     }
 }
 
-/// COFF Header
+/// In `winnt.h`, it's `IMAGE_FILE_HEADER`. COFF Header.
+///
+/// Together with the [Header::signature] and the [Header::optional_header], it forms the
+/// [`IMAGE_NT_HEADERS`](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-image_nt_headers32).
+///
+/// ## Position in a modern PE file
+///
+/// The COFF header is located after the [Header::signature], which in turn is located after the
+/// non-standard ["Rich header"](https://0xrick.github.io/win-internals/pe3/#rich-header), if present,
+/// and after the [DosStub], according to the standard.
+///
+/// COFF header is followed by the [Header::optional_header].
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default, Pread, Pwrite, IOread, IOwrite, SizeWith)]
+#[doc(alias("IMAGE_FILE_HEADER"))]
 pub struct CoffHeader {
-    /// The machine type
+    /// The architecture type of the computer. An image file can only be run
+    /// on the specified computer or a system that emulates the specified computer.
+    ///
+    /// Can be one of the following values:
+    ///
+    /// * [`COFF_MACHINE_UNKNOWN`],
+    /// * [`COFF_MACHINE_ALPHA`],
+    /// * [`COFF_MACHINE_ALPHA64`],
+    /// * [`COFF_MACHINE_AM33`],
+    /// * [`COFF_MACHINE_X86_64`],
+    /// * [`COFF_MACHINE_ARM`],
+    /// * [`COFF_MACHINE_ARM64`],
+    /// * [`COFF_MACHINE_ARMNT`],
+    /// * [`COFF_MACHINE_EBC`],
+    /// * [`COFF_MACHINE_X86`],
+    /// * [`COFF_MACHINE_IA64`],
+    /// * [`COFF_MACHINE_LOONGARCH32`],
+    /// * [`COFF_MACHINE_LOONGARCH64`],
+    /// * [`COFF_MACHINE_M32R`],
+    /// * [`COFF_MACHINE_MIPS16`],
+    /// * [`COFF_MACHINE_MIPSFPU`],
+    /// * [`COFF_MACHINE_MIPSFPU16`],
+    /// * [`COFF_MACHINE_POWERPC`],
+    /// * [`COFF_MACHINE_POWERPCFP`],
+    /// * [`COFF_MACHINE_R4000`],
+    /// * [`COFF_MACHINE_RISCV32`],
+    /// * [`COFF_MACHINE_RISCV64`],
+    /// * [`COFF_MACHINE_RISCV128`],
+    /// * [`COFF_MACHINE_SH3`],
+    /// * [`COFF_MACHINE_SH3DSP`],
+    /// * [`COFF_MACHINE_SH4`],
+    /// * [`COFF_MACHINE_SH5`],
+    /// * [`COFF_MACHINE_THUMB`],
+    /// * [`COFF_MACHINE_WCEMIPSV2`],
+    ///
+    /// or any other value that is not listed here.
+    ///
+    /// The constants above are sourced from <https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#machine-types>.
+    /// If there's a missing constant, please open an issue or a pull request.
+    // TODO: insert the values names with a macro
+    #[doc(alias("Machine"))]
     pub machine: u16,
+    /// The number of sections. This indicates the size of the section table, which immediately follows the headers.
+    /// Note that the Windows loader limits the number of sections to 96.
+    /// [Source](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-image_file_header).
+    #[doc(alias("NumberOfSections"))]
     pub number_of_sections: u16,
+    /// The low 32 bits of the time stamp of the image. This represents the date and time the image was created by the linker.
+    /// The value is represented in the number of seconds elapsed since midnight (00:00:00), January 1, 1970, Universal
+    /// Coordinated Time, according to the system clock.
+    #[doc(alias("TimeDateStamp"))]
     pub time_date_stamp: u32,
+    /// The offset of the symbol table, in bytes, or zero if no COFF symbol table exists.
+    ///
+    /// Typically, this field is set to 0 because COFF debugging information is deprecated.
+    /// [Source](https://0xrick.github.io/win-internals/pe4/#file-header-image_file_header).
+    // TODO: further explain the COFF symbol table. This seems to be a nuanced topic.
+    #[doc(alias("PointerToSymbolTable"))]
     pub pointer_to_symbol_table: u32,
+    /// The number of symbols in the symbol table.
+    ///
+    /// Typically, this field is set to 0 because COFF debugging information is deprecated.
+    /// [Source](https://0xrick.github.io/win-internals/pe4/#file-header-image_file_header).
+    // Q (JohnScience): Why is the name `number_of_symbol_table` and not `number_of_symbols`?
+    #[doc(alias("NumberOfSymbols"))]
     pub number_of_symbol_table: u32,
+    /// The size of the optional header, in bytes. This value should be zero for object files.
+    ///
+    /// The [`goblin::pe::optional_header::OptionalHeader`](crate::pe::optional_header::OptionalHeader) is meant to
+    /// represent either the 32-bit or the 64-bit optional header. The size of the optional header is used to determine
+    /// which one it is.
+    #[doc(alias("SizeOfOptionalHeader"))]
     pub size_of_optional_header: u16,
+    /// The [characteristics](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#characteristics) of the image.
+    ///
+    /// The constants for the characteristics are available in the [`goblin::pe::characteristic`](crate::pe::characteristic) module.
+    #[doc(alias("Characteristics"))]
     pub characteristics: u16,
 }
 
@@ -414,55 +507,200 @@ pub const SIZEOF_COFF_HEADER: usize = 20;
 /// PE\0\0, little endian
 pub const PE_MAGIC: u32 = 0x0000_4550;
 pub const SIZEOF_PE_MAGIC: usize = 4;
-/// The contents of this field are assumed to be applicable to any machine type
+
+// Q (JohnScience): doesn't it make sense to move all these constants to a dedicated module
+// and then re-export them from here? This way, the module will be more organized.
+//
+// Also, don't we want to declare them in a macro to remove the boilerplate and make the implementation
+// of `machine_to_str` more future-proof and concise? For example, addition of...
+//
+// * `IMAGE_FILE_MACHINE_LOONGARCH32`,
+// * `IMAGE_FILE_MACHINE_LOONGARCH64`,
+// * `IMAGE_FILE_MACHINE_ALPHA`,
+// * `IMAGE_FILE_MACHINE_ALPHA64`
+//
+// didn't trigger the exhaustiveness check because there was a necessary default case.
+//
+// This way, we can also generate a test that would parse <https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#machine-types>
+// and check that there are no missing constants.
+
+/// The contents of this field are assumed to be applicable to any machine type.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_UNKNOWN"))]
 pub const COFF_MACHINE_UNKNOWN: u16 = 0x0;
-/// Matsushita AM33
+
+/// Alpha AXP, 32-bit address space.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_ALPHA"))]
+pub const COFF_MACHINE_ALPHA: u16 = 0x184;
+
+/// Alpha AXP, 64-bit address space.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_ALPHA64"))]
+#[doc(alias("IMAGE_FILE_MACHINE_AXP64"))]
+pub const COFF_MACHINE_ALPHA64: u16 = 0x284;
+
+/// Matsushita AM33.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_AM33"))]
 pub const COFF_MACHINE_AM33: u16 = 0x1d3;
-/// x64
+
+/// x64 aka amd64.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_AMD64"))]
+// Q (JohnScience): why is this `COFF_MACHINE_X86_64` and not `COFF_MACHINE_AMD64`?
+// Should we deprecate the former and use the latter instead?
 pub const COFF_MACHINE_X86_64: u16 = 0x8664;
-/// ARM little endian
+
+/// ARM little endian.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_ARM"))]
 pub const COFF_MACHINE_ARM: u16 = 0x1c0;
-/// ARM64 little endian
+
+/// ARM64 little endian.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_ARM64"))]
 pub const COFF_MACHINE_ARM64: u16 = 0xaa64;
-/// ARM Thumb-2 little endian
+
+/// ARM Thumb-2 little endian.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_ARMNT"))]
 pub const COFF_MACHINE_ARMNT: u16 = 0x1c4;
-/// EFI byte code
+
+/// EFI byte code.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_EBC"))]
 pub const COFF_MACHINE_EBC: u16 = 0xebc;
-/// Intel 386 or later processors and compatible processors
+
+/// Intel 386 or later processors and compatible processors.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+// Q (JohnScience): why is this `COFF_MACHINE_X86` and not `COFF_MACHINE_I386`?
+// Should we deprecate the former and use the latter instead?
+#[doc(alias("IMAGE_FILE_MACHINE_I386"))]
 pub const COFF_MACHINE_X86: u16 = 0x14c;
-/// Intel Itanium processor family
+
+/// Intel Itanium processor family.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_IA64"))]
 pub const COFF_MACHINE_IA64: u16 = 0x200;
-/// Mitsubishi M32R little endian
+
+/// LoongArch 32-bit processor family.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_LOONGARCH32"))]
+pub const COFF_MACHINE_LOONGARCH32: u16 = 0x6232;
+
+/// LoongArch 64-bit processor family.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_LOONGARCH64"))]
+pub const COFF_MACHINE_LOONGARCH64: u16 = 0x6264;
+
+/// Mitsubishi M32R little endian.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_M32R"))]
 pub const COFF_MACHINE_M32R: u16 = 0x9041;
-/// MIPS16
+
+/// MIPS16.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_MIPS16"))]
 pub const COFF_MACHINE_MIPS16: u16 = 0x266;
-/// MIPS with FPU
+
+/// MIPS with FPU.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_MIPSFPU"))]
 pub const COFF_MACHINE_MIPSFPU: u16 = 0x366;
-/// MIPS16 with FPU
+
+/// MIPS16 with FPU.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_MIPSFPU16"))]
 pub const COFF_MACHINE_MIPSFPU16: u16 = 0x466;
-/// Power PC little endian
+
+/// Power PC little endian.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_POWERPC"))]
 pub const COFF_MACHINE_POWERPC: u16 = 0x1f0;
-/// Power PC with floating point support
+
+/// Power PC with floating point support.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_POWERPCFP"))]
 pub const COFF_MACHINE_POWERPCFP: u16 = 0x1f1;
-/// MIPS little endian
+
+/// MIPS little endian.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_R4000"))]
 pub const COFF_MACHINE_R4000: u16 = 0x166;
-/// RISC-V 32-bit address space
+
+/// RISC-V 32-bit address space.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_RISCV32"))]
 pub const COFF_MACHINE_RISCV32: u16 = 0x5032;
-/// RISC-V 64-bit address space
+
+/// RISC-V 64-bit address space.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_RISCV64"))]
 pub const COFF_MACHINE_RISCV64: u16 = 0x5064;
+
 /// RISC-V 128-bit address space
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_RISCV128"))]
 pub const COFF_MACHINE_RISCV128: u16 = 0x5128;
-/// Hitachi SH3
+
+/// Hitachi SH3.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_SH3"))]
 pub const COFF_MACHINE_SH3: u16 = 0x1a2;
-/// Hitachi SH3 DSP
+
+/// Hitachi SH3 DSP.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_SH3DSP"))]
 pub const COFF_MACHINE_SH3DSP: u16 = 0x1a3;
-/// Hitachi SH4
+
+/// Hitachi SH4.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_SH4"))]
 pub const COFF_MACHINE_SH4: u16 = 0x1a6;
-/// Hitachi SH5
+
+/// Hitachi SH5.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_SH5"))]
 pub const COFF_MACHINE_SH5: u16 = 0x1a8;
-/// Thumb
+
+/// Thumb.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_THUMB"))]
 pub const COFF_MACHINE_THUMB: u16 = 0x1c2;
-/// MIPS little-endian WCE v2
+
+/// MIPS little-endian WCE v2.
+///
+/// One of the possible values for [`CoffHeader::machine`].
+#[doc(alias("IMAGE_FILE_MACHINE_WCEMIPSV2"))]
 pub const COFF_MACHINE_WCEMIPSV2: u16 = 0x169;
 
 impl CoffHeader {
@@ -531,11 +769,23 @@ impl CoffHeader {
     }
 }
 
+/// The PE header.
+///
+/// ## Position in a modern PE file
+///
+/// The PE header is located at the very beginning of the file and
+/// is followed by the section table and sections.
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub struct Header {
     pub dos_header: DosHeader,
     /// DOS program for legacy loaders
     pub dos_stub: DosStub,
+
+    // Q (JohnScience): should we care about the "rich header"?
+    // https://0xrick.github.io/win-internals/pe3/#rich-header
+    // Introducing it would be a breaking change because it would require a new field in the struct
+    // but it would be a good addition to the library.
+    //
     /// PE Magic: PE\0\0, little endian
     pub signature: u32,
     pub coff_header: CoffHeader,
@@ -587,18 +837,26 @@ impl ctx::TryIntoCtx<scroll::Endian> for Header {
     }
 }
 
-/// Convert machine to str representation
+/// Convert machine to str representation. Any case of "COFF_UNKNOWN"
+/// should be expected to change to a more specific value.
 pub fn machine_to_str(machine: u16) -> &'static str {
+    // TODO: generate the branches with a macro
     match machine {
         COFF_MACHINE_UNKNOWN => "UNKNOWN",
+        COFF_MACHINE_ALPHA => "ALPHA",
+        COFF_MACHINE_ALPHA64 => "ALPHA64",
         COFF_MACHINE_AM33 => "AM33",
+        // This is an outlier. In the C header, it's IMAGE_FILE_MACHINE_AMD64
         COFF_MACHINE_X86_64 => "X86_64",
         COFF_MACHINE_ARM => "ARM",
         COFF_MACHINE_ARM64 => "ARM64",
         COFF_MACHINE_ARMNT => "ARM_NT",
         COFF_MACHINE_EBC => "EBC",
+        // This is an outlier. In the C header, it's IMAGE_FILE_MACHINE_I386
         COFF_MACHINE_X86 => "X86",
         COFF_MACHINE_IA64 => "IA64",
+        COFF_MACHINE_LOONGARCH32 => "LOONGARCH32",
+        COFF_MACHINE_LOONGARCH64 => "LOONGARCH64",
         COFF_MACHINE_M32R => "M32R",
         COFF_MACHINE_MIPS16 => "MIPS_16",
         COFF_MACHINE_MIPSFPU => "MIPS_FPU",

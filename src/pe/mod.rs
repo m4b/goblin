@@ -15,6 +15,7 @@ pub mod certificate_table;
 pub mod characteristic;
 pub mod data_directories;
 pub mod debug;
+pub mod dll_characteristic;
 pub mod exception;
 pub mod export;
 pub mod header;
@@ -23,6 +24,7 @@ pub mod optional_header;
 pub mod options;
 pub mod relocation;
 pub mod section_table;
+pub mod subsystem;
 pub mod symbol;
 pub mod utils;
 

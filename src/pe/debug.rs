@@ -1,4 +1,5 @@
 use crate::error;
+use scroll::ctx::SizeWith;
 use scroll::{Pread, Pwrite, SizeWith};
 
 use crate::pe::data_directories;
@@ -8,6 +9,9 @@ use crate::pe::utils;
 
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub struct DebugData<'a> {
+    // TODO: There can be more than one ImageDebugDirectory.
+    // To avoid breaking the public API here, we just return the ImageDebugDirectory that has the
+    // `IMAGE_DEBUG_TYPE_CODEVIEW` type, or the last one if none has a codeview record.
     pub image_debug_directory: ImageDebugDirectory,
     pub codeview_pdb70_debug_info: Option<CodeviewPDB70DebugInfo<'a>>,
 }
@@ -35,14 +39,36 @@ impl<'a> DebugData<'a> {
         file_alignment: u32,
         opts: &options::ParseOptions,
     ) -> error::Result<Self> {
-        let image_debug_directory =
-            ImageDebugDirectory::parse_with_opts(bytes, dd, sections, file_alignment, opts)?;
-        let codeview_pdb70_debug_info =
-            CodeviewPDB70DebugInfo::parse_with_opts(bytes, &image_debug_directory, opts)?;
+        let rva = dd.virtual_address as usize;
+        let mut offset =
+            utils::find_offset(rva, sections, file_alignment, opts).ok_or_else(|| {
+                error::Error::Malformed(format!(
+                    "Cannot map ImageDebugDirectory rva {:#x} into offset",
+                    rva
+                ))
+            })?;
 
+        let len = dd.size as usize;
+        let sizeof_directory = ImageDebugDirectory::size_with(&scroll::LE);
+        let num_entries = len / sizeof_directory;
+
+        let mut entries = (0..num_entries)
+            .map(|_| bytes.gread_with(&mut offset, scroll::LE))
+            .collect::<Result<Vec<ImageDebugDirectory>, _>>()?;
+
+        // find the debug directory that references the codeview record
+        for (idx, idd) in entries.iter().enumerate() {
+            if let Some(cv_record) = CodeviewPDB70DebugInfo::parse_with_opts(bytes, idd, opts)? {
+                return Ok(DebugData {
+                    image_debug_directory: entries[idx],
+                    codeview_pdb70_debug_info: Some(cv_record),
+                });
+            }
+        }
+        // if we don't have a codeview record, just return the last debug directory
         Ok(DebugData {
-            image_debug_directory,
-            codeview_pdb70_debug_info,
+            image_debug_directory: entries.pop().unwrap(),
+            codeview_pdb70_debug_info: None,
         })
     }
 
@@ -74,42 +100,6 @@ pub const IMAGE_DEBUG_TYPE_MISC: u32 = 4;
 pub const IMAGE_DEBUG_TYPE_EXCEPTION: u32 = 5;
 pub const IMAGE_DEBUG_TYPE_FIXUP: u32 = 6;
 pub const IMAGE_DEBUG_TYPE_BORLAND: u32 = 9;
-
-impl ImageDebugDirectory {
-    #[allow(unused)]
-    fn parse(
-        bytes: &[u8],
-        dd: data_directories::DataDirectory,
-        sections: &[section_table::SectionTable],
-        file_alignment: u32,
-    ) -> error::Result<Self> {
-        Self::parse_with_opts(
-            bytes,
-            dd,
-            sections,
-            file_alignment,
-            &options::ParseOptions::default(),
-        )
-    }
-
-    fn parse_with_opts(
-        bytes: &[u8],
-        dd: data_directories::DataDirectory,
-        sections: &[section_table::SectionTable],
-        file_alignment: u32,
-        opts: &options::ParseOptions,
-    ) -> error::Result<Self> {
-        let rva = dd.virtual_address as usize;
-        let offset = utils::find_offset(rva, sections, file_alignment, opts).ok_or_else(|| {
-            error::Error::Malformed(format!(
-                "Cannot map ImageDebugDirectory rva {:#x} into offset",
-                rva
-            ))
-        })?;
-        let idd: Self = bytes.pread_with(offset, scroll::LE)?;
-        Ok(idd)
-    }
-}
 
 pub const CODEVIEW_PDB70_MAGIC: u32 = 0x5344_5352;
 pub const CODEVIEW_PDB20_MAGIC: u32 = 0x3031_424e;

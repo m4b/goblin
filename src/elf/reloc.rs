@@ -253,14 +253,56 @@ pub mod reloc64 {
     pub const SIZEOF_RELA: usize = 8 + 8 + 8;
     pub const SIZEOF_REL: usize = 8 + 8;
 
+    #[cfg(not(all(
+        target_os = "linux",
+        any(target_arch = "mips64le", target_arch = "mips64")
+    )))]
     #[inline(always)]
     pub fn r_sym(info: u64) -> u32 {
         (info >> 32) as u32
     }
 
+    #[cfg(not(all(
+        target_os = "linux",
+        any(target_arch = "mips64le", target_arch = "mips64")
+    )))]
     #[inline(always)]
     pub fn r_type(info: u64) -> u32 {
         (info & 0xffff_ffff) as u32
+    }
+
+    #[cfg(all(
+        target_os = "linux",
+        any(target_arch = "mips64le", target_arch = "mips64")
+    ))]
+    pub fn get_info(info: u64) -> u64 {
+        let mut t = info;
+        t = (t << 32)
+            | ((t >> 8) & 0xff000000)
+            | ((t >> 24) & 0x00ff0000)
+            | ((t >> 40) & 0x0000ff00)
+            | ((t >> 56) & 0x000000ff);
+        t
+    }
+
+    #[cfg(all(
+        target_os = "linux",
+        any(target_arch = "mips64le", target_arch = "mips64")
+    ))]
+    #[inline(always)]
+    pub fn r_sym(info: u64) -> u32 {
+        let trans_info = get_info(info);
+        (trans_info >> 32) as u32
+    }
+
+    #[cfg(all(
+        target_os = "linux",
+        any(target_arch = "mips64le", target_arch = "mips64")
+    ))]
+    #[inline(always)]
+    pub fn r_type(info: u64) -> u32 {
+        let trans_info = get_info(info);
+        (trans_info & 0xffff_ffff) as u32
     }
 
     #[inline(always)]

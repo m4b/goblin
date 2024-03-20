@@ -20,6 +20,7 @@ pub mod load_command;
 pub mod relocation;
 pub mod segment;
 pub mod symbols;
+pub mod compact_unwind_info;
 
 pub use self::constants::cputype;
 
@@ -112,6 +113,37 @@ impl<'a> MachO<'a> {
             symbols.into_iter()
         } else {
             symbols::SymbolIterator::default()
+        }
+    }
+    pub fn compact_unwind_info(&self) -> error::Result<compact_unwind_info::CompactUnwindInfoIter> {
+        let get_unwind_info_section = || {
+            let section_name = "unwind_info";
+            for segment in &self.segments {
+                for section in segment {
+                    if let Ok((header, data)) = section {
+                        if let Ok(sec) = header.name() {
+                            if sec.len() >= 2 && &sec[2..] == section_name {
+                                // In some cases, dsymutil leaves sections headers but removes their
+                                // data from the file. While the addr and size parameters are still
+                                // set, `header.offset` is 0 in that case. We skip them just like the
+                                // section was missing to avoid loading invalid data.
+                                if header.offset == 0 {
+                                    return None;
+                                }
+
+                                return Some((header, data));
+                            }
+                        }
+                    }
+                }
+            }
+            None
+        };
+
+        if let Some((_header, data)) = get_unwind_info_section() {
+            compact_unwind_info::CompactUnwindInfoIter::new(data, self.little_endian, self.is_64)
+        } else {
+            Err(error::Error::Malformed(String::from("No unwind_info section found")))
         }
     }
     /// Return a vector of the relocations in this binary

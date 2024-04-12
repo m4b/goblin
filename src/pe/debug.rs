@@ -6,10 +6,11 @@ use crate::pe::options;
 use crate::pe::section_table;
 use crate::pe::utils;
 
-#[derive(Debug, PartialEq, Copy, Clone, Default)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub struct DebugData<'a> {
-    pub image_debug_directory: ImageDebugDirectory,
+    pub image_debug_directories: Vec<ImageDebugDirectory>,
     pub codeview_pdb70_debug_info: Option<CodeviewPDB70DebugInfo<'a>>,
+    pub vcfeature_info: Option<VCFeatureInfo>,
 }
 
 impl<'a> DebugData<'a> {
@@ -35,20 +36,29 @@ impl<'a> DebugData<'a> {
         file_alignment: u32,
         opts: &options::ParseOptions,
     ) -> error::Result<Self> {
-        let image_debug_directory =
+        let image_debug_directories =
             ImageDebugDirectory::parse_with_opts(bytes, dd, sections, file_alignment, opts)?;
         let codeview_pdb70_debug_info =
-            CodeviewPDB70DebugInfo::parse_with_opts(bytes, &image_debug_directory, opts)?;
+            CodeviewPDB70DebugInfo::parse_with_opts(bytes, &image_debug_directories, opts)?;
+        let vcfeature_info = VCFeatureInfo::parse_with_opts(bytes, &image_debug_directories, opts)?;
 
         Ok(DebugData {
-            image_debug_directory,
+            image_debug_directories,
             codeview_pdb70_debug_info,
+            vcfeature_info,
         })
     }
 
     /// Return this executable's debugging GUID, suitable for matching against a PDB file.
     pub fn guid(&self) -> Option<[u8; 16]> {
         self.codeview_pdb70_debug_info.map(|pdb70| pdb70.signature)
+    }
+
+    /// Find a specific debug type in the debug data.
+    pub fn find_type(&self, data_type: u32) -> Option<&ImageDebugDirectory> {
+        self.image_debug_directories
+            .iter()
+            .find(|idd| idd.data_type == data_type)
     }
 }
 
@@ -74,6 +84,7 @@ pub const IMAGE_DEBUG_TYPE_MISC: u32 = 4;
 pub const IMAGE_DEBUG_TYPE_EXCEPTION: u32 = 5;
 pub const IMAGE_DEBUG_TYPE_FIXUP: u32 = 6;
 pub const IMAGE_DEBUG_TYPE_BORLAND: u32 = 9;
+pub const IMAGE_DEBUG_TYPE_VC_FEATURE: u32 = 12;
 
 impl ImageDebugDirectory {
     #[allow(unused)]
@@ -82,7 +93,7 @@ impl ImageDebugDirectory {
         dd: data_directories::DataDirectory,
         sections: &[section_table::SectionTable],
         file_alignment: u32,
-    ) -> error::Result<Self> {
+    ) -> error::Result<Vec<Self>> {
         Self::parse_with_opts(
             bytes,
             dd,
@@ -98,16 +109,22 @@ impl ImageDebugDirectory {
         sections: &[section_table::SectionTable],
         file_alignment: u32,
         opts: &options::ParseOptions,
-    ) -> error::Result<Self> {
+    ) -> error::Result<Vec<Self>> {
         let rva = dd.virtual_address as usize;
+        let entries = dd.size as usize / std::mem::size_of::<ImageDebugDirectory>();
         let offset = utils::find_offset(rva, sections, file_alignment, opts).ok_or_else(|| {
             error::Error::Malformed(format!(
                 "Cannot map ImageDebugDirectory rva {:#x} into offset",
                 rva
             ))
         })?;
-        let idd: Self = bytes.pread_with(offset, scroll::LE)?;
-        Ok(idd)
+        let idd_list = (0..entries)
+            .map(|i| {
+                let entry = offset + i * std::mem::size_of::<ImageDebugDirectory>();
+                bytes.pread_with(entry, scroll::LE)
+            })
+            .collect::<Result<Vec<ImageDebugDirectory>, scroll::Error>>()?;
+        Ok(idd_list)
     }
 }
 
@@ -127,60 +144,119 @@ pub struct CodeviewPDB70DebugInfo<'a> {
 }
 
 impl<'a> CodeviewPDB70DebugInfo<'a> {
-    pub fn parse(bytes: &'a [u8], idd: &ImageDebugDirectory) -> error::Result<Option<Self>> {
+    pub fn parse(bytes: &'a [u8], idd: &Vec<ImageDebugDirectory>) -> error::Result<Option<Self>> {
         Self::parse_with_opts(bytes, idd, &options::ParseOptions::default())
     }
 
     pub fn parse_with_opts(
         bytes: &'a [u8],
-        idd: &ImageDebugDirectory,
+        idd: &Vec<ImageDebugDirectory>,
         opts: &options::ParseOptions,
     ) -> error::Result<Option<Self>> {
-        if idd.data_type != IMAGE_DEBUG_TYPE_CODEVIEW {
-            // not a codeview debug directory
-            // that's not an error, but it's not a CodeviewPDB70DebugInfo either
-            return Ok(None);
+        let idd = idd
+            .iter()
+            .find(|idd| idd.data_type == IMAGE_DEBUG_TYPE_CODEVIEW);
+
+        if let Some(idd) = idd {
+            // ImageDebugDirectory.pointer_to_raw_data stores a raw offset -- not a virtual offset -- which we can use directly
+            let mut offset: usize = match opts.resolve_rva {
+                true => idd.pointer_to_raw_data as usize,
+                false => idd.address_of_raw_data as usize,
+            };
+
+            // calculate how long the eventual filename will be, which doubles as a check of the record size
+            let filename_length = idd.size_of_data as isize - 24;
+            if filename_length < 0 {
+                // the record is too short to be plausible
+                return Err(error::Error::Malformed(format!(
+                    "ImageDebugDirectory size of data seems wrong: {:?}",
+                    idd.size_of_data
+                )));
+            }
+            let filename_length = filename_length as usize;
+
+            // check the codeview signature
+            let codeview_signature: u32 = bytes.gread_with(&mut offset, scroll::LE)?;
+            if codeview_signature != CODEVIEW_PDB70_MAGIC {
+                return Ok(None);
+            }
+
+            // read the rest
+            let mut signature: [u8; 16] = [0; 16];
+            signature.copy_from_slice(bytes.gread_with(&mut offset, 16)?);
+            let age: u32 = bytes.gread_with(&mut offset, scroll::LE)?;
+            if let Some(filename) = bytes.get(offset..offset + filename_length) {
+                Ok(Some(CodeviewPDB70DebugInfo {
+                    codeview_signature,
+                    signature,
+                    age,
+                    filename,
+                }))
+            } else {
+                Err(error::Error::Malformed(format!(
+                    "ImageDebugDirectory seems corrupted: {:?}",
+                    idd
+                )))
+            }
+        } else {
+            // CodeView debug info not found
+            Ok(None)
         }
+    }
+}
 
-        // ImageDebugDirectory.pointer_to_raw_data stores a raw offset -- not a virtual offset -- which we can use directly
-        let mut offset: usize = match opts.resolve_rva {
-            true => idd.pointer_to_raw_data as usize,
-            false => idd.address_of_raw_data as usize,
-        };
+/// Represents the `IMAGE_DEBUG_VC_FEATURE_ENTRY` structure
+#[repr(C)]
+#[derive(Debug, PartialEq, Copy, Clone, Default)]
+pub struct VCFeatureInfo {
+    /// The count of pre-VC++
+    pub pre_vc_plusplus_count: u32,
+    /// The count of C and C++
+    pub c_and_cplusplus_count: u32,
+    /// The count of guard stack
+    pub guard_stack_count: u32,
+    /// The count of SDL
+    pub sdl_count: u32,
+    /// The count of guard
+    pub guard_count: u32,
+}
 
-        // calculate how long the eventual filename will be, which doubles as a check of the record size
-        let filename_length = idd.size_of_data as isize - 24;
-        if filename_length < 0 {
-            // the record is too short to be plausible
-            return Err(error::Error::Malformed(format!(
-                "ImageDebugDirectory size of data seems wrong: {:?}",
-                idd.size_of_data
-            )));
-        }
-        let filename_length = filename_length as usize;
+impl<'a> VCFeatureInfo {
+    pub fn parse(bytes: &'a [u8], idd: &Vec<ImageDebugDirectory>) -> error::Result<Option<Self>> {
+        Self::parse_with_opts(bytes, idd, &options::ParseOptions::default())
+    }
 
-        // check the codeview signature
-        let codeview_signature: u32 = bytes.gread_with(&mut offset, scroll::LE)?;
-        if codeview_signature != CODEVIEW_PDB70_MAGIC {
-            return Ok(None);
-        }
+    pub fn parse_with_opts(
+        bytes: &'a [u8],
+        idd: &Vec<ImageDebugDirectory>,
+        opts: &options::ParseOptions,
+    ) -> error::Result<Option<Self>> {
+        let idd = idd
+            .iter()
+            .find(|idd| idd.data_type == IMAGE_DEBUG_TYPE_VC_FEATURE);
 
-        // read the rest
-        let mut signature: [u8; 16] = [0; 16];
-        signature.copy_from_slice(bytes.gread_with(&mut offset, 16)?);
-        let age: u32 = bytes.gread_with(&mut offset, scroll::LE)?;
-        if let Some(filename) = bytes.get(offset..offset + filename_length) {
-            Ok(Some(CodeviewPDB70DebugInfo {
-                codeview_signature,
-                signature,
-                age,
-                filename,
+        if let Some(idd) = idd {
+            let mut offset: usize = match opts.resolve_rva {
+                true => idd.pointer_to_raw_data as usize,
+                false => idd.address_of_raw_data as usize,
+            };
+
+            let pre_vc_plusplus_count: u32 = bytes.gread_with(&mut offset, scroll::LE)?;
+            let c_and_cplusplus_count: u32 = bytes.gread_with(&mut offset, scroll::LE)?;
+            let guard_stack_count: u32 = bytes.gread_with(&mut offset, scroll::LE)?;
+            let sdl_count: u32 = bytes.gread_with(&mut offset, scroll::LE)?;
+            let guard_count: u32 = bytes.gread_with(&mut offset, scroll::LE)?;
+
+            Ok(Some(VCFeatureInfo {
+                pre_vc_plusplus_count,
+                c_and_cplusplus_count,
+                guard_stack_count,
+                sdl_count,
+                guard_count,
             }))
         } else {
-            Err(error::Error::Malformed(format!(
-                "ImageDebugDirectory seems corrupted: {:?}",
-                idd
-            )))
+            // VC Feature info not found
+            return Ok(None);
         }
     }
 }

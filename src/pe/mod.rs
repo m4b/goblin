@@ -509,7 +509,7 @@ impl<'a> TE<'a> {
 
         // Parse the debug data. Must adjust offsets before parsing the image_debug_directory
         let mut debug_data = debug::DebugData::default();
-        debug_data.image_debug_directory = debug::ImageDebugDirectory::parse_with_opts(
+        debug_data.image_debug_directories = debug::ImageDebugDirectory::parse_with_opts(
             bytes,
             header.debug_dir,
             &sections,
@@ -519,7 +519,7 @@ impl<'a> TE<'a> {
         TE::fixup_debug_data(&mut debug_data, rva_offset as u32);
         debug_data.codeview_pdb70_debug_info = debug::CodeviewPDB70DebugInfo::parse_with_opts(
             bytes,
-            &debug_data.image_debug_directory,
+            &debug_data.image_debug_directories,
             opts,
         )?;
 
@@ -533,29 +533,21 @@ impl<'a> TE<'a> {
 
     /// Adjust all addresses in the TE binary debug data.
     fn fixup_debug_data(dd: &mut debug::DebugData, rva_offset: u32) {
-        debug!(
-            "ImageDebugDirectory address of raw data fixed up from: 0x{:X} to 0x{:X}",
-            dd.image_debug_directory.address_of_raw_data,
-            dd.image_debug_directory
-                .address_of_raw_data
-                .wrapping_sub(rva_offset),
-        );
-        dd.image_debug_directory.address_of_raw_data = dd
-            .image_debug_directory
-            .address_of_raw_data
-            .wrapping_sub(rva_offset);
+        dd.image_debug_directories.iter_mut().for_each(|idd| {
+            debug!(
+                "ImageDebugDirectory address of raw data fixed up from: 0x{:X} to 0x{:X}",
+                idd.address_of_raw_data,
+                idd.address_of_raw_data.wrapping_sub(rva_offset),
+            );
+            idd.address_of_raw_data = idd.address_of_raw_data.wrapping_sub(rva_offset);
 
-        debug!(
-            "ImageDebugDirectory pointer to raw data fixed up from: 0x{:X} to 0x{:X}",
-            dd.image_debug_directory.pointer_to_raw_data,
-            dd.image_debug_directory
-                .pointer_to_raw_data
-                .wrapping_sub(rva_offset),
-        );
-        dd.image_debug_directory.pointer_to_raw_data = dd
-            .image_debug_directory
-            .pointer_to_raw_data
-            .wrapping_sub(rva_offset);
+            debug!(
+                "ImageDebugDirectory pointer to raw data fixed up from: 0x{:X} to 0x{:X}",
+                idd.pointer_to_raw_data,
+                idd.pointer_to_raw_data.wrapping_sub(rva_offset),
+            );
+            idd.pointer_to_raw_data = idd.pointer_to_raw_data.wrapping_sub(rva_offset);
+        });
     }
 }
 

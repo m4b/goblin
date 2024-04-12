@@ -1,4 +1,5 @@
 use crate::error;
+use alloc::vec::Vec;
 use scroll::{Pread, Pwrite, SizeWith};
 
 use crate::pe::data_directories;

@@ -26,6 +26,7 @@ pub mod relocation;
 pub mod section_table;
 pub mod subsystem;
 pub mod symbol;
+pub mod tls;
 pub mod utils;
 
 use crate::container;
@@ -71,6 +72,8 @@ pub struct PE<'a> {
     pub libraries: Vec<&'a str>,
     /// Debug information, if any, contained in the PE header
     pub debug_data: Option<debug::DebugData<'a>>,
+    /// TLS information, if any, contained in the PE header
+    pub tls_data: Option<tls::TlsData<'a>>,
     /// Exception handling and stack unwind information, if any, contained in the PE header
     pub exception_data: Option<exception::ExceptionData<'a>>,
     /// Certificates present, if any, described by the Certificate Table
@@ -106,6 +109,7 @@ impl<'a> PE<'a> {
         let mut import_data = None;
         let mut libraries = vec![];
         let mut debug_data = None;
+        let mut tls_data = None;
         let mut exception_data = None;
         let mut certificates = Default::default();
         let mut is_64 = false;
@@ -216,6 +220,29 @@ impl<'a> PE<'a> {
                 )?);
             }
 
+            if let Some(&tls_table) = optional_header.data_directories.get_tls_table() {
+                tls_data = if is_64 {
+                    tls::TlsData::parse_with_opts::<u64>(
+                        bytes,
+                        image_base,
+                        &tls_table,
+                        &sections,
+                        file_alignment,
+                        opts,
+                    )?
+                } else {
+                    tls::TlsData::parse_with_opts::<u32>(
+                        bytes,
+                        image_base,
+                        &tls_table,
+                        &sections,
+                        file_alignment,
+                        opts,
+                    )?
+                };
+                debug!("tls data: {:#?}", tls_data);
+            }
+
             if header.coff_header.machine == header::COFF_MACHINE_X86_64 {
                 // currently only x86_64 is supported
                 debug!("exception data: {:#?}", exception_data);
@@ -275,6 +302,7 @@ impl<'a> PE<'a> {
             imports,
             libraries,
             debug_data,
+            tls_data,
             exception_data,
             certificates,
         })

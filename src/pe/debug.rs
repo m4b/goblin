@@ -112,7 +112,7 @@ impl ImageDebugDirectory {
         opts: &options::ParseOptions,
     ) -> error::Result<Vec<Self>> {
         let rva = dd.virtual_address as usize;
-        let entries = dd.size as usize / std::mem::size_of::<ImageDebugDirectory>();
+        let entries = dd.size as usize / core::mem::size_of::<ImageDebugDirectory>();
         let offset = utils::find_offset(rva, sections, file_alignment, opts).ok_or_else(|| {
             error::Error::Malformed(format!(
                 "Cannot map ImageDebugDirectory rva {:#x} into offset",
@@ -121,7 +121,7 @@ impl ImageDebugDirectory {
         })?;
         let idd_list = (0..entries)
             .map(|i| {
-                let entry = offset + i * std::mem::size_of::<ImageDebugDirectory>();
+                let entry = offset + i * core::mem::size_of::<ImageDebugDirectory>();
                 bytes.pread_with(entry, scroll::LE)
             })
             .collect::<Result<Vec<ImageDebugDirectory>, scroll::Error>>()?;

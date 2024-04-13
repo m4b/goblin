@@ -933,9 +933,9 @@ impl<'a> RichHeader<'a> {
         {
             Some(offset) => offset,
             None => {
-                return Err(error::Error::Malformed(
-                    "Rich header does not contain the DanS marker".to_string(),
-                ));
+                return Err(error::Error::Malformed(format!(
+                    "Rich header does not contain the DanS marker"
+                )));
             }
         };
 

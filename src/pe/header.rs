@@ -385,7 +385,19 @@ impl DosHeader {
     ///
     /// The DOS stub is a small program that prints the message "This program cannot be run in DOS mode" and exits; and
     /// is not really read for the PECOFF file format. It's a relic from the MS-DOS era.
-    pub fn parse_dos_stub<'a>(bytes: &'a [u8], pe_pointer: u32) -> error::Result<&'a [u8]> {
+    pub fn parse_dos_stub<'a>(
+        bytes: &'a [u8],
+        rich_start_offset: Option<u32>,
+        pe_pointer: u32,
+    ) -> error::Result<&'a [u8]> {
+        // The DOS stub is located between the end of the DOS header and the PE header.
+        //
+        // DOS Header
+        // DOS Stub
+        // Rich Header (if present)
+        // PE Header
+        // ...
+        let rich_start_offset = rich_start_offset.unwrap_or(0) as usize;
         let end_offset = pe_pointer as usize;
         if bytes.len() < end_offset as usize {
             return Err(error::Error::Malformed(format!(
@@ -394,7 +406,7 @@ impl DosHeader {
                 end_offset
             )));
         }
-        Ok(&bytes[0..end_offset])
+        Ok(&bytes[rich_start_offset..end_offset])
     }
 }
 
@@ -815,8 +827,14 @@ pub struct Header<'a> {
 impl<'a> Header<'a> {
     pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
         let dos_header = DosHeader::parse(&bytes)?;
-        let dos_stub: &'a [u8] = DosHeader::parse_dos_stub(&bytes, dos_header.pe_pointer)?;
         let rich_header = RichHeader::parse(&bytes)?;
+        let rich_start_offset = if let Some(rich_header) = &rich_header {
+            Some(rich_header.start_offset)
+        } else {
+            None
+        };
+        let dos_stub: &'a [u8] =
+            DosHeader::parse_dos_stub(&bytes, rich_start_offset, dos_header.pe_pointer)?;
         let mut offset = dos_header.pe_pointer as usize;
         let signature = bytes.gread_with(&mut offset, scroll::LE).map_err(|_| {
             error::Error::Malformed(format!("cannot parse PE signature (offset {:#x})", offset))
@@ -866,6 +884,10 @@ pub const RICH_MARKER: u32 = 0x68636952;
 pub struct RichHeader<'a> {
     /// The Rich header data without the padding.
     pub data: &'a [u8],
+    /// Start offset of the Rich header.
+    pub start_offset: u32,
+    /// End offset of the Rich header.
+    pub end_offset: u32,
     /// The Rich metadata is a pair of 32-bit values that store the tool version and the use count.
     pub metadatas: Vec<RichMetadata>,
 }
@@ -966,8 +988,18 @@ impl<'a> RichHeader<'a> {
             })
             .collect();
 
+        let start_offset = scan_start as u32 + rich_start_offset as u32 + padding_count as u32;
+        let end_offset = scan_start as u32 + rich_end_offset as u32;
+        debug_assert_eq!(
+            &bytes[start_offset as usize..end_offset as usize],
+            rich_header,
+            "Rich header data does not match the offsets"
+        );
+
         Ok(Some(RichHeader {
             data: rich_header,
+            start_offset,
+            end_offset,
             metadatas,
         }))
     }

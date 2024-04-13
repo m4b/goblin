@@ -864,16 +864,18 @@ pub const RICH_MARKER: u32 = 0x68636952;
 /// The Rich Header first appeared in Visual Studio 6.0 and contains: a product identifier, build number, and the number of times it was used during the build process.
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct RichHeader<'a> {
+    /// The Rich header data without the padding.
     pub data: &'a [u8],
+    /// The Rich metadata is a pair of 32-bit values that store the tool version and the use count.
     pub metadatas: Vec<RichMetadata>,
 }
 
-/// The Rich metadata is a pair of 16-bit values that store the tool version and the use count.
+/// The Rich metadata is a pair of 32-bit values that store the tool version and the use count.
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub struct RichMetadata {
-    /// The tool version is a 16-bit value that stores the build version of the tool.
+    /// The tool version is a 32-bit value that stores the build version of the tool.
     pub tool_version: u32,
-    /// The use count is a 16-bit value that stores the number of times the tool was used during the build process.
+    /// The use count is a 32-bit value that stores the number of times the tool was used during the build process.
     pub use_count: u32,
 }
 

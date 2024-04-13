@@ -385,19 +385,8 @@ impl DosHeader {
     ///
     /// The DOS stub is a small program that prints the message "This program cannot be run in DOS mode" and exits; and
     /// is not really read for the PECOFF file format. It's a relic from the MS-DOS era.
-    pub fn parse_dos_stub<'a>(
-        bytes: &'a [u8],
-        rich_start_offset: Option<u32>,
-        pe_pointer: u32,
-    ) -> error::Result<&'a [u8]> {
-        // The DOS stub is located between the end of the DOS header and the PE header.
-        //
-        // DOS Header
-        // DOS Stub
-        // Rich Header (if present)
-        // PE Header
-        // ...
-        let rich_start_offset = rich_start_offset.unwrap_or(0) as usize;
+    pub fn parse_dos_stub<'a>(bytes: &'a [u8], pe_pointer: u32) -> error::Result<&'a [u8]> {
+        let start_offset = DOS_STUB_OFFSET as usize;
         let end_offset = pe_pointer as usize;
         if bytes.len() < end_offset as usize {
             return Err(error::Error::Malformed(format!(
@@ -406,7 +395,7 @@ impl DosHeader {
                 end_offset
             )));
         }
-        Ok(&bytes[rich_start_offset..end_offset])
+        Ok(&bytes[start_offset..end_offset])
     }
 }
 
@@ -827,14 +816,8 @@ pub struct Header<'a> {
 impl<'a> Header<'a> {
     pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
         let dos_header = DosHeader::parse(&bytes)?;
+        let dos_stub: &'a [u8] = DosHeader::parse_dos_stub(&bytes, dos_header.pe_pointer)?;
         let rich_header = RichHeader::parse(&bytes)?;
-        let rich_start_offset = if let Some(rich_header) = &rich_header {
-            Some(rich_header.start_offset)
-        } else {
-            None
-        };
-        let dos_stub: &'a [u8] =
-            DosHeader::parse_dos_stub(&bytes, rich_start_offset, dos_header.pe_pointer)?;
         let mut offset = dos_header.pe_pointer as usize;
         let signature = bytes.gread_with(&mut offset, scroll::LE).map_err(|_| {
             error::Error::Malformed(format!("cannot parse PE signature (offset {:#x})", offset))
@@ -895,8 +878,10 @@ pub struct RichHeader<'a> {
 /// The Rich metadata is a pair of 32-bit values that store the tool version and the use count.
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub struct RichMetadata {
-    /// The tool version is a 32-bit value that stores the build version of the tool.
-    pub tool_version: u32,
+    /// Build version is a 16-bit value that stores the version of the tool used to build the PE file.
+    pub build: u16,
+    /// Product identifier is a 16-bit value that stores the type of tool used to build the PE file.
+    pub product: u16,
     /// The use count is a 32-bit value that stores the number of times the tool was used during the build process.
     pub use_count: u32,
 }
@@ -979,22 +964,21 @@ impl<'a> RichHeader<'a> {
         let metadatas = rich_header
             .chunks(8)
             .map(|chunk| {
-                let tool_version = u32::from_le_bytes(chunk[0..4].try_into().unwrap()) ^ key;
+                let build_and_product = u32::from_le_bytes(chunk[0..4].try_into().unwrap()) ^ key;
+                let build = (build_and_product & 0xFFFF) as u16;
+                let product = (build_and_product >> 16) as u16;
                 let use_count = u32::from_le_bytes(chunk[4..8].try_into().unwrap()) ^ key;
                 RichMetadata {
-                    tool_version,
+                    build,
+                    product,
                     use_count,
                 }
             })
             .collect();
 
-        let start_offset = scan_start as u32 + rich_start_offset as u32 + padding_count as u32;
+        let start_offset = scan_start as u32 + rich_start_offset as u32 + padding_count as u32 - 4;
+        // Right before the Rich marker
         let end_offset = scan_start as u32 + rich_end_offset as u32;
-        debug_assert_eq!(
-            &bytes[start_offset as usize..end_offset as usize],
-            rich_header,
-            "Rich header data does not match the offsets"
-        );
 
         Ok(Some(RichHeader {
             data: rich_header,
@@ -1327,44 +1311,54 @@ mod tests {
         let header = header.unwrap();
         let expected = vec![
             RichMetadata {
-                tool_version: 0x1046273,
-                use_count: 0xa,
+                build: 25203,
+                product: 260,
+                use_count: 10,
             },
             RichMetadata {
-                tool_version: 0x1036273,
-                use_count: 0x5,
+                build: 25203,
+                product: 259,
+                use_count: 5,
             },
             RichMetadata {
-                tool_version: 0x1056273,
-                use_count: 0x7f,
+                build: 25203,
+                product: 261,
+                use_count: 127,
             },
             RichMetadata {
-                tool_version: 0x10362d9,
-                use_count: 0x9,
+                build: 25305,
+                product: 259,
+                use_count: 9,
             },
             RichMetadata {
-                tool_version: 0x10562d9,
-                use_count: 0x23,
+                build: 25305,
+                product: 261,
+                use_count: 35,
             },
             RichMetadata {
-                tool_version: 0x10462d9,
-                use_count: 0x12,
+                build: 25305,
+                product: 260,
+                use_count: 18,
             },
             RichMetadata {
-                tool_version: 0x1016273,
-                use_count: 0xb,
+                build: 25203,
+                product: 257,
+                use_count: 11,
             },
             RichMetadata {
-                tool_version: 0x10000,
-                use_count: 0x98,
+                build: 0,
+                product: 1,
+                use_count: 152,
             },
             RichMetadata {
-                tool_version: 0x0,
-                use_count: 0x14,
+                build: 0,
+                product: 0,
+                use_count: 20,
             },
             RichMetadata {
-                tool_version: 0x10263cb,
-                use_count: 0x1,
+                build: 25547,
+                product: 258,
+                use_count: 1,
             },
         ];
         assert_eq!(header.metadatas, expected);

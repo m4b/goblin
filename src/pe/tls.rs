@@ -32,7 +32,6 @@ pub struct ImageTlsDirectory {
 }
 
 /// TLS information.
-#[repr(C)]
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct TlsData<'a> {
     /// TLS directory.
@@ -46,7 +45,6 @@ pub struct TlsData<'a> {
 }
 
 impl ImageTlsDirectory {
-    #[allow(unused)]
     pub fn parse<T: Sized>(
         bytes: &[u8],
         dd: data_directories::DataDirectory,
@@ -229,6 +227,15 @@ impl<'a> TlsData<'a> {
                 } else {
                     bytes.pread_with::<u32>(offset + i * 4, scroll::LE)? as u64
                 };
+                // Each callback is an VA so convert it to RVA
+                let callback_rva = callback as usize - image_base;
+                // Check if the callback is in the image
+                if utils::find_offset(callback_rva, sections, file_alignment, opts).is_none() {
+                    return Err(error::Error::Malformed(format!(
+                        "cannot map tls callback ({:#x})",
+                        callback
+                    )));
+                }
                 if callback == 0 {
                     break;
                 }

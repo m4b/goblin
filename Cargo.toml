@@ -19,7 +19,7 @@ include = [
     "LICENSE",
     "README.md",
 ]
-keywords = ["binary", "elf", "mach", "pe", "te", "archive"]
+keywords = ["binary", "elf", "mach", "pe", "archive"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/m4b/goblin"

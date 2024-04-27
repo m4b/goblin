@@ -109,6 +109,7 @@ Thank you all :heart: !
 In lexicographic order:
 
 - [@2vg]
+- [@5225225]
 - [@alessandrod]
 - [@amanieu]
 - [@anfedotoff]
@@ -122,21 +123,26 @@ In lexicographic order:
 - [@ExPixel]
 - [@flanfly]
 - [@glandium]
+- [@h33p]
 - [@ibabushkin]
 - [@jackcmay]
 - [@jan-auer]
+- [@Javagedes]
 - [@jessehui]
 - [@jdub]
 - [@Jhynjhiruu]
 - [@johannst]
+- [@JohnScience]
 - [@jrmuizel]
 - [@jsgf]
 - [@keith]
 - [@kjempelodott]
+- [@kkent030315]
 - [@ko1n]
 - [@le-jzr]
 - [@Lichtso]
 - [@lion128]
+- [@lissyx]
 - [@llogiq]
 - [@lumag]
 - [@lzutao]
@@ -169,6 +175,7 @@ In lexicographic order:
 - [@SquareMan]
 - [@tathanhdinh]
 - [@Techno-coder]
+- [@tiann]
 - [@ticki]
 - [@Timmmm]
 - [@Tiwalun]
@@ -184,6 +191,7 @@ In lexicographic order:
 <!-- Contributors -->
 
 [@2vg]: https://github.com/2vg
+[@5225225]: https://github.com/5225225
 [@alessandrod]: https://github.com/alessandrod
 [@amanieu]: https://github.com/amanieu
 [@anfedotoff]: https://github.com/anfedotoff
@@ -198,21 +206,26 @@ In lexicographic order:
 [@ExPixel]: https://github.com/ExPixel
 [@flanfly]: https://github.com/flanfly
 [@glandium]: https://github.com/glandium
+[@h33p]: https://github.com/h33p
 [@ibabushkin]: https://github.com/ibabushkin
 [@jackcmay]: https://github.com/jackcmay
 [@jan-auer]: https://github.com/jan-auer
+[@Javagedes]: https://github.com/Javagedes
 [@jessehui]: https://github.com/jessehui
 [@Jhynjhiruu]: https://github.com/Jhynjhiruu
+[@JohnScience]: https://github.com/JohnScience
 [@johannst]: https://github.com/johannst
 [@jdub]: https://github.com/jdub
 [@jrmuizel]: https://github.com/jrmuizel
 [@jsgf]: https://github.com/jsgf
 [@keith]: https://github.com/keith
 [@kjempelodott]: https://github.com/kjempelodott
+[@kkent030315]: https://github.com/kkent030315
 [@ko1N]: https://github.com/ko1N
 [@le-jzr]: https://github.com/le-jzr
 [@Lichtso]: https://github.com/Lichtso
 [@lion128]: https://github.com/lion128
+[@lissyx]: https://github.com/lissyx
 [@llogiq]: https://github.com/llogiq
 [@lumag]: https://github.com/lumag
 [@lzutao]: https://github.com/lzutao
@@ -246,6 +259,7 @@ In lexicographic order:
 [@SquareMan]: https://github.com/SquareMan
 [@tathanhdinh]: https://github.com/tathanhdinh
 [@Techno-coder]: https://github.com/Techno-coder
+[@tiann]: https://github.com/tiann
 [@ticki]: https://github.com/ticki
 [@Timmmm]: https://github.com/Timmmm
 [@Tiwalun]: https://github.com/Tiwalun

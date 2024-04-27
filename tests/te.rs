@@ -54,13 +54,13 @@ mod te_tests {
         assert_eq!(te.sections[4].pointer_to_relocations, 0);
 
         // Verify the debug directory is correct
-        assert_eq!(te.debug_data.image_debug_directory.size_of_data, 0xab);
+        assert_eq!(te.debug_data.image_debug_directories[0].size_of_data, 0xab);
         assert_eq!(
-            te.debug_data.image_debug_directory.address_of_raw_data,
+            te.debug_data.image_debug_directories[0].address_of_raw_data,
             0x3b54
         );
         assert_eq!(
-            te.debug_data.image_debug_directory.pointer_to_raw_data,
+            te.debug_data.image_debug_directories[0].pointer_to_raw_data,
             0x3b54
         );
         let debug_info = te.debug_data.codeview_pdb70_debug_info.unwrap();

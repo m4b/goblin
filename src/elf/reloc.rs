@@ -129,8 +129,6 @@ macro_rules! elf_reloc {
 macro_rules! elf_rela_std_impl {
     ($size:ident, $isize:ty) => {
         if_alloc! {
-            use crate::elf::reloc::Reloc;
-
             use core::slice;
 
             if_std! {

@@ -38,7 +38,7 @@ version = "0.12"
 default_features = false
 
 [features]
-default = ["std", "elf32", "elf64", "mach32", "mach64", "pe32", "pe64", "te", "archive", "endian_fd"]
+default = ["std", "elf32", "elf64", "mach32", "mach64", "pe32", "pe64", "archive", "endian_fd"]
 std = ["alloc", "scroll/std"]
 alloc = ["scroll/derive", "log"]
 endian_fd = ["alloc"]
@@ -49,7 +49,6 @@ mach32 = ["alloc", "endian_fd", "archive"]
 mach64 = ["alloc", "endian_fd", "archive"]
 pe32 = ["alloc", "endian_fd"]
 pe64 = ["alloc", "endian_fd"]
-te = ["alloc", "endian_fd"]
 archive = ["alloc"]
 
 [badges.travis-ci]

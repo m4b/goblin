@@ -1,8 +1,7 @@
 use crate::error;
-use crate::pe::{data_directories, optional_header, section_table, symbol};
+use crate::pe::{data_directories, debug, optional_header, section_table, symbol};
 use crate::strtab;
 use alloc::vec::Vec;
-use log::debug;
 use scroll::{ctx, IOread, IOwrite, Pread, Pwrite, SizeWith};
 
 /// In `winnt.h` and `pe.h`, it's `IMAGE_DOS_HEADER`. It's a DOS header present in all PE binaries.
@@ -379,10 +378,27 @@ impl DosHeader {
             pe_pointer,
         })
     }
+
+    /// Parse the DOS stub.
+    ///
+    /// The DOS stub is a small program that prints the message "This program cannot be run in DOS mode" and exits; and
+    /// is not really read for the PECOFF file format. It's a relic from the MS-DOS era.
+    pub fn parse_dos_stub<'a>(bytes: &'a [u8], pe_pointer: u32) -> error::Result<&'a [u8]> {
+        let start_offset = DOS_STUB_OFFSET as usize;
+        let end_offset = pe_pointer as usize;
+        if bytes.len() < end_offset as usize {
+            return Err(error::Error::Malformed(format!(
+                "DOS stub is too short ({} bytes) to contain the PE header pointer ({:#x})",
+                bytes.len(),
+                end_offset
+            )));
+        }
+        Ok(&bytes[start_offset..end_offset])
+    }
 }
 
 #[repr(C)]
-#[derive(Debug, PartialEq, Copy, Clone, Pread, Pwrite)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 /// The DOS stub program which should be executed in DOS mode. It prints the message "This program cannot be run in DOS mode" and exits.
 ///
 /// ## Position in a modern PE file
@@ -391,17 +407,21 @@ impl DosHeader {
 ///
 /// * De facto, can be followed by a non-standard ["Rich header"](https://0xrick.github.io/win-internals/pe3/#rich-header).
 /// * According to the standard, is followed by the  [Header::signature] and then the [CoffHeader].
-pub struct DosStub(pub [u8; 0x40]);
-impl Default for DosStub {
+pub struct DosStub<'a> {
+    pub data: &'a [u8],
+}
+impl<'a> Default for DosStub<'a> {
     fn default() -> Self {
         // "This program cannot be run in DOS mode" error program
-        Self([
-            0x0E, 0x1F, 0xBA, 0x0E, 0x00, 0xB4, 0x09, 0xCD, 0x21, 0xB8, 0x01, 0x4C, 0xCD, 0x21,
-            0x54, 0x68, 0x69, 0x73, 0x20, 0x70, 0x72, 0x6F, 0x67, 0x72, 0x61, 0x6D, 0x20, 0x63,
-            0x61, 0x6E, 0x6E, 0x6F, 0x74, 0x20, 0x62, 0x65, 0x20, 0x72, 0x75, 0x6E, 0x20, 0x69,
-            0x6E, 0x20, 0x44, 0x4F, 0x53, 0x20, 0x6D, 0x6F, 0x64, 0x65, 0x2E, 0x0D, 0x0D, 0x0A,
-            0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ])
+        Self {
+            data: &[
+                0x0E, 0x1F, 0xBA, 0x0E, 0x00, 0xB4, 0x09, 0xCD, 0x21, 0xB8, 0x01, 0x4C, 0xCD, 0x21,
+                0x54, 0x68, 0x69, 0x73, 0x20, 0x70, 0x72, 0x6F, 0x67, 0x72, 0x61, 0x6D, 0x20, 0x63,
+                0x61, 0x6E, 0x6E, 0x6F, 0x74, 0x20, 0x62, 0x65, 0x20, 0x72, 0x75, 0x6E, 0x20, 0x69,
+                0x6E, 0x20, 0x44, 0x4F, 0x53, 0x20, 0x6D, 0x6F, 0x64, 0x65, 0x2E, 0x0D, 0x0D, 0x0A,
+                0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            ],
+        }
     }
 }
 
@@ -773,11 +793,12 @@ impl CoffHeader {
 ///
 /// The PE header is located at the very beginning of the file and
 /// is followed by the section table and sections.
-#[derive(Debug, PartialEq, Copy, Clone, Default)]
-pub struct Header {
+#[derive(Debug, PartialEq, Clone, Default)]
+pub struct Header<'a> {
     pub dos_header: DosHeader,
     /// DOS program for legacy loaders
-    pub dos_stub: DosStub,
+    pub dos_stub: &'a [u8],
+    pub rich_header: Option<RichHeader<'a>>,
 
     // Q (JohnScience): should we care about the "rich header"?
     // https://0xrick.github.io/win-internals/pe3/#rich-header
@@ -790,15 +811,11 @@ pub struct Header {
     pub optional_header: Option<optional_header::OptionalHeader>,
 }
 
-impl Header {
-    pub fn parse(bytes: &[u8]) -> error::Result<Self> {
+impl<'a> Header<'a> {
+    pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
         let dos_header = DosHeader::parse(&bytes)?;
-        let dos_stub = bytes.pread(DOS_STUB_OFFSET as usize).map_err(|_| {
-            error::Error::Malformed(format!(
-                "cannot parse DOS stub (offset {:#x})",
-                DOS_STUB_OFFSET
-            ))
-        })?;
+        let dos_stub: &'a [u8] = DosHeader::parse_dos_stub(&bytes, dos_header.pe_pointer)?;
+        let rich_header = RichHeader::parse(&bytes)?;
         let mut offset = dos_header.pe_pointer as usize;
         let signature = bytes.gread_with(&mut offset, scroll::LE).map_err(|_| {
             error::Error::Malformed(format!("cannot parse PE signature (offset {:#x})", offset))
@@ -812,6 +829,7 @@ impl Header {
         Ok(Header {
             dos_header,
             dos_stub,
+            rich_header,
             signature,
             coff_header,
             optional_header,
@@ -819,19 +837,153 @@ impl Header {
     }
 }
 
-impl ctx::TryIntoCtx<scroll::Endian> for Header {
+impl<'a> ctx::TryIntoCtx<scroll::Endian> for Header<'a> {
     type Error = error::Error;
 
     fn try_into_ctx(self, bytes: &mut [u8], ctx: scroll::Endian) -> Result<usize, Self::Error> {
         let offset = &mut 0;
         bytes.gwrite_with(self.dos_header, offset, ctx)?;
-        bytes.gwrite_with(self.dos_stub, offset, ctx)?;
+        bytes.gwrite_with(self.dos_stub, offset, ())?;
         bytes.gwrite_with(self.signature, offset, scroll::LE)?;
         bytes.gwrite_with(self.coff_header, offset, ctx)?;
         if let Some(opt_header) = self.optional_header {
             bytes.gwrite_with(opt_header, offset, ctx)?;
         }
         Ok(*offset)
+    }
+}
+
+/// The DANS marker is a XOR-decoded version of the string "DanS" and is used to identify the Rich header.
+pub const DANS_MARKER: u32 = 0x536E6144;
+/// The Rich marker is a XOR-decoded version of the string "Rich" and is used to identify the Rich header.
+pub const RICH_MARKER: u32 = 0x68636952;
+
+/// The Rich header is a undocumented header that is used to store information about the build environment.
+///
+/// The Rich Header first appeared in Visual Studio 6.0 and contains: a product identifier, build number, and the number of times it was used during the build process.
+#[derive(Debug, PartialEq, Clone, Default)]
+pub struct RichHeader<'a> {
+    /// The Rich header data without the padding.
+    pub data: &'a [u8],
+    /// Start offset of the Rich header.
+    pub start_offset: u32,
+    /// End offset of the Rich header.
+    pub end_offset: u32,
+    /// The Rich metadata is a pair of 32-bit values that store the tool version and the use count.
+    pub metadatas: Vec<RichMetadata>,
+}
+
+/// The Rich metadata is a pair of 32-bit values that store the tool version and the use count.
+#[derive(Debug, PartialEq, Copy, Clone, Default)]
+pub struct RichMetadata {
+    /// Build version is a 16-bit value that stores the version of the tool used to build the PE file.
+    pub build: u16,
+    /// Product identifier is a 16-bit value that stores the type of tool used to build the PE file.
+    pub product: u16,
+    /// The use count is a 32-bit value that stores the number of times the tool was used during the build process.
+    pub use_count: u32,
+}
+
+impl<'a> RichHeader<'a> {
+    /// Parse the rich header from the given bytes.
+    ///
+    /// To decode the Rich header,
+    /// - First locate the Rich marker and the subsequent 32-bit encryption key.
+    /// - Then, work backwards from the Rich marker, XORing the key with the stored 32-bit values until you decode the DanS marker.
+    ///
+    /// Between these markers, you'll find pairs of 32-bit values:
+    ///
+    /// - the first indicates the Microsoft tool used, and
+    /// - the second shows the count of linked object files made with that tool.
+    /// - The upper 16 bits of the tool ID describe the tool type,
+    /// - while the lower 16 bits specify the tool’s build version.
+    pub fn parse(bytes: &'a [u8]) -> error::Result<Option<Self>> {
+        // Parse the DOS header; some fields are required to locate the Rich header.
+        let dos_header = DosHeader::parse(bytes)?;
+        let dos_header_end_offset = PE_POINTER_OFFSET as usize;
+        let pe_header_start_offset = dos_header.pe_pointer as usize;
+
+        // The Rich header is not present in all PE files.
+        if (pe_header_start_offset - dos_header_end_offset) < 8 {
+            return Ok(None);
+        }
+
+        // The Rich header is located between the DOS header and the PE header.
+        let scan_start = dos_header_end_offset + 4;
+        let scan_end = pe_header_start_offset;
+        debug_assert!(scan_end > scan_start, "Rich header scan range is invalid");
+        let scan_stub = &bytes[scan_start..scan_end];
+
+        // First locate the Rich marker and the subsequent 32-bit encryption key.
+        let (rich_end_offset, key) = match scan_stub
+            .windows(8)
+            .position(|window| u32::from_le_bytes(window[..4].try_into().unwrap()) == RICH_MARKER)
+            .map(|offset| {
+                let rich_key =
+                    u32::from_le_bytes(scan_stub[offset + 4..offset + 8].try_into().unwrap());
+                (offset, rich_key)
+            }) {
+            Some(data) => data,
+            None => return Ok(None),
+        };
+
+        // Scope the buffer
+        let rich_header = &scan_stub[..rich_end_offset];
+
+        // Look for DanS marker
+        let rich_start_offset = match scan_stub
+            .windows(4)
+            .position(|window| u32::from_le_bytes(window.try_into().unwrap()) ^ key == DANS_MARKER)
+            .map(|offset| offset + 4)
+        {
+            Some(offset) => offset,
+            None => {
+                return Err(error::Error::Malformed(format!(
+                    "Rich header does not contain the DanS marker"
+                )));
+            }
+        };
+
+        let rich_header = &rich_header[rich_start_offset..];
+
+        // Skip padding bytes
+        let padding_count = rich_header
+            .chunks(4)
+            .take_while(|chunk| {
+                let value = u32::from_le_bytes((*chunk).try_into().unwrap());
+                value == key
+            })
+            .count()
+            * 4;
+
+        // Extract the Rich header data without the padding
+        let rich_header = &rich_header[padding_count..];
+
+        let metadatas = rich_header
+            .chunks(8)
+            .map(|chunk| {
+                let build_and_product = u32::from_le_bytes(chunk[0..4].try_into().unwrap()) ^ key;
+                let build = (build_and_product & 0xFFFF) as u16;
+                let product = (build_and_product >> 16) as u16;
+                let use_count = u32::from_le_bytes(chunk[4..8].try_into().unwrap()) ^ key;
+                RichMetadata {
+                    build,
+                    product,
+                    use_count,
+                }
+            })
+            .collect();
+
+        let start_offset = scan_start as u32 + rich_start_offset as u32 + padding_count as u32 - 4;
+        // Right before the Rich marker
+        let end_offset = scan_start as u32 + rich_end_offset as u32;
+
+        Ok(Some(RichHeader {
+            data: rich_header,
+            start_offset,
+            end_offset,
+            metadatas,
+        }))
     }
 }
 
@@ -1018,7 +1170,9 @@ pub fn machine_to_str(machine: u16) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::{machine_to_str, Header, COFF_MACHINE_X86, DOS_MAGIC, PE_MAGIC};
+    use super::{
+        machine_to_str, Header, RichHeader, RichMetadata, COFF_MACHINE_X86, DOS_MAGIC, PE_MAGIC,
+    };
 
     const CRSS_HEADER: [u8; 688] = [
         0x4d, 0x5a, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00,
@@ -1069,6 +1223,69 @@ mod tests {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ];
 
+    static NO_RICH_HEADER: [u8; 262] = [
+        0x4D, 0x5A, 0x50, 0x00, 0x02, 0x00, 0x00, 0x00, 0x04, 0x00, 0x0F, 0x00, 0xFF, 0xFF, 0x00,
+        0x00, 0xB8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x1A, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x01, 0x00, 0x00, 0xBA, 0x10, 0x00, 0x0E, 0x1F, 0xB4, 0x09, 0xCD, 0x21, 0xB8, 0x01,
+        0x4C, 0xCD, 0x21, 0x90, 0x90, 0x54, 0x68, 0x69, 0x73, 0x20, 0x70, 0x72, 0x6F, 0x67, 0x72,
+        0x61, 0x6D, 0x20, 0x6D, 0x75, 0x73, 0x74, 0x20, 0x62, 0x65, 0x20, 0x72, 0x75, 0x6E, 0x20,
+        0x75, 0x6E, 0x64, 0x65, 0x72, 0x20, 0x57, 0x69, 0x6E, 0x33, 0x32, 0x0D, 0x0A, 0x24, 0x37,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x50, 0x45, 0x00, 0x00, 0x64, 0x86,
+    ];
+
+    static CORRECT_RICH_HEADER: [u8; 256] = [
+        0x4D, 0x5A, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00,
+        0x00, 0xB8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0xF8, 0x00, 0x00, 0x00, 0x0E, 0x1F, 0xBA, 0x0E, 0x00, 0xB4, 0x09, 0xCD, 0x21, 0xB8, 0x01,
+        0x4C, 0xCD, 0x21, 0x54, 0x68, 0x69, 0x73, 0x20, 0x70, 0x72, 0x6F, 0x67, 0x72, 0x61, 0x6D,
+        0x20, 0x63, 0x61, 0x6E, 0x6E, 0x6F, 0x74, 0x20, 0x62, 0x65, 0x20, 0x72, 0x75, 0x6E, 0x20,
+        0x69, 0x6E, 0x20, 0x44, 0x4F, 0x53, 0x20, 0x6D, 0x6F, 0x64, 0x65, 0x2E, 0x0D, 0x0D, 0x0A,
+        0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x73, 0x4C, 0x5B, 0xB1, 0x37, 0x2D, 0x35,
+        0xE2, 0x37, 0x2D, 0x35, 0xE2, 0x37, 0x2D, 0x35, 0xE2, 0x44, 0x4F, 0x31, 0xE3, 0x3D, 0x2D,
+        0x35, 0xE2, 0x44, 0x4F, 0x36, 0xE3, 0x32, 0x2D, 0x35, 0xE2, 0x44, 0x4F, 0x30, 0xE3, 0x48,
+        0x2D, 0x35, 0xE2, 0xEE, 0x4F, 0x36, 0xE3, 0x3E, 0x2D, 0x35, 0xE2, 0xEE, 0x4F, 0x30, 0xE3,
+        0x14, 0x2D, 0x35, 0xE2, 0xEE, 0x4F, 0x31, 0xE3, 0x25, 0x2D, 0x35, 0xE2, 0x44, 0x4F, 0x34,
+        0xE3, 0x3C, 0x2D, 0x35, 0xE2, 0x37, 0x2D, 0x34, 0xE2, 0xAF, 0x2D, 0x35, 0xE2, 0x37, 0x2D,
+        0x35, 0xE2, 0x23, 0x2D, 0x35, 0xE2, 0xFC, 0x4E, 0x37, 0xE3, 0x36, 0x2D, 0x35, 0xE2, 0x52,
+        0x69, 0x63, 0x68, 0x37, 0x2D, 0x35, 0xE2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x50, 0x45, 0x00, 0x00, 0x64, 0x86, 0x05,
+        0x00,
+    ];
+
+    static CORRUPTED_RICH_HEADER: [u8; 256] = [
+        0x4D, 0x5A, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00,
+        0x00, 0xB8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0xF8, 0x00, 0x00, 0x00, 0x0E, 0x1F, 0xBA, 0x0E, 0x00, 0xB4, 0x09, 0xCD, 0x21, 0xB8, 0x01,
+        0x4C, 0xCD, 0x21, 0x54, 0x68, 0x69, 0x73, 0x20, 0x70, 0x72, 0x6F, 0x67, 0x72, 0x61, 0x6D,
+        0x20, 0x63, 0x61, 0x6E, 0x6E, 0x6F, 0x74, 0x20, 0x62, 0x65, 0x20, 0x72, 0x75, 0x6E, 0x20,
+        0x69, 0x6E, 0x20, 0x44, 0x4F, 0x53, 0x20, 0x6D, 0x6F, 0x64, 0x65, 0x2E, 0x0D, 0x0D, 0x0A,
+        0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x12, 0x4C, 0x5B, 0xB1, 0x37, 0x2D, 0x35,
+        0xE2, 0x37, 0x2D, 0x35, 0xE2, 0x37, 0x2D, 0x35, 0xE2, 0x44, 0x4F, 0x31, 0xE3, 0x3D, 0x2D,
+        0x35, 0xE2, 0x44, 0x4F, 0x36, 0xE3, 0x32, 0x2D, 0x35, 0xE2, 0x44, 0x4F, 0x30, 0xE3, 0x48,
+        0x2D, 0x35, 0xE2, 0xEE, 0x4F, 0x36, 0xE3, 0x3E, 0x2D, 0x35, 0xE2, 0xEE, 0x4F, 0x30, 0xE3,
+        0x14, 0x2D, 0x35, 0xE2, 0xEE, 0x4F, 0x31, 0xE3, 0x25, 0x2D, 0x35, 0xE2, 0x44, 0x4F, 0x34,
+        0xE3, 0x3C, 0x2D, 0x35, 0xE2, 0x37, 0x2D, 0x34, 0xE2, 0xAF, 0x2D, 0x35, 0xE2, 0x37, 0x2D,
+        0x35, 0xE2, 0x23, 0x2D, 0x35, 0xE2, 0xFC, 0x4E, 0x37, 0xE3, 0x36, 0x2D, 0x35, 0xE2, 0x52,
+        0x69, 0x63, 0x68, 0x37, 0x2D, 0x35, 0xE2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x50, 0x45, 0x00, 0x00, 0x64, 0x86, 0x05,
+        0x00,
+    ];
+
     #[test]
     fn crss_header() {
         let header = Header::parse(&&CRSS_HEADER[..]).unwrap();
@@ -1077,5 +1294,77 @@ mod tests {
         assert!(header.coff_header.machine == COFF_MACHINE_X86);
         assert!(machine_to_str(header.coff_header.machine) == "X86");
         println!("header: {:?}", &header);
+    }
+
+    #[test]
+    fn parse_no_rich_header() {
+        let header = RichHeader::parse(&NO_RICH_HEADER).unwrap();
+        assert_eq!(header, None);
+    }
+
+    #[test]
+    fn parse_correct_rich_header() {
+        let header = RichHeader::parse(&CORRECT_RICH_HEADER).unwrap();
+        assert_ne!(header, None);
+        let header = header.unwrap();
+        let expected = vec![
+            RichMetadata {
+                build: 25203,
+                product: 260,
+                use_count: 10,
+            },
+            RichMetadata {
+                build: 25203,
+                product: 259,
+                use_count: 5,
+            },
+            RichMetadata {
+                build: 25203,
+                product: 261,
+                use_count: 127,
+            },
+            RichMetadata {
+                build: 25305,
+                product: 259,
+                use_count: 9,
+            },
+            RichMetadata {
+                build: 25305,
+                product: 261,
+                use_count: 35,
+            },
+            RichMetadata {
+                build: 25305,
+                product: 260,
+                use_count: 18,
+            },
+            RichMetadata {
+                build: 25203,
+                product: 257,
+                use_count: 11,
+            },
+            RichMetadata {
+                build: 0,
+                product: 1,
+                use_count: 152,
+            },
+            RichMetadata {
+                build: 0,
+                product: 0,
+                use_count: 20,
+            },
+            RichMetadata {
+                build: 25547,
+                product: 258,
+                use_count: 1,
+            },
+        ];
+        assert_eq!(header.metadatas, expected);
+    }
+
+    #[test]
+    fn parse_corrupted_rich_header() {
+        let header_result = RichHeader::parse(&CORRUPTED_RICH_HEADER);
+        assert_eq!(header_result.is_err(), true);
     }
 }

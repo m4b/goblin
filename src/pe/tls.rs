@@ -227,6 +227,11 @@ impl<'a> TlsData<'a> {
                 } else {
                     bytes.pread_with::<u32>(offset + i * 4, scroll::LE)? as u64
                 };
+
+                if callback == 0 {
+                    break;
+                }
+
                 // Each callback is an VA so convert it to RVA
                 let callback_rva = callback as usize - image_base;
                 // Check if the callback is in the image
@@ -235,9 +240,6 @@ impl<'a> TlsData<'a> {
                         "cannot map tls callback ({:#x})",
                         callback
                     )));
-                }
-                if callback == 0 {
-                    break;
                 }
                 callbacks.push(callback);
                 i += 1;

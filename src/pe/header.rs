@@ -543,18 +543,15 @@ pub struct Header {
 }
 
 impl Header {
-    /// Parses PE header from the given bytes, use default DosHeader if missed
+    /// Parses PE header from the given bytes
     pub fn parse(bytes: &[u8]) -> error::Result<Self> {
-        let dos_header = DosHeader::parse(&bytes).unwrap_or_default();
-        let dos_stub = bytes
-            .pread(DOS_STUB_OFFSET as usize)
-            .map_err(|_| {
-                error::Error::Malformed(format!(
-                    "cannot parse DOS stub (offset {:#x})",
-                    DOS_STUB_OFFSET
-                ))
-            })
-            .unwrap_or_default();
+        let dos_header = DosHeader::parse(&bytes)?;
+        let dos_stub = bytes.pread(DOS_STUB_OFFSET as usize).map_err(|_| {
+            error::Error::Malformed(format!(
+                "cannot parse DOS stub (offset {:#x})",
+                DOS_STUB_OFFSET
+            ))
+        })?;
         let mut offset = dos_header.pe_pointer as usize;
         let signature = bytes.gread_with(&mut offset, scroll::LE).map_err(|_| {
             error::Error::Malformed(format!("cannot parse PE signature (offset {:#x})", offset))
@@ -568,6 +565,30 @@ impl Header {
         Ok(Header {
             dos_header,
             dos_stub,
+            signature,
+            coff_header,
+            optional_header,
+        })
+    }
+
+    /// Parses PE header from the given bytes that not contains DOS stub, default DosHeader will be used
+    pub fn parse_without_dos(bytes: &[u8]) -> error::Result<Self> {
+        let dos_header = DosHeader::default();
+        let mut offset = dos_header.pe_pointer as usize;
+        let signature = bytes.gread_with(&mut offset, scroll::LE).map_err(|_| {
+            error::Error::Malformed(format!("cannot parse PE signature (offset {:#x})", offset))
+        })?;
+        let coff_header = CoffHeader::parse(bytes, &mut offset)?;
+        let optional_header = if coff_header.size_of_optional_header > 0 {
+            let opt_hdr = bytes.pread::<optional_header::OptionalHeader>(offset)?;
+            Some(opt_hdr)
+        } else {
+            None
+        };
+
+        Ok(Header {
+            dos_header,
+            dos_stub: DosStub::default(),
             signature,
             coff_header,
             optional_header,

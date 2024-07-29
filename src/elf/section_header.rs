@@ -406,7 +406,7 @@ if_alloc! {
     }
 
     impl SectionHeader {
-        /// Return the size of the underlying program header, given a `container`
+        /// Return the size of the underlying section header, given a `Ctx`
         #[inline]
         pub fn size(ctx: Ctx) -> usize {
             use scroll::ctx::SizeWith;

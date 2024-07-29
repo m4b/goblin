@@ -64,7 +64,7 @@ fn section_read_size(section: &section_table::SectionTable, file_alignment: u32)
 
     if virtual_size == 0 {
         read_size
-    } else if size_of_raw_data == 0 {
+    } else if read_size == 0 {
         virtual_size
     } else {
         cmp::min(read_size, round_size(virtual_size))

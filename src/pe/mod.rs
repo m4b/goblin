@@ -3,19 +3,12 @@
 
 // TODO: panics with unwrap on None for apisetschema.dll, fhuxgraphics.dll and some others
 
+use core::cmp::max;
+
 use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
-use core::cmp::max;
-
-use log::debug;
 use log::warn;
-use scroll::{ctx, Pwrite};
-
-use crate::container;
-use crate::error;
-use crate::pe::utils::pad;
-use crate::strtab;
 
 pub mod authenticode;
 pub mod certificate_table;
@@ -35,6 +28,15 @@ pub mod subsystem;
 pub mod symbol;
 pub mod tls;
 pub mod utils;
+
+use crate::container;
+use crate::error;
+use crate::pe::utils::pad;
+use crate::strtab;
+
+use scroll::{ctx, Pwrite};
+
+use log::debug;
 
 #[derive(Debug)]
 /// An analyzed PE32/PE32+ binary
@@ -140,7 +142,7 @@ impl<'a> PE<'a> {
                     return Err(error::Error::Malformed(format!(
                         "Unsupported header magic ({:#x})",
                         magic
-                    )));
+                    )))
                 }
             };
 

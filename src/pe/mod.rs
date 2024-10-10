@@ -419,7 +419,7 @@ impl<'a> ctx::TryIntoCtx<scroll::Endian> for PE<'a> {
             "Symbol tables in PE are deprecated and not supported to write"
         );
 
-        bytes.gwrite_with(self.header, &mut offset, ctx)?;
+        bytes.gwrite_with(self.header.clone(), &mut offset, ctx)?;
         max_offset = max(offset, max_offset);
         self.write_sections(bytes, &mut offset, file_alignment, ctx)?;
         // We want the section offset for which we have the highest pointer on disk.

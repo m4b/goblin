@@ -800,6 +800,7 @@ pub struct Header<'a> {
     pub dos_header: DosHeader,
     /// DOS program for legacy loaders
     pub dos_stub: &'a [u8],
+    /// The Rich header added by MSVC linker, see [RichHeader] for more information.
     pub rich_header: Option<RichHeader<'a>>,
 
     // Q (JohnScience): should we care about the "rich header"?
@@ -964,7 +965,7 @@ impl<'a> RichHeader<'a> {
         let metadatas = rich_header
             .chunks(8)
             .map(|chunk| {
-                let build_and_product = u32::from_le_bytes(chunk[0..4].try_into().unwrap()) ^ key;
+                let build_and_product = u32::from_le_bytes(chunk[..4].try_into().unwrap()) ^ key;
                 let build = (build_and_product & 0xFFFF) as u16;
                 let product = (build_and_product >> 16) as u16;
                 let use_count = u32::from_le_bytes(chunk[4..8].try_into().unwrap()) ^ key;
@@ -976,8 +977,7 @@ impl<'a> RichHeader<'a> {
             })
             .collect();
 
-        let start_offset = scan_start as u32 + rich_start_offset as u32 + padding_count as u32 - 4;
-        // Right before the Rich marker
+        let start_offset = scan_start as u32 + rich_start_offset as u32 - 4;
         let end_offset = scan_start as u32 + rich_end_offset as u32;
 
         Ok(Some(RichHeader {

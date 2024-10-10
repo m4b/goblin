@@ -410,7 +410,16 @@ impl<'a> ctx::TryIntoCtx<scroll::Endian> for PE<'a> {
             }
             _ => None,
         };
-        bytes.gwrite_with(self.header.clone(), &mut offset, ctx)?;
+
+        // COFF Symbol Table
+        // Auxiliary Symbol Records
+        // COFF String Table
+        assert!(
+            self.header.coff_header.pointer_to_symbol_table == 0,
+            "Symbol tables in PE are deprecated and not supported to write"
+        );
+
+        bytes.gwrite_with(self.header, &mut offset, ctx)?;
         max_offset = max(offset, max_offset);
         self.write_sections(bytes, &mut offset, file_alignment, ctx)?;
         // We want the section offset for which we have the highest pointer on disk.
@@ -423,14 +432,6 @@ impl<'a> ctx::TryIntoCtx<scroll::Endian> for PE<'a> {
                 .map(|section| (section.pointer_to_raw_data + section.size_of_raw_data) as usize)
                 .unwrap_or(offset),
             max_offset,
-        );
-
-        // COFF Symbol Table
-        // Auxiliary Symbol Records
-        // COFF String Table
-        assert!(
-            self.header.coff_header.pointer_to_symbol_table == 0,
-            "Symbol tables in PE are deprecated and not supported to write"
         );
 
         // The following data directories are

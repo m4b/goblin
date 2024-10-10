@@ -380,12 +380,40 @@ impl DosHeader {
             pe_pointer,
         })
     }
+}
 
+#[repr(C)]
+#[derive(Debug, PartialEq, Clone)]
+/// The DOS stub program which should be executed in DOS mode. It prints the message "This program cannot be run in DOS mode" and exits.
+///
+/// ## Position in a modern PE file
+///
+/// The [DosStub] is usually located immediately after the [DosHeader] and...
+///
+/// * De facto, can be followed by a non-standard ["Rich header"](https://0xrick.github.io/win-internals/pe3/#rich-header).
+/// * According to the standard, is followed by the  [Header::signature] and then the [CoffHeader].
+pub struct DosStub {
+    pub data: Vec<u8>,
+}
+impl Default for DosStub {
+    fn default() -> Self {
+        Self {
+            data: vec![
+                0x0E, 0x1F, 0xBA, 0x0E, 0x00, 0xB4, 0x09, 0xCD, 0x21, 0xB8, 0x01, 0x4C, 0xCD, 0x21,
+                0x54, 0x68, 0x69, 0x73, 0x20, 0x70, 0x72, 0x6F, 0x67, 0x72, 0x61, 0x6D, 0x20, 0x63,
+                0x61, 0x6E, 0x6E, 0x6F, 0x74, 0x20, 0x62, 0x65, 0x20, 0x72, 0x75, 0x6E, 0x20, 0x69,
+                0x6E, 0x20, 0x44, 0x4F, 0x53, 0x20, 0x6D, 0x6F, 0x64, 0x65, 0x2E, 0x0D, 0x0D, 0x0A,
+                0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            ],
+        }
+    }
+}
+impl DosStub {
     /// Parse the DOS stub.
     ///
     /// The DOS stub is a small program that prints the message "This program cannot be run in DOS mode" and exits; and
     /// is not really read for the PECOFF file format. It's a relic from the MS-DOS era.
-    pub fn parse_dos_stub<'a>(bytes: &'a [u8], pe_pointer: u32) -> error::Result<&'a [u8]> {
+    pub fn new(bytes: &[u8], pe_pointer: u32) -> error::Result<Self> {
         let start_offset = DOS_STUB_OFFSET as usize;
         let end_offset = pe_pointer as usize;
         if bytes.len() < end_offset as usize {
@@ -395,35 +423,10 @@ impl DosHeader {
                 end_offset
             )));
         }
-        Ok(&bytes[start_offset..end_offset])
-    }
-}
-
-#[repr(C)]
-#[derive(Debug, PartialEq, Copy, Clone)]
-/// The DOS stub program which should be executed in DOS mode. It prints the message "This program cannot be run in DOS mode" and exits.
-///
-/// ## Position in a modern PE file
-///
-/// The [DosStub] is usually located immediately after the [DosHeader] and...
-///
-/// * De facto, can be followed by a non-standard ["Rich header"](https://0xrick.github.io/win-internals/pe3/#rich-header).
-/// * According to the standard, is followed by the  [Header::signature] and then the [CoffHeader].
-pub struct DosStub<'a> {
-    pub data: &'a [u8],
-}
-impl<'a> Default for DosStub<'a> {
-    fn default() -> Self {
-        // "This program cannot be run in DOS mode" error program
-        Self {
-            data: &[
-                0x0E, 0x1F, 0xBA, 0x0E, 0x00, 0xB4, 0x09, 0xCD, 0x21, 0xB8, 0x01, 0x4C, 0xCD, 0x21,
-                0x54, 0x68, 0x69, 0x73, 0x20, 0x70, 0x72, 0x6F, 0x67, 0x72, 0x61, 0x6D, 0x20, 0x63,
-                0x61, 0x6E, 0x6E, 0x6F, 0x74, 0x20, 0x62, 0x65, 0x20, 0x72, 0x75, 0x6E, 0x20, 0x69,
-                0x6E, 0x20, 0x44, 0x4F, 0x53, 0x20, 0x6D, 0x6F, 0x64, 0x65, 0x2E, 0x0D, 0x0D, 0x0A,
-                0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            ],
-        }
+        let dos_stub_area = &bytes[start_offset..end_offset];
+        Ok(Self {
+            data: dos_stub_area.to_vec(),
+        })
     }
 }
 
@@ -799,7 +802,7 @@ impl CoffHeader {
 pub struct Header {
     pub dos_header: DosHeader,
     /// DOS program for legacy loaders
-    pub dos_stub: Vec<u8>,
+    pub dos_stub: DosStub,
     /// The Rich header added by MSVC linker, see [RichHeader] for more information.
     pub rich_header: Option<RichHeader>,
 
@@ -817,7 +820,7 @@ pub struct Header {
 impl Header {
     pub fn parse(bytes: &[u8]) -> error::Result<Self> {
         let dos_header = DosHeader::parse(&bytes)?;
-        let dos_stub = DosHeader::parse_dos_stub(&bytes, dos_header.pe_pointer)?;
+        let dos_stub = DosStub::new(&bytes, dos_header.pe_pointer)?;
         let rich_header = RichHeader::parse(&bytes)?;
         let mut offset = dos_header.pe_pointer as usize;
         let signature = bytes.gread_with(&mut offset, scroll::LE).map_err(|_| {
@@ -831,7 +834,7 @@ impl Header {
         };
         Ok(Header {
             dos_header,
-            dos_stub: dos_stub.to_vec(),
+            dos_stub,
             rich_header,
             signature,
             coff_header,
@@ -846,7 +849,7 @@ impl ctx::TryIntoCtx<scroll::Endian> for Header {
     fn try_into_ctx(self, bytes: &mut [u8], ctx: scroll::Endian) -> Result<usize, Self::Error> {
         let offset = &mut 0;
         bytes.gwrite_with(self.dos_header, offset, ctx)?;
-        bytes.gwrite_with(&*self.dos_stub, offset, ())?;
+        bytes.gwrite_with(&*self.dos_stub.data, offset, ())?;
         bytes.gwrite_with(self.signature, offset, scroll::LE)?;
         bytes.gwrite_with(self.coff_header, offset, ctx)?;
         if let Some(opt_header) = self.optional_header {

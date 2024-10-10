@@ -383,7 +383,7 @@ impl DosHeader {
 }
 
 #[repr(C)]
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Pread, Pwrite)]
 /// The DOS stub program which should be executed in DOS mode. It prints the message "This program cannot be run in DOS mode" and exits.
 ///
 /// ## Position in a modern PE file
@@ -462,15 +462,6 @@ impl DosStub {
         Ok(Self {
             data: dos_stub_area.to_vec(),
         })
-    }
-}
-impl ctx::TryIntoCtx<scroll::Endian> for DosStub {
-    type Error = error::Error;
-
-    fn try_into_ctx(self, bytes: &mut [u8], ctx: scroll::Endian) -> Result<usize, Self::Error> {
-        let offset = &mut 0;
-        bytes.gwrite_with(&*self.data, offset, ())?;
-        Ok(*offset)
     }
 }
 

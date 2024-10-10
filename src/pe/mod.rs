@@ -44,7 +44,7 @@ pub struct PE<'a> {
     bytes: &'a [u8],
     authenticode_excluded_sections: Option<authenticode::ExcludedSections>,
     /// The PE header
-    pub header: header::Header<'a>,
+    pub header: header::Header,
     /// A list of the sections in this PE binary
     pub sections: Vec<section_table::SectionTable>,
     /// The size of the binary

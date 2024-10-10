@@ -796,12 +796,12 @@ impl CoffHeader {
 /// The PE header is located at the very beginning of the file and
 /// is followed by the section table and sections.
 #[derive(Debug, PartialEq, Clone, Default)]
-pub struct Header<'a> {
+pub struct Header {
     pub dos_header: DosHeader,
     /// DOS program for legacy loaders
-    pub dos_stub: &'a [u8],
+    pub dos_stub: Vec<u8>,
     /// The Rich header added by MSVC linker, see [RichHeader] for more information.
-    pub rich_header: Option<RichHeader<'a>>,
+    pub rich_header: Option<RichHeader>,
 
     // Q (JohnScience): should we care about the "rich header"?
     // https://0xrick.github.io/win-internals/pe3/#rich-header
@@ -814,10 +814,10 @@ pub struct Header<'a> {
     pub optional_header: Option<optional_header::OptionalHeader>,
 }
 
-impl<'a> Header<'a> {
-    pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
+impl Header {
+    pub fn parse(bytes: &[u8]) -> error::Result<Self> {
         let dos_header = DosHeader::parse(&bytes)?;
-        let dos_stub: &'a [u8] = DosHeader::parse_dos_stub(&bytes, dos_header.pe_pointer)?;
+        let dos_stub = DosHeader::parse_dos_stub(&bytes, dos_header.pe_pointer)?;
         let rich_header = RichHeader::parse(&bytes)?;
         let mut offset = dos_header.pe_pointer as usize;
         let signature = bytes.gread_with(&mut offset, scroll::LE).map_err(|_| {
@@ -831,7 +831,7 @@ impl<'a> Header<'a> {
         };
         Ok(Header {
             dos_header,
-            dos_stub,
+            dos_stub: dos_stub.to_vec(),
             rich_header,
             signature,
             coff_header,
@@ -840,13 +840,13 @@ impl<'a> Header<'a> {
     }
 }
 
-impl<'a> ctx::TryIntoCtx<scroll::Endian> for Header<'a> {
+impl ctx::TryIntoCtx<scroll::Endian> for Header {
     type Error = error::Error;
 
     fn try_into_ctx(self, bytes: &mut [u8], ctx: scroll::Endian) -> Result<usize, Self::Error> {
         let offset = &mut 0;
         bytes.gwrite_with(self.dos_header, offset, ctx)?;
-        bytes.gwrite_with(self.dos_stub, offset, ())?;
+        bytes.gwrite_with(&*self.dos_stub, offset, ())?;
         bytes.gwrite_with(self.signature, offset, scroll::LE)?;
         bytes.gwrite_with(self.coff_header, offset, ctx)?;
         if let Some(opt_header) = self.optional_header {
@@ -865,9 +865,9 @@ pub const RICH_MARKER: u32 = 0x68636952;
 ///
 /// The Rich Header first appeared in Visual Studio 6.0 and contains: a product identifier, build number, and the number of times it was used during the build process.
 #[derive(Debug, PartialEq, Clone, Default)]
-pub struct RichHeader<'a> {
+pub struct RichHeader {
     /// The Rich header data without the padding.
-    pub data: &'a [u8],
+    pub data: Vec<u8>,
     /// Start offset of the Rich header.
     pub start_offset: u32,
     /// End offset of the Rich header.
@@ -887,7 +887,7 @@ pub struct RichMetadata {
     pub use_count: u32,
 }
 
-impl<'a> RichHeader<'a> {
+impl RichHeader {
     /// Parse the rich header from the given bytes.
     ///
     /// To decode the Rich header,
@@ -900,7 +900,7 @@ impl<'a> RichHeader<'a> {
     /// - the second shows the count of linked object files made with that tool.
     /// - The upper 16 bits of the tool ID describe the tool type,
     /// - while the lower 16 bits specify the tool’s build version.
-    pub fn parse(bytes: &'a [u8]) -> error::Result<Option<Self>> {
+    pub fn parse(bytes: &[u8]) -> error::Result<Option<Self>> {
         // Parse the DOS header; some fields are required to locate the Rich header.
         let dos_header = DosHeader::parse(bytes)?;
         let dos_header_end_offset = PE_POINTER_OFFSET as usize;
@@ -981,7 +981,7 @@ impl<'a> RichHeader<'a> {
         let end_offset = scan_start as u32 + rich_end_offset as u32;
 
         Ok(Some(RichHeader {
-            data: rich_header,
+            data: rich_header.to_vec(),
             start_offset,
             end_offset,
             metadatas,

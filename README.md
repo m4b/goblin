@@ -26,7 +26,7 @@ Add to your `Cargo.toml`
 
 ```toml
 [dependencies]
-goblin = "0.8"
+goblin = "0.9"
 ```
 
 ### Features
@@ -133,6 +133,7 @@ In lexicographic order:
 - [@Jhynjhiruu]
 - [@johannst]
 - [@JohnScience]
+- [@joschock]
 - [@jrmuizel]
 - [@jsgf]
 - [@keith]
@@ -215,6 +216,7 @@ In lexicographic order:
 [@Jhynjhiruu]: https://github.com/Jhynjhiruu
 [@JohnScience]: https://github.com/JohnScience
 [@johannst]: https://github.com/johannst
+[@joschock]: https://github.com/joschock
 [@jdub]: https://github.com/jdub
 [@jrmuizel]: https://github.com/jrmuizel
 [@jsgf]: https://github.com/jsgf

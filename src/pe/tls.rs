@@ -190,17 +190,8 @@ impl<'a> TlsData<'a> {
 
             // VA to RVA
             let rva = itd.address_of_index as usize - image_base;
-            let offset = utils::find_offset(rva, sections, file_alignment, opts).ok_or_else(|| {
-                error::Error::Malformed(format!(
-                    "cannot map tls address_of_index rva ({:#x}) into offset",
-                    rva
-                ))
-            });
-
-            slot = match offset {
-                Ok(offset) => Some(bytes.pread_with::<u32>(offset, scroll::LE)?),
-                Err(_) => None,
-            };
+            let offset = utils::find_offset(rva, sections, file_alignment, opts);
+            slot = offset.and_then(|x| bytes.pread_with::<u32>(x, scroll::LE).ok());
         }
 
         // Parse the callbacks if any

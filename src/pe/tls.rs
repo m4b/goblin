@@ -190,15 +190,17 @@ impl<'a> TlsData<'a> {
 
             // VA to RVA
             let rva = itd.address_of_index as usize - image_base;
-            let offset =
-                utils::find_offset(rva, sections, file_alignment, opts).ok_or_else(|| {
-                    error::Error::Malformed(format!(
-                        "cannot map tls address_of_index rva ({:#x}) into offset",
-                        rva
-                    ))
-                })?;
+            let offset = utils::find_offset(rva, sections, file_alignment, opts).ok_or_else(|| {
+                error::Error::Malformed(format!(
+                    "cannot map tls address_of_index rva ({:#x}) into offset",
+                    rva
+                ))
+            });
 
-            slot = Some(bytes.pread_with::<u32>(offset, scroll::LE)?);
+            slot = match offset {
+                Ok(offset) => Some(bytes.pread_with::<u32>(offset, scroll::LE)?),
+                Err(_) => None,
+            };
         }
 
         // Parse the callbacks if any
@@ -227,6 +229,9 @@ impl<'a> TlsData<'a> {
                 } else {
                     bytes.pread_with::<u32>(offset + i * 4, scroll::LE)? as u64
                 };
+                if callback == 0 {
+                    break;
+                }
                 // Each callback is an VA so convert it to RVA
                 let callback_rva = callback as usize - image_base;
                 // Check if the callback is in the image
@@ -235,9 +240,6 @@ impl<'a> TlsData<'a> {
                         "cannot map tls callback ({:#x})",
                         callback
                     )));
-                }
-                if callback == 0 {
-                    break;
                 }
                 callbacks.push(callback);
                 i += 1;

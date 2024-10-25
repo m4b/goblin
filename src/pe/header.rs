@@ -410,19 +410,20 @@ impl Default for DosStub {
     ///     mov ax, 4C01h     ; B8 01 4C   DOS function 4Ch (terminate program) with return code 1
     ///     int 21h           ; CD 21      Call DOS interrupt 21h for program termination
     ///
-    /// aMessage db 'This program cannot be run in DOS mode.', 0x0D, 0x0D, 0x0A, '$'
+    /// aMessage db 'This program cannot be run in DOS mode.'
     /// ```
     #[rustfmt::skip]
     fn default() -> Self {
         Self {
             data: vec![
-                0x0E, 0x1F,             // push cs; pop ds: Setup segment registers
+                0x0E,                   // push cs: Setup segment registers
+                0x1F,                   // pop ds: Setup segment registers
                 0xBA, 0x0E, 0x00,       // mov dx, 0x000E: Load the message address into the DX register
                 0xB4, 0x09,             // mov ah, 0x09: DOS function to print a string
                 0xCD, 0x21,             // int 0x21: Trigger DOS interrupt 21h to print the message
                 0xB8, 0x01, 0x4C,       // mov ax, 0x4C01: Prepare to terminate the program (DOS function 4Ch)
                 0xCD, 0x21,             // int 0x21: Trigger DOS interrupt 21h to terminate the program
-                0x54, 0x68, 0x69, 0x73, // "This" ASCII string "This program can be run in DOS mode."
+                0x54, 0x68, 0x69, 0x73, // "This" ASCII string "This program cannot be run in DOS mode."
                 0x20, 0x70, 0x72, 0x6F, // " pro" Continuation of the ASCII string,
                 0x67, 0x72, 0x61, 0x6D, // "gram" Continuation of the ASCII string,
                 0x20, 0x63, 0x61, 0x6E, // " can" Continuation of the ASCII string,
@@ -435,7 +436,7 @@ impl Default for DosStub {
                 0x0D, 0x0D, 0x0A,       // Carriage return (CR `0x0D, 0x0D`) and line feed (LF `0x0A`)
                 0x24,                   // '$' (End of string marker for DOS function 09h)
                 0x00, 0x00, 0x00, 0x00, // Null terminators or padding bytes for alignment
-                0x00, 0x00, 0x00,       // Padding bytes
+                0x00, 0x00, 0x00,       // Padding bytes (8-byte alignment)
             ],
         }
     }

@@ -5,6 +5,10 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.9, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
+## [0.9.1]  - 2024-10-24
+### (hot) Fix
+pe: fix parsing of tls in certain cases (issue: https://github.com/m4b/goblin/issues/424), thanks @kkent030315: https://github.com/m4b/goblin/pull/425
+
 ## [0.9.0]  - 2024-10-20
 ### Added, Breaking
 pe: add TE (terse executable) support, big thanks @Javagedes: https://github.com/m4b/goblin/pull/397

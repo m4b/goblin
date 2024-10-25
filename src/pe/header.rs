@@ -2,7 +2,7 @@ use crate::error;
 use crate::pe::{data_directories, debug, optional_header, section_table, symbol};
 use crate::strtab;
 use alloc::vec::Vec;
-use scroll::{ctx, IOread, IOwrite, Pread, Pwrite, SizeWith};
+use scroll::{ctx, Cwrite, IOread, IOwrite, Pread, Pwrite, SizeWith};
 
 /// In `winnt.h` and `pe.h`, it's `IMAGE_DOS_HEADER`. It's a DOS header present in all PE binaries.
 ///
@@ -381,7 +381,7 @@ impl DosHeader {
 }
 
 #[repr(C)]
-#[derive(Debug, PartialEq, Clone, Pread, Pwrite)]
+#[derive(Debug, PartialEq, Clone)]
 /// The DOS stub program which should be executed in DOS mode. It prints the message "This program cannot be run in DOS mode" and exits.
 ///
 /// ## Position in a modern PE file
@@ -439,6 +439,15 @@ impl Default for DosStub {
                 0x00, 0x00, 0x00,       // Padding bytes (8-byte alignment)
             ],
         }
+    }
+}
+impl ctx::TryIntoCtx<scroll::Endian> for DosStub {
+    type Error = error::Error;
+
+    fn try_into_ctx(self, bytes: &mut [u8], _: scroll::Endian) -> Result<usize, Self::Error> {
+        let offset = &mut 0;
+        bytes.gwrite_with(&*self.data, offset, ())?;
+        Ok(*offset)
     }
 }
 

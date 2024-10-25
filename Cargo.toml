@@ -35,7 +35,7 @@ optional = true
 
 [dependencies.scroll]
 version = "0.12"
-default_features = false
+default-features = false
 
 [features]
 default = ["std", "elf32", "elf64", "mach32", "mach64", "pe32", "pe64", "te", "archive", "endian_fd"]

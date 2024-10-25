@@ -3,7 +3,36 @@ All notable changes to this project will be documented in this file.
 
 Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-Goblin is now 0.8, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
+Goblin is now 0.9, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
+
+## [0.9.1]  - 2024-10-24
+### (hot) Fix
+pe: fix parsing of tls in certain cases (issue: https://github.com/m4b/goblin/issues/424), thanks @kkent030315: https://github.com/m4b/goblin/pull/425
+
+## [0.9.0]  - 2024-10-20
+### Added, Breaking
+pe: add TE (terse executable) support, big thanks @Javagedes: https://github.com/m4b/goblin/pull/397
+pe: add support for codeview PDB 2.0, thanks @joschock: https://github.com/m4b/goblin/pull/409
+pe: parse TLS in data directories, thanks @kkent030315: https://github.com/m4b/goblin/pull/404
+
+## [0.8.2]  - 2024-04-29
+Everything in 0.8.1 except TE support in https://github.com/m4b/goblin/pull/397 was reverted,
+due to it being technically a breaking change.
+0.8.1 was yanked from crates.
+
+## [0.8.1]  - 2024-04-27 (YANKED)
+### Docs
+pe: document pe header, thanks @JohnScience: https://github.com/m4b/goblin/pull/399
+pe, elf: fix doc warnings, thanks @5225225: https://github.com/m4b/goblin/pull/395
+pe: document dos header, thanks @JohnScience: https://github.com/m4b/goblin/pull/393
+### Added
+pe: add TE (terse executable) support, big thanks @Javagedes: https://github.com/m4b/goblin/pull/397
+elf: allow parsing section headers from raw bytes, thanks @lissyx: https://github.com/m4b/goblin/pull/391
+mach: add support for lossy parsing, thanks @h33p: https://github.com/m4b/goblin/pull/386
+elf: add convenience functions, thanks @tiann : https://github.com/m4b/goblin/pull/387
+### Fixed
+pe: read reserved dos headers, thanks @kkent030315: https://github.com/m4b/goblin/pull/405
+
 
 ## [0.8.0]  - 2023-12-31 - Happy New Years!
 ### Breaking

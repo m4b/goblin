@@ -320,12 +320,10 @@ impl DosHeader {
         let initial_relative_cs = bytes.gread_with(&mut offset, scroll::LE)?;
         let file_address_of_relocation_table = bytes.gread_with(&mut offset, scroll::LE)?;
         let overlay_number = bytes.gread_with(&mut offset, scroll::LE)?;
-        let reserved = [0x0; 4];
-        offset += core::mem::size_of_val(&reserved);
+        let reserved = bytes.gread_with(&mut offset, scroll::LE)?; // 4
         let oem_id = bytes.gread_with(&mut offset, scroll::LE)?;
         let oem_info = bytes.gread_with(&mut offset, scroll::LE)?;
-        let reserved2 = [0x0; 10];
-        offset += core::mem::size_of_val(&reserved2);
+        let reserved2 = bytes.gread_with(&mut offset, scroll::LE)?; // 10
 
         debug_assert!(
             offset == PE_POINTER_OFFSET as usize,

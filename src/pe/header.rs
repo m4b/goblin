@@ -436,7 +436,7 @@ impl<'a> Default for DosStub<'a> {
                 0x64, 0x65, 0x2E,       // "DE." Continuation of the ASCII string, ending with a period.
                 0x0D, 0x0D, 0x0A,       // Carriage return (CR `0x0D, 0x0D`) and line feed (LF `0x0A`)
                 0x24,                   // '$' (End of string marker for DOS function 09h)
-                0x00, 0x00, 0x00, 0x00, // Null terminators or padding bytes for alignment
+                0x00, 0x00, 0x00, 0x00, // Padding bytes (8-byte alignment)
                 0x00, 0x00, 0x00,       // Padding bytes (8-byte alignment)
             ],
         }

@@ -382,7 +382,7 @@ impl DosHeader {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 /// The DOS stub program which should be executed in DOS mode. It prints the message "This program cannot be run in DOS mode" and exits.
 ///
 /// ## Position in a modern PE file
@@ -852,7 +852,7 @@ impl CoffHeader {
 ///
 /// The PE header is located at the very beginning of the file and
 /// is followed by the section table and sections.
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub struct Header<'a> {
     pub dos_header: DosHeader,
     /// DOS program for legacy loaders

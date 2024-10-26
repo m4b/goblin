@@ -918,6 +918,8 @@ pub const DANS_MARKER: u32 = 0x536E6144;
 pub const DANS_MARKER_SIZE: usize = std::mem::size_of::<u32>();
 /// The Rich marker is a XOR-decoded version of the string "Rich" and is used to identify the Rich header.
 pub const RICH_MARKER: u32 = 0x68636952;
+/// Size of [RICH_MARKER] in bytes
+pub const RICH_MARKER_SIZE: usize = std::mem::size_of::<u32>();
 
 /// The Rich header is a undocumented header that is used to store information about the build environment.
 ///
@@ -1044,13 +1046,28 @@ impl<'a> RichHeader<'a> {
         // First locate the Rich marker and the subsequent 32-bit encryption key.
         let (rich_end_offset, key) = match scan_stub
             .windows(8)
-            .position(|window| u32::from_le_bytes(window[..4].try_into().unwrap()) == RICH_MARKER)
-            .map(|offset| {
+            .enumerate()
+            .filter_map(
+                |(index, window)| match window.pread_with::<u32>(0, scroll::LE) {
+                    // Marker matches, then return its index
+                    Ok(marker) if marker == RICH_MARKER => Some(Ok(index)),
+                    // Error reading with scroll
+                    Err(e) => Some(Err(error::Error::from(e))),
+                    // Marker did not match
+                    _ => None,
+                },
+            )
+            // Next is the very first element succeeded
+            .next()
+        {
+            Some(Ok(rich_end_offset)) => {
                 let rich_key =
-                    u32::from_le_bytes(scan_stub[offset + 4..offset + 8].try_into().unwrap());
-                (offset, rich_key)
-            }) {
-            Some(data) => data,
+                    scan_stub.pread_with::<u32>(rich_end_offset + RICH_MARKER_SIZE, scroll::LE)?;
+                (rich_end_offset, rich_key)
+            }
+            // Something went wrong, e.g., reading with scroll
+            Some(Err(e)) => return Err(e),
+            // Marker did not found, rich header is assumed it does not exist
             None => return Ok(None),
         };
 

@@ -391,10 +391,10 @@ impl DosHeader {
 ///
 /// * De facto, can be followed by a non-standard ["Rich header"](https://0xrick.github.io/win-internals/pe3/#rich-header).
 /// * According to the standard, is followed by the  [Header::signature] and then the [CoffHeader].
-pub struct DosStub {
-    pub data: Vec<u8>,
+pub struct DosStub<'a> {
+    pub data: &'a [u8],
 }
-impl Default for DosStub {
+impl<'a> Default for DosStub<'a> {
     /// This is the very basic DOS program bytecode representation embedded in MSVC linker.
     ///
     /// An equivalent (Not a equal) DOS program can be follows:
@@ -416,7 +416,7 @@ impl Default for DosStub {
     #[rustfmt::skip]
     fn default() -> Self {
         Self {
-            data: vec![
+            data: &[
                 0x0E,                   // push cs: Setup segment registers
                 0x1F,                   // pop ds: Setup segment registers
                 0xBA, 0x0E, 0x00,       // mov dx, 0x000E: Load the message address into the DX register
@@ -442,7 +442,7 @@ impl Default for DosStub {
         }
     }
 }
-impl ctx::TryIntoCtx<scroll::Endian> for DosStub {
+impl<'a> ctx::TryIntoCtx<scroll::Endian> for DosStub<'a> {
     type Error = error::Error;
 
     fn try_into_ctx(self, bytes: &mut [u8], _: scroll::Endian) -> Result<usize, Self::Error> {
@@ -452,12 +452,12 @@ impl ctx::TryIntoCtx<scroll::Endian> for DosStub {
     }
 }
 
-impl DosStub {
+impl<'a> DosStub<'a> {
     /// Parse the DOS stub.
     ///
     /// The DOS stub is a small program that prints the message "This program cannot be run in DOS mode" and exits; and
     /// is not really read for the PECOFF file format. It's a relic from the MS-DOS era.
-    pub fn new(bytes: &[u8], pe_pointer: u32) -> error::Result<Self> {
+    pub fn new(bytes: &'a [u8], pe_pointer: u32) -> error::Result<Self> {
         let start_offset = DOS_STUB_OFFSET as usize;
         let end_offset = pe_pointer as usize;
 
@@ -479,7 +479,7 @@ impl DosStub {
 
         let dos_stub_area = &bytes[start_offset..end_offset];
         Ok(Self {
-            data: dos_stub_area.to_vec(),
+            data: dos_stub_area,
         })
     }
 }
@@ -856,7 +856,7 @@ impl CoffHeader {
 pub struct Header<'a> {
     pub dos_header: DosHeader,
     /// DOS program for legacy loaders
-    pub dos_stub: DosStub,
+    pub dos_stub: DosStub<'a>,
     pub rich_header: Option<RichHeader<'a>>,
 
     // Q (JohnScience): should we care about the "rich header"?

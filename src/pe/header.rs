@@ -1022,7 +1022,12 @@ impl<'a> RichHeader<'a> {
         // The Rich header is located between the DOS header and the PE header.
         let scan_start = dos_header_end_offset + 4;
         let scan_end = pe_header_start_offset;
-        debug_assert!(scan_end > scan_start, "Rich header scan range is invalid");
+        if scan_start > scan_end {
+            return Err(error::Error::Malformed(format!(
+                "Rich header scan start ({:#X}) is greater than scan end ({:#X})",
+                scan_start, scan_end
+            )));
+        }
         let scan_stub = &bytes[scan_start..scan_end];
 
         // First locate the Rich marker and the subsequent 32-bit encryption key.

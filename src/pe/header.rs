@@ -1085,10 +1085,25 @@ impl<'a> RichHeader<'a> {
         // Look for DanS marker
         let rich_start_offset = match scan_stub
             .windows(4)
-            .position(|window| u32::from_le_bytes(window.try_into().unwrap()) ^ key == DANS_MARKER)
-            .map(|offset| offset + 4)
+            .enumerate()
+            .filter_map(
+                |(index, window)| match window.pread_with::<u32>(0, scroll::LE) {
+                    // If we do found the DanS marker, return the offset
+                    Ok(value) if (value ^ key) == DANS_MARKER => Some(Ok(index + DANS_MARKER_SIZE)),
+                    // This is scroll error, likely malformed rich header
+                    Err(e) => Some(Err(error::Error::from(e))),
+                    // No matching DanS marker found
+                    _ => None,
+                },
+            )
+            // Next is the very first element succeeded
+            .next()
         {
-            Some(offset) => offset,
+            // Suceeded
+            Some(Ok(offset)) => offset,
+            // Errors such as from scroll reader
+            Some(Err(e)) => return Err(e),
+            // DanS marker did not found
             None => {
                 return Err(error::Error::Malformed(format!(
                     "Rich header does not contain the DanS marker"

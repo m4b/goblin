@@ -380,7 +380,6 @@ impl DosHeader {
     }
 }
 
-#[repr(C)]
 #[derive(Debug, PartialEq, Clone)]
 /// The DOS stub program which should be executed in DOS mode. It prints the message "This program cannot be run in DOS mode" and exits.
 ///

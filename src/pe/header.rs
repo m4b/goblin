@@ -1066,12 +1066,12 @@ impl<'a> RichHeader<'a> {
         // Skip padding bytes
         let padding_size = rich_header
             .chunks(4)
-            .take_while(|chunk| {
-                let value = u32::from_le_bytes((*chunk).try_into().unwrap());
-                value == key
-            })
+            .map(|chunk| chunk.pread_with::<u32>(0, scroll::LE))
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .take_while(|value| value == &key)
             .count()
-            * 4;
+            * core::mem::size_of_val(&key);
 
         // Extract the Rich header data without the padding
         let data = rich_header;

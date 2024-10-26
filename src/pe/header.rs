@@ -460,6 +460,15 @@ impl DosStub {
     pub fn new(bytes: &[u8], pe_pointer: u32) -> error::Result<Self> {
         let start_offset = DOS_STUB_OFFSET as usize;
         let end_offset = pe_pointer as usize;
+
+        // Check if the end_offset is less than or equal to start_offset
+        if end_offset <= start_offset {
+            return Err(error::Error::Malformed(format!(
+                "PE pointer ({:#x}) must be greater than the start offset ({:#x})",
+                pe_pointer, start_offset
+            )));
+        }
+
         if bytes.len() < end_offset as usize {
             return Err(error::Error::Malformed(format!(
                 "DOS stub is too short ({} bytes) to contain the PE header pointer ({:#x})",
@@ -467,6 +476,7 @@ impl DosStub {
                 end_offset
             )));
         }
+
         let dos_stub_area = &bytes[start_offset..end_offset];
         Ok(Self {
             data: dos_stub_area.to_vec(),

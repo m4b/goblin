@@ -904,6 +904,8 @@ impl<'a> ctx::TryIntoCtx<scroll::Endian> for Header<'a> {
 
 /// The DANS marker is a XOR-decoded version of the string "DanS" and is used to identify the Rich header.
 pub const DANS_MARKER: u32 = 0x536E6144;
+/// Size of [DANS_MARKER] in bytes
+pub const DANS_MARKER_SIZE: usize = std::mem::size_of::<u32>();
 /// The Rich marker is a XOR-decoded version of the string "Rich" and is used to identify the Rich header.
 pub const RICH_MARKER: u32 = 0x68636952;
 
@@ -1074,7 +1076,8 @@ impl<'a> RichHeader<'a> {
         // Extract the Rich header data without the padding
         let data = rich_header;
 
-        let start_offset = scan_start as u32 + rich_start_offset as u32 - 4;
+        // Subtract the sizeof DanS marker (u32, 4 bytes)
+        let start_offset = scan_start as u32 + rich_start_offset as u32 - DANS_MARKER_SIZE as u32;
         let end_offset = scan_start as u32 + rich_end_offset as u32;
 
         Ok(Some(RichHeader {

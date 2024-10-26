@@ -859,11 +859,6 @@ pub struct Header<'a> {
     pub dos_stub: DosStub<'a>,
     pub rich_header: Option<RichHeader<'a>>,
 
-    // Q (JohnScience): should we care about the "rich header"?
-    // https://0xrick.github.io/win-internals/pe3/#rich-header
-    // Introducing it would be a breaking change because it would require a new field in the struct
-    // but it would be a good addition to the library.
-    //
     /// PE Magic: PE\0\0, little endian
     pub signature: u32,
     pub coff_header: CoffHeader,

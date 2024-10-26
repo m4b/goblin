@@ -915,11 +915,11 @@ impl<'a> ctx::TryIntoCtx<scroll::Endian> for Header<'a> {
 /// The DANS marker is a XOR-decoded version of the string "DanS" and is used to identify the Rich header.
 pub const DANS_MARKER: u32 = 0x536E6144;
 /// Size of [DANS_MARKER] in bytes
-pub const DANS_MARKER_SIZE: usize = std::mem::size_of::<u32>();
+pub const DANS_MARKER_SIZE: usize = core::mem::size_of::<u32>();
 /// The Rich marker is a XOR-decoded version of the string "Rich" and is used to identify the Rich header.
 pub const RICH_MARKER: u32 = 0x68636952;
 /// Size of [RICH_MARKER] in bytes
-pub const RICH_MARKER_SIZE: usize = std::mem::size_of::<u32>();
+pub const RICH_MARKER_SIZE: usize = core::mem::size_of::<u32>();
 
 /// The Rich header is a undocumented header that is used to store information about the build environment.
 ///

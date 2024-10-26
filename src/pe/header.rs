@@ -937,18 +937,18 @@ pub struct RichMetadata {
 }
 
 impl RichMetadata {
-    /// Parse [`RichMetadata`] from a 8-byte field.
-    fn from_u64(value: u64, key: u32) -> Self {
-        let chunk = value.to_le_bytes();
-        let build_and_product = u32::from_le_bytes(chunk[..4].try_into().unwrap()) ^ key;
+    /// Parse [`RichMetadata`] from given bytes
+    fn parse(bytes: &[u8], key: u32) -> error::Result<Self> {
+        let mut offset = 0;
+        let build_and_product = bytes.gread_with::<u32>(&mut offset, scroll::LE)? ^ key;
         let build = (build_and_product & 0xFFFF) as u16;
         let product = (build_and_product >> 16) as u16;
-        let use_count = u32::from_le_bytes(chunk[4..8].try_into().unwrap()) ^ key;
-        Self {
+        let use_count = bytes.gread_with::<u32>(&mut offset, scroll::LE)? ^ key;
+        Ok(Self {
             build,
             product,
             use_count,
-        }
+        })
     }
 }
 
@@ -973,10 +973,10 @@ impl Iterator for RichMetadataIterator<'_> {
         }
 
         // Data within this iterator should not have padding
-        Some(match self.data.pread_with::<u64>(0, scroll::LE) {
-            Ok(value) => {
+        Some(match RichMetadata::parse(&self.data, self.key) {
+            Ok(metadata) => {
                 self.data = &self.data[RICH_METADATA_SIZE..];
-                Ok(RichMetadata::from_u64(value, self.key))
+                Ok(metadata)
             }
             Err(error) => {
                 self.data = &[];

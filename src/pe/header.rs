@@ -1071,6 +1071,14 @@ impl<'a> RichHeader<'a> {
             None => return Ok(None),
         };
 
+        // Ensure rich_end_offset is within bounds
+        if rich_end_offset >= scan_stub.len() {
+            return Err(error::Error::Malformed(format!(
+                "Rich end offset ({:#X}) exceeds scan stub length ({:#X})",
+                rich_end_offset,
+                scan_stub.len()
+            )));
+        }
         // Scope the buffer
         let rich_header = &scan_stub[..rich_end_offset];
 
@@ -1088,6 +1096,15 @@ impl<'a> RichHeader<'a> {
             }
         };
 
+        // Ensure rich_start_offset is within bounds
+        if rich_start_offset >= rich_header.len() {
+            return Err(error::Error::Malformed(format!(
+                "Rich start offset ({:#X}) exceeds rich header length ({:#X})",
+                rich_start_offset,
+                rich_header.len()
+            )));
+        }
+        // Scope the buffer
         let rich_header = &rich_header[rich_start_offset..];
 
         // Skip padding bytes

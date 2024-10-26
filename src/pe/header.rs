@@ -1,3 +1,5 @@
+use core::iter::FusedIterator;
+
 use crate::error;
 use crate::pe::{data_directories, debug, optional_header, section_table, symbol};
 use crate::strtab;
@@ -841,12 +843,12 @@ impl CoffHeader {
 /// The PE header is located at the very beginning of the file and
 /// is followed by the section table and sections.
 #[derive(Debug, PartialEq, Clone, Default)]
-pub struct Header {
+pub struct Header<'a> {
     pub dos_header: DosHeader,
     /// DOS program for legacy loaders
     pub dos_stub: DosStub,
     /// The Rich header added by MSVC linker, see [RichHeader] for more information.
-    pub rich_header: Option<RichHeader>,
+    pub rich_header: Option<RichHeader<'a>>,
 
     // Q (JohnScience): should we care about the "rich header"?
     // https://0xrick.github.io/win-internals/pe3/#rich-header
@@ -859,8 +861,8 @@ pub struct Header {
     pub optional_header: Option<optional_header::OptionalHeader>,
 }
 
-impl Header {
-    pub fn parse(bytes: &[u8]) -> error::Result<Self> {
+impl<'a> Header<'a> {
+    pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
         let dos_header = DosHeader::parse(&bytes)?;
         let dos_stub = DosStub::new(&bytes, dos_header.pe_pointer)?;
         let rich_header = RichHeader::parse(&bytes)?;
@@ -885,7 +887,7 @@ impl Header {
     }
 }
 
-impl ctx::TryIntoCtx<scroll::Endian> for Header {
+impl<'a> ctx::TryIntoCtx<scroll::Endian> for Header<'a> {
     type Error = error::Error;
 
     fn try_into_ctx(self, bytes: &mut [u8], ctx: scroll::Endian) -> Result<usize, Self::Error> {
@@ -909,20 +911,23 @@ pub const RICH_MARKER: u32 = 0x68636952;
 /// The Rich header is a undocumented header that is used to store information about the build environment.
 ///
 /// The Rich Header first appeared in Visual Studio 6.0 and contains: a product identifier, build number, and the number of times it was used during the build process.
-#[derive(Debug, PartialEq, Clone, Default)]
-pub struct RichHeader {
-    /// The Rich header data without the padding.
-    pub data: Vec<u8>,
+#[derive(Debug, PartialEq, Copy, Clone, Default)]
+pub struct RichHeader<'a> {
+    /// Key is 32-bit value used for XOR encrypt/decrypt fields
+    pub key: u32,
+    /// The Rich header data with the padding.
+    pub data: &'a [u8],
+    /// Padding bytes at the prologue of [Self::data]
+    pub padding_size: usize,
     /// Start offset of the Rich header.
     pub start_offset: u32,
     /// End offset of the Rich header.
     pub end_offset: u32,
-    /// The Rich metadata is a pair of 32-bit values that store the tool version and the use count.
-    pub metadatas: Vec<RichMetadata>,
 }
 
 /// The Rich metadata is a pair of 32-bit values that store the tool version and the use count.
-#[derive(Debug, PartialEq, Copy, Clone, Default)]
+#[repr(C)]
+#[derive(Debug, PartialEq, Copy, Clone, Default, Pread, Pwrite)]
 pub struct RichMetadata {
     /// Build version is a 16-bit value that stores the version of the tool used to build the PE file.
     pub build: u16,
@@ -932,7 +937,65 @@ pub struct RichMetadata {
     pub use_count: u32,
 }
 
-impl RichHeader {
+impl RichMetadata {
+    /// Parse [`RichMetadata`] from a 8-byte field.
+    fn from_u64(value: u64, key: u32) -> Self {
+        let chunk = value.to_le_bytes();
+        let build_and_product = u32::from_le_bytes(chunk[..4].try_into().unwrap()) ^ key;
+        let build = (build_and_product & 0xFFFF) as u16;
+        let product = (build_and_product >> 16) as u16;
+        let use_count = u32::from_le_bytes(chunk[4..8].try_into().unwrap()) ^ key;
+        Self {
+            build,
+            product,
+            use_count,
+        }
+    }
+}
+
+/// Size of [`RichMetadata`] entries.
+const RICH_METADATA_SIZE: usize = 8;
+
+/// Iterator over [`RichMetadata`] in [`RichHeader`].
+#[derive(Debug)]
+pub struct RichMetadataIterator<'a> {
+    /// The key of [RichHeader::key]
+    key: u32,
+    /// The raw data [RichHeader::data] without padding
+    data: &'a [u8],
+}
+
+impl Iterator for RichMetadataIterator<'_> {
+    type Item = error::Result<RichMetadata>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.data.is_empty() {
+            return None;
+        }
+
+        // Data within this iterator should not have padding
+        Some(match self.data.pread_with::<u64>(0, scroll::LE) {
+            Ok(value) => {
+                self.data = &self.data[RICH_METADATA_SIZE..];
+                Ok(RichMetadata::from_u64(value, self.key))
+            }
+            Err(error) => {
+                self.data = &[];
+                Err(error.into())
+            }
+        })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.data.len() / RICH_METADATA_SIZE;
+        (len, Some(len))
+    }
+}
+
+impl FusedIterator for RichMetadataIterator<'_> {}
+impl ExactSizeIterator for RichMetadataIterator<'_> {}
+
+impl<'a> RichHeader<'a> {
     /// Parse the rich header from the given bytes.
     ///
     /// To decode the Rich header,
@@ -945,7 +1008,7 @@ impl RichHeader {
     /// - the second shows the count of linked object files made with that tool.
     /// - The upper 16 bits of the tool ID describe the tool type,
     /// - while the lower 16 bits specify the tool’s build version.
-    pub fn parse(bytes: &[u8]) -> error::Result<Option<Self>> {
+    pub fn parse(bytes: &'a [u8]) -> error::Result<Option<Self>> {
         // Parse the DOS header; some fields are required to locate the Rich header.
         let dos_header = DosHeader::parse(bytes)?;
         let dos_header_end_offset = PE_POINTER_OFFSET as usize;
@@ -995,7 +1058,7 @@ impl RichHeader {
         let rich_header = &rich_header[rich_start_offset..];
 
         // Skip padding bytes
-        let padding_count = rich_header
+        let padding_size = rich_header
             .chunks(4)
             .take_while(|chunk| {
                 let value = u32::from_le_bytes((*chunk).try_into().unwrap());
@@ -1005,32 +1068,26 @@ impl RichHeader {
             * 4;
 
         // Extract the Rich header data without the padding
-        let rich_header = &rich_header[padding_count..];
-
-        let metadatas = rich_header
-            .chunks(8)
-            .map(|chunk| {
-                let build_and_product = u32::from_le_bytes(chunk[..4].try_into().unwrap()) ^ key;
-                let build = (build_and_product & 0xFFFF) as u16;
-                let product = (build_and_product >> 16) as u16;
-                let use_count = u32::from_le_bytes(chunk[4..8].try_into().unwrap()) ^ key;
-                RichMetadata {
-                    build,
-                    product,
-                    use_count,
-                }
-            })
-            .collect();
+        let data = rich_header;
 
         let start_offset = scan_start as u32 + rich_start_offset as u32 - 4;
         let end_offset = scan_start as u32 + rich_end_offset as u32;
 
         Ok(Some(RichHeader {
-            data: rich_header.to_vec(),
+            key,
+            data,
+            padding_size,
             start_offset,
             end_offset,
-            metadatas,
         }))
+    }
+
+    /// Returns [`RichMetadataIterator`] iterator for [`RichMetadata`]
+    pub fn metadatas(&self) -> RichMetadataIterator<'a> {
+        RichMetadataIterator {
+            key: self.key,
+            data: &self.data[self.padding_size..],
+        }
     }
 }
 
@@ -1460,7 +1517,13 @@ mod tests {
                 use_count: 1,
             },
         ];
-        assert_eq!(header.metadatas, expected);
+        assert_eq!(
+            header
+                .metadatas()
+                .filter_map(Result::ok)
+                .collect::<Vec<RichMetadata>>(),
+            expected
+        );
     }
 
     #[test]

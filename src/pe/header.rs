@@ -336,7 +336,7 @@ impl DosHeader {
             .map_err(|_| {
                 error::Error::Malformed(format!(
                     "cannot parse PE header pointer (offset {:#x})",
-                    offset
+                    PE_POINTER_OFFSET
                 ))
             })?;
 

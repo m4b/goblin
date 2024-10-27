@@ -457,7 +457,7 @@ impl<'a> DosStub<'a> {
     ///
     /// The DOS stub is a small program that prints the message "This program cannot be run in DOS mode" and exits; and
     /// is not really read for the PECOFF file format. It's a relic from the MS-DOS era.
-    pub fn new(bytes: &'a [u8], pe_pointer: u32) -> error::Result<Self> {
+    pub fn parse(bytes: &'a [u8], pe_pointer: u32) -> error::Result<Self> {
         let start_offset = DOS_STUB_OFFSET as usize;
         let end_offset = pe_pointer as usize;
 
@@ -865,8 +865,12 @@ pub struct Header<'a> {
     pub optional_header: Option<optional_header::OptionalHeader>,
 }
 
-impl Header {
-    fn parse_impl(bytes: &[u8], dos_header: DosHeader, dos_stub: DosStub) -> error::Result<Self> {
+impl<'a> Header<'a> {
+    fn parse_impl(
+        bytes: &'a [u8],
+        dos_header: DosHeader,
+        dos_stub: DosStub<'a>,
+    ) -> error::Result<Self> {
         let mut offset = dos_header.pe_pointer as usize;
         let rich_header = RichHeader::parse(&bytes)?;
         let signature = bytes.gread_with(&mut offset, scroll::LE).map_err(|_| {
@@ -890,20 +894,15 @@ impl Header {
     }
 
     /// Parses PE header from the given bytes; this will fail if the DosHeader or DosStub is malformed or missing in some way
-    pub fn parse(bytes: &[u8]) -> error::Result<Self> {
+    pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
         let dos_header = DosHeader::parse(&bytes)?;
-        let dos_stub = bytes.pread(DOS_STUB_OFFSET as usize).map_err(|_| {
-            error::Error::Malformed(format!(
-                "cannot parse DOS stub (offset {:#x})",
-                DOS_STUB_OFFSET
-            ))
-        })?;
+        let dos_stub = DosStub::parse(bytes, dos_header.pe_pointer)?;
 
         Header::parse_impl(bytes, dos_header, dos_stub)
     }
 
     /// Parses PE header from the given bytes, a default DosHeader and DosStub are generated, and any malformed header or stub is ignored
-    pub fn parse_without_dos(bytes: &[u8]) -> error::Result<Self> {
+    pub fn parse_without_dos(bytes: &'a [u8]) -> error::Result<Self> {
         let dos_header = DosHeader::default();
         Header::parse_impl(bytes, dos_header, DosStub::default())
     }
@@ -1544,7 +1543,7 @@ mod tests {
 
     #[test]
     fn parse_borland_weird_dos_stub() {
-        let dos_stub = DosStub::new(&BORLAND_PE32_VALID_NO_RICH_HEADER, 0x200).unwrap();
+        let dos_stub = DosStub::parse(&BORLAND_PE32_VALID_NO_RICH_HEADER, 0x200).unwrap();
         assert_ne!(dos_stub.data, BORLAND_PE32_VALID_NO_RICH_HEADER.to_vec());
     }
 

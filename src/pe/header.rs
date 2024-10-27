@@ -1545,6 +1545,18 @@ mod tests {
     }
 
     #[test]
+    fn parse_without_dos() {
+        let header = Header::parse_without_dos(&BORLAND_PE32_VALID_NO_RICH_HEADER).unwrap();
+        assert_eq!(header.dos_stub, DosStub::default());
+        assert_eq!(header.rich_header.is_none(), true);
+
+        // DOS stub is default but rich parser still works
+        let header = Header::parse_without_dos(&CORRECT_RICH_HEADER).unwrap();
+        assert_eq!(header.dos_stub, DosStub::default());
+        assert_eq!(header.rich_header.is_some(), true);
+    }
+
+    #[test]
     fn parse_borland_weird_dos_stub() {
         let dos_stub = DosStub::parse(&BORLAND_PE32_VALID_NO_RICH_HEADER, 0x200).unwrap();
         assert_ne!(dos_stub.data, BORLAND_PE32_VALID_NO_RICH_HEADER.to_vec());

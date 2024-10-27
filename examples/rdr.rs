@@ -16,6 +16,7 @@ fn run() -> error::Result<()> {
 }
 
 pub fn main() {
+    stderrlog::new().verbosity(3).init().unwrap();
     match run() {
         Ok(()) => (),
         Err(err) => println!("{:#}", err),

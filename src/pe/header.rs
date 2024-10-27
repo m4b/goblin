@@ -791,14 +791,7 @@ pub struct Header {
 }
 
 impl Header {
-    pub fn parse(bytes: &[u8]) -> error::Result<Self> {
-        let dos_header = DosHeader::parse(&bytes)?;
-        let dos_stub = bytes.pread(DOS_STUB_OFFSET as usize).map_err(|_| {
-            error::Error::Malformed(format!(
-                "cannot parse DOS stub (offset {:#x})",
-                DOS_STUB_OFFSET
-            ))
-        })?;
+    fn parse_impl(bytes: &[u8], dos_header: DosHeader, dos_stub: DosStub) -> error::Result<Self> {
         let mut offset = dos_header.pe_pointer as usize;
         let signature = bytes.gread_with(&mut offset, scroll::LE).map_err(|_| {
             error::Error::Malformed(format!("cannot parse PE signature (offset {:#x})", offset))
@@ -809,6 +802,7 @@ impl Header {
         } else {
             None
         };
+
         Ok(Header {
             dos_header,
             dos_stub,
@@ -816,6 +810,25 @@ impl Header {
             coff_header,
             optional_header,
         })
+    }
+
+    /// Parses PE header from the given bytes; this will fail if the DosHeader or DosStub is malformed or missing in some way
+    pub fn parse(bytes: &[u8]) -> error::Result<Self> {
+        let dos_header = DosHeader::parse(&bytes)?;
+        let dos_stub = bytes.pread(DOS_STUB_OFFSET as usize).map_err(|_| {
+            error::Error::Malformed(format!(
+                "cannot parse DOS stub (offset {:#x})",
+                DOS_STUB_OFFSET
+            ))
+        })?;
+
+        Header::parse_impl(bytes, dos_header, dos_stub)
+    }
+
+    /// Parses PE header from the given bytes, a default DosHeader and DosStub are generated, and any malformed header or stub is ignored
+    pub fn parse_without_dos(bytes: &[u8]) -> error::Result<Self> {
+        let dos_header = DosHeader::default();
+        Header::parse_impl(bytes, dos_header, DosStub::default())
     }
 }
 

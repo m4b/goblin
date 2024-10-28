@@ -536,19 +536,13 @@ impl<'a> TE<'a> {
         let sections = header.sections(bytes, &mut offset)?;
 
         // Parse the debug data. Must adjust offsets before parsing the image_debug_directory
-        let mut debug_data = debug::DebugData::default();
-        debug_data.image_debug_directories = debug::ImageDebugDirectory::parse_with_opts(
+        let debug_data = debug::DebugData::parse_with_opts_and_fixup(
             bytes,
             header.debug_dir,
             &sections,
             0,
             opts,
-        )?;
-        TE::fixup_debug_data(&mut debug_data, rva_offset as u32);
-        debug_data.codeview_pdb70_debug_info = debug::CodeviewPDB70DebugInfo::parse_with_opts(
-            bytes,
-            &debug_data.image_debug_directories,
-            opts,
+            rva_offset as u32,
         )?;
 
         Ok(TE {
@@ -557,25 +551,6 @@ impl<'a> TE<'a> {
             debug_data,
             rva_offset,
         })
-    }
-
-    /// Adjust all addresses in the TE binary debug data.
-    fn fixup_debug_data(dd: &mut debug::DebugData, rva_offset: u32) {
-        dd.image_debug_directories.iter_mut().for_each(|idd| {
-            debug!(
-                "ImageDebugDirectory address of raw data fixed up from: 0x{:X} to 0x{:X}",
-                idd.address_of_raw_data,
-                idd.address_of_raw_data.wrapping_sub(rva_offset),
-            );
-            idd.address_of_raw_data = idd.address_of_raw_data.wrapping_sub(rva_offset);
-
-            debug!(
-                "ImageDebugDirectory pointer to raw data fixed up from: 0x{:X} to 0x{:X}",
-                idd.pointer_to_raw_data,
-                idd.pointer_to_raw_data.wrapping_sub(rva_offset),
-            );
-            idd.pointer_to_raw_data = idd.pointer_to_raw_data.wrapping_sub(rva_offset);
-        });
     }
 }
 

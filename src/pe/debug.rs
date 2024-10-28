@@ -515,7 +515,7 @@ impl<'a> CodeviewPDB20DebugInfo<'a> {
 ///
 /// The Repro information differs based on the compiler used to build the executable:
 /// - For MSVC (Microsoft Visual C++), the Repro information is written directly into the raw data as a 32-byte hash.
-/// - For Clang/(correctly, LLD linker), there is no dedicated raw data for the Repro information. Instead, the `ImageDebugDirectory::time_date_stamp`
+/// - For Clang/(correctly, LLD linker), there is no dedicated raw data for the Repro information. Instead, the [`ImageDebugDirectory::time_date_stamp`]
 ///   field functions as a hash, providing a unique identifier for the reproducible build.
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ReproInfo<'a> {

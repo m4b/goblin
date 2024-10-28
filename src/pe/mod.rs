@@ -268,7 +268,11 @@ impl<'a> PE<'a> {
                         bytes,
                         certificate_table.virtual_address,
                         certificate_table.size,
-                    )?;
+                    )
+                    .unwrap_or_else(|err| {
+                        warn!("Cannot parse CertificateTable: {:?}", err);
+                        Default::default()
+                    });
 
                     certificate_table.size as usize
                 } else {

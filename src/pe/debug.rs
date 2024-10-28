@@ -586,8 +586,8 @@ impl<'a> ReproInfo<'a> {
 /// This structure holds additional characteristics of a DLL that may influence
 /// how the operating system loads or manages the DLL, especially in terms of
 /// security features and optimizations. These characteristics can include
-/// settings related to ASLR (Address Space Layout Randomization), DEP (Data Execution Prevention),
-/// and other security-relevant attributes.
+/// settings related to Intel CET (Control-flow Enforcement Technology) and other
+/// security-relevant attributes.
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub struct ExDllCharacteristicsInfo {
@@ -607,22 +607,35 @@ pub struct ExDllCharacteristicsInfo {
     pub characteristics_ex: u32,
 }
 
-/// Enables Compatibility Enforcement Technology (CET) for the DLL to enhance
-/// security via control-flow integrity.
+/// Indicates that Compatibility Enforcement Technology (CET) is enabled for the DLL,
+/// enhancing security via control-flow integrity.
 pub const IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT: u32 = 0x1;
-/// Enforces CET in strict mode, increasing security measures against
+/// Indicates that CET is enforced in strict mode, increasing security measures against
 /// control-flow attacks but may impact compatibility.
 pub const IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT_STRICT_MODE: u32 = 0x2;
-/// Allows relaxed mode for Context IP Validation under CET, providing a balance
-/// between security and performance.
+/// Indicates that relaxed mode for Context IP Validation under CET is allowed,
+/// providing a balance between security and performance.
 pub const IMAGE_DLLCHARACTERISTICS_EX_CET_SET_CONTEXT_IP_VALIDATION_RELAXED_MODE: u32 = 0x4;
-/// Restricts the use of dynamic APIs to processes only, enhancing security by
-/// limiting external API calls under CET.
+/// Indicates that the use of dynamic APIs is restricted to processes only,
+/// enhancing security by limiting external API calls under CET.
 pub const IMAGE_DLLCHARACTERISTICS_EX_CET_DYNAMIC_APIS_ALLOW_IN_PROC_ONLY: u32 = 0x8;
-/// Reserved for future use related to CET features. Not currently utilized.
+/// Reserved for future.
 pub const IMAGE_DLLCHARACTERISTICS_EX_CET_RESERVED_1: u32 = 0x10;
-/// Reserved for future use related to CET features. Not currently utilized.
+/// Reserved for future.
 pub const IMAGE_DLLCHARACTERISTICS_EX_CET_RESERVED_2: u32 = 0x20;
+/// Indicates that the DLL is compatible with Forward Control Flow Integrity (CFI).
+///
+/// This flag signifies that the DLL is designed to support forward CFI, a security
+/// feature that helps prevent certain types of control flow attacks by ensuring
+/// that control flow transfers occur only to valid targets.
+pub const IMAGE_DLLCHARACTERISTICS_EX_FORWARD_CFI_COMPAT: u32 = 0x40;
+/// Indicates that the DLL is hotpatch-compatible.
+///
+/// This flag indicates that the DLL can be modified while in use (hotpatching),
+/// allowing updates or fixes to be applied without needing to restart the application
+/// or service that is using the DLL. This can be useful for maintaining uptime and
+/// applying critical patches in a live environment.
+pub const IMAGE_DLLCHARACTERISTICS_EX_HOTPATCH_COMPATIBLE: u32 = 0x80;
 
 impl<'a> ExDllCharacteristicsInfo {
     pub fn parse(

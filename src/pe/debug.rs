@@ -688,10 +688,19 @@ mod tests {
         IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT_STRICT_MODE,
     };
 
+    const NO_DEBUG_DIRECTORIES_BIN: &[u8] =
+        include_bytes!("../../tests/bins/pe/no_debug_directories.exe.bin");
     const DEBUG_DIRECTORIES_TEST_MSVC_BIN: &[u8] =
         include_bytes!("../../tests/bins/pe/debug_directories-msvc.exe.bin");
     const DEBUG_DIRECTORIES_TEST_CLANG_LLD_BIN: &[u8] =
         include_bytes!("../../tests/bins/pe/debug_directories-clang_lld.exe.bin");
+
+    #[test]
+    fn parse_no_debug_directories() {
+        let binary =
+            crate::pe::PE::parse(NO_DEBUG_DIRECTORIES_BIN).expect("Unable to parse binary");
+        assert_eq!(binary.debug_data.is_none(), true);
+    }
 
     #[test]
     fn parse_debug_entries_iterator() {

@@ -117,7 +117,7 @@ pub struct DebugData<'a> {
     /// Reproducible build (Repro) information, if available.
     ///
     /// - **MSVC builds**: Contains a 32-byte hash stored directly in the raw data.
-    /// - **Clang builds**: Uses the `ImageDebugDirectory::time_date_stamp` as a hash,
+    /// - **Clang builds**: Uses the [`ImageDebugDirectory::time_date_stamp`] as a hash,
     ///   with no dedicated raw data.
     ///
     /// [`IMAGE_DEBUG_TYPE_REPRO`]
@@ -519,10 +519,10 @@ impl<'a> CodeviewPDB20DebugInfo<'a> {
 ///   field functions as a hash, providing a unique identifier for the reproducible build.
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ReproInfo<'a> {
-    /// Represents a hash stored in the `time_date_stamp` field.
+    /// Represents a hash stored in the [`ImageDebugDirectory::time_date_stamp`] field.
     ///
     /// This variant is used primarily for executables built with Clang/LLD, where the
-    /// `time_date_stamp` acts as the Repro hash.
+    /// [`ImageDebugDirectory::time_date_stamp`] acts as the Repro hash.
     TimeDateStamp(u32),
     /// Represents a buffer containing the 32-byte Repro hash.
     ///

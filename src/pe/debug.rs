@@ -278,7 +278,7 @@ pub const IMAGE_DEBUG_TYPE_CLSID: u32 = 11;
 pub const IMAGE_DEBUG_TYPE_VC_FEATURE: u32 = 12;
 /// Represents POGO (Profile Guided Optimization) information.
 pub const IMAGE_DEBUG_TYPE_POGO: u32 = 13;
-/// Represents ILTCG (Intermediate Language to Code Generation) optimization data.
+/// Represents ILTCG (Incremental Link Time Code Generation) optimization data.
 pub const IMAGE_DEBUG_TYPE_ILTCG: u32 = 14;
 /// Represents MPX (Memory Protection Extensions) related debug information.
 pub const IMAGE_DEBUG_TYPE_MPX: u32 = 15;

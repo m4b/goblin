@@ -783,9 +783,9 @@ impl<'a> POGOInfo<'a> {
 
             if offset + idd.size_of_data as usize - POGO_SIGNATURE_SIZE > bytes.len() {
                 return Err(error::Error::Malformed(format!(
-                "ImageDebugDirectory offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",
-                offset, idd.size_of_data, bytes.len()
-            )));
+                    "ImageDebugDirectory offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",
+                    offset, idd.size_of_data, bytes.len()
+                )));
             }
             let data = &bytes[offset..offset + idd.size_of_data as usize - POGO_SIGNATURE_SIZE];
             Ok(Some(POGOInfo { signature, data }))
@@ -821,9 +821,9 @@ impl<'a> Iterator for POGOEntryIterator<'a> {
         let name_offset_start = offset;
         if offset >= self.data.len() {
             return Some(Err(error::Error::Malformed(format!(
-                        "Offset {:#x} is too big for containing name field of POGO entry (rva {:#x} and size {:#X})",
-                        offset,rva, size
-                    ))));
+                "Offset {:#x} is too big for containing name field of POGO entry (rva {:#x} and size {:#X})",
+                offset,rva, size
+            ))));
         }
         let name = match self.data[offset..].iter().position(|&b| b == 0) {
             Some(pos) => {

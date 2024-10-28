@@ -607,7 +607,7 @@ pub struct ExDllCharacteristicsInfo {
     pub characteristics_ex: u32,
 }
 
-/// Indicates that Compatibility Enforcement Technology (CET) is enabled for the DLL,
+/// Indicates that Control Flow Enforcement Technology (CET) is enabled for the DLL,
 /// enhancing security via control-flow integrity.
 pub const IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT: u32 = 0x1;
 /// Indicates that CET is enforced in strict mode, increasing security measures against

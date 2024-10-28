@@ -122,6 +122,15 @@ pub struct DebugData<'a> {
     ///
     /// [`IMAGE_DEBUG_TYPE_REPRO`]
     pub repro_info: Option<ReproInfo<'a>>,
+    /// Profile-guided optimization (POGO aka PGO) data, if available.
+    ///
+    /// This data provides information relevant to Profile-Guided Optimization
+    /// (POGO) processes, including function and data block optimizations.
+    ///
+    /// [`IMAGE_DEBUG_TYPE_POGO`]
+    ///
+    /// Reference: <https://devblogs.microsoft.com/cppblog/pogo>
+    pub pogo_info: Option<POGOInfo<'a>>,
 }
 
 impl<'a> DebugData<'a> {
@@ -185,6 +194,7 @@ impl<'a> DebugData<'a> {
         let ex_dll_characteristics_info =
             ExDllCharacteristicsInfo::parse_with_opts(bytes, iterator, opts)?;
         let repro_info = ReproInfo::parse_with_opts(bytes, iterator, opts)?;
+        let pogo_info = POGOInfo::parse_with_opts(bytes, iterator, opts)?;
 
         Ok(DebugData {
             data,
@@ -194,6 +204,7 @@ impl<'a> DebugData<'a> {
             vcfeature_info,
             ex_dll_characteristics_info,
             repro_info,
+            pogo_info,
         })
     }
 
@@ -680,14 +691,178 @@ impl<'a> ExDllCharacteristicsInfo {
     }
 }
 
+/// Represents the `IMAGE_DEBUG_POGO_ENTRY` structure, which provides information
+/// about Profile-Guided Optimization (POGO aka PGO) data within a PE file.
+///
+/// PGO is a compiler optimization technique that uses data collected from program
+/// execution to optimize code layout and improve runtime performance. This structure
+/// contains details such as the relative virtual address (RVA), size, and the associated
+/// name of the function or data block for which PGO data is provided.
+///
+/// <https://devblogs.microsoft.com/cppblog/pogo>
+#[repr(C)]
+#[derive(Debug, PartialEq, Copy, Clone, Default)]
+pub struct POGOInfo<'a> {
+    /// The signature of POGO debug directory entry is always first 4-bytes
+    ///
+    /// Either one of:
+    ///
+    /// - [`IMAGE_DEBUG_POGO_SIGNATURE_LTCG`]
+    /// - [`IMAGE_DEBUG_POGO_SIGNATURE_PGU`]
+    pub signature: u32,
+    /// Raw bytes of POGO debug entry, without first 4-bytes signatures field
+    pub data: &'a [u8],
+}
+
+#[derive(Debug, PartialEq, Copy, Clone, Default)]
+pub struct POGOInfoEntry<'a> {
+    /// The relative virtual address (RVA) of the PGO data.
+    pub rva: u32,
+    /// The size of the PGO data block.
+    pub size: u32,
+    /// The name of the function or data block associated with the PGO data as a byte slice.
+    ///
+    /// This may contain a null-terminated string that represents the function or block
+    /// name for which PGO optimization data is provided.
+    pub name: &'a [u8],
+}
+
+/// Iterator over POGO entries in [`POGOInfo`].
+#[derive(Debug, Copy, Clone)]
+pub struct POGOEntryIterator<'a> {
+    /// The raw data of [`POGOInfo::data`] without the signature field
+    pub data: &'a [u8],
+}
+
+/// Indicates the PGO signature for Link-Time Code Generation (LTCG) (`u32` hex representation of `'LTCG'`).
+///
+/// This constant is used in the `IMAGE_DEBUG_DIRECTORY` to identify sections of
+/// PGO data generated specifically for LTCG optimizations.
+pub const IMAGE_DEBUG_POGO_SIGNATURE_LTCG: u32 = 0x4C544347;
+/// Indicates the PGO signature for Profile-Guided Optimization (PGO) updates (PGU) (`u32` hex representation of `'PGU\0'`).
+///
+/// This constant is used to signify sections of PGO data associated with PGO updates,
+/// which are incremental optimizations based on profiling data collected over time.
+pub const IMAGE_DEBUG_POGO_SIGNATURE_PGU: u32 = 0x50475500;
+/// Size of [`IMAGE_DEBUG_POGO_SIGNATURE_LTCG`] or [`IMAGE_DEBUG_POGO_SIGNATURE_PGU`]
+pub const POGO_SIGNATURE_SIZE: usize = core::mem::size_of::<u32>();
+
+impl<'a> POGOInfo<'a> {
+    pub fn parse(
+        bytes: &'a [u8],
+        idd: ImageDebugDirectoryIterator<'_>,
+    ) -> error::Result<Option<Self>> {
+        Self::parse_with_opts(bytes, idd, &options::ParseOptions::default())
+    }
+
+    pub fn parse_with_opts(
+        bytes: &'a [u8],
+        idd: ImageDebugDirectoryIterator<'_>,
+        opts: &options::ParseOptions,
+    ) -> error::Result<Option<Self>> {
+        let idd = idd.collect::<Result<Vec<_>, _>>()?;
+        let idd = idd
+            .iter()
+            .find(|idd| idd.data_type == IMAGE_DEBUG_TYPE_POGO);
+
+        if let Some(idd) = idd {
+            // ImageDebugDirectory.pointer_to_raw_data stores a raw offset -- not a virtual offset -- which we can use directly
+            let mut offset: usize = match opts.resolve_rva {
+                true => idd.pointer_to_raw_data as usize,
+                false => idd.address_of_raw_data as usize,
+            };
+
+            let signature = bytes.gread_with::<u32>(&mut offset, scroll::LE)?;
+            if signature != IMAGE_DEBUG_POGO_SIGNATURE_LTCG
+                && signature != IMAGE_DEBUG_POGO_SIGNATURE_PGU
+            {
+                // This is not something we support
+                return Ok(None);
+            }
+
+            if offset + idd.size_of_data as usize - POGO_SIGNATURE_SIZE > bytes.len() {
+                return Err(error::Error::Malformed(format!(
+                "ImageDebugDirectory offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",
+                offset, idd.size_of_data, bytes.len()
+            )));
+            }
+            let data = &bytes[offset..offset + idd.size_of_data as usize - POGO_SIGNATURE_SIZE];
+            Ok(Some(POGOInfo { signature, data }))
+        } else {
+            return Ok(None);
+        }
+    }
+
+    /// Returns iterator for [`POGOInfoEntry`]
+    pub fn entries(&self) -> POGOEntryIterator<'a> {
+        POGOEntryIterator { data: &self.data }
+    }
+}
+
+impl<'a> Iterator for POGOEntryIterator<'a> {
+    type Item = error::Result<POGOInfoEntry<'a>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.data.is_empty() {
+            return None;
+        }
+
+        let mut offset = 0;
+        let rva = match self.data.gread_with::<u32>(&mut offset, scroll::LE) {
+            Ok(rva) => rva,
+            Err(error) => return Some(Err(error.into())),
+        };
+        let size = match self.data.gread_with::<u32>(&mut offset, scroll::LE) {
+            Ok(size) => size,
+            Err(error) => return Some(Err(error.into())),
+        };
+
+        let name_offset_start = offset;
+        if offset >= self.data.len() {
+            return Some(Err(error::Error::Malformed(format!(
+                        "Offset {:#x} is too big for containing name field of POGO entry (rva {:#x} and size {:#X})",
+                        offset,rva, size
+                    ))));
+        }
+        let name = match self.data[offset..].iter().position(|&b| b == 0) {
+            Some(pos) => {
+                if offset + pos as usize >= self.data.len() {
+                    return Some(Err(error::Error::Malformed(format!(
+                        "Null-terminator for POGO entry (rva {:#x} and size {:#X}) found but exceeds iterator buffer",
+                        rva, size
+                    ))));
+                }
+                let name = &self.data[name_offset_start..name_offset_start + pos + 1];
+                offset = name_offset_start + pos + 1;
+                // Align to the next u32 boundary
+                offset = (offset + 3) & !3; // Round up to the nearest multiple of 4
+                name
+            }
+            None => {
+                return Some(Err(error::Error::Malformed(format!(
+                    "Cannot find null-terimnator for POGO entry (rva {:#x} and size {:#X})",
+                    rva, size
+                ))
+                .into()));
+            }
+        };
+
+        self.data = &self.data[offset..];
+        Some(Ok(POGOInfoEntry { rva, size, name }))
+    }
+}
+
+impl FusedIterator for POGOEntryIterator<'_> {}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        ExDllCharacteristicsInfo, ImageDebugDirectory, ReproInfo, VCFeatureInfo,
-        CODEVIEW_PDB70_MAGIC, IMAGE_DEBUG_TYPE_CODEVIEW, IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS,
-        IMAGE_DEBUG_TYPE_ILTCG, IMAGE_DEBUG_TYPE_POGO, IMAGE_DEBUG_TYPE_REPRO,
-        IMAGE_DEBUG_TYPE_VC_FEATURE, IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT,
-        IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT_STRICT_MODE,
+        ExDllCharacteristicsInfo, ImageDebugDirectory, POGOInfoEntry, ReproInfo, VCFeatureInfo,
+        CODEVIEW_PDB70_MAGIC, IMAGE_DEBUG_POGO_SIGNATURE_LTCG, IMAGE_DEBUG_TYPE_CODEVIEW,
+        IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS, IMAGE_DEBUG_TYPE_ILTCG, IMAGE_DEBUG_TYPE_POGO,
+        IMAGE_DEBUG_TYPE_REPRO, IMAGE_DEBUG_TYPE_VC_FEATURE,
+        IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT, IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT_STRICT_MODE,
+        POGO_SIGNATURE_SIZE,
     };
 
     const NO_DEBUG_DIRECTORIES_BIN: &[u8] =
@@ -696,6 +871,12 @@ mod tests {
         include_bytes!("../../tests/bins/pe/debug_directories-msvc.exe.bin");
     const DEBUG_DIRECTORIES_TEST_CLANG_LLD_BIN: &[u8] =
         include_bytes!("../../tests/bins/pe/debug_directories-clang_lld.exe.bin");
+
+    fn ffi_to_string(bytes: &[u8]) -> String {
+        unsafe { std::ffi::CStr::from_bytes_with_nul_unchecked(bytes) }
+            .to_string_lossy()
+            .to_string()
+    }
 
     #[test]
     fn parse_no_debug_directories() {
@@ -786,11 +967,7 @@ mod tests {
         let debug_data = binary.debug_data.unwrap();
         assert_eq!(debug_data.codeview_pdb70_debug_info.is_some(), true);
         let codeview_pdb70_debug_info = debug_data.codeview_pdb70_debug_info.unwrap();
-        let filename = unsafe {
-            std::ffi::CStr::from_bytes_with_nul_unchecked(codeview_pdb70_debug_info.filename)
-        }
-        .to_string_lossy()
-        .to_string();
+        let filename = ffi_to_string(codeview_pdb70_debug_info.filename);
         assert_eq!(filename, String::from("THIS-IS-BINARY-FOR-GOBLIN-TESTS"));
         assert_eq!(codeview_pdb70_debug_info.age, 3);
         assert_eq!(
@@ -814,11 +991,7 @@ mod tests {
         let debug_data = binary.debug_data.unwrap();
         assert_eq!(debug_data.codeview_pdb70_debug_info.is_some(), true);
         let codeview_pdb70_debug_info = debug_data.codeview_pdb70_debug_info.unwrap();
-        let filename = unsafe {
-            std::ffi::CStr::from_bytes_with_nul_unchecked(codeview_pdb70_debug_info.filename)
-        }
-        .to_string_lossy()
-        .to_string();
+        let filename = ffi_to_string(codeview_pdb70_debug_info.filename);
         assert_eq!(filename, String::from("THIS-IS-BINARY-FOR-GOBLIN-TESTS"));
         assert_eq!(codeview_pdb70_debug_info.age, 1);
         assert_eq!(
@@ -899,5 +1072,51 @@ mod tests {
             ex_dll_characteristics_info,
             ex_dll_characteristics_info_expect
         );
+    }
+
+    #[test]
+    fn parse_debug_pogo() {
+        let binary =
+            crate::pe::PE::parse(DEBUG_DIRECTORIES_TEST_MSVC_BIN).expect("Unable to parse binary");
+        assert_eq!(binary.debug_data.is_some(), true);
+        let debug_data = binary.debug_data.unwrap();
+        assert_eq!(debug_data.pogo_info.is_some(), true);
+        let pogo_info = debug_data.pogo_info.unwrap();
+        assert_eq!(pogo_info.signature, IMAGE_DEBUG_POGO_SIGNATURE_LTCG);
+        assert_eq!(pogo_info.data.len(), 88 - POGO_SIGNATURE_SIZE);
+        let entries = pogo_info.entries().collect::<Result<Vec<_>, _>>().unwrap();
+        let entries_expect = vec![
+            POGOInfoEntry {
+                rva: 0x1000,
+                size: 0x3,
+                // .text$mn
+                name: &[0x2E, 0x74, 0x65, 0x78, 0x74, 0x24, 0x6D, 0x6E, 0x00],
+            },
+            POGOInfoEntry {
+                rva: 0x2000,
+                size: 0xA8,
+                // .rdata
+                name: &[0x2E, 0x72, 0x64, 0x61, 0x74, 0x61, 0x00],
+            },
+            POGOInfoEntry {
+                rva: 0x20A8,
+                size: 0x18,
+                // .rdata$voltmd
+                name: &[
+                    0x2E, 0x72, 0x64, 0x61, 0x74, 0x61, 0x24, 0x76, 0x6F, 0x6C, 0x74, 0x6D, 0x64,
+                    0x00,
+                ],
+            },
+            POGOInfoEntry {
+                rva: 0x20C0,
+                size: 0xCC,
+                // .rdata$zzzdbg
+                name: &[
+                    0x2E, 0x72, 0x64, 0x61, 0x74, 0x61, 0x24, 0x7A, 0x7A, 0x7A, 0x64, 0x62, 0x67,
+                    0x00,
+                ],
+            },
+        ];
+        assert_eq!(entries, entries_expect);
     }
 }

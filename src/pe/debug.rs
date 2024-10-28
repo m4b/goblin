@@ -673,7 +673,6 @@ impl<'a> ExDllCharacteristicsInfo {
 
 #[cfg(test)]
 mod tests {
-
     use super::{
         ExDllCharacteristicsInfo, ImageDebugDirectory, ReproInfo, VCFeatureInfo,
         IMAGE_DEBUG_TYPE_CODEVIEW, IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS, IMAGE_DEBUG_TYPE_ILTCG,

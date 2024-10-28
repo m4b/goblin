@@ -682,9 +682,10 @@ impl<'a> ExDllCharacteristicsInfo {
 mod tests {
     use super::{
         ExDllCharacteristicsInfo, ImageDebugDirectory, ReproInfo, VCFeatureInfo,
-        IMAGE_DEBUG_TYPE_CODEVIEW, IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS, IMAGE_DEBUG_TYPE_ILTCG,
-        IMAGE_DEBUG_TYPE_POGO, IMAGE_DEBUG_TYPE_REPRO, IMAGE_DEBUG_TYPE_VC_FEATURE,
-        IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT, IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT_STRICT_MODE,
+        CODEVIEW_PDB70_MAGIC, IMAGE_DEBUG_TYPE_CODEVIEW, IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS,
+        IMAGE_DEBUG_TYPE_ILTCG, IMAGE_DEBUG_TYPE_POGO, IMAGE_DEBUG_TYPE_REPRO,
+        IMAGE_DEBUG_TYPE_VC_FEATURE, IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT,
+        IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT_STRICT_MODE,
     };
 
     const DEBUG_DIRECTORIES_TEST_MSVC_BIN: &[u8] =
@@ -764,6 +765,62 @@ mod tests {
             },
         ];
         assert_eq!(entries, entries_expect);
+    }
+
+    #[test]
+    fn parse_debug_codeview_pdb70_msvc() {
+        let binary =
+            crate::pe::PE::parse(DEBUG_DIRECTORIES_TEST_MSVC_BIN).expect("Unable to parse binary");
+        assert_eq!(binary.debug_data.is_some(), true);
+        let debug_data = binary.debug_data.unwrap();
+        assert_eq!(debug_data.codeview_pdb70_debug_info.is_some(), true);
+        let codeview_pdb70_debug_info = debug_data.codeview_pdb70_debug_info.unwrap();
+        let filename = unsafe {
+            std::ffi::CStr::from_bytes_with_nul_unchecked(codeview_pdb70_debug_info.filename)
+        }
+        .to_string_lossy()
+        .to_string();
+        assert_eq!(filename, String::from("THIS-IS-BINARY-FOR-GOBLIN-TESTS"));
+        assert_eq!(codeview_pdb70_debug_info.age, 3);
+        assert_eq!(
+            codeview_pdb70_debug_info.codeview_signature,
+            CODEVIEW_PDB70_MAGIC
+        );
+        assert_eq!(
+            codeview_pdb70_debug_info.signature,
+            [
+                0x1F, 0x4F, 0x58, 0x9C, 0x3C, 0xEA, 0x00, 0x83, 0x3F, 0x57, 0x00, 0xCC, 0x36, 0xA7,
+                0x84, 0xDF,
+            ]
+        );
+    }
+
+    #[test]
+    fn parse_debug_codeview_pdb70_clang() {
+        let binary = crate::pe::PE::parse(DEBUG_DIRECTORIES_TEST_CLANG_LLD_BIN)
+            .expect("Unable to parse binary");
+        assert_eq!(binary.debug_data.is_some(), true);
+        let debug_data = binary.debug_data.unwrap();
+        assert_eq!(debug_data.codeview_pdb70_debug_info.is_some(), true);
+        let codeview_pdb70_debug_info = debug_data.codeview_pdb70_debug_info.unwrap();
+        let filename = unsafe {
+            std::ffi::CStr::from_bytes_with_nul_unchecked(codeview_pdb70_debug_info.filename)
+        }
+        .to_string_lossy()
+        .to_string();
+        assert_eq!(filename, String::from("THIS-IS-BINARY-FOR-GOBLIN-TESTS"));
+        assert_eq!(codeview_pdb70_debug_info.age, 1);
+        assert_eq!(
+            codeview_pdb70_debug_info.codeview_signature,
+            CODEVIEW_PDB70_MAGIC
+        );
+        assert_eq!(
+            codeview_pdb70_debug_info.signature,
+            [
+                0xC8, 0xBA, 0xF6, 0xAB, 0xB2, 0x98, 0xD1, 0x9E, 0x4C, 0x4C, 0x44, 0x20, 0x50, 0x44,
+                0x42, 0x2E,
+            ]
+        );
     }
 
     #[test]

@@ -288,48 +288,6 @@ pub const IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS: u32 = 20;
 /// Represents a performance map for profiling.
 pub const IMAGE_DEBUG_TYPE_PERFMAP: u32 = 21;
 
-impl ImageDebugDirectory {
-    #[allow(unused)]
-    fn parse(
-        bytes: &[u8],
-        dd: data_directories::DataDirectory,
-        sections: &[section_table::SectionTable],
-        file_alignment: u32,
-    ) -> error::Result<Vec<Self>> {
-        Self::parse_with_opts(
-            bytes,
-            dd,
-            sections,
-            file_alignment,
-            &options::ParseOptions::default(),
-        )
-    }
-
-    pub(crate) fn parse_with_opts(
-        bytes: &[u8],
-        dd: data_directories::DataDirectory,
-        sections: &[section_table::SectionTable],
-        file_alignment: u32,
-        opts: &options::ParseOptions,
-    ) -> error::Result<Vec<Self>> {
-        let rva = dd.virtual_address as usize;
-        let entries = dd.size as usize / core::mem::size_of::<ImageDebugDirectory>();
-        let offset = utils::find_offset(rva, sections, file_alignment, opts).ok_or_else(|| {
-            error::Error::Malformed(format!(
-                "Cannot map ImageDebugDirectory rva {:#x} into offset",
-                rva
-            ))
-        })?;
-        let idd_list = (0..entries)
-            .map(|i| {
-                let entry = offset + i * core::mem::size_of::<ImageDebugDirectory>();
-                bytes.pread_with(entry, scroll::LE)
-            })
-            .collect::<Result<Vec<ImageDebugDirectory>, scroll::Error>>()?;
-        Ok(idd_list)
-    }
-}
-
 /// Magic number for CodeView PDB 7.0 signature (`'SDSR'`).
 pub const CODEVIEW_PDB70_MAGIC: u32 = 0x5344_5352;
 /// Magic number for CodeView PDB 2.0 signature (`'01BN'`).

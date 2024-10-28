@@ -818,7 +818,6 @@ impl<'a> Iterator for POGOEntryIterator<'a> {
             Err(error) => return Some(Err(error.into())),
         };
 
-        let name_offset_start = offset;
         if offset >= self.data.len() {
             return Some(Err(error::Error::Malformed(format!(
                 "Offset {:#x} is too big for containing name field of POGO entry (rva {:#x} and size {:#X})",
@@ -833,8 +832,8 @@ impl<'a> Iterator for POGOEntryIterator<'a> {
                         rva, size
                     ))));
                 }
-                let name = &self.data[name_offset_start..name_offset_start + pos + 1];
-                offset = name_offset_start + pos + 1;
+                let name = &self.data[offset..offset + pos + 1];
+                offset = offset + pos + 1;
                 // Align to the next u32 boundary
                 offset = (offset + 3) & !3; // Round up to the nearest multiple of 4
                 name

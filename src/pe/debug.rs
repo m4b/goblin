@@ -167,6 +167,13 @@ impl<'a> DebugData<'a> {
                     ))
                 })?;
 
+        // Ensure that the offset and size do not exceed the length of the bytes slice
+        if offset + dd.size as usize > bytes.len() {
+            return Err(error::Error::Malformed(format!(
+                "ImageDebugDirectory offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",
+                offset, dd.size, bytes.len()
+            )));
+        }
         let data = &bytes[offset..offset + dd.size as usize];
         let iterator = ImageDebugDirectoryIterator { data, rva_offset };
 

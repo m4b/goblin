@@ -691,7 +691,7 @@ impl<'a> ExDllCharacteristicsInfo {
     }
 }
 
-/// Represents the `IMAGE_DEBUG_POGO_ENTRY` structure, which provides information
+/// Represents the POGO info structure, which provides information
 /// about Profile-Guided Optimization (POGO aka PGO) data within a PE file.
 ///
 /// PGO is a compiler optimization technique that uses data collected from program
@@ -714,6 +714,7 @@ pub struct POGOInfo<'a> {
     pub data: &'a [u8],
 }
 
+/// Represents the `IMAGE_DEBUG_POGO_ENTRY` structure
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub struct POGOInfoEntry<'a> {
     /// The relative virtual address (RVA) of the PGO data.

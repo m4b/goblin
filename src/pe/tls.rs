@@ -303,8 +303,10 @@ impl<'a> TlsData<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::TLS_CHARACTERISTICS_ALIGN_8BYTES;
+    use super::{TLS_CHARACTERISTICS_ALIGN_4BYTES, TLS_CHARACTERISTICS_ALIGN_8BYTES};
 
+    const SPECIAL_IMPORT_FORWARDER_TLS: &[u8] =
+        include_bytes!("../../tests/bins/pe/special_import_forwarder_tls.exe.bin");
     const SUDO_EXE_BIN: &[u8] = include_bytes!("../../tests/bins/pe/sudo.exe.bin");
     const TINYRUST_LLD_MALFORMED_TLS_CALLBACKS_BIN: &[u8] =
         include_bytes!("../../tests/bins/pe/tinyrust_lld_malformed_tls_callbacks.exe.bin");
@@ -377,5 +379,22 @@ mod tests {
         assert_eq!(binary.tls_data.is_some(), true);
         let tls_data = binary.tls_data.unwrap();
         assert_eq!(tls_data.slot, None);
+    }
+
+    #[test]
+    fn parse_special_import_fowarder_tls() {
+        let binary =
+            crate::pe::PE::parse(SPECIAL_IMPORT_FORWARDER_TLS).expect("Unable to parse binary");
+        assert_eq!(binary.tls_data.is_some(), true);
+        let tls_data = binary.tls_data.unwrap();
+        assert_eq!(tls_data.callbacks, vec![]);
+
+        let dir = tls_data.image_tls_directory;
+        assert_eq!(dir.address_of_callbacks, 0x140007014);
+        assert_eq!(dir.address_of_index, 0x140003000);
+        assert_eq!(dir.start_address_of_raw_data, 0x140002178);
+        assert_eq!(dir.end_address_of_raw_data, 0x14000217C);
+        assert_eq!(dir.size_of_zero_fill, 0);
+        assert_eq!(dir.characteristics, TLS_CHARACTERISTICS_ALIGN_4BYTES);
     }
 }

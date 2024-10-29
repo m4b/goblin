@@ -272,6 +272,12 @@ impl<'a> TlsData<'a> {
                 if callback == 0 {
                     break;
                 }
+                if callback < image_base as u64 {
+                    return Err(error::Error::Malformed(format!(
+                        "cannot map tls callback ({:#x})",
+                        callback
+                    )));
+                }
                 // Each callback is an VA so convert it to RVA
                 let callback_rva = callback as usize - image_base;
                 // Check if the callback is in the image

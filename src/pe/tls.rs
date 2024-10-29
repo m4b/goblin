@@ -335,7 +335,14 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
-        assert_eq!(tls_data.raw_data.is_some_and(|x| x.len() == 0x50), true);
+        assert_eq!(
+            tls_data
+                .raw_data
+                .as_ref()
+                .map(|x| x.len() == 0x50)
+                .unwrap_or(false),
+            true
+        );
         assert_eq!(tls_data.raw_data, Some(raw_data_expect));
         assert_eq!(dir.start_address_of_raw_data, 0x14001E000);
         assert_eq!(dir.end_address_of_raw_data, 0x14001E050);

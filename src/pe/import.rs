@@ -182,7 +182,7 @@ impl ImportDirectoryEntry {
 
     /// Whether the entry is _possibly_ valid.
     ///
-    /// At least [`Self::name_rva`] or [`Self::import_address_table_rva`] must be non-zero
+    /// Both [`Self::name_rva`] and [`Self::import_address_table_rva`] must be non-zero
     pub fn is_possibly_valid(&self) -> bool {
         self.name_rva != 0 && self.import_address_table_rva != 0
     }

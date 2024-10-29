@@ -274,12 +274,12 @@ impl<'a> TlsData<'a> {
                 }
                 if callback < image_base as u64 {
                     return Err(error::Error::Malformed(format!(
-                        "cannot map tls callback ({:#x})",
-                        callback
+                        "tls callback ({:#x}) is less than image base ({:#x})",
+                        callback, image_base
                     )));
                 }
                 // Each callback is an VA so convert it to RVA
-                let callback_rva = callback as usize - image_base;
+                let callback_rva = callback.wrapping_sub(image_base as u64) as usize;
                 // Check if the callback is in the image
                 if utils::find_offset(callback_rva, sections, file_alignment, opts).is_none() {
                     return Err(error::Error::Malformed(format!(

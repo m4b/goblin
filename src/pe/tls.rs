@@ -35,7 +35,7 @@ pub const TLS_CHARACTERISTICS_ALIGN_2048BYTES: u32 = 0x00D00000;
 pub const TLS_CHARACTERISTICS_ALIGN_4096BYTES: u32 = 0x00C00000;
 /// Indicates 8192-byte alignment for Thread Local Storage (TLS) characteristics field in [`ImageTlsDirectory::characteristics`]
 pub const TLS_CHARACTERISTICS_ALIGN_8192BYTES: u32 = 0x00E00000;
-/// Mask for isolating alignment information from the characteristics field field in [`ImageTlsDirectory::characteristics`]
+/// Mask for isolating alignment information from the characteristics field in [`ImageTlsDirectory::characteristics`]
 pub const TLS_CHARACTERISTICS_ALIGN_MASK: u32 = 0x00F00000;
 
 /// Represents the TLS directory `IMAGE_TLS_DIRECTORY64`.

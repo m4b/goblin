@@ -465,7 +465,7 @@ impl<'a> ResourceData<'a> {
     /// the resource entries contained within this resource data.
     pub fn entries(&self) -> ResourceEntryIterator<'a> {
         let offset = core::mem::size_of::<ImageResourceDirectory>();
-        let size = self.count() as usize * RESOURCE_ENTRY_SIZE;
+        let size = self.image_resource_directory.entries_size();
         // Safety: Panic-free is guaranteed here by Self::parse_with_opts
         ResourceEntryIterator {
             num_resources: self.count() as usize,

@@ -2,6 +2,7 @@ use crate::error;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt;
+use core::ops::Not;
 use log::debug;
 use scroll::{Pread, Pwrite, SizeWith};
 
@@ -303,11 +304,7 @@ impl ResourceEntry {
     /// - [`RT_HTML`]
     /// - [`RT_MANIFEST`]
     pub fn id(&self) -> Option<u16> {
-        if !self.name_is_string() {
-            Some(self.name_or_id as u16)
-        } else {
-            None
-        }
+        self.name_is_string().not().then(|| self.name_or_id as u16)
     }
 
     /// Checks if the resource entry points to a directory.
@@ -328,11 +325,9 @@ impl ResourceEntry {
     ///
     /// Returns `Some(u32)` if the resource entry points to data, otherwise `None`.
     pub fn offset_to_data(&self) -> Option<u32> {
-        if !self.data_is_directory() {
-            Some(self.offset_to_data_or_directory)
-        } else {
-            None
-        }
+        self.data_is_directory()
+            .not()
+            .then(|| self.offset_to_data_or_directory)
     }
 
     /// Returns the next depth entry of [`ResourceEntry`] if present

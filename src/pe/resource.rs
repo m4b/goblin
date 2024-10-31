@@ -597,8 +597,10 @@ pub const VFT2_FONT_VECTOR: u32 = 0x00000002;
 /// [`VsFixedFileInfo::file_subtype`]: Indicates a TrueType font subtype.
 pub const VFT2_FONT_TRUETYPE: u32 = 0x00000003;
 
+/// Iterator over [`ResourceString`]
 #[derive(Debug, Copy, Clone)]
 pub struct ResourceStringIterator<'a> {
+    /// The raw data must be scoped to the [`ResourceDataEntry`]
     pub data: &'a [u8],
 }
 
@@ -628,6 +630,7 @@ impl<'a> Iterator for ResourceStringIterator<'a> {
     }
 }
 
+/// Represents a resource string entry.
 #[derive(Copy, Clone)]
 pub struct ResourceString<'a> {
     /// The length, in bytes, of this String structure.

@@ -646,7 +646,7 @@ pub struct ResourceString<'a> {
     pub r#type: u16,
     /// An arbitrary Unicode string.
     pub key: &'a [u8],
-    /// An arbitrary Unicode string.
+    /// An arbitrary Unicode string or binary data.
     pub value: &'a [u8],
 }
 

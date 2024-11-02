@@ -413,7 +413,7 @@ impl<'a> ResourceData<'a> {
         let rva = dd.virtual_address as usize;
         let offset = utils::find_offset(rva, sections, file_alignment, opts).ok_or_else(|| {
             error::Error::Malformed(format!(
-                "Cannot map ImageDebugDirectory rva {:#x} into offset",
+                "Cannot map ImageResourceDirectory rva {:#x} into offset",
                 rva
             ))
         })?;

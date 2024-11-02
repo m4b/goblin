@@ -431,6 +431,14 @@ impl<'a> ResourceData<'a> {
         let count = image_resource_directory.count() as usize;
         let offset = core::mem::size_of::<ImageResourceDirectory>();
         let size = image_resource_directory.entries_size();
+        if offset + size as usize > data.len() {
+            return Err(error::Error::Malformed(format!(
+                "Resource entry offset ({:#x}) and size ({:#x}) exceeds data slice ({:#x})",
+                offset,
+                size,
+                data.len()
+            )));
+        }
         let iterator_data = &data[offset..offset + size];
         let iterator = ResourceEntryIterator {
             num_resources: count,

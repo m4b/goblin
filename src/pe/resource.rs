@@ -418,10 +418,11 @@ impl<'a> ResourceData<'a> {
             ))
         })?;
 
-        if offset >= bytes.len() {
+        if offset + dd.size as usize > bytes.len() {
             return Err(error::Error::Malformed(format!(
-                "Resource directory offset ({:#X}) exceeds byte slice ({:#X})",
+                "Resource directory offset ({:#x}) and size ({:#x}) exceeds bytes slice ({:#x})",
                 offset,
+                dd.size,
                 bytes.len()
             )));
         }
@@ -630,18 +631,21 @@ impl<'a> Iterator for ResourceStringIterator<'a> {
 /// Represents a resource string entry.
 #[derive(Copy, Clone, PartialEq)]
 pub struct ResourceString<'a> {
-    /// The length, in bytes, of this String structure.
+    /// The length, in bytes, of this [`ResourceString`] structure.
     pub len: u16,
-    /// The size, in words, of the Value member.
-    pub value_len: u16,
-    /// The type of data in the version resource.
+    /// The size, in words, of the [`ResourceString::value`].
     ///
-    /// This member is 1 if the version resource contains text data;
-    /// and 0 if the version resource contains binary data.
+    /// - When [`ResourceString::type`] indicates string data: multiply this field with [`SIZE_OF_WCHAR`] that should be the actual size of [`ResourceString::value`] with null-terminator.
+    /// - Othereise, treat as-is.
+    pub value_len: u16,
+    /// The type of [`ResourceString::value`] in the version resource.
+    ///
+    /// This member is `1` if the version resource contains text data;
+    /// and `0` if the version resource contains binary data, otherwise sometimes an invalid value.
     pub r#type: u16,
-    /// An arbitrary Unicode string.
+    /// An arbitrary null-terminated utf-16 unicode string.
     pub key: &'a [u8],
-    /// An arbitrary Unicode string or binary data.
+    /// An arbitrary null-terminated utf-16 unicode string or binary data depends on [`ResourceString::type`].
     pub value: &'a [u8],
 }
 
@@ -720,7 +724,7 @@ impl<'a> ResourceString<'a> {
             .take_while(|x| u16::from_le_bytes([x[0], x[1]]) != 0u16)
             .count()
             * SIZE_OF_WCHAR;
-        if (*offset - SIZE_OF_WCHAR) + key_size > bytes.len() {
+        if (*offset - SIZE_OF_WCHAR) + key_size + SIZE_OF_WCHAR > bytes.len() {
             return Err(error::Error::Malformed(format!(
                 "offset ({:#x}) and key_size ({:#x}) is greater than bytes len {:#x}",
                 offset,
@@ -1158,6 +1162,14 @@ impl<'a> VersionInfo<'a> {
                 ))
             })?;
 
+            if offset + data_entry.size as usize > pe.len() {
+                return Err(error::Error::Malformed(format!(
+                    "offset ({:#x}) and data_entry.size ({:#x}) is greater than pe len {:#x}",
+                    offset,
+                    data_entry.size,
+                    bytes.len()
+                )));
+            }
             let data = &pe[offset..offset + data_entry.size as usize];
             let iterator = ResourceStringIterator { data };
             let strings = iterator.collect::<Result<Vec<_>, _>>()?;
@@ -1228,6 +1240,14 @@ impl<'a> ManifestData<'a> {
                 ))
             })?;
 
+            if offset + data_entry.size as usize > pe.len() {
+                return Err(error::Error::Malformed(format!(
+                    "offset ({:#x}) and data_entry.size ({:#x}) is greater than pe len {:#x}",
+                    offset,
+                    data_entry.size,
+                    bytes.len()
+                )));
+            }
             let data = &pe[offset..offset + data_entry.size as usize];
             Ok(Some(Self { data }))
         } else {

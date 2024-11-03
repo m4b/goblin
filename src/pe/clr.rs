@@ -1,5 +1,6 @@
 use crate::error;
 use alloc::borrow::Cow;
+use alloc::string::String;
 use core::fmt;
 use core::iter::FusedIterator;
 use core::ops::Not;

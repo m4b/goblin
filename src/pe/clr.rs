@@ -145,10 +145,20 @@ impl<'a> ClrData<'a> {
             index_cursor: 0,
         }
     }
+
+    /// Returns MVID (Module Version IDentifier) from the `#GUID` CLR section if present, otherwise [`None`].
+    ///
+    /// If this is [`None`] and the [`crate::pe::debug::ReproInfo`] presents, you should use that instead.
+    pub fn mvid(&self) -> Option<&'a [u8]> {
+        self.sections()
+            .filter_map(Result::ok)
+            .find(|x| x.name == b"#GUID\0")
+            .map(|x| &self.metadata_data[x.offset as usize..x.offset as usize + x.size as usize])
+    }
 }
 
 /// Represents the .NET COR20 header in a PE file, which includes metadata and flags specific
-/// to .NET assemblies. This header is found in the CLI header section of a PE file.
+/// to .NET assemblies. This header is found in the COM descriptor directory of a PE file.
 #[repr(C)]
 #[derive(PartialEq, Copy, Clone, Default, Pread, Pwrite, SizeWith)]
 pub struct Cor20Header {
@@ -398,15 +408,15 @@ impl<'a> StorageSignature<'a> {
         self.signature == DOTNET_SIGNATURE
     }
 
-    /// Converts [`StorageSignature::version`] slice into a implicit [`Cow<'a, str>`] if [`StorageSignature::version_len`] is valid
+    /// Converts [`StorageSignature::version`] slice into a implicit [`Cow`] if [`StorageSignature::version_len`] is valid
     pub fn to_version_string(&self) -> Option<Cow<'a, str>> {
-        self.version_len
-            .is_zero()
-            .not()
-            .then(|| match self.version.ends_with(&[0u8]) {
-                true => String::from_utf8_lossy(&self.version[..self.version.len() - 1]),
-                false => String::from_utf8_lossy(&self.version[..self.version.len()]),
-            })
+        self.version_len.is_zero().not().then(|| {
+            // Strip null-terminator if any
+            self.version
+                .strip_suffix(&[0u8])
+                .map(String::from_utf8_lossy)
+                .unwrap_or_else(|| String::from_utf8_lossy(&self.version))
+        })
     }
 }
 
@@ -464,6 +474,14 @@ impl<'a> StorageStream<'a> {
         let size = bytes.gread_with::<u32>(offset, scroll::LE)?;
         let name_size =
             &bytes[*offset..].iter().take_while(|x| *x != &0).count() * core::mem::size_of::<u8>();
+        if *offset + name_size as usize + core::mem::size_of::<u8>() > bytes.len() {
+            return Err(error::Error::Malformed(format!(
+                "StorageStream name offset ({:#x}) and size ({:#x}) exceeds bytes slice ({:#x})",
+                *offset,
+                name_size,
+                bytes.len()
+            )));
+        }
         let name = &bytes[*offset..*offset + name_size + core::mem::size_of::<u8>()];
         *offset += align_up(name.len(), core::mem::size_of::<u32>());
         Ok(Self {
@@ -473,12 +491,13 @@ impl<'a> StorageStream<'a> {
         })
     }
 
-    /// Converts [`StorageStream::name`] slice into a implicit [`Cow<'a, str>`]
+    /// Converts [`StorageStream::name`] slice into a implicit [`Cow`]
     pub fn to_name_string(&self) -> Cow<'a, str> {
-        match self.name.ends_with(&[0u8]) {
-            true => String::from_utf8_lossy(&self.name[..self.name.len() - 1]),
-            false => String::from_utf8_lossy(&self.name[..self.name.len()]),
-        }
+        // Strip null-terminator if any
+        self.name
+            .strip_suffix(&[0u8])
+            .map(String::from_utf8_lossy)
+            .unwrap_or_else(|| String::from_utf8_lossy(&self.name))
     }
 }
 
@@ -490,7 +509,7 @@ pub struct ClrSectionIterator<'a> {
     /// The raw data that scoped to the appropriate offset at the end of [`StorageHeader`]
     pub data: &'a [u8],
     /// Internal counter since there are no way to know the size of [`ClrSectionIterator::data`] at the ctor.
-    pub(super) index_cursor: usize,
+    pub(self) index_cursor: usize,
 }
 
 impl<'a> ClrSectionIterator<'a> {
@@ -538,7 +557,7 @@ impl FusedIterator for ClrSectionIterator<'_> {}
 mod tests {
     use super::{ClrSectionIterator, StorageHeader, StorageStream};
 
-    /// An raw representation of bytes that contains 5 sections.
+    /// A raw representation of bytes that contains 5 sections.
     const CLR_SECTIONS_VALID: &[u8] = &[
         0x6c, 0x00, 0x00, 0x00, 0xf0, 0x15, 0x0d, 0x00, 0x23, 0x7e, 0x00, 0x00, 0x5c, 0x16, 0x0d,
         0x00, 0x34, 0x23, 0x04, 0x00, 0x23, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x73, 0x00, 0x00,
@@ -562,7 +581,7 @@ mod tests {
         };
         let it_vec = it.collect::<Result<Vec<_>, _>>();
         assert_eq!(it_vec.is_ok(), true);
-        let it_vec = it.collect::<Result<Vec<_>, _>>().unwrap();
+        let it_vec = it_vec.unwrap();
         assert_eq!(it_vec.len(), it.count());
 
         let at_0 = it_vec.get(0).map(|x| *x);

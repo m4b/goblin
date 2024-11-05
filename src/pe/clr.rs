@@ -353,7 +353,6 @@ pub const COR_VTABLE_CALL_MOST_DERIVED: u32 = 0x10;
 
 /// Represents the signature structure for a storage header in a .NET metadata stream.
 /// This structure identifies the version and format of the metadata.
-#[repr(C)]
 #[derive(PartialEq, Copy, Clone, Default)]
 pub struct StorageSignature<'a> {
     /// Indicates the signature value, used to identify the storage structure.
@@ -470,7 +469,6 @@ impl fmt::Debug for StorageHeader {
 
 /// Represents an individual stream within the .NET storage section, which may contain
 /// metadata or other data specific to the .NET assembly structure.
-#[repr(C)]
 #[derive(PartialEq, Copy, Clone, Default)]
 pub struct StorageStream<'a> {
     /// Indicates the offset, in bytes, from the beginning of the file to this stream.

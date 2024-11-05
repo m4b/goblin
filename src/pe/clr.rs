@@ -154,14 +154,30 @@ impl<'a> ClrData<'a> {
     /// Returns MVID (Module Version IDentifier) from the `#GUID` CLR section if present, otherwise [`None`].
     ///
     /// If this is [`None`] and the [`crate::pe::debug::ReproInfo`] presents, you should use that instead.
-    pub fn mvid(&self) -> Option<&'a [u8]> {
-        self.sections()
-            .filter_map(Result::ok)
+    pub fn mvid(&self) -> error::Result<Option<&'a [u8]>> {
+        Ok(self
+            .sections()
+            .collect::<Result<Vec<_>, _>>()?
+            .iter()
             .find(|x| x.name == b"#GUID\0")
             .map(|x| {
-                &self.metadata_data[x.offset as usize - self.offset_of_metadata
-                    ..x.offset as usize - self.offset_of_metadata + x.size as usize]
+                if x.offset as usize - self.offset_of_metadata + x.size as usize
+                    > self.metadata_data.len()
+                {
+                    Err(error::Error::Malformed(format!(
+                        "CLR section offset ({:#x}) and size ({:#x}) exceeds metadata slice ({:#x})",
+                        x.offset,
+                        x.size as usize - self.offset_of_metadata,
+                        self.metadata_data.len()
+                    )))
+                } else {
+                    Ok(
+                        &self.metadata_data[x.offset as usize - self.offset_of_metadata
+                            ..x.offset as usize - self.offset_of_metadata + x.size as usize],
+                    )
+                }
             })
+            .transpose()?)
     }
 }
 

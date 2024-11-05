@@ -46,6 +46,8 @@ pub struct ClrData<'a> {
     pub metadata_header: StorageSignature<'a>,
     /// The raw bytes of [`Cor20Header::metadata`].
     pub metadata_data: &'a [u8],
+    /// How many bytes ([`ClrData::storage_header`] + [`ClrData::metadata_header`]) were skipped in [`ClrData::metadata_data`] prologue.
+    pub offset_of_metadata: usize,
 }
 
 impl<'a> fmt::Debug for ClrData<'a> {
@@ -119,8 +121,10 @@ impl<'a> ClrData<'a> {
                 bytes.len()
             )));
         }
+        let saved_offset = offset;
         let metadata_header = StorageSignature::parse(bytes, &mut offset)?;
         let storage_header = bytes.gread_with::<StorageHeader>(&mut offset, scroll::LE)?;
+        let offset_of_metadata = offset - saved_offset;
         let metadata_data = &bytes[offset..offset + cor20_header.metadata.size as usize];
 
         Ok(Self {
@@ -129,6 +133,7 @@ impl<'a> ClrData<'a> {
             storage_header,
             metadata_header,
             metadata_data,
+            offset_of_metadata,
         })
     }
 
@@ -153,7 +158,10 @@ impl<'a> ClrData<'a> {
         self.sections()
             .filter_map(Result::ok)
             .find(|x| x.name == b"#GUID\0")
-            .map(|x| &self.metadata_data[x.offset as usize..x.offset as usize + x.size as usize])
+            .map(|x| {
+                &self.metadata_data[x.offset as usize - self.offset_of_metadata
+                    ..x.offset as usize - self.offset_of_metadata + x.size as usize]
+            })
     }
 }
 

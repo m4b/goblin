@@ -181,7 +181,7 @@ impl<'a> TlsData<'a> {
             if offset + size as usize > bytes.len() {
                 return Err(error::Error::Malformed(format!(
                     "tls raw data offset ({:#x}) and size ({:#x}) greater than byte slice len ({:#x})",
-                    offset,size,bytes.len()
+                    offset, size, bytes.len()
                 )));
             }
             raw_data = Some(&bytes[offset..offset + size as usize]);

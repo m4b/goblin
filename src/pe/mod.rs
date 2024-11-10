@@ -80,7 +80,7 @@ pub struct PE<'a> {
     /// Certificates present, if any, described by the Certificate Table
     pub certificates: certificate_table::CertificateDirectoryTable<'a>,
     /// CLR managed data if present
-    pub clr_data: clr::ClrData<'a>,
+    pub clr_data: Option<clr::ClrData<'a>>,
 }
 
 impl<'a> PE<'a> {
@@ -265,14 +265,15 @@ impl<'a> PE<'a> {
 
             if let Some(com_descriptor) = optional_header.data_directories.get_clr_runtime_header()
             {
-                clr_data = clr::ClrData::parse_with_opts(
+                let data = clr::ClrData::parse_with_opts(
                     bytes,
                     &com_descriptor,
                     &sections,
                     file_alignment,
                     opts,
                 )?;
-                debug!("CLR data: {:#?}", clr_data);
+                clr_data = Some(data);
+                debug!("CLR data: {:#?}", data);
             }
 
             // Parse attribute certificates unless opted out of

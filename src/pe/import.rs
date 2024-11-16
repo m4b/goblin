@@ -271,19 +271,15 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
         let import_address_table_offset =
             &mut utils::find_offset(rva as usize, sections, file_alignment, opts).ok_or_else(
                 || {
-                    error::Error::Malformed(
-                        if import_directory_entry.import_address_table_rva.is_zero() {
-                            format!(
-                                "Cannot map import_lookup_table_rva {:#x} into offset for {}",
-                                rva, name
-                            )
-                        } else {
-                            format!(
-                                "Cannot map import_address_table_rva {:#x} into offset for {}",
-                                rva, name
-                            )
-                        },
-                    )
+                    let target = if import_directory_entry.import_address_table_rva.is_zero() {
+                        "import_lookup_table_rva"
+                    } else {
+                        "import_address_table_rva"
+                    };
+                    error::Error::Malformed(format!(
+                        "Cannot map {} {:#x} into offset for {}",
+                        target, rva, name
+                    ))
                 },
             )?;
         let mut import_address_table = Vec::new();

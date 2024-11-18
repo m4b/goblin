@@ -368,7 +368,7 @@ mod tests {
         }
     }
 
-    /// Binaries compiled with MSVC linker may generate an binary that
+    /// Binaries compiled with MSVC linker and TLS index may generate an binary that
     /// its TLS directory contains `AddressOfIndex` field that only
     /// present in virtual address when mapped to virtual memory.
     ///

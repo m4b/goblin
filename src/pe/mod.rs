@@ -45,7 +45,7 @@ pub struct PE<'a> {
     bytes: &'a [u8],
     authenticode_excluded_sections: Option<authenticode::ExcludedSections>,
     /// The PE header
-    pub header: header::Header,
+    pub header: header::Header<'a>,
     /// A list of the sections in this PE binary
     pub sections: Vec<section_table::SectionTable>,
     /// The size of the binary
@@ -442,6 +442,7 @@ impl<'a> ctx::TryIntoCtx<scroll::Endian> for PE<'a> {
             }
             _ => None,
         };
+
         bytes.gwrite_with(self.header, &mut offset, ctx)?;
         max_offset = max(offset, max_offset);
         self.write_sections(bytes, &mut offset, file_alignment, ctx)?;

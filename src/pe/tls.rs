@@ -381,6 +381,22 @@ mod tests {
         assert_eq!(tls_data.slot, None);
     }
 
+    /// So-called "special import forwarder TLS" means the address of callbacks points
+    /// to the VA of FT (first thunk, aka address table) within an associated import descriptor.
+    ///
+    /// This forwarder allows a exported symbol in the external DLL to be called as main
+    /// executables TLS callbacks ealier than DLLs TLS callbacks callouts.
+    ///
+    /// When the image is mapped to memory for execution:
+    ///
+    /// 1. Windows loader loads up the depencency specified in the descriptor (`abcd.dll`)
+    /// 2. Windows loader resolves import symbol and writes absolute address of import symbol (`abcd.dll!ORDINAL 00001`)
+    /// 3. Once entire dependencies are resolved, Windows loader then calls out the chain of TLS callbacks
+    ///    specified in the `AddressOfCallbacks` in TLS directory.
+    /// 4. The imported symbol (`abcd.dll!ORDINAL 00001`) is called as an TLS callback.
+    ///
+    /// This executable cannot be created by any combinations of compiler or linker options. Instead, it requires manual or
+    /// automated process of modifying artifact binary.
     #[test]
     fn parse_special_import_fowarder_tls() {
         let binary = crate::pe::PE::parse(SPECIAL_IMPORT_FORWARDER_TLS);

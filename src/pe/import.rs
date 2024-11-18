@@ -129,7 +129,7 @@ impl<'a> SyntheticImportLookupTableEntry<'a> {
                     use self::SyntheticImportLookupTableEntry::*;
                     if bitfield.is_ordinal() {
                         let ordinal = bitfield.to_ordinal();
-                        debug!("importing by ordinal {:#x}", ordinal);
+                        debug!("importing by ordinal {:#x} ({})", ordinal, ordinal);
                         OrdinalNumber(ordinal)
                     } else {
                         let rva = bitfield.to_rva();
@@ -171,12 +171,20 @@ pub struct ImportDirectoryEntry {
 pub const SIZEOF_IMPORT_DIRECTORY_ENTRY: usize = 20;
 
 impl ImportDirectoryEntry {
+    /// Whether the entire fields are set to zero
     pub fn is_null(&self) -> bool {
         (self.import_lookup_table_rva == 0)
             && (self.time_date_stamp == 0)
             && (self.forwarder_chain == 0)
             && (self.name_rva == 0)
             && (self.import_address_table_rva == 0)
+    }
+
+    /// Whether the entry is _possibly_ valid.
+    ///
+    /// Both [`Self::name_rva`] and [`Self::import_address_table_rva`] must be non-zero
+    pub fn is_possibly_valid(&self) -> bool {
+        self.name_rva != 0 && self.import_address_table_rva != 0
     }
 }
 
@@ -263,18 +271,25 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
             }
         };
 
-        let import_address_table_offset = &mut utils::find_offset(
-            import_directory_entry.import_address_table_rva as usize,
-            sections,
-            file_alignment,
-            opts,
-        )
-        .ok_or_else(|| {
-            error::Error::Malformed(format!(
-                "Cannot map import_address_table_rva {:#x} into offset for {}",
-                import_directory_entry.import_address_table_rva, name
-            ))
-        })?;
+        let rva = match import_directory_entry.import_address_table_rva.is_zero() {
+            true => import_directory_entry.import_lookup_table_rva,
+            false => import_directory_entry.import_address_table_rva,
+        };
+
+        let import_address_table_offset =
+            &mut utils::find_offset(rva as usize, sections, file_alignment, opts).ok_or_else(
+                || {
+                    let target = if import_directory_entry.import_address_table_rva.is_zero() {
+                        "import_lookup_table_rva"
+                    } else {
+                        "import_address_table_rva"
+                    };
+                    error::Error::Malformed(format!(
+                        "Cannot map {} {:#x} into offset for {}",
+                        target, rva, name
+                    ))
+                },
+            )?;
         let mut import_address_table = Vec::new();
         loop {
             let import_address = bytes
@@ -342,8 +357,8 @@ impl<'a> ImportData<'a> {
         loop {
             let import_directory_entry: ImportDirectoryEntry =
                 bytes.gread_with(offset, scroll::LE)?;
-            debug!("{:#?}", import_directory_entry);
-            if import_directory_entry.is_null() {
+            debug!("{:#?} at {:#x}", import_directory_entry, offset);
+            if import_directory_entry.is_null() || !import_directory_entry.is_possibly_valid() {
                 break;
             } else {
                 let entry = SyntheticImportDirectoryEntry::parse_with_opts::<T>(
@@ -353,7 +368,7 @@ impl<'a> ImportData<'a> {
                     file_alignment,
                     opts,
                 )?;
-                debug!("entry {:#?}", entry);
+                debug!("entry {:#?} at {:#x}", entry, offset);
                 import_data.push(entry);
             }
         }
@@ -413,5 +428,39 @@ impl<'a> Import<'a> {
             }
         }
         Ok(imports)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    const NOT_WELL_FORMED_IMPORT: &[u8] =
+        include_bytes!("../../tests/bins/pe/not_well_formed_import.exe.bin");
+    const WELL_FORMED_IMPORT: &[u8] =
+        include_bytes!("../../tests/bins/pe/well_formed_import.exe.bin");
+
+    #[test]
+    fn parse_non_well_formed_import_table() {
+        let binary = crate::pe::PE::parse(NOT_WELL_FORMED_IMPORT).expect("Unable to parse binary");
+        assert_eq!(binary.import_data.is_some(), true);
+        assert_eq!(binary.imports.len(), 1);
+        assert_eq!(binary.imports[0].name, "ORDINAL 51398");
+        assert_eq!(binary.imports[0].dll, "abcd.dll");
+        assert_eq!(binary.imports[0].ordinal, 51398);
+        assert_eq!(binary.imports[0].offset, 0x7014);
+        assert_eq!(binary.imports[0].rva, 0);
+        assert_eq!(binary.imports[0].size, 8);
+    }
+
+    #[test]
+    fn parse_well_formed_import_table() {
+        let binary = crate::pe::PE::parse(WELL_FORMED_IMPORT).expect("Unable to parse binary");
+        assert_eq!(binary.import_data.is_some(), true);
+        assert_eq!(binary.imports.len(), 1);
+        assert_eq!(binary.imports[0].name, "GetLastError");
+        assert_eq!(binary.imports[0].dll, "KERNEL32.dll");
+        assert_eq!(binary.imports[0].ordinal, 647);
+        assert_eq!(binary.imports[0].offset, 0x2000);
+        assert_eq!(binary.imports[0].rva, 0x21B8);
+        assert_eq!(binary.imports[0].size, 8);
     }
 }

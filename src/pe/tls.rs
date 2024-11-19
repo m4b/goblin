@@ -279,7 +279,9 @@ impl<'a> TlsData<'a> {
                     )));
                 }
                 // Each callback is an VA so convert it to RVA
-                let callback_rva = callback.wrapping_sub(image_base as u64) as usize;
+                // For x86 compatibility, `usize` is 32-bit, `u64` is 64-bit.
+                // Therefore upcast to u64 first, then downcast the whole var to u32.
+                let callback_rva = (callback - image_base as u64) as usize;
                 // Check if the callback is in the image
                 if utils::find_offset(callback_rva, sections, file_alignment, opts).is_none() {
                     return Err(error::Error::Malformed(format!(

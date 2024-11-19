@@ -358,10 +358,12 @@ mod tests {
     #[test]
     fn parse_malformed_tls_callbacks() {
         let binary = crate::pe::PE::parse(LLD_MALFORMED_TLS_CALLBACKS_BIN64);
-        if let Err(crate::error::Error::Malformed(msg)) = binary {
-            assert_eq!(msg, "cannot map tls callback (0x807060504030201)");
-        } else {
-            panic!("Expected a Malformed error but got Result::Ok");
+        match binary {
+            Ok(_) => unreachable!("Malformed TLS callbacks should fail to parse"),
+            Err(crate::error::Error::Malformed(msg)) => {
+                assert_eq!(msg, "cannot map tls callback (0x807060504030201)");
+            }
+            Err(err) => unreachable!("Unexpected error: {err:?}"),
         }
     }
 
@@ -399,15 +401,11 @@ mod tests {
     fn parse_special_import_fowarder_tls() {
         let binary = crate::pe::PE::parse(SPECIAL_IMPORT_FORWARDER_TLS);
         match binary {
-            Ok(_) => unreachable!(
-                "Parse special import forwarder TLS should not success as it points to raw OFT/FT"
-            ),
-            Err(err) => match err {
-                crate::pe::error::Error::Malformed(msg) => {
-                    assert_eq!(msg, "cannot map tls callback (0x800000000000c8c6)")
-                }
-                _ => unreachable!("Unexpected error: {err:?}"),
-            },
+            Ok(_) => unreachable!("Special import forwarder TLS should fail to parse"),
+            Err(crate::error::Error::Malformed(msg)) => {
+                assert_eq!(msg, "cannot map tls callback (0x800000000000c8c6)")
+            }
+            Err(err) => unreachable!("Unexpected error: {err:?}"),
         }
     }
 }

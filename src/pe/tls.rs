@@ -305,64 +305,59 @@ impl<'a> TlsData<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::{TLS_CHARACTERISTICS_ALIGN_4BYTES, TLS_CHARACTERISTICS_ALIGN_8BYTES};
+    use super::TLS_CHARACTERISTICS_ALIGN_4BYTES;
 
     const SPECIAL_IMPORT_FORWARDER_TLS: &[u8] =
         include_bytes!("../../tests/bins/pe/special_import_forwarder_tls.exe.bin");
-    const SUDO_EXE_BIN: &[u8] = include_bytes!("../../tests/bins/pe/sudo.exe.bin");
-    const TINYRUST_LLD_MALFORMED_TLS_CALLBACKS_BIN: &[u8] =
-        include_bytes!("../../tests/bins/pe/tinyrust_lld_malformed_tls_callbacks.exe.bin");
-    const TINYRUST_LLD_WITH_TLS_BIN: &[u8] =
-        include_bytes!("../../tests/bins/pe/tinyrust_lld_with_tls.exe.bin");
-    const TINYRUST_LLD_NO_TLS_BIN: &[u8] =
-        include_bytes!("../../tests/bins/pe/tinyrust_lld_no_tls.exe.bin");
+    const LLD_TLS_SLOT_VIRTONLY_BIN64: &[u8] =
+        include_bytes!("../../tests/bins/pe/lld_tls_slot_virtonly.exe.bin");
+    const LLD_MALFORMED_TLS_CALLBACKS_BIN64: &[u8] =
+        include_bytes!("../../tests/bins/pe/lld_malformed_tls_callbacks_64.exe.bin");
+    const LLD_WITH_TLS_BIN64: &[u8] = include_bytes!("../../tests/bins/pe/lld_with_tls_64.exe.bin");
+    const LLD_NO_TLS_BIN64: &[u8] = include_bytes!("../../tests/bins/pe/lld_no_tls_64.exe.bin");
 
+    /// Binary without TLS directory
     #[test]
-    fn parse_tinyrust_no_tls() {
-        let binary = crate::pe::PE::parse(TINYRUST_LLD_NO_TLS_BIN).expect("Unable to parse binary");
+    fn parse_no_tls() {
+        let binary = crate::pe::PE::parse(LLD_NO_TLS_BIN64).expect("Unable to parse binary");
         assert_eq!(binary.tls_data.is_none(), true);
     }
 
     #[test]
-    fn parse_tinyrust_with_tls() {
-        let binary =
-            crate::pe::PE::parse(TINYRUST_LLD_WITH_TLS_BIN).expect("Unable to parse binary");
+    fn parse_with_tls() {
+        let binary = crate::pe::PE::parse(LLD_WITH_TLS_BIN64).expect("Unable to parse binary");
         assert_eq!(binary.tls_data.is_some(), true);
         let tls_data = binary.tls_data.unwrap();
         let dir = tls_data.image_tls_directory;
 
-        assert_eq!(tls_data.callbacks, vec![0x140001000, 0x140008160]);
-        assert_eq!(dir.address_of_callbacks, 0x140019860);
+        assert_eq!(tls_data.callbacks, vec![0x140001000]);
+        assert_eq!(dir.address_of_callbacks, 0x140001020);
 
-        let raw_data_expect: &[u8] = &[
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ];
+        let raw_data_expect: &[u8] = &[0, 0, 0, 0];
         assert_eq!(
             tls_data
                 .raw_data
                 .as_ref()
-                .map(|x| x.len() == 0x50)
+                .map(|x| x.len() == 4)
                 .unwrap_or(false),
             true
         );
         assert_eq!(tls_data.raw_data, Some(raw_data_expect));
-        assert_eq!(dir.start_address_of_raw_data, 0x14001E000);
-        assert_eq!(dir.end_address_of_raw_data, 0x14001E050);
+        assert_eq!(dir.start_address_of_raw_data, 0x140001060);
+        assert_eq!(dir.end_address_of_raw_data, 0x140001064);
 
-        assert_eq!(tls_data.slot, Some(0));
-        assert_eq!(dir.address_of_index, 0x14001C170);
+        assert_eq!(tls_data.slot, Some(0xCCCCCCCC));
+        assert_eq!(dir.address_of_index, 0x140001034);
 
         assert_eq!(dir.size_of_zero_fill, 0x0);
-        assert_eq!(dir.characteristics, TLS_CHARACTERISTICS_ALIGN_8BYTES);
+        assert_eq!(dir.characteristics, TLS_CHARACTERISTICS_ALIGN_4BYTES);
     }
 
     /// Contains two valid callbacks, but null-terminator is (intentionally, for test)
     /// malformed with 8-bytes `08 07 06 05 04 03 02 01` (LE).
     #[test]
-    fn parse_tinyrust_malformed_tls_callbacks() {
-        let binary = crate::pe::PE::parse(TINYRUST_LLD_MALFORMED_TLS_CALLBACKS_BIN);
+    fn parse_malformed_tls_callbacks() {
+        let binary = crate::pe::PE::parse(LLD_MALFORMED_TLS_CALLBACKS_BIN64);
         if let Err(crate::error::Error::Malformed(msg)) = binary {
             assert_eq!(msg, "cannot map tls callback (0x807060504030201)");
         } else {
@@ -370,14 +365,15 @@ mod tests {
         }
     }
 
-    /// Binaries compiled with MSVC linker and TLS index may generate an binary that
+    /// Binaries compiled with a valid TLS index may generate an binary that
     /// its TLS directory contains `AddressOfIndex` field that only
     /// present in virtual address when mapped to virtual memory.
     ///
     /// Issue: <https://github.com/m4b/goblin/issues/424>
     #[test]
-    fn parse_sudo_slot_nonexist_in_raw() {
-        let binary = crate::pe::PE::parse(SUDO_EXE_BIN).expect("Unable to parse binary");
+    fn parse_tls_slot_nonexist_in_raw() {
+        let binary =
+            crate::pe::PE::parse(LLD_TLS_SLOT_VIRTONLY_BIN64).expect("Unable to parse binary");
         assert_eq!(binary.tls_data.is_some(), true);
         let tls_data = binary.tls_data.unwrap();
         assert_eq!(tls_data.slot, None);

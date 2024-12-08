@@ -12,7 +12,7 @@ add_executable(bin WIN32 "main.cc")
 set_target_properties(bin PROPERTIES LANGUAGE C)
 target_compile_options(bin PRIVATE
     /GS- # Disable generation of stack check handlers
-    /GS # Enable whole program optimization
+    /GL # Enable whole program optimization
 )
 target_link_options(bin PRIVATE
     /ENTRY:main # Explicit entry symbol since there are no CRT/libs to be linked

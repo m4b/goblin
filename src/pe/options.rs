@@ -8,6 +8,16 @@ pub struct ParseOptions {
     /// memory](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#other-contents-of-the-file).
     /// For on-disk representations, leave as true. Default: true
     pub parse_attribute_certificates: bool,
+    /// Whether or not to end with an error in case of incorrect data or continue parsing if able. Default: ParseMode::Strict
+    pub parse_mode: ParseMode,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum ParseMode {
+    /// Always end with error on incorrect data
+    Strict,
+    /// Incorrect data will not cause to end with error if possible
+    Permissive,
 }
 
 impl ParseOptions {
@@ -16,6 +26,7 @@ impl ParseOptions {
         ParseOptions {
             resolve_rva: true,
             parse_attribute_certificates: true,
+            parse_mode: ParseMode::Strict,
         }
     }
 }

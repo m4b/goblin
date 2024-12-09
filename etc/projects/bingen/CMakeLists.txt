@@ -9,7 +9,7 @@ endif()
 set(CMAKE_SYSTEM_NAME Windows)
 
 add_executable(bin WIN32 "main.cc")
-set_target_properties(bin PROPERTIES LANGUAGE C)
+set_target_properties(bin PROPERTIES LANGUAGE CXX)
 target_compile_options(bin PRIVATE
     /GS- # Disable generation of stack check handlers
     /GL # Enable whole program optimization

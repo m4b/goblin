@@ -50,7 +50,7 @@ Open `bingen.sln` under [`etc/projects/bingen`](etc/projects/bingen/) and compil
 
 #### Optional: Referencing manually-installed Clang toolchain
 
-If you do not have or not willing to install Clang under Visual Studio indivisual components, [customize the build by folder for MSBuild](https://learn.microsoft.com/en-us/visualstudio/msbuild/customize-by-directory?view=vs-2022) by deploying following `Directory.build.props` right next to the `.sln`:
+If you do not have or not willing to install Clang under Visual Studio individual components, [customize the build by folder for MSBuild](https://learn.microsoft.com/en-us/visualstudio/msbuild/customize-by-directory?view=vs-2022) by deploying following `Directory.build.props` right next to the `.sln`:
 
 ```xml
 <!-- Directory.build.props -->

@@ -944,7 +944,7 @@ pub const VERSION_INFO_US_ENGLISH_UNICODE: &str = "040904E4";
 /// A [`ResourceString::key`] of [`VsFixedFileInfo`]
 pub const VS_VERSION_INFO_KEY: &str = "VS_VERSION_INFO";
 
-impl<'a> VsFixedFileInfo {
+impl VsFixedFileInfo {
     /// Returns `true` if [`Self::signature`] equals to [`VS_FFI_SIGNATURE`], otherwise `false`.
     pub fn is_valid(&self) -> bool {
         self.signature == VS_FFI_SIGNATURE

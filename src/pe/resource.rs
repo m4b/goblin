@@ -1119,7 +1119,7 @@ impl<'a> StringFileInfo<'a> {
 #[derive(Copy, Clone)]
 pub struct VersionInfo<'a> {
     /// Raw data of entire [`RT_VERSION`] area.
-    pub data: &'a [u8],
+    data: &'a [u8],
     /// Fixed file information.
     pub fixed_info: Option<VsFixedFileInfo>,
     /// Dynamic key-value file information.

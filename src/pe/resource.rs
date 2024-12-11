@@ -377,7 +377,7 @@ pub struct ResourceData<'a> {
     /// The image resource directory containing metadata about the resources.
     pub image_resource_directory: ImageResourceDirectory,
     /// The raw data of the resources.
-    pub data: &'a [u8],
+    data: &'a [u8],
     /// Version information if present
     pub version_info: Option<VersionInfo<'a>>,
     /// Manifest data if present

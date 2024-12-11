@@ -1148,10 +1148,10 @@ impl<'a> VersionInfo<'a> {
         file_alignment: u32,
         opts: &options::ParseOptions,
     ) -> error::Result<Option<Self>> {
-        let it = it.collect::<Result<Vec<_>, _>>()?;
-        let it = it.iter().find(|e| e.id() == Some(RT_VERSION));
-
-        if let Some(entry) = it {
+        if let Some(entry) = it
+            .filter_map(|x| x.ok())
+            .find(|x| x.id() == Some(RT_VERSION))
+        {
             let offset_to_data =
                 match entry.recursive_next_depth(bytes, |e| e.offset_to_data().is_none())? {
                     Some(next) => match next.offset_to_data() {
@@ -1226,10 +1226,10 @@ impl<'a> ManifestData<'a> {
         file_alignment: u32,
         opts: &options::ParseOptions,
     ) -> error::Result<Option<Self>> {
-        let it = it.collect::<Result<Vec<_>, _>>()?;
-        let it = it.iter().find(|e| e.id() == Some(RT_MANIFEST));
-
-        if let Some(entry) = it {
+        if let Some(entry) = it
+            .filter_map(|x| x.ok())
+            .find(|x| x.id() == Some(RT_VERSION))
+        {
             let offset_to_data =
                 match entry.recursive_next_depth(bytes, |e| e.offset_to_data().is_none())? {
                     Some(next) => match next.offset_to_data() {

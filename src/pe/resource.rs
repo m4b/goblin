@@ -172,7 +172,7 @@ pub struct ResourceEntryIterator<'a> {
     /// Must be equals to [`ImageResourceDirectory::number_of_named_entries`] + [`ImageResourceDirectory::number_of_id_entries`]
     num_resources: usize,
     /// Raw data of resource direcrory without [`ImageResourceDirectory`] and scoped to [`RESOURCE_ENTRY_SIZE`] * [`Self::num_resources`]
-    pub data: &'a [u8],
+    data: &'a [u8],
 }
 
 impl Iterator for ResourceEntryIterator<'_> {

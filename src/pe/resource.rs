@@ -201,6 +201,23 @@ impl Iterator for ResourceEntryIterator<'_> {
     }
 }
 
+impl<'a> ResourceEntryIterator<'a> {
+    /// Find the resource entry by its resource ID.
+    pub fn find_by_id(&self, id: u16) -> error::Result<Option<ResourceEntry>> {
+        self.map(|x| {
+            x.and_then(|x| {
+                if x.id() == Some(id) {
+                    Ok(Some(x))
+                } else {
+                    Ok(None)
+                }
+            })
+        })
+        .find_map(Result::transpose)
+        .transpose()
+    }
+}
+
 /// Represents an entry in a resource data entry structure.
 ///
 /// This struct contains information about a specific resource, including
@@ -1148,10 +1165,7 @@ impl<'a> VersionInfo<'a> {
         file_alignment: u32,
         opts: &options::ParseOptions,
     ) -> error::Result<Option<Self>> {
-        if let Some(entry) = it
-            .filter_map(|x| x.ok())
-            .find(|x| x.id() == Some(RT_VERSION))
-        {
+        if let Some(entry) = it.find_by_id(RT_VERSION)? {
             let offset_to_data =
                 match entry.recursive_next_depth(bytes, |e| e.offset_to_data().is_none())? {
                     Some(next) => match next.offset_to_data() {
@@ -1226,10 +1240,7 @@ impl<'a> ManifestData<'a> {
         file_alignment: u32,
         opts: &options::ParseOptions,
     ) -> error::Result<Option<Self>> {
-        if let Some(entry) = it
-            .filter_map(|x| x.ok())
-            .find(|x| x.id() == Some(RT_VERSION))
-        {
+        if let Some(entry) = it.find_by_id(RT_MANIFEST)? {
             let offset_to_data =
                 match entry.recursive_next_depth(bytes, |e| e.offset_to_data().is_none())? {
                     Some(next) => match next.offset_to_data() {

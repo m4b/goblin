@@ -58,7 +58,7 @@ pub struct PE<'a> {
     pub is_64: bool,
     /// The entry point RVA of the binary
     pub entry: u32,
-    /// The binary's RVA, or image base - useful for computing virtual addreses
+    /// The binary's VA, or image base - useful for computing virtual addreses
     pub image_base: u64,
     /// Data about any exported symbols in this binary (e.g., if it's a `dll`)
     pub export_data: Option<export::ExportData<'a>>,

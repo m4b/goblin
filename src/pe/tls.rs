@@ -117,7 +117,7 @@ impl ImageTlsDirectory {
 impl<'a> TlsData<'a> {
     pub fn parse<T: Sized>(
         bytes: &'a [u8],
-        image_base: usize,
+        image_base: u64,
         dd: &data_directories::DataDirectory,
         sections: &[section_table::SectionTable],
         file_alignment: u32,
@@ -134,7 +134,7 @@ impl<'a> TlsData<'a> {
 
     pub fn parse_with_opts<T: Sized>(
         bytes: &'a [u8],
-        image_base: usize,
+        image_base: u64,
         dd: &data_directories::DataDirectory,
         sections: &[section_table::SectionTable],
         file_alignment: u32,
@@ -159,7 +159,7 @@ impl<'a> TlsData<'a> {
                 )));
             }
 
-            if (itd.start_address_of_raw_data as usize) < image_base {
+            if itd.start_address_of_raw_data < image_base {
                 return Err(error::Error::Malformed(format!(
                     "tls start_address_of_raw_data ({:#x}) is less than image base ({:#x})",
                     itd.start_address_of_raw_data, image_base
@@ -167,10 +167,10 @@ impl<'a> TlsData<'a> {
             }
 
             // VA to RVA
-            let rva = itd.start_address_of_raw_data as usize - image_base;
+            let rva = itd.start_address_of_raw_data - image_base;
             let size = itd.end_address_of_raw_data - itd.start_address_of_raw_data;
-            let offset =
-                utils::find_offset(rva, sections, file_alignment, opts).ok_or_else(|| {
+            let offset = utils::find_offset(rva as usize, sections, file_alignment, opts)
+                .ok_or_else(|| {
                     error::Error::Malformed(format!(
                         "cannot map tls start_address_of_raw_data rva ({:#x}) into offset",
                         rva
@@ -181,7 +181,7 @@ impl<'a> TlsData<'a> {
 
         // Parse the index if any
         if itd.address_of_index != 0 {
-            if (itd.address_of_index as usize) < image_base {
+            if itd.address_of_index < image_base {
                 return Err(error::Error::Malformed(format!(
                     "tls address_of_index ({:#x}) is less than image base ({:#x})",
                     itd.address_of_index, image_base
@@ -189,14 +189,14 @@ impl<'a> TlsData<'a> {
             }
 
             // VA to RVA
-            let rva = itd.address_of_index as usize - image_base;
-            let offset = utils::find_offset(rva, sections, file_alignment, opts);
+            let rva = itd.address_of_index - image_base;
+            let offset = utils::find_offset(rva as usize, sections, file_alignment, opts);
             slot = offset.and_then(|x| bytes.pread_with::<u32>(x, scroll::LE).ok());
         }
 
         // Parse the callbacks if any
         if itd.address_of_callbacks != 0 {
-            if (itd.address_of_callbacks as usize) < image_base {
+            if itd.address_of_callbacks < image_base {
                 return Err(error::Error::Malformed(format!(
                     "tls address_of_callbacks ({:#x}) is less than image base ({:#x})",
                     itd.address_of_callbacks, image_base
@@ -204,9 +204,9 @@ impl<'a> TlsData<'a> {
             }
 
             // VA to RVA
-            let rva = itd.address_of_callbacks as usize - image_base;
-            let offset =
-                utils::find_offset(rva, sections, file_alignment, opts).ok_or_else(|| {
+            let rva = itd.address_of_callbacks - image_base;
+            let offset = utils::find_offset(rva as usize, sections, file_alignment, opts)
+                .ok_or_else(|| {
                     error::Error::Malformed(format!(
                         "cannot map tls address_of_callbacks rva ({:#x}) into offset",
                         rva
@@ -224,9 +224,11 @@ impl<'a> TlsData<'a> {
                     break;
                 }
                 // Each callback is an VA so convert it to RVA
-                let callback_rva = callback as usize - image_base;
+                let callback_rva = callback - image_base;
                 // Check if the callback is in the image
-                if utils::find_offset(callback_rva, sections, file_alignment, opts).is_none() {
+                if utils::find_offset(callback_rva as usize, sections, file_alignment, opts)
+                    .is_none()
+                {
                     return Err(error::Error::Malformed(format!(
                         "cannot map tls callback ({:#x})",
                         callback

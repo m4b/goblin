@@ -119,7 +119,7 @@ pub struct StandardFields {
     /// * For device drivers, this is the address of the initialization function.
     ///
     /// The entry point function is optional for DLLs. When no entry point is present, this member is zero.
-    pub address_of_entry_point: u64,
+    pub address_of_entry_point: u32,
     /// A pointer to the beginning of the code section (.text), relative to the image base.
     pub base_of_code: u64,
     /// A pointer to the beginning of the data section (.data), relative to the image base. Absent in 64-bit PE32+.
@@ -139,7 +139,7 @@ impl From<StandardFields32> for StandardFields {
             size_of_code: u64::from(fields.size_of_code),
             size_of_initialized_data: u64::from(fields.size_of_initialized_data),
             size_of_uninitialized_data: u64::from(fields.size_of_uninitialized_data),
-            address_of_entry_point: u64::from(fields.address_of_entry_point),
+            address_of_entry_point: fields.address_of_entry_point,
             base_of_code: u64::from(fields.base_of_code),
             base_of_data: fields.base_of_data,
         }
@@ -171,7 +171,7 @@ impl From<StandardFields64> for StandardFields {
             size_of_code: u64::from(fields.size_of_code),
             size_of_initialized_data: u64::from(fields.size_of_initialized_data),
             size_of_uninitialized_data: u64::from(fields.size_of_uninitialized_data),
-            address_of_entry_point: u64::from(fields.address_of_entry_point),
+            address_of_entry_point: fields.address_of_entry_point,
             base_of_code: u64::from(fields.base_of_code),
             base_of_data: 0,
         }

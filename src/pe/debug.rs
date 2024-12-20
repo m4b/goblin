@@ -87,12 +87,12 @@ impl<'a> ImageDebugDirectoryIterator<'a> {
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct DebugData<'a> {
     /// Raw data covering bytes of entire [`ImageDebugDirectory`]
-    pub data: &'a [u8],
+    data: &'a [u8],
     /// Fixup RVA offset used for TE fixups
     ///
     /// - **When zero**: no fixup is performed
     /// - **When non-zero**: fixup is performed
-    pub rva_offset: u32,
+    rva_offset: u32,
     /// Parsed CodeView PDB 7.0 (RSDS) debug information, if available.
     ///
     /// CodeView PDB 7.0 contains a GUID, an age value, and the path to the PDB file.
@@ -689,7 +689,7 @@ pub struct POGOInfoEntry<'a> {
 #[derive(Debug, Copy, Clone)]
 pub struct POGOEntryIterator<'a> {
     /// The raw data of [`POGOInfo::data`] without the signature field
-    pub data: &'a [u8],
+    data: &'a [u8],
 }
 
 /// Indicates the PGO signature for Link-Time Code Generation (LTCG) (`u32` hex representation of `'LTCG'`).

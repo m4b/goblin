@@ -1034,32 +1034,22 @@ mod tests {
             POGOInfoEntry {
                 rva: 0x1000,
                 size: 0x3,
-                // .text$mn
-                name: &[0x2E, 0x74, 0x65, 0x78, 0x74, 0x24, 0x6D, 0x6E, 0x00],
+                name: b".text$mn\0",
             },
             POGOInfoEntry {
                 rva: 0x2000,
                 size: 0xA8,
-                // .rdata
-                name: &[0x2E, 0x72, 0x64, 0x61, 0x74, 0x61, 0x00],
+                name: b".rdata\0",
             },
             POGOInfoEntry {
                 rva: 0x20A8,
                 size: 0x18,
-                // .rdata$voltmd
-                name: &[
-                    0x2E, 0x72, 0x64, 0x61, 0x74, 0x61, 0x24, 0x76, 0x6F, 0x6C, 0x74, 0x6D, 0x64,
-                    0x00,
-                ],
+                name: b".rdata$voltmd\0",
             },
             POGOInfoEntry {
                 rva: 0x20C0,
                 size: 0xCC,
-                // .rdata$zzzdbg
-                name: &[
-                    0x2E, 0x72, 0x64, 0x61, 0x74, 0x61, 0x24, 0x7A, 0x7A, 0x7A, 0x64, 0x62, 0x67,
-                    0x00,
-                ],
+                name: b".rdata$zzzdbg\0",
             },
         ];
         assert_eq!(entries, entries_expect);

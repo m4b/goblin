@@ -76,7 +76,9 @@ impl SectionTable {
         table.characteristics = bytes.gread_with(offset, scroll::LE)?;
 
         if let Some(idx) = table.name_offset()? {
-            table.real_name = Some(bytes.pread::<&str>(string_table_offset + idx)?.to_string());
+            if let Ok(real_name) = bytes.pread::<&str>(string_table_offset + idx) {
+                table.real_name = Some(real_name.to_string());
+            }
         }
         Ok(table)
     }

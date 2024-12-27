@@ -94,9 +94,9 @@ pub fn st_visibility(other: u8) -> u8 {
 
 /// Is this information defining an import?
 #[inline]
-pub fn is_import(info: u8, value: u64) -> bool {
+pub fn is_import(info: u8, shndx: u64) -> bool {
     let bind = st_bind(info);
-    bind == STB_GLOBAL && value == 0
+    (bind == STB_GLOBAL || bind == STB_WEAK) && shndx == SHN_UNDEF as _
 }
 
 /// Convenience function to get the &'static str type from the symbols `st_info`.
@@ -170,8 +170,7 @@ macro_rules! elf_sym_std_impl {
             /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` bind and a `st_value` of 0
             #[inline]
             pub fn is_import(&self) -> bool {
-                let bind = self.st_info >> 4;
-                (bind == STB_GLOBAL || bind == STB_WEAK) && self.st_value == 0
+                is_import(self.st_info, self.st_shndx as _)
             }
             /// Checks whether this `Sym` has type `STT_FUNC`
             #[inline]
@@ -336,6 +335,8 @@ use core::fmt;
 use scroll::ctx;
 use scroll::ctx::SizeWith;
 
+use super::section_header::SHN_UNDEF;
+
 #[derive(Clone, Copy, PartialEq, Default)]
 /// A unified Sym definition - convertible to and from 32-bit and 64-bit variants
 pub struct Sym {
@@ -355,8 +356,7 @@ impl Sym {
     /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` bind and a `st_value` of 0
     #[inline]
     pub fn is_import(&self) -> bool {
-        let bind = self.st_bind();
-        (bind == STB_GLOBAL || bind == STB_WEAK) && self.st_value == 0
+        is_import(self.st_info, self.st_shndx as _)
     }
     /// Checks whether this `Sym` has type `STT_FUNC`
     #[inline]

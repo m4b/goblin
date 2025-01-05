@@ -33,7 +33,7 @@ impl Default for ParseOptions {
 }
 
 impl ParseOptions {
-    pub fn te() -> Self {
+    fn te() -> Self {
         Self {
             resolve_rva: false,
             parse_attribute_certificates: false,

@@ -1,4 +1,5 @@
 /// Parsing Options structure for the PE parser
+#[non_exhaustive]
 #[derive(Debug, Copy, Clone)]
 pub struct ParseOptions {
     /// Wether the parser should resolve rvas or not. Default: true
@@ -20,12 +21,22 @@ pub enum ParseMode {
     Permissive,
 }
 
-impl ParseOptions {
+impl Default for ParseOptions {
     /// Returns a parse options structure with default values
-    pub fn default() -> Self {
+    fn default() -> Self {
         ParseOptions {
             resolve_rva: true,
             parse_attribute_certificates: true,
+            parse_mode: ParseMode::Strict,
+        }
+    }
+}
+
+impl ParseOptions {
+    pub fn te() -> Self {
+        Self {
+            resolve_rva: false,
+            parse_attribute_certificates: false,
             parse_mode: ParseMode::Strict,
         }
     }

@@ -531,11 +531,7 @@ pub struct TE<'a> {
 impl<'a> TE<'a> {
     /// Reads a TE binary from the underlying `bytes`
     pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
-        let opts = &options::ParseOptions {
-            resolve_rva: false,
-            parse_attribute_certificates: false,
-            parse_mode: ParseMode::Strict,
-        };
+        let opts = &options::ParseOptions::te();
 
         let mut offset = 0;
 

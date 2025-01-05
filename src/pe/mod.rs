@@ -33,6 +33,7 @@ use crate::container;
 use crate::error;
 use crate::pe::utils::pad;
 use crate::strtab;
+use options::ParseMode;
 
 use scroll::{ctx, Pwrite};
 
@@ -264,11 +265,19 @@ impl<'a> PE<'a> {
                 if let Some(&certificate_table) =
                     optional_header.data_directories.get_certificate_table()
                 {
-                    certificates = certificate_table::enumerate_certificates(
+                    let certificates_result = certificate_table::enumerate_certificates(
                         bytes,
                         certificate_table.virtual_address,
                         certificate_table.size,
-                    )?;
+                    );
+
+                    certificates = match opts.parse_mode {
+                        ParseMode::Strict => certificates_result?,
+                        ParseMode::Permissive => certificates_result.unwrap_or_else(|err| {
+                            warn!("Cannot parse CertificateTable: {:?}", err);
+                            Default::default()
+                        }),
+                    };
 
                     certificate_table.size as usize
                 } else {
@@ -522,10 +531,7 @@ pub struct TE<'a> {
 impl<'a> TE<'a> {
     /// Reads a TE binary from the underlying `bytes`
     pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
-        let opts = &options::ParseOptions {
-            resolve_rva: false,
-            parse_attribute_certificates: false,
-        };
+        let opts = &options::ParseOptions::te();
 
         let mut offset = 0;
 

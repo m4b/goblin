@@ -5,6 +5,14 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.9, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
+## [0.9.3]  - 2025-1-5
+### Fixed
+pe: fix import parser for non-well-formed import table, thanks @kkent030315: https://github.com/m4b/goblin/pull/429
+pe: fix empty import table parsing, thanks @kkent030315: https://github.com/m4b/goblin/pull/430
+### Added
+pe: Add tests for TLS parser and characteristics constants, thanks @kkent030315: https://github.com/m4b/goblin/pull/426
+elf: added new constants for 32-bit PowerPC, thanks @ivlzme https://github.com/m4b/goblin/pull/439
+
 ## [0.9.2]  - 2024-10-26
 ### Fixed
 pe: fix PE with zero `raw_data_size` of section, thanks @ideeockus: https://github.com/m4b/goblin/pull/396

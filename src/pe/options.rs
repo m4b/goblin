@@ -40,4 +40,9 @@ impl ParseOptions {
             parse_mode: ParseMode::Strict,
         }
     }
+
+    pub fn with_parse_mode(mut self, parse_mode: ParseMode) -> Self {
+        self.parse_mode = parse_mode;
+        self
+    }
 }

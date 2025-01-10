@@ -205,14 +205,14 @@ impl<'a> DebugData<'a> {
             codeview_pdb20_debug_info = CodeviewPDB20DebugInfo::parse_with_opts(bytes, idd, opts)?;
         }
         if let Some(idd) = &it.find_type(IMAGE_DEBUG_TYPE_VC_FEATURE) {
-            vcfeature_info = VCFeatureInfo::parse_with_opts(bytes, idd, opts)?;
+            vcfeature_info = Some(VCFeatureInfo::parse_with_opts(bytes, idd, opts)?);
         }
         if let Some(idd) = &it.find_type(IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS) {
             ex_dll_characteristics_info =
-                ExDllCharacteristicsInfo::parse_with_opts(bytes, idd, opts)?;
+                Some(ExDllCharacteristicsInfo::parse_with_opts(bytes, idd, opts)?);
         }
         if let Some(idd) = &it.find_type(IMAGE_DEBUG_TYPE_REPRO) {
-            repro_info = ReproInfo::parse_with_opts(bytes, idd, opts)?;
+            repro_info = Some(ReproInfo::parse_with_opts(bytes, idd, opts)?);
         }
         if let Some(idd) = &it.find_type(IMAGE_DEBUG_TYPE_POGO) {
             pogo_info = POGOInfo::parse_with_opts(bytes, idd, opts)?;
@@ -415,7 +415,7 @@ pub struct VCFeatureInfo {
 }
 
 impl<'a> VCFeatureInfo {
-    pub fn parse(bytes: &'a [u8], idd: &ImageDebugDirectory) -> error::Result<Option<Self>> {
+    pub fn parse(bytes: &'a [u8], idd: &ImageDebugDirectory) -> error::Result<Self> {
         Self::parse_with_opts(bytes, idd, &options::ParseOptions::default())
     }
 
@@ -423,7 +423,7 @@ impl<'a> VCFeatureInfo {
         bytes: &'a [u8],
         idd: &ImageDebugDirectory,
         opts: &options::ParseOptions,
-    ) -> error::Result<Option<Self>> {
+    ) -> error::Result<Self> {
         let mut offset: usize = match opts.resolve_rva {
             true => idd.pointer_to_raw_data as usize,
             false => idd.address_of_raw_data as usize,
@@ -435,13 +435,13 @@ impl<'a> VCFeatureInfo {
         let sdl_count: u32 = bytes.gread_with(&mut offset, scroll::LE)?;
         let guard_count: u32 = bytes.gread_with(&mut offset, scroll::LE)?;
 
-        Ok(Some(VCFeatureInfo {
+        Ok(VCFeatureInfo {
             pre_vc_plusplus_count,
             c_and_cplusplus_count,
             guard_stack_count,
             sdl_count,
             guard_count,
-        }))
+        })
     }
 }
 
@@ -536,7 +536,7 @@ pub enum ReproInfo<'a> {
 }
 
 impl<'a> ReproInfo<'a> {
-    pub fn parse(bytes: &'a [u8], idd: &ImageDebugDirectory) -> error::Result<Option<Self>> {
+    pub fn parse(bytes: &'a [u8], idd: &ImageDebugDirectory) -> error::Result<Self> {
         Self::parse_with_opts(bytes, idd, &options::ParseOptions::default())
     }
 
@@ -544,7 +544,7 @@ impl<'a> ReproInfo<'a> {
         bytes: &'a [u8],
         idd: &ImageDebugDirectory,
         opts: &options::ParseOptions,
-    ) -> error::Result<Option<Self>> {
+    ) -> error::Result<Self> {
         let mut offset: usize = match opts.resolve_rva {
             true => idd.pointer_to_raw_data as usize,
             false => idd.address_of_raw_data as usize,
@@ -555,7 +555,7 @@ impl<'a> ReproInfo<'a> {
         if idd.size_of_data > 0 {
             let length: u32 = bytes.gread_with(&mut offset, scroll::LE)?;
             if let Some(buffer) = bytes.get(offset..offset + length as usize) {
-                Ok(Some(Self::Buffer { length, buffer }))
+                Ok(Self::Buffer { length, buffer })
             } else {
                 Err(error::Error::Malformed(format!(
                     "ImageDebugDirectory seems corrupted: {:?}",
@@ -563,7 +563,7 @@ impl<'a> ReproInfo<'a> {
                 )))
             }
         } else {
-            Ok(Some(Self::TimeDateStamp(idd.time_date_stamp)))
+            Ok(Self::TimeDateStamp(idd.time_date_stamp))
         }
     }
 }
@@ -627,7 +627,7 @@ pub const IMAGE_DLLCHARACTERISTICS_EX_FORWARD_CFI_COMPAT: u32 = 0x40;
 pub const IMAGE_DLLCHARACTERISTICS_EX_HOTPATCH_COMPATIBLE: u32 = 0x80;
 
 impl<'a> ExDllCharacteristicsInfo {
-    pub fn parse(bytes: &'a [u8], idd: &ImageDebugDirectory) -> error::Result<Option<Self>> {
+    pub fn parse(bytes: &'a [u8], idd: &ImageDebugDirectory) -> error::Result<Self> {
         Self::parse_with_opts(bytes, idd, &options::ParseOptions::default())
     }
 
@@ -635,7 +635,7 @@ impl<'a> ExDllCharacteristicsInfo {
         bytes: &'a [u8],
         idd: &ImageDebugDirectory,
         opts: &options::ParseOptions,
-    ) -> error::Result<Option<Self>> {
+    ) -> error::Result<Self> {
         // ImageDebugDirectory.pointer_to_raw_data stores a raw offset -- not a virtual offset -- which we can use directly
         let mut offset: usize = match opts.resolve_rva {
             true => idd.pointer_to_raw_data as usize,
@@ -644,7 +644,7 @@ impl<'a> ExDllCharacteristicsInfo {
 
         let characteristics_ex: u32 = bytes.gread_with(&mut offset, scroll::LE)?;
 
-        Ok(Some(ExDllCharacteristicsInfo { characteristics_ex }))
+        Ok(ExDllCharacteristicsInfo { characteristics_ex })
     }
 }
 

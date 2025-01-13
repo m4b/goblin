@@ -9,6 +9,7 @@ use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
 use log::warn;
+use resource::ResourceData;
 
 pub mod authenticode;
 pub mod certificate_table;
@@ -23,6 +24,7 @@ pub mod import;
 pub mod optional_header;
 pub mod options;
 pub mod relocation;
+pub mod resource;
 pub mod section_table;
 pub mod subsystem;
 pub mod symbol;
@@ -79,6 +81,8 @@ pub struct PE<'a> {
     pub exception_data: Option<exception::ExceptionData<'a>>,
     /// Certificates present, if any, described by the Certificate Table
     pub certificates: certificate_table::CertificateDirectoryTable<'a>,
+    /// Resource information if any
+    pub resource_data: Option<ResourceData<'a>>,
 }
 
 impl<'a> PE<'a> {
@@ -113,6 +117,7 @@ impl<'a> PE<'a> {
         let mut tls_data = None;
         let mut exception_data = None;
         let mut certificates = Default::default();
+        let mut resource_data = Default::default();
         let mut is_64 = false;
         if let Some(optional_header) = header.optional_header {
             // Sections we are assembling through the parsing, eventually, it will be passed
@@ -277,6 +282,18 @@ impl<'a> PE<'a> {
                 0
             };
 
+            if let Some(&resource_table) = optional_header.data_directories.get_resource_table() {
+                let data = resource::ResourceData::parse_with_opts(
+                    bytes,
+                    resource_table,
+                    &sections,
+                    file_alignment,
+                    opts,
+                )?;
+                resource_data = Some(data);
+                debug!("resource_data data: {:#?}", data.version_info);
+            }
+
             authenticode_excluded_sections = Some(authenticode::ExcludedSections::new(
                 checksum,
                 datadir_entry_certtable,
@@ -304,6 +321,7 @@ impl<'a> PE<'a> {
             tls_data,
             exception_data,
             certificates,
+            resource_data,
         })
     }
 

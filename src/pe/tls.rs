@@ -94,27 +94,30 @@ pub struct TlsData<'a> {
 }
 
 impl ImageTlsDirectory {
-    pub fn parse<T: Sized>(
+    pub fn parse(
         bytes: &[u8],
         dd: data_directories::DataDirectory,
         sections: &[section_table::SectionTable],
         file_alignment: u32,
+        is_64: bool,
     ) -> error::Result<Self> {
-        Self::parse_with_opts::<T>(
+        Self::parse_with_opts(
             bytes,
             dd,
             sections,
             file_alignment,
             &options::ParseOptions::default(),
+            is_64,
         )
     }
 
-    pub fn parse_with_opts<T: Sized>(
+    pub fn parse_with_opts(
         bytes: &[u8],
         dd: data_directories::DataDirectory,
         sections: &[section_table::SectionTable],
         file_alignment: u32,
         opts: &options::ParseOptions,
+        is_64: bool,
     ) -> error::Result<Self> {
         let rva = dd.virtual_address as usize;
         let mut offset =
@@ -124,8 +127,6 @@ impl ImageTlsDirectory {
                     rva
                 ))
             })?;
-
-        let is_64 = core::mem::size_of::<T>() == 8;
 
         let start_address_of_raw_data = if is_64 {
             bytes.gread_with::<u64>(&mut offset, scroll::LE)?
@@ -164,39 +165,40 @@ impl ImageTlsDirectory {
 }
 
 impl<'a> TlsData<'a> {
-    pub fn parse<T: Sized>(
+    pub fn parse(
         bytes: &'a [u8],
         image_base: u64,
         dd: &data_directories::DataDirectory,
         sections: &[section_table::SectionTable],
         file_alignment: u32,
+        is_64: bool,
     ) -> error::Result<Option<Self>> {
-        Self::parse_with_opts::<T>(
+        Self::parse_with_opts(
             bytes,
             image_base,
             dd,
             sections,
             file_alignment,
             &options::ParseOptions::default(),
+            is_64,
         )
     }
 
-    pub fn parse_with_opts<T: Sized>(
+    pub fn parse_with_opts(
         bytes: &'a [u8],
         image_base: u64,
         dd: &data_directories::DataDirectory,
         sections: &[section_table::SectionTable],
         file_alignment: u32,
         opts: &options::ParseOptions,
+        is_64: bool,
     ) -> error::Result<Option<Self>> {
         let mut raw_data = None;
         let mut slot = None;
         let mut callbacks = Vec::new();
 
-        let is_64 = core::mem::size_of::<T>() == 8;
-
         let itd =
-            ImageTlsDirectory::parse_with_opts::<T>(bytes, *dd, sections, file_alignment, opts)?;
+            ImageTlsDirectory::parse_with_opts(bytes, *dd, sections, file_alignment, opts, is_64)?;
 
         // Parse the raw data if any
         if itd.end_address_of_raw_data != 0 && itd.start_address_of_raw_data != 0 {
@@ -225,6 +227,12 @@ impl<'a> TlsData<'a> {
                         rva
                     ))
                 })?;
+            if offset + size as usize > bytes.len() {
+                return Err(error::Error::Malformed(format!(
+                    "tls raw data offset ({:#x}) and size ({:#x}) greater than byte slice len ({:#x})",
+                    offset, size, bytes.len()
+                )));
+            }
             raw_data = Some(&bytes[offset..offset + size as usize]);
         }
 

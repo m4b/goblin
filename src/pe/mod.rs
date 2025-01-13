@@ -222,25 +222,15 @@ impl<'a> PE<'a> {
             }
 
             if let Some(tls_table) = optional_header.data_directories.get_tls_table() {
-                tls_data = if is_64 {
-                    tls::TlsData::parse_with_opts::<u64>(
-                        bytes,
-                        image_base,
-                        tls_table,
-                        &sections,
-                        file_alignment,
-                        opts,
-                    )?
-                } else {
-                    tls::TlsData::parse_with_opts::<u32>(
-                        bytes,
-                        image_base,
-                        &tls_table,
-                        &sections,
-                        file_alignment,
-                        opts,
-                    )?
-                };
+                tls_data = tls::TlsData::parse_with_opts(
+                    bytes,
+                    image_base,
+                    tls_table,
+                    &sections,
+                    file_alignment,
+                    opts,
+                    is_64,
+                )?;
                 debug!("tls data: {:#?}", tls_data);
             }
 

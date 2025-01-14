@@ -18,6 +18,25 @@ impl DataDirectory {
     pub fn parse(bytes: &[u8], offset: &mut usize) -> error::Result<Self> {
         Ok(bytes.gread_with(offset, scroll::LE)?)
     }
+
+    /// Given a view of the PE binary, represented by `bytes` and the on-disk offset `disk_offset`
+    /// this will return a view of the data directory's contents.
+    /// If the range are out of bands, this will fail with a [`error::Error::Malformed`] error.
+    pub fn data<'a>(&self, bytes: &'a [u8], disk_offset: usize) -> error::Result<&'a [u8]> {
+        let disk_end = disk_offset.saturating_add(self.size.try_into().map_err(|_| {
+            error::Error::Malformed(format!("Data directory size cannot fit in platform `usize"))
+        })?);
+
+        bytes
+            .get(disk_offset..disk_end)
+            .ok_or(error::Error::Malformed(format!(
+                "Requesting bytes from data directory at {} (end: {}) of size {}, buffer is {}",
+                disk_offset,
+                disk_end,
+                self.size,
+                bytes.len()
+            )))
+    }
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -37,6 +56,7 @@ pub enum DataDirectoryType {
     ImportAddressTable,
     DelayImportDescriptor,
     ClrRuntimeHeader,
+    Reserved,
 }
 
 impl TryFrom<usize> for DataDirectoryType {
@@ -58,6 +78,7 @@ impl TryFrom<usize> for DataDirectoryType {
             12 => Self::ImportAddressTable,
             13 => Self::DelayImportDescriptor,
             14 => Self::ClrRuntimeHeader,
+            15 => Self::Reserved,
             _ => {
                 return Err(error::Error::Malformed(
                     "Wrong data directory index number".into(),
@@ -78,9 +99,8 @@ impl ctx::TryIntoCtx<scroll::Endian> for DataDirectories {
     fn try_into_ctx(self, bytes: &mut [u8], ctx: scroll::Endian) -> Result<usize, Self::Error> {
         let offset = &mut 0;
         for opt_dd in self.data_directories {
-            if let Some((dd_offset, dd)) = opt_dd {
-                bytes.pwrite_with(dd, dd_offset, ctx)?;
-                *offset += dd_offset;
+            if let Some((_, dd)) = opt_dd {
+                bytes.gwrite_with(dd, offset, ctx)?;
             } else {
                 bytes.gwrite(&[0; SIZEOF_DATA_DIRECTORY][..], offset)?;
             }
@@ -136,6 +156,14 @@ impl DataDirectories {
     build_dd_getter!(get_clr_runtime_header, 14);
 
     pub fn dirs(&self) -> impl Iterator<Item = (DataDirectoryType, DataDirectory)> {
+        self.dirs_with_offset().map(|(a, _b, c)| (a, c))
+    }
+
+    /// Returns all data directories
+    /// with their types, offsets and contents.
+    pub fn dirs_with_offset(
+        &self,
+    ) -> impl Iterator<Item = (DataDirectoryType, usize, DataDirectory)> {
         self.data_directories
             .into_iter()
             .enumerate()
@@ -148,6 +176,6 @@ impl DataDirectories {
                 // takes into account the N possible data directories.
                 // Therefore, the unwrap can never fail as long as Rust guarantees
                 // on types are honored.
-                o.map(|(_, v)| (i.try_into().unwrap(), v)))
+                o.map(|(offset, v)| (i.try_into().unwrap(), offset, v)))
     }
 }

@@ -77,6 +77,8 @@ pub struct PE<'a> {
     pub tls_data: Option<tls::TlsData<'a>>,
     /// Exception handling and stack unwind information, if any, contained in the PE header
     pub exception_data: Option<exception::ExceptionData<'a>>,
+    /// Base relocation data if any
+    pub relocation_data: Option<relocation::RelocationData<'a>>,
     /// Certificates present, if any, described by the Certificate Table
     pub certificates: certificate_table::CertificateDirectoryTable<'a>,
 }
@@ -112,6 +114,7 @@ impl<'a> PE<'a> {
         let mut debug_data = None;
         let mut tls_data = None;
         let mut exception_data = None;
+        let mut relocation_data = None;
         let mut certificates = Default::default();
         let mut is_64 = false;
         if let Some(optional_header) = header.optional_header {
@@ -250,6 +253,18 @@ impl<'a> PE<'a> {
                 }
             }
 
+            if let Some(&baserelocs_dir) =
+                optional_header.data_directories.get_base_relocation_table()
+            {
+                relocation_data = Some(relocation::RelocationData::parse_with_opts(
+                    bytes,
+                    baserelocs_dir,
+                    &sections,
+                    file_alignment,
+                    opts,
+                )?);
+            }
+
             // Parse attribute certificates unless opted out of
             let certificate_table_size = if opts.parse_attribute_certificates {
                 if let Some(&certificate_table) =
@@ -303,6 +318,7 @@ impl<'a> PE<'a> {
             debug_data,
             tls_data,
             exception_data,
+            relocation_data,
             certificates,
         })
     }

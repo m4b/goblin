@@ -417,7 +417,7 @@ impl<'a> scroll::ctx::TryFromCtx<'a, scroll::Endian> for RelocationBlock<'a> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct RelocationBlockIterator<'a> {
     bytes: &'a [u8],
     offset: usize,
@@ -488,7 +488,7 @@ impl RelocationWord {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct RelocationWordIterator<'a> {
     bytes: &'a [u8],
     offset: usize,

@@ -218,6 +218,41 @@ pub const IMAGE_REL_IA64_GPREL32: u16 = 0x001C;
 /// Offset with an addend
 pub const IMAGE_REL_IA64_ADDEND: u16 = 0x001F;
 
+// base relocation.
+
+/// Absolute relocation. No modification is necessary.
+pub const IMAGE_REL_BASED_ABSOLUTE: u16 = 0;
+/// Relocation based on the high 16 bits of the address.
+pub const IMAGE_REL_BASED_HIGH: u16 = 1;
+/// Relocation based on the low 16 bits of the address.
+pub const IMAGE_REL_BASED_LOW: u16 = 2;
+/// Relocation based on the entire 32-bit address.
+pub const IMAGE_REL_BASED_HIGHLOW: u16 = 3;
+/// Relocation based on the adjusted high 16 bits of the address.
+pub const IMAGE_REL_BASED_HIGHADJ: u16 = 4;
+/// MIPS jump address relocation.
+pub const IMAGE_REL_BASED_MIPS_JMPADDR: u16 = 5;
+/// ARM MOV32A relocation (shares the same value as MIPS_JMPADDR).
+pub const IMAGE_REL_BASED_ARM_MOV32A: u16 = 5;
+/// ARM MOV32 relocation (shares the same value as MIPS_JMPADDR).
+pub const IMAGE_REL_BASED_ARM_MOV32: u16 = 5;
+/// Relocation based on the section.
+pub const IMAGE_REL_BASED_SECTION: u16 = 6;
+/// Relocation relative to the base.
+pub const IMAGE_REL_BASED_REL: u16 = 7;
+/// ARM MOV32T relocation (shares the same value as REL).
+pub const IMAGE_REL_BASED_ARM_MOV32T: u16 = 7;
+/// Thumb MOV32 relocation (shares the same value as REL).
+pub const IMAGE_REL_BASED_THUMB_MOV32: u16 = 7;
+/// MIPS 16-bit jump address relocation.
+pub const IMAGE_REL_BASED_MIPS_JMPADDR16: u16 = 9;
+/// IA64 immediate 64-bit relocation (shares the same value as MIPS_JMPADDR16).
+pub const IMAGE_REL_BASED_IA64_IMM64: u16 = 9;
+/// Relocation based on a 64-bit address.
+pub const IMAGE_REL_BASED_DIR64: u16 = 10;
+/// Relocation based on the top 16 bits of a 48-bit address.
+pub const IMAGE_REL_BASED_HIGH3ADJ: u16 = 11;
+
 /// A COFF relocation.
 #[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq, Default, Pread, Pwrite, IOread, IOwrite, SizeWith)]

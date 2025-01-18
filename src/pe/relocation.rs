@@ -408,10 +408,10 @@ pub const RELOCATION_BLOCK_SIZE: usize = 8;
 impl<'a> scroll::ctx::TryFromCtx<'a, scroll::Endian> for RelocationBlock<'a> {
     type Error = crate::error::Error;
 
-    fn try_from_ctx(bytes: &'a [u8], _ctx: scroll::Endian) -> Result<(Self, usize), Self::Error> {
+    fn try_from_ctx(bytes: &'a [u8], ctx: scroll::Endian) -> Result<(Self, usize), Self::Error> {
         let mut offset = 0;
-        let rva = bytes.gread_with::<u32>(&mut offset, scroll::LE)?;
-        let size = bytes.gread_with::<u32>(&mut offset, scroll::LE)?;
+        let rva = bytes.gread_with::<u32>(&mut offset, ctx)?;
+        let size = bytes.gread_with::<u32>(&mut offset, ctx)?;
         let bytes = &[];
         Ok((Self { rva, size, bytes }, offset))
     }

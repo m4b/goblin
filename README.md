@@ -126,6 +126,7 @@ In lexicographic order:
 - [@h33p]
 - [@ibabushkin]
 - [@ideeockus]
+- [@ivlzme]
 - [@jackcmay]
 - [@jan-auer]
 - [@Javagedes]
@@ -211,6 +212,7 @@ In lexicographic order:
 [@h33p]: https://github.com/h33p
 [@ibabushkin]: https://github.com/ibabushkin
 [@ideeockus]: https://github.com/ideeockus
+[@ivlzme]: https://github.com/ivlzme
 [@jackcmay]: https://github.com/jackcmay
 [@jan-auer]: https://github.com/jan-auer
 [@Javagedes]: https://github.com/Javagedes

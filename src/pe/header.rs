@@ -1035,7 +1035,10 @@ impl<'a> RichHeader<'a> {
     /// - while the lower 16 bits specify the tool’s build version.
     pub fn parse(bytes: &'a [u8]) -> error::Result<Option<Self>> {
         // Parse the DOS header; some fields are required to locate the Rich header.
-        let dos_header = DosHeader::parse(bytes)?;
+        let dos_header = match DosHeader::parse(bytes) {
+            Ok(v) => v,
+            _ => return Ok(None),
+        };
         let dos_header_end_offset = PE_POINTER_OFFSET as usize;
         let pe_header_start_offset = dos_header.pe_pointer as usize;
 

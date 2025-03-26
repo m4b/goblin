@@ -837,7 +837,12 @@ impl CoffHeader {
             + symbol::SymbolTable::size(self.number_of_symbol_table as usize);
 
         let length_field_size = core::mem::size_of::<u32>();
-        let length = bytes.pread_with::<u32>(offset, scroll::LE)? as usize - length_field_size;
+        let length = bytes
+            .pread_with::<u32>(offset, scroll::LE)?
+            .checked_sub(length_field_size as u32)
+            .ok_or(error::Error::Malformed(format!(
+                "COFF length field size ({length_field_size:#x}) is larger than the parsed length value"
+            )))? as usize;
 
         // The offset needs to be advanced in order to read the strings.
         offset += length_field_size;
@@ -1352,7 +1357,10 @@ pub fn machine_to_str(machine: u16) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use crate::{error, pe::header::DosStub};
+    use crate::{
+        error,
+        pe::{header::DosStub, Coff},
+    };
 
     use super::{
         machine_to_str, Header, RichHeader, RichMetadata, COFF_MACHINE_X86, DOS_MAGIC, PE_MAGIC,
@@ -1534,6 +1542,14 @@ mod tests {
         0x00,
     ];
 
+    /// An invalid small COFF object file
+    ///
+    /// https://github.com/m4b/goblin/issues/450
+    const INVALID_COFF_OBJECT: [u8; 20] = [
+        0x4C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x0F, 0x00, 0xFF, 0x80,
+    ];
+
     #[test]
     fn crss_header() {
         let header = Header::parse(&&CRSS_HEADER[..]).unwrap();
@@ -1655,5 +1671,19 @@ mod tests {
     fn parse_corrupted_rich_header() {
         let header_result = RichHeader::parse(&CORRUPTED_RICH_HEADER);
         assert_eq!(header_result.is_err(), true);
+    }
+
+    #[test]
+    fn parse_invalid_small_coff() {
+        let header = Coff::parse(&INVALID_COFF_OBJECT);
+        assert_eq!(header.is_err(), true);
+        if let Err(error::Error::Malformed(msg)) = header {
+            assert_eq!(
+                msg,
+                "COFF length field size (0x4) is larger than the parsed length value"
+            );
+        } else {
+            panic!("Expected a Malformed error but got {:?}", header);
+        }
     }
 }

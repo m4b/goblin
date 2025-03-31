@@ -1,10 +1,11 @@
+use alloc::vec::Vec;
 use core::iter::FusedIterator;
+
+use scroll::{ctx, IOread, IOwrite, Pread, Pwrite, SizeWith};
 
 use crate::error;
 use crate::pe::{data_directories, debug, optional_header, section_table, symbol};
 use crate::strtab;
-use alloc::vec::Vec;
-use scroll::{ctx, IOread, IOwrite, Pread, Pwrite, SizeWith};
 
 /// In `winnt.h` and `pe.h`, it's `IMAGE_DOS_HEADER`. It's a DOS header present in all PE binaries.
 ///
@@ -394,6 +395,7 @@ impl DosHeader {
 pub struct DosStub<'a> {
     pub data: &'a [u8],
 }
+
 impl<'a> Default for DosStub<'a> {
     /// This is the very basic DOS program bytecode representation embedded in MSVC linker.
     ///
@@ -442,6 +444,7 @@ impl<'a> Default for DosStub<'a> {
         }
     }
 }
+
 impl<'a> ctx::TryIntoCtx<scroll::Endian> for DosStub<'a> {
     type Error = error::Error;
 
@@ -870,9 +873,16 @@ impl<'a> Header<'a> {
         bytes: &'a [u8],
         dos_header: DosHeader,
         dos_stub: DosStub<'a>,
+        parse_rich_header: bool,
     ) -> error::Result<Self> {
         let mut offset = dos_header.pe_pointer as usize;
-        let rich_header = RichHeader::parse(&bytes)?;
+
+        let rich_header = if parse_rich_header {
+            RichHeader::parse(&bytes)?
+        } else {
+            None
+        };
+
         let signature = bytes.gread_with(&mut offset, scroll::LE).map_err(|_| {
             error::Error::Malformed(format!("cannot parse PE signature (offset {:#x})", offset))
         })?;
@@ -898,13 +908,13 @@ impl<'a> Header<'a> {
         let dos_header = DosHeader::parse(&bytes)?;
         let dos_stub = DosStub::parse(bytes, dos_header.pe_pointer)?;
 
-        Header::parse_impl(bytes, dos_header, dos_stub)
+        Header::parse_impl(bytes, dos_header, dos_stub, true)
     }
 
     /// Parses PE header from the given bytes, a default DosHeader and DosStub are generated, and any malformed header or stub is ignored
     pub fn parse_without_dos(bytes: &'a [u8]) -> error::Result<Self> {
         let dos_header = DosHeader::default();
-        Header::parse_impl(bytes, dos_header, DosStub::default())
+        Header::parse_impl(bytes, dos_header, DosStub::default(), false)
     }
 }
 
@@ -1018,6 +1028,7 @@ impl Iterator for RichMetadataIterator<'_> {
 }
 
 impl FusedIterator for RichMetadataIterator<'_> {}
+
 impl ExactSizeIterator for RichMetadataIterator<'_> {}
 
 impl<'a> RichHeader<'a> {
@@ -1035,10 +1046,7 @@ impl<'a> RichHeader<'a> {
     /// - while the lower 16 bits specify the tool’s build version.
     pub fn parse(bytes: &'a [u8]) -> error::Result<Option<Self>> {
         // Parse the DOS header; some fields are required to locate the Rich header.
-        let dos_header = match DosHeader::parse(bytes) {
-            Ok(v) => v,
-            _ => return Ok(None),
-        };
+        let dos_header = DosHeader::parse(bytes)?;
         let dos_header_end_offset = PE_POINTER_OFFSET as usize;
         let pe_header_start_offset = dos_header.pe_pointer as usize;
 
@@ -1357,9 +1365,7 @@ pub fn machine_to_str(machine: u16) -> &'static str {
 mod tests {
     use crate::{error, pe::header::DosStub};
 
-    use super::{
-        machine_to_str, Header, RichHeader, RichMetadata, COFF_MACHINE_X86, DOS_MAGIC, PE_MAGIC,
-    };
+    use super::{COFF_MACHINE_X86, DOS_MAGIC, DosHeader, Header, machine_to_str, PE_MAGIC, RichHeader, RichMetadata};
 
     const CRSS_HEADER: [u8; 688] = [
         0x4d, 0x5a, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00,
@@ -1537,6 +1543,9 @@ mod tests {
         0x00,
     ];
 
+    const WELL_FORMED_WITH_RICH_HEADER: &[u8] =
+        include_bytes!("../../tests/bins/pe/well_formed_import.exe.bin");
+
     #[test]
     fn crss_header() {
         let header = Header::parse(&&CRSS_HEADER[..]).unwrap();
@@ -1548,15 +1557,16 @@ mod tests {
     }
 
     #[test]
-    fn parse_without_dos() {
-        let header = Header::parse_without_dos(&BORLAND_PE32_VALID_NO_RICH_HEADER).unwrap();
-        assert_eq!(header.dos_stub, DosStub::default());
-        assert_eq!(header.rich_header.is_none(), true);
+    fn parse_without_dos_rich() {
+        // Get a PE pointer (e_lfanew)
+        let dos_header = DosHeader::parse(&WELL_FORMED_WITH_RICH_HEADER).unwrap();
+        // Skip DOS header and DOS stub
+        let buf = &WELL_FORMED_WITH_RICH_HEADER[dos_header.pe_pointer as usize..];
+        let header = Header::parse_without_dos(buf).unwrap();
 
-        // DOS stub is default but rich parser still works
-        let header = Header::parse_without_dos(&CORRECT_RICH_HEADER).unwrap();
-        assert_eq!(header.dos_stub, DosStub::default());
-        assert_eq!(header.rich_header.is_some(), true);
+        assert_eq!(header.coff_header.number_of_sections, 6);
+        assert_eq!(header.rich_header, None);
+        assert_eq!(header.dos_header, DosHeader::default());
     }
 
     #[test]

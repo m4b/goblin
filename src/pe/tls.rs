@@ -197,116 +197,132 @@ impl<'a> TlsData<'a> {
         let mut slot = None;
         let mut callbacks = Vec::new();
 
-        let itd =
-            ImageTlsDirectory::parse_with_opts(bytes, *dd, sections, file_alignment, opts, is_64)?;
+        // Try to parse the TLS directory but continue even if it fails
+        let itd = match ImageTlsDirectory::parse_with_opts(bytes, *dd, sections, file_alignment, opts, is_64) {
+            Ok(dir) => dir,
+            Err(e) => {
+                eprintln!("Warning: Failed to parse TLS directory: {}", e);
+                return Ok(None); // Return None instead of propagating error
+            }
+        };
 
         // Parse the raw data if any
         if itd.end_address_of_raw_data != 0 && itd.start_address_of_raw_data != 0 {
+            // Check for invalid raw data pointers
             if itd.start_address_of_raw_data > itd.end_address_of_raw_data {
-                return Err(error::Error::Malformed(format!(
-                    "tls start_address_of_raw_data ({:#x}) is greater than end_address_of_raw_data ({:#x})",
+                eprintln!(
+                    "Warning: tls start_address_of_raw_data ({:#x}) is greater than end_address_of_raw_data ({:#x})",
                     itd.start_address_of_raw_data,
                     itd.end_address_of_raw_data
-                )));
-            }
-
-            if itd.start_address_of_raw_data < image_base {
-                return Err(error::Error::Malformed(format!(
-                    "tls start_address_of_raw_data ({:#x}) is less than image base ({:#x})",
+                );
+            } else if itd.start_address_of_raw_data < image_base {
+                eprintln!(
+                    "Warning: tls start_address_of_raw_data ({:#x}) is less than image base ({:#x})",
                     itd.start_address_of_raw_data, image_base
-                )));
+                );
+            } else {
+                // VA to RVA
+                let rva = itd.start_address_of_raw_data - image_base;
+                let size = itd.end_address_of_raw_data - itd.start_address_of_raw_data;
+
+                match utils::find_offset(rva as usize, sections, file_alignment, opts) {
+                    Some(offset) => {
+                        if offset + size as usize <= bytes.len() {
+                            raw_data = Some(&bytes[offset..offset + size as usize]);
+                        } else {
+                            eprintln!(
+                                "Warning: tls raw data offset ({:#x}) and size ({:#x}) greater than byte slice len ({:#x})",
+                                offset, size, bytes.len()
+                            );
+                        }
+                    },
+                    None => {
+                        eprintln!(
+                            "Warning: cannot map tls start_address_of_raw_data rva ({:#x}) into offset",
+                            rva
+                        );
+                    }
+                }
             }
-
-            // VA to RVA
-            let rva = itd.start_address_of_raw_data - image_base;
-            let size = itd.end_address_of_raw_data - itd.start_address_of_raw_data;
-            let offset = utils::find_offset(rva as usize, sections, file_alignment, opts)
-                .ok_or_else(|| {
-                    error::Error::Malformed(format!(
-                        "cannot map tls start_address_of_raw_data rva ({:#x}) into offset",
-                        rva
-                    ))
-                })?;
-
-            let offset_end = offset.checked_add(size as usize).ok_or_else(|| {
-                error::Error::Malformed(format!(
-                    "tls start_address_of_raw_data ({:#x}) + size_of_raw_data ({:#x}) casues an integer overflow",
-                    offset, size
-                ))
-            })?;
-
-            if offset > bytes.len() || offset_end > bytes.len() {
-                return Err(error::Error::Malformed(format!(
-                    "tls raw data offset ({:#x}) and size ({:#x}) greater than byte slice len ({:#x})",
-                    offset, size, bytes.len()
-                )));
-            }
-            raw_data = Some(&bytes[offset..offset + size as usize]);
         }
 
         // Parse the index if any
         if itd.address_of_index != 0 {
             if itd.address_of_index < image_base {
-                return Err(error::Error::Malformed(format!(
-                    "tls address_of_index ({:#x}) is less than image base ({:#x})",
+                eprintln!(
+                    "Warning: tls address_of_index ({:#x}) is less than image base ({:#x})",
                     itd.address_of_index, image_base
-                )));
+                );
+            } else {
+                // VA to RVA
+                let rva = itd.address_of_index - image_base;
+                let offset = utils::find_offset(rva as usize, sections, file_alignment, opts);
+                slot = offset.and_then(|x| bytes.pread_with::<u32>(x, scroll::LE).ok());
             }
-
-            // VA to RVA
-            let rva = itd.address_of_index - image_base;
-            let offset = utils::find_offset(rva as usize, sections, file_alignment, opts);
-            slot = offset.and_then(|x| bytes.pread_with::<u32>(x, scroll::LE).ok());
         }
 
         // Parse the callbacks if any
         if itd.address_of_callbacks != 0 {
             if itd.address_of_callbacks < image_base {
-                return Err(error::Error::Malformed(format!(
-                    "tls address_of_callbacks ({:#x}) is less than image base ({:#x})",
+                eprintln!(
+                    "Warning: tls address_of_callbacks ({:#x}) is less than image base ({:#x})",
                     itd.address_of_callbacks, image_base
-                )));
-            }
+                );
+            } else {
+                // VA to RVA
+                let rva = itd.address_of_callbacks - image_base;
 
-            // VA to RVA
-            let rva = itd.address_of_callbacks - image_base;
-            let offset = utils::find_offset(rva as usize, sections, file_alignment, opts)
-                .ok_or_else(|| {
-                    error::Error::Malformed(format!(
-                        "cannot map tls address_of_callbacks rva ({:#x}) into offset",
-                        rva
-                    ))
-                })?;
-            let mut i = 0;
-            // Read the callbacks until we find a null terminator
-            loop {
-                let callback: u64 = if is_64 {
-                    bytes.pread_with::<u64>(offset + i * 8, scroll::LE)?
-                } else {
-                    bytes.pread_with::<u32>(offset + i * 4, scroll::LE)? as u64
-                };
-                if callback == 0 {
-                    break;
+                match utils::find_offset(rva as usize, sections, file_alignment, opts) {
+                    Some(offset) => {
+                        let mut i = 0;
+                        // Read the callbacks until we find a null terminator
+                        loop {
+                            let callback_result: Result<u64, _> = if is_64 {
+                                bytes.pread_with::<u64>(offset + i * 8, scroll::LE)
+                            } else {
+                                bytes.pread_with::<u32>(offset + i * 4, scroll::LE).map(|v| v as u64)
+                            };
+
+                            match callback_result {
+                                Ok(0) => break, // Null terminator
+                                Ok(callback) => {
+                                    if callback < image_base as u64 {
+                                        eprintln!(
+                                            "Warning: tls callback ({:#x}) is less than image base ({:#x})",
+                                            callback, image_base
+                                        );
+                                    } else {
+                                        // Each callback is an VA so convert it to RVA
+                                        let callback_rva = callback - image_base;
+
+                                        // Check if the callback is in the image
+                                        if utils::find_offset(callback_rva as usize, sections, file_alignment, opts)
+                                            .is_none()
+                                        {
+                                            eprintln!(
+                                                "Warning: cannot map tls callback ({:#x})",
+                                                callback
+                                            );
+                                        } else {
+                                            callbacks.push(callback);
+                                        }
+                                    }
+                                    i += 1;
+                                },
+                                Err(_) => {
+                                    eprintln!("Warning: error reading TLS callback at index {}", i);
+                                    break;
+                                }
+                            }
+                        }
+                    },
+                    None => {
+                        eprintln!(
+                            "Warning: cannot map tls address_of_callbacks rva ({:#x}) into offset",
+                            rva
+                        );
+                    }
                 }
-                if callback < image_base as u64 {
-                    return Err(error::Error::Malformed(format!(
-                        "tls callback ({:#x}) is less than image base ({:#x})",
-                        callback, image_base
-                    )));
-                }
-                // Each callback is an VA so convert it to RVA
-                let callback_rva = callback - image_base;
-                // Check if the callback is in the image
-                if utils::find_offset(callback_rva as usize, sections, file_alignment, opts)
-                    .is_none()
-                {
-                    return Err(error::Error::Malformed(format!(
-                        "cannot map tls callback ({:#x})",
-                        callback
-                    )));
-                }
-                callbacks.push(callback);
-                i += 1;
             }
         }
 

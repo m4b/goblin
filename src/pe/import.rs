@@ -11,7 +11,6 @@ use crate::pe::options;
 use crate::pe::section_table;
 use crate::pe::utils;
 
-use crate::pe::options::ParseMode;
 use log::{debug, warn};
 
 pub const IMPORT_BY_ORDINAL_32: u32 = 0x8000_0000;
@@ -225,7 +224,8 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
     ) -> error::Result<SyntheticImportDirectoryEntry<'a>> {
         const LE: scroll::Endian = scroll::LE;
         let name_rva = import_directory_entry.name_rva;
-        let name = utils::try_name(bytes, name_rva as usize, sections, file_alignment, opts)?;
+        let name = utils::try_name(bytes, name_rva as usize, sections, file_alignment, opts)
+            .unwrap_or_default();
         let import_lookup_table = {
             let import_lookup_table_rva = import_directory_entry.import_lookup_table_rva;
             let import_address_table_rva = import_directory_entry.import_address_table_rva;
@@ -345,20 +345,32 @@ impl<'a> ImportData<'a> {
             "import_directory_table_rva {:#x}",
             import_directory_table_rva
         );
-        let offset =
-            &mut utils::find_offset(import_directory_table_rva, sections, file_alignment, opts)
-                .ok_or_else(|| {
-                    error::Error::Malformed(format!(
+
+        let offset_opt = utils::find_offset(import_directory_table_rva, sections, file_alignment, opts);
+
+        if offset_opt.is_none() {
+            println!(
                 "Cannot create ImportData; cannot map import_directory_table_rva {:#x} into offset",
                 import_directory_table_rva
-            ))
-                })?;
+            );
+            return Ok(ImportData { import_data: Vec::new() });
+        }
+
+        let offset = &mut offset_opt.unwrap();
         debug!("import data offset {:#x}", offset);
         let mut import_data = Vec::new();
+
         loop {
-            let import_directory_entry: ImportDirectoryEntry =
-                bytes.gread_with(offset, scroll::LE)?;
+            let import_directory_entry_result = bytes.gread_with::<ImportDirectoryEntry>(offset, scroll::LE);
+
+            if let Err(e) = import_directory_entry_result {
+                eprintln!("Error reading ImportDirectoryEntry: {}", e);
+                break;
+            }
+
+            let import_directory_entry = import_directory_entry_result.unwrap();
             debug!("{:#?} at {:#x}", import_directory_entry, offset);
+
             if import_directory_entry.is_null() || !import_directory_entry.is_possibly_valid() {
                 break;
             } else {
@@ -369,21 +381,18 @@ impl<'a> ImportData<'a> {
                     file_alignment,
                     opts,
                 );
-                match entry_result {
-                    Ok(entry) => {
-                        debug!("entry {entry:#?}");
-                        import_data.push(entry);
-                    }
-                    Err(err) if matches!(opts.parse_mode, ParseMode::Permissive) => {
-                        warn!("Failed to parse import data: {err:?}");
-                        continue;
-                    }
-                    Err(err) => {
-                        return Err(err);
-                    }
+
+                if let Err(e) = entry_result {
+                    eprintln!("Error parsing SyntheticImportDirectoryEntry: {}", e);
+                    continue;
                 }
+
+                let entry = entry_result.unwrap();
+                debug!("entry {:#?} at {:#x}", entry, offset);
+                import_data.push(entry);
             }
         }
+
         debug!("finished ImportData");
         Ok(ImportData { import_data })
     }

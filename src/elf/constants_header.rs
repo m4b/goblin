@@ -376,6 +376,9 @@ pub const EM_BPF: u16 = 247;
 /// C-SKY
 pub const EM_CSKY: u16 = 252;
 
+// Loongarch 64
+pub const EM_LOONGARCH: u16 = 258;
+
 pub const EM_NUM: u16 = 248;
 
 /// Convert machine to str representation
@@ -558,6 +561,7 @@ pub fn machine_to_str (machine: u16) -> &'static str {
         EM_AMDGPU => "AMDGPU",
         EM_RISCV => "RISCV",
         EM_BPF => "BPF",
+        EM_LOONGARCH => "LOONGARCH",
         _val => "EM_UNKNOWN",
     }
 }

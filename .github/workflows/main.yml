@@ -15,7 +15,7 @@ jobs:
         include:
           - build: MSRV # Minimum supported Rust version
             os: ubuntu-latest
-            rust: 1.63.0
+            rust: 1.65.0
           - build: stable
             os: ubuntu-latest
             rust: stable
@@ -36,7 +36,7 @@ jobs:
     steps:
     - uses: actions/checkout@master
     - name: Cache CARGO_HOME
-      uses: actions/cache@v1
+      uses: actions/cache@v4
       with:
         path: ~/.cargo
         key: ${{ runner.os }}-cargo-home-${{ hashFiles('**/Cargo.toml') }}

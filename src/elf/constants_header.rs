@@ -382,7 +382,7 @@ pub const EM_LOONGARCH: u16 = 258;
 pub const EM_NUM: u16 = 248;
 
 /// Convert machine to str representation
-pub fn machine_to_str (machine: u16) -> &'static str {
+pub fn machine_to_str(machine: u16) -> &'static str {
     match machine {
         EM_M32 => "M32",
         EM_SPARC => "SPARC",

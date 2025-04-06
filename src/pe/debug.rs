@@ -736,12 +736,15 @@ impl<'a> POGOInfo<'a> {
                 )));
         }
 
-        let offset_end = offset.checked_add(idd.size_of_data as usize - POGO_SIGNATURE_SIZE).ok_or_else(|| {
-            error::Error::Malformed(format!(
-                "ImageDebugDirectory offset ({:#x}) and size ({:#x}) cause an integer overflow",
-                offset, idd.size_of_data as usize - POGO_SIGNATURE_SIZE
-            ))
-        })?;
+        let offset_end = offset
+            .checked_add(idd.size_of_data as usize - POGO_SIGNATURE_SIZE)
+            .ok_or_else(|| {
+                error::Error::Malformed(format!(
+                    "ImageDebugDirectory offset ({:#x}) and size ({:#x}) cause an integer overflow",
+                    offset,
+                    idd.size_of_data as usize - POGO_SIGNATURE_SIZE
+                ))
+            })?;
 
         if offset > bytes.len() || offset_end > bytes.len() {
             return Err(error::Error::Malformed(format!(
@@ -749,7 +752,7 @@ impl<'a> POGOInfo<'a> {
                     offset, offset_end, bytes.len()
                 )));
         }
-        
+
         let data = &bytes[offset..offset_end];
         Ok(Some(POGOInfo { signature, data }))
     }

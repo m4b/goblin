@@ -1,7 +1,7 @@
 use crate::error::{self, Error};
 use crate::pe::relocation;
 use alloc::borrow::Cow;
-use alloc::string::{String};
+use alloc::string::String;
 use alloc::vec::Vec;
 use scroll::{ctx, Pread, Pwrite};
 
@@ -76,7 +76,10 @@ impl SectionTable {
         table.characteristics = bytes.gread_with(offset, scroll::LE)?;
 
         if let Some(idx) = table.name_offset()? {
-            table.real_name = bytes.pread::<&str>(string_table_offset + idx).ok().map(String::from);
+            table.real_name = bytes
+                .pread::<&str>(string_table_offset + idx)
+                .ok()
+                .map(String::from);
         }
         Ok(table)
     }

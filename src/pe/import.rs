@@ -11,7 +11,7 @@ use crate::pe::options;
 use crate::pe::section_table;
 use crate::pe::utils;
 
-use log::{debug, warn};
+use log::{debug, error, warn};
 
 pub const IMPORT_BY_ORDINAL_32: u32 = 0x8000_0000;
 pub const IMPORT_BY_ORDINAL_64: u64 = 0x8000_0000_0000_0000;
@@ -349,7 +349,7 @@ impl<'a> ImportData<'a> {
         let offset_opt = utils::find_offset(import_directory_table_rva, sections, file_alignment, opts);
 
         if offset_opt.is_none() {
-            println!(
+            debug!(
                 "Cannot create ImportData; cannot map import_directory_table_rva {:#x} into offset",
                 import_directory_table_rva
             );
@@ -364,7 +364,7 @@ impl<'a> ImportData<'a> {
             let import_directory_entry_result = bytes.gread_with::<ImportDirectoryEntry>(offset, scroll::LE);
 
             if let Err(e) = import_directory_entry_result {
-                eprintln!("Error reading ImportDirectoryEntry: {}", e);
+                error!("Error reading ImportDirectoryEntry: {}", e);
                 break;
             }
 
@@ -383,7 +383,7 @@ impl<'a> ImportData<'a> {
                 );
 
                 if let Err(e) = entry_result {
-                    eprintln!("Error parsing SyntheticImportDirectoryEntry: {}", e);
+                    error!("Error parsing SyntheticImportDirectoryEntry: {}", e);
                     continue;
                 }
 

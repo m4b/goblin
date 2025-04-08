@@ -347,18 +347,16 @@ impl<'a> RelocationData<'a> {
                         dd.virtual_address
                     ))
                 })?;
-
-        // Ensure that the offset and size do not exceed the length of the bytes slice
-        if offset + dd.size as usize > bytes.len() {
-            return Err(error::Error::Malformed(format!(
-                "base reloc offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",
-                offset,
-                dd.size,
-                bytes.len()
-            )));
-        }
-
-        let bytes = &bytes[offset..offset + dd.size as usize];
+        let bytes = bytes[offset..]
+            .pread::<&[u8]>(dd.size as usize)
+            .map_err(|_| {
+                error::Error::Malformed(format!(
+                    "base reloc offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",
+                    offset,
+                    dd.size,
+                    bytes.len()
+                ))
+            })?;
 
         Ok(Self { bytes })
     }

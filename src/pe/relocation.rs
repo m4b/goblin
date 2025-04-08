@@ -414,7 +414,9 @@ impl<'a> scroll::ctx::TryFromCtx<'a, scroll::Endian> for RelocationBlock<'a> {
         let mut offset = 0;
         let rva = bytes.gread_with::<u32>(&mut offset, ctx)?;
         let size = bytes.gread_with::<u32>(&mut offset, ctx)?;
-        let bytes = &[];
+        let word_size = size as usize - RELOCATION_BLOCK_SIZE;
+        let bytes = &bytes[offset..offset + word_size];
+        offset += word_size;
         Ok((Self { rva, size, bytes }, offset))
     }
 }
@@ -438,16 +440,7 @@ impl<'a> Iterator for RelocationBlockIterator<'a> {
                 .bytes
                 .gread_with::<RelocationBlock>(&mut self.offset, scroll::LE)
             {
-                Ok(block) => {
-                    let word_size = block.size as usize - RELOCATION_BLOCK_SIZE;
-                    let word_bytes = &self.bytes[self.offset..self.offset + word_size];
-                    // "Block"s and "Word"s are entirely contiguous
-                    self.offset += word_size;
-                    Ok(RelocationBlock {
-                        bytes: word_bytes,
-                        ..block
-                    })
-                }
+                Ok(block) => Ok(block),
                 Err(error) => {
                     self.bytes = &[];
                     Err(error.into())

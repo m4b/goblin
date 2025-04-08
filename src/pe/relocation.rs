@@ -309,8 +309,10 @@ impl<'a> Iterator for Relocations<'a> {
     }
 }
 
+/// Represents a PE base relocation directory data.
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct RelocationData<'a> {
+    /// Raw bytes covering the entire bytes of the base relocation directory.
     bytes: &'a [u8],
 }
 

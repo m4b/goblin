@@ -227,7 +227,15 @@ impl<'a> TlsData<'a> {
                         rva
                     ))
                 })?;
-            if offset + size as usize > bytes.len() {
+
+            let offset_end = offset.checked_add(size as usize).ok_or_else(|| {
+                error::Error::Malformed(format!(
+                    "tls start_address_of_raw_data ({:#x}) + size_of_raw_data ({:#x}) casues an integer overflow",
+                    offset, size
+                ))
+            })?;
+
+            if offset > bytes.len() || offset_end > bytes.len() {
                 return Err(error::Error::Malformed(format!(
                     "tls raw data offset ({:#x}) and size ({:#x}) greater than byte slice len ({:#x})",
                     offset, size, bytes.len()

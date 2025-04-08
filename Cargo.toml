@@ -11,7 +11,7 @@ authors = [
 categories = ["parsing", "development-tools::debugging"]
 documentation = "https://docs.rs/goblin"
 edition = "2021"
-rust-version = "1.63.0"
+rust-version = "1.65.0"
 include = [
     "src",
     "CHANGELOG.md",

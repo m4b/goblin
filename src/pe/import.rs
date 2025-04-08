@@ -11,6 +11,7 @@ use crate::pe::options;
 use crate::pe::section_table;
 use crate::pe::utils;
 
+use crate::pe::options::ParseMode;
 use log::{debug, warn};
 
 pub const IMPORT_BY_ORDINAL_32: u32 = 0x8000_0000;
@@ -361,15 +362,26 @@ impl<'a> ImportData<'a> {
             if import_directory_entry.is_null() || !import_directory_entry.is_possibly_valid() {
                 break;
             } else {
-                let entry = SyntheticImportDirectoryEntry::parse_with_opts::<T>(
+                let entry_result = SyntheticImportDirectoryEntry::parse_with_opts::<T>(
                     bytes,
                     import_directory_entry,
                     sections,
                     file_alignment,
                     opts,
-                )?;
-                debug!("entry {:#?} at {:#x}", entry, offset);
-                import_data.push(entry);
+                );
+                match entry_result {
+                    Ok(entry) => {
+                        debug!("entry {entry:#?}");
+                        import_data.push(entry);
+                    }
+                    Err(err) if matches!(opts.parse_mode, ParseMode::Permissive) => {
+                        warn!("Failed to parse import data: {err:?}");
+                        continue;
+                    }
+                    Err(err) => {
+                        return Err(err);
+                    }
+                }
             }
         }
         debug!("finished ImportData");

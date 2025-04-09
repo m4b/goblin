@@ -472,7 +472,6 @@ impl FusedIterator for RelocationBlockIterator<'_> {}
 ///   should be applied.
 /// * The remaining 12 bits specify the offset from the block's starting RVA where the
 ///   relocation should be applied.
-#[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq, Default, Pread, Pwrite, IOread, IOwrite, SizeWith)]
 pub struct RelocationWord {
     /// A 16-bit value encoding the relocation type and offset.

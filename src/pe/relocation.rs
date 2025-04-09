@@ -418,17 +418,20 @@ impl<'a> scroll::ctx::TryFromCtx<'a, scroll::Endian> for RelocationBlock<'a> {
             )));
         }
         let word_size = size as usize - RELOCATION_BLOCK_SIZE;
-        if offset + word_size > bytes.len() {
-            return Err(error::Error::Malformed(format!(
+        let word_data = bytes.gread_with::<&[u8]>(&mut offset, word_size).map_err(|_| error::Error::Malformed(format!(
                 "base reloc block offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",
                 offset,
                 word_size,
                 bytes.len()
-            )));
-        }
-        let bytes = &bytes[offset..offset + word_size];
-        offset += word_size;
-        Ok((Self { rva, size, bytes }, offset))
+            )))?;
+        Ok((
+            Self {
+                rva,
+                size,
+                bytes: word_data,
+            },
+            offset,
+        ))
     }
 }
 

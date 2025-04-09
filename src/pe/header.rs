@@ -1226,8 +1226,16 @@ pub const TE_MAGIC: u16 = 0x5a56;
 impl TeHeader {
     /// Parse the TE header from the given bytes.
     pub fn parse(bytes: &[u8], offset: &mut usize) -> error::Result<Self> {
+        const HEADER_SIZE: usize = core::mem::size_of::<TeHeader>();
         let mut header: TeHeader = bytes.gread_with(offset, scroll::LE)?;
-        let adj_offset = header.stripped_size as u32 - core::mem::size_of::<TeHeader>() as u32;
+        let stripped_size = header.stripped_size as u32;
+        let adj_offset = stripped_size
+            .checked_sub(HEADER_SIZE as u32)
+            .ok_or_else(|| {
+                error::Error::Malformed(format!(
+                    "Stripped size ({stripped_size:#x}) is smaller than TE header size ({HEADER_SIZE:#x})",
+                ))
+            })?;
         header.fixup_header(adj_offset);
         Ok(header)
     }
@@ -1371,7 +1379,10 @@ pub fn machine_to_str(machine: u16) -> &'static str {
 mod tests {
     use crate::{
         error,
-        pe::{header::DosStub, Coff},
+        pe::{
+            header::{DosStub, TeHeader},
+            Coff,
+        },
     };
 
     use super::{
@@ -1601,6 +1612,16 @@ mod tests {
         0x00, 0x0F, 0x00, 0xFF, 0x80,
     ];
 
+    /// Malformed very small TE with valid TE magic.
+    ///
+    /// https://github.com/m4b/goblin/issues/450
+    const MALFORMED_SMALL_TE: [u8; 58] = [
+        0x56, 0x5A, 0x52, 0x5A, 0x50, 0x00, 0x17, 0x00, 0x00, 0x00, 0x36, 0x00, 0x00, 0x00, 0x00,
+        0x10, 0x86, 0x02, 0x0C, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x1B, 0x01, 0x01, 0x00, 0x00,
+        0xFF, 0xB5, 0x00, 0x00, 0x00, 0x04, 0x34, 0x00, 0x00, 0xFF, 0xB5, 0x00, 0x00, 0x00, 0x04,
+        0x34, 0x15, 0x40, 0x13, 0x41, 0x0E, 0x10, 0x15, 0x40, 0x13, 0x41, 0x0E, 0x10,
+    ];
+
     const WELL_FORMED_WITH_RICH_HEADER: &[u8] =
         include_bytes!("../../tests/bins/pe/well_formed_import.exe.bin");
 
@@ -1726,6 +1747,21 @@ mod tests {
     fn parse_corrupted_rich_header() {
         let header_result = RichHeader::parse(&CORRUPTED_RICH_HEADER);
         assert_eq!(header_result.is_err(), true);
+    }
+
+    #[test]
+    fn parse_malformed_small_te() {
+        let mut offset = 0;
+        let header = TeHeader::parse(&MALFORMED_SMALL_TE, &mut offset);
+        assert_eq!(header.is_err(), true);
+        if let Err(error::Error::Malformed(msg)) = header {
+            assert_eq!(
+                msg,
+                "Stripped size (0x17) is smaller than TE header size (0x28)"
+            );
+        } else {
+            panic!("Expected a Malformed error but got {:?}", header);
+        }
     }
 
     #[test]

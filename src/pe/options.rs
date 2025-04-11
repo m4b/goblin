@@ -39,7 +39,7 @@ impl ParseOptions {
         Self {
             resolve_rva: false,
             parse_attribute_certificates: false,
-            parse_tls_data: false,
+            parse_tls_data: true,
             parse_mode: ParseMode::Strict,
         }
     }

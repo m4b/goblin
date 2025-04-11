@@ -84,6 +84,11 @@ pub struct PE<'a> {
 }
 
 impl<'a> PE<'a> {
+    /// Returns a view in the raw bytes of this PE binary
+    pub fn bytes(&self) -> &'a [u8] {
+        self.bytes
+    }
+
     /// Reads a PE binary from the underlying `bytes`
     pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
         Self::parse_with_opts(bytes, &options::ParseOptions::default())

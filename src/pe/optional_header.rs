@@ -4,6 +4,7 @@ use crate::container;
 use crate::error;
 
 use crate::pe::data_directories;
+use crate::pe::debug;
 
 use scroll::{ctx, Endian, LE};
 use scroll::{Pread, Pwrite, SizeWith};
@@ -620,12 +621,16 @@ impl ctx::TryIntoCtx<scroll::Endian> for OptionalHeader {
         match self.standard_fields.magic {
             MAGIC_32 => {
                 bytes.gwrite_with::<StandardFields32>(self.standard_fields.into(), offset, ctx)?;
+                debug!("Wrote standard fields 32 bits (offset: {})", offset);
                 bytes.gwrite_with(WindowsFields32::try_from(self.windows_fields)?, offset, ctx)?;
+                debug!("Wrote windows fields 32 bits (offset: {})", offset);
                 bytes.gwrite_with(self.data_directories, offset, ctx)?;
             }
             MAGIC_64 => {
                 bytes.gwrite_with::<StandardFields64>(self.standard_fields.into(), offset, ctx)?;
+                debug!("Wrote standard fields 64 bits (offset: {})", offset);
                 bytes.gwrite_with(self.windows_fields, offset, ctx)?;
+                debug!("Wrote windows fields 64 bits (offset: {})", offset);
                 bytes.gwrite_with(self.data_directories, offset, ctx)?;
             }
             _ => panic!(),

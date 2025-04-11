@@ -5,6 +5,9 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use scroll::{ctx, Pread, Pwrite};
 
+use super::utils::align_to;
+use super::PE;
+
 #[repr(C)]
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct SectionTable {
@@ -55,6 +58,60 @@ fn base64_decode_string_entry(s: &str) -> Result<usize, ()> {
 }
 
 impl SectionTable {
+    /// Given a view of the PE binary and minimal section information,
+    /// this will return a [`SectionTable`] filled with a virtual address
+    /// automatically based on the last section offset present in the PE.
+    ///
+    /// Most of the fields will be zeroed when they require a full vision of the PE
+    /// to be derived.
+    ///
+    /// Caller is responsible to fill on-disk file offsets and various pointers.
+    pub fn new(
+        pe: &PE,
+        name: &[u8; 8],
+        contents: &[u8],
+        characteristics: u32,
+        section_alignment: u32,
+    ) -> error::Result<Self> {
+        let mut table = SectionTable::default();
+        // VA is needed only if characteristics is
+        // execute | read | write.
+        let need_virtual_address = true;
+
+        table.name = *name;
+        table.size_of_raw_data = contents.len().try_into()?;
+        table.characteristics = characteristics;
+
+        // Filling this data requires a complete overview
+        // of the final PE which may involve rewriting
+        // the complete PE.
+        table.pointer_to_raw_data = 0;
+        table.pointer_to_relocations = 0;
+
+        table.pointer_to_linenumbers = 0;
+        table.number_of_linenumbers = 0;
+        table.pointer_to_relocations = 0;
+
+        if need_virtual_address {
+            table.virtual_size = contents.len().try_into()?;
+            let mut sections = pe.sections.clone();
+            sections.sort_by_key(|sect| sect.virtual_address);
+            // Base VA = 0 ?
+            let last_section_offset = sections
+                .last()
+                .map(|last_section| last_section.virtual_address + last_section.virtual_size)
+                .ok_or(0u32)
+                .unwrap();
+
+            table.virtual_address = align_to(last_section_offset, section_alignment);
+        } else {
+            table.virtual_size = 0;
+            table.virtual_address = 0;
+        }
+
+        Ok(table)
+    }
+
     pub fn parse(
         bytes: &[u8],
         offset: &mut usize,

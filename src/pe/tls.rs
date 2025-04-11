@@ -199,7 +199,14 @@ impl<'a> TlsData<'a> {
         let mut callbacks = Vec::new();
 
         // Try to parse the TLS directory but continue even if it fails
-        let itd = match ImageTlsDirectory::parse_with_opts(bytes, *dd, sections, file_alignment, opts, is_64) {
+        let itd = match ImageTlsDirectory::parse_with_opts(
+            bytes,
+            *dd,
+            sections,
+            file_alignment,
+            opts,
+            is_64,
+        ) {
             Ok(dir) => dir,
             Err(e) => {
                 error!("Warning: Failed to parse TLS directory: {}", e);
@@ -236,7 +243,7 @@ impl<'a> TlsData<'a> {
                                 offset, size, bytes.len()
                             );
                         }
-                    },
+                    }
                     None => {
                         error!(
                             "Warning: cannot map tls start_address_of_raw_data rva ({:#x}) into offset",
@@ -281,7 +288,9 @@ impl<'a> TlsData<'a> {
                             let callback_result: Result<u64, _> = if is_64 {
                                 bytes.pread_with::<u64>(offset + i * 8, scroll::LE)
                             } else {
-                                bytes.pread_with::<u32>(offset + i * 4, scroll::LE).map(|v| v as u64)
+                                bytes
+                                    .pread_with::<u32>(offset + i * 4, scroll::LE)
+                                    .map(|v| v as u64)
                             };
 
                             match callback_result {
@@ -297,8 +306,13 @@ impl<'a> TlsData<'a> {
                                         let callback_rva = callback - image_base;
 
                                         // Check if the callback is in the image
-                                        if utils::find_offset(callback_rva as usize, sections, file_alignment, opts)
-                                            .is_none()
+                                        if utils::find_offset(
+                                            callback_rva as usize,
+                                            sections,
+                                            file_alignment,
+                                            opts,
+                                        )
+                                        .is_none()
                                         {
                                             error!(
                                                 "Warning: cannot map tls callback ({:#x})",
@@ -309,14 +323,14 @@ impl<'a> TlsData<'a> {
                                         }
                                     }
                                     i += 1;
-                                },
+                                }
                                 Err(_) => {
                                     error!("Warning: error reading TLS callback at index {}", i);
                                     break;
                                 }
                             }
                         }
-                    },
+                    }
                     None => {
                         error!(
                             "Warning: cannot map tls address_of_callbacks rva ({:#x}) into offset",

@@ -346,14 +346,17 @@ impl<'a> ImportData<'a> {
             import_directory_table_rva
         );
 
-        let offset_opt = utils::find_offset(import_directory_table_rva, sections, file_alignment, opts);
+        let offset_opt =
+            utils::find_offset(import_directory_table_rva, sections, file_alignment, opts);
 
         if offset_opt.is_none() {
             debug!(
                 "Cannot create ImportData; cannot map import_directory_table_rva {:#x} into offset",
                 import_directory_table_rva
             );
-            return Ok(ImportData { import_data: Vec::new() });
+            return Ok(ImportData {
+                import_data: Vec::new(),
+            });
         }
 
         let offset = &mut offset_opt.unwrap();
@@ -361,7 +364,8 @@ impl<'a> ImportData<'a> {
         let mut import_data = Vec::new();
 
         loop {
-            let import_directory_entry_result = bytes.gread_with::<ImportDirectoryEntry>(offset, scroll::LE);
+            let import_directory_entry_result =
+                bytes.gread_with::<ImportDirectoryEntry>(offset, scroll::LE);
 
             if let Err(e) = import_directory_entry_result {
                 error!("Error reading ImportDirectoryEntry: {}", e);

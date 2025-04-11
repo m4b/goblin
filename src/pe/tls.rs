@@ -1,5 +1,6 @@
 use crate::error;
 use alloc::vec::Vec;
+use log::error;
 use scroll::{Pread, Pwrite, SizeWith};
 
 use crate::pe::data_directories;
@@ -201,7 +202,7 @@ impl<'a> TlsData<'a> {
         let itd = match ImageTlsDirectory::parse_with_opts(bytes, *dd, sections, file_alignment, opts, is_64) {
             Ok(dir) => dir,
             Err(e) => {
-                eprintln!("Warning: Failed to parse TLS directory: {}", e);
+                error!("Warning: Failed to parse TLS directory: {}", e);
                 return Ok(None); // Return None instead of propagating error
             }
         };
@@ -210,13 +211,13 @@ impl<'a> TlsData<'a> {
         if itd.end_address_of_raw_data != 0 && itd.start_address_of_raw_data != 0 {
             // Check for invalid raw data pointers
             if itd.start_address_of_raw_data > itd.end_address_of_raw_data {
-                eprintln!(
+                error!(
                     "Warning: tls start_address_of_raw_data ({:#x}) is greater than end_address_of_raw_data ({:#x})",
                     itd.start_address_of_raw_data,
                     itd.end_address_of_raw_data
                 );
             } else if itd.start_address_of_raw_data < image_base {
-                eprintln!(
+                error!(
                     "Warning: tls start_address_of_raw_data ({:#x}) is less than image base ({:#x})",
                     itd.start_address_of_raw_data, image_base
                 );
@@ -230,14 +231,14 @@ impl<'a> TlsData<'a> {
                         if offset + size as usize <= bytes.len() {
                             raw_data = Some(&bytes[offset..offset + size as usize]);
                         } else {
-                            eprintln!(
+                            error!(
                                 "Warning: tls raw data offset ({:#x}) and size ({:#x}) greater than byte slice len ({:#x})",
                                 offset, size, bytes.len()
                             );
                         }
                     },
                     None => {
-                        eprintln!(
+                        error!(
                             "Warning: cannot map tls start_address_of_raw_data rva ({:#x}) into offset",
                             rva
                         );
@@ -249,7 +250,7 @@ impl<'a> TlsData<'a> {
         // Parse the index if any
         if itd.address_of_index != 0 {
             if itd.address_of_index < image_base {
-                eprintln!(
+                error!(
                     "Warning: tls address_of_index ({:#x}) is less than image base ({:#x})",
                     itd.address_of_index, image_base
                 );
@@ -264,7 +265,7 @@ impl<'a> TlsData<'a> {
         // Parse the callbacks if any
         if itd.address_of_callbacks != 0 {
             if itd.address_of_callbacks < image_base {
-                eprintln!(
+                error!(
                     "Warning: tls address_of_callbacks ({:#x}) is less than image base ({:#x})",
                     itd.address_of_callbacks, image_base
                 );
@@ -287,7 +288,7 @@ impl<'a> TlsData<'a> {
                                 Ok(0) => break, // Null terminator
                                 Ok(callback) => {
                                     if callback < image_base as u64 {
-                                        eprintln!(
+                                        error!(
                                             "Warning: tls callback ({:#x}) is less than image base ({:#x})",
                                             callback, image_base
                                         );
@@ -299,7 +300,7 @@ impl<'a> TlsData<'a> {
                                         if utils::find_offset(callback_rva as usize, sections, file_alignment, opts)
                                             .is_none()
                                         {
-                                            eprintln!(
+                                            error!(
                                                 "Warning: cannot map tls callback ({:#x})",
                                                 callback
                                             );
@@ -310,14 +311,14 @@ impl<'a> TlsData<'a> {
                                     i += 1;
                                 },
                                 Err(_) => {
-                                    eprintln!("Warning: error reading TLS callback at index {}", i);
+                                    error!("Warning: error reading TLS callback at index {}", i);
                                     break;
                                 }
                             }
                         }
                     },
                     None => {
-                        eprintln!(
+                        error!(
                             "Warning: cannot map tls address_of_callbacks rva ({:#x}) into offset",
                             rva
                         );

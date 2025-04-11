@@ -224,8 +224,8 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
     ) -> error::Result<SyntheticImportDirectoryEntry<'a>> {
         const LE: scroll::Endian = scroll::LE;
         let name_rva = import_directory_entry.name_rva;
-        let name = utils::try_name(bytes, name_rva as usize, sections, file_alignment, opts)
-            .unwrap_or_default();
+        let name = utils::try_name(bytes, name_rva as usize, sections, file_alignment, opts).ok();
+        let name_str = name.unwrap_or_default();
         let import_lookup_table = {
             let import_lookup_table_rva = import_directory_entry.import_lookup_table_rva;
             let import_address_table_rva = import_directory_entry.import_address_table_rva;
@@ -235,7 +235,7 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
                 file_alignment,
                 opts,
             ) {
-                debug!("Synthesizing lookup table imports for {} lib, with import lookup table rva: {:#x}", name, import_lookup_table_rva);
+                debug!("Synthesizing lookup table imports for {} lib, with import lookup table rva: {:#x}", name_str, import_lookup_table_rva);
                 let import_lookup_table = SyntheticImportLookupTableEntry::parse_with_opts::<T>(
                     bytes,
                     import_lookup_table_offset,
@@ -254,7 +254,7 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
                 file_alignment,
                 opts,
             ) {
-                debug!("Synthesizing lookup table imports for {} lib, with import address table rva: {:#x}", name, import_lookup_table_rva);
+                debug!("Synthesizing lookup table imports for {} lib, with import address table rva: {:#x}", name_str, import_lookup_table_rva);
                 let import_address_table = SyntheticImportLookupTableEntry::parse_with_opts::<T>(
                     bytes,
                     import_address_table_offset,
@@ -287,7 +287,7 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
                     };
                     error::Error::Malformed(format!(
                         "Cannot map {} {:#x} into offset for {}",
-                        target, rva, name
+                        target, rva, name_str
                     ))
                 },
             )?;
@@ -304,7 +304,7 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
         }
         Ok(SyntheticImportDirectoryEntry {
             import_directory_entry,
-            name,
+            name: name_str,
             import_lookup_table,
             import_address_table,
         })

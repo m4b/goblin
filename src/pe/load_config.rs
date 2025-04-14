@@ -390,7 +390,7 @@ pub struct LoadConfigData<'a> {
     bytes: &'a [u8],
     /// The struct size [LoadConfigDirectory::size] read from first
     /// 4 bytes of [LoadConfigData::bytes].
-    size: usize,
+    size: u32,
 }
 
 impl<'a> LoadConfigData<'a> {
@@ -439,7 +439,7 @@ impl<'a> LoadConfigData<'a> {
             })?;
         let size = bytes.pread::<u32>(0).map_err(|_| {
             error::Error::Malformed(format!("cannot read cb size ({})", bytes.len()))
-        })? as usize;
+        })?;
 
         Ok(Self { is_64, bytes, size })
     }
@@ -455,7 +455,7 @@ impl<'a> LoadConfigData<'a> {
 
     /// Returns the value of [LoadConfigDirectory::size].
     pub fn size(&self) -> u32 {
-        self.size as u32
+        self.size
     }
 
     /// Returns the value of [LoadConfigDirectory::time_stamp].
@@ -1270,7 +1270,7 @@ mod tests {
         let data = LoadConfigData {
             is_64: true,
             bytes: LOADCONFIG64_DATA0,
-            size: size as usize,
+            size,
         };
 
         assert_eq!(data.size(), 320);
@@ -1363,7 +1363,7 @@ mod tests {
         let data = LoadConfigData {
             is_64: false,
             bytes: LOADCONFIG32_DATA0,
-            size: size as usize,
+            size,
         };
 
         assert_eq!(data.size(), 188);

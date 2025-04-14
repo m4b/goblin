@@ -347,6 +347,13 @@ impl<'a> RelocationData<'a> {
                         dd.virtual_address
                     ))
                 })?;
+        if bytes.len() < offset {
+            return Err(error::Error::Malformed(format!(
+                "base reloc offset {:#x} out of bounds {:#x}",
+                offset,
+                bytes.len()
+            )));
+        }
         let bytes = bytes[offset..]
             .pread::<&[u8]>(dd.size as usize)
             .map_err(|_| {

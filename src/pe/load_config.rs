@@ -283,7 +283,7 @@ impl<'a> LoadConfigData<'a> {
             utils::find_offset(dd.virtual_address as usize, sections, file_alignment, opts)
                 .ok_or_else(|| {
                     error::Error::Malformed(format!(
-                        "Cannot map base reloc rva {:#x} into offset",
+                        "Cannot map load config rva {:#x} into offset",
                         dd.virtual_address
                     ))
                 })?;
@@ -291,7 +291,7 @@ impl<'a> LoadConfigData<'a> {
             .pread::<&[u8]>(dd.size as usize)
             .map_err(|_| {
                 error::Error::Malformed(format!(
-                    "base reloc offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",
+                    "load config offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",
                     offset,
                     dd.size,
                     bytes.len()

@@ -1,5 +1,3 @@
-use core::mem::offset_of;
-
 use scroll::{Pread, Pwrite, SizeWith};
 
 use crate::error;
@@ -336,6 +334,26 @@ macro_rules! have_field {
     };
 }
 
+/// Calculates the byte offset of a field within a struct at runtime.
+///
+/// # Note
+///
+/// Please replace this with one in `core::mem::offset_of` once stabilized.
+macro_rules! my_offset_of {
+    ($struct:path, $field:ident) => {{
+        // SAFETY:
+        // - `std::mem::zeroed()` is used to create a dummy instance of the struct.
+        // - The field is only being *referenced*, not read or written to.
+        // - This is generally safe as long as the field type does not have invalid bit patterns
+        //   (e.g., references or non-nullable pointers) and no actual dereferencing occurs.
+        // - Using `#[repr(C)]` or `#[repr(packed)]` on the struct is strongly recommended.
+        let base: $struct = unsafe { std::mem::zeroed() };
+        let base_addr = &base as *const _ as usize;
+        let field_addr = &base.$field as *const _ as usize;
+        field_addr - base_addr
+    }};
+}
+
 /// Represents the code integrity configuration used in load configuration.
 #[repr(C)]
 #[derive(Debug, Clone, Pread, Pwrite, SizeWith, Eq, PartialEq)]
@@ -446,14 +464,14 @@ impl<'a> LoadConfigData<'a> {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory64, time_stamp),
+                my_offset_of!(LoadConfigDirectory64, time_stamp),
                 u32
             )
         } else {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory32, time_stamp),
+                my_offset_of!(LoadConfigDirectory32, time_stamp),
                 u32
             )
         }
@@ -465,14 +483,14 @@ impl<'a> LoadConfigData<'a> {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory64, major_version),
+                my_offset_of!(LoadConfigDirectory64, major_version),
                 u16
             )
         } else {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory32, major_version),
+                my_offset_of!(LoadConfigDirectory32, major_version),
                 u16
             )
         }
@@ -484,14 +502,14 @@ impl<'a> LoadConfigData<'a> {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory64, minor_version),
+                my_offset_of!(LoadConfigDirectory64, minor_version),
                 u16
             )
         } else {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory32, minor_version),
+                my_offset_of!(LoadConfigDirectory32, minor_version),
                 u16
             )
         }
@@ -503,14 +521,14 @@ impl<'a> LoadConfigData<'a> {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory64, global_flags_clear),
+                my_offset_of!(LoadConfigDirectory64, global_flags_clear),
                 u32
             )
         } else {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory32, global_flags_clear),
+                my_offset_of!(LoadConfigDirectory32, global_flags_clear),
                 u32
             )
         }
@@ -522,14 +540,14 @@ impl<'a> LoadConfigData<'a> {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory64, global_flags_set),
+                my_offset_of!(LoadConfigDirectory64, global_flags_set),
                 u32
             )
         } else {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory32, global_flags_set),
+                my_offset_of!(LoadConfigDirectory32, global_flags_set),
                 u32
             )
         }
@@ -541,14 +559,14 @@ impl<'a> LoadConfigData<'a> {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory64, critical_section_default_timeout),
+                my_offset_of!(LoadConfigDirectory64, critical_section_default_timeout),
                 u32
             )
         } else {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory32, critical_section_default_timeout),
+                my_offset_of!(LoadConfigDirectory32, critical_section_default_timeout),
                 u32
             )
         }
@@ -557,12 +575,12 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::de_commit_free_block_threshold].
     pub fn de_commit_free_block_threshold(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory64,
                 de_commit_free_block_threshold
             ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory32,
                 de_commit_free_block_threshold
             ))
@@ -572,12 +590,12 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::de_commit_total_free_threshold].
     pub fn de_commit_total_free_threshold(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory64,
                 de_commit_total_free_threshold
             ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory32,
                 de_commit_total_free_threshold
             ))
@@ -587,30 +605,36 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::lock_prefix_table].
     pub fn lock_prefix_table(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(LoadConfigDirectory64, lock_prefix_table))
+            self.read_arch_dependent_u64(my_offset_of!(LoadConfigDirectory64, lock_prefix_table))
         } else {
-            self.read_arch_dependent_u64(offset_of!(LoadConfigDirectory32, lock_prefix_table))
+            self.read_arch_dependent_u64(my_offset_of!(LoadConfigDirectory32, lock_prefix_table))
         }
     }
 
     /// Returns the value of [LoadConfigDirectory::maximum_allocation_size].
     pub fn maximum_allocation_size(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(LoadConfigDirectory64, maximum_allocation_size))
+            self.read_arch_dependent_u64(my_offset_of!(
+                LoadConfigDirectory64,
+                maximum_allocation_size
+            ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(LoadConfigDirectory32, maximum_allocation_size))
+            self.read_arch_dependent_u64(my_offset_of!(
+                LoadConfigDirectory32,
+                maximum_allocation_size
+            ))
         }
     }
 
     /// Returns the value of [LoadConfigDirectory::virtual_memory_threshold].
     pub fn virtual_memory_threshold(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory64,
                 virtual_memory_threshold
             ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory32,
                 virtual_memory_threshold
             ))
@@ -620,9 +644,15 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::process_affinity_mask].
     pub fn process_affinity_mask(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(LoadConfigDirectory64, process_affinity_mask))
+            self.read_arch_dependent_u64(my_offset_of!(
+                LoadConfigDirectory64,
+                process_affinity_mask
+            ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(LoadConfigDirectory32, process_affinity_mask))
+            self.read_arch_dependent_u64(my_offset_of!(
+                LoadConfigDirectory32,
+                process_affinity_mask
+            ))
         }
     }
 
@@ -632,14 +662,14 @@ impl<'a> LoadConfigData<'a> {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory64, process_heap_flags),
+                my_offset_of!(LoadConfigDirectory64, process_heap_flags),
                 u32
             )
         } else {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory32, process_heap_flags),
+                my_offset_of!(LoadConfigDirectory32, process_heap_flags),
                 u32
             )
         }
@@ -651,14 +681,14 @@ impl<'a> LoadConfigData<'a> {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory64, csd_version),
+                my_offset_of!(LoadConfigDirectory64, csd_version),
                 u16
             )
         } else {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory32, csd_version),
+                my_offset_of!(LoadConfigDirectory32, csd_version),
                 u16
             )
         }
@@ -670,14 +700,14 @@ impl<'a> LoadConfigData<'a> {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory64, dependent_load_flags),
+                my_offset_of!(LoadConfigDirectory64, dependent_load_flags),
                 u16
             )
         } else {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory32, dependent_load_flags),
+                my_offset_of!(LoadConfigDirectory32, dependent_load_flags),
                 u16
             )
         }
@@ -686,48 +716,48 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::edit_list].
     pub fn edit_list(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(LoadConfigDirectory64, edit_list))
+            self.read_arch_dependent_u64(my_offset_of!(LoadConfigDirectory64, edit_list))
         } else {
-            self.read_arch_dependent_u64(offset_of!(LoadConfigDirectory32, edit_list))
+            self.read_arch_dependent_u64(my_offset_of!(LoadConfigDirectory32, edit_list))
         }
     }
 
     /// Returns the value of [LoadConfigDirectory::security_cookie].
     pub fn security_cookie(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(LoadConfigDirectory64, security_cookie))
+            self.read_arch_dependent_u64(my_offset_of!(LoadConfigDirectory64, security_cookie))
         } else {
-            self.read_arch_dependent_u64(offset_of!(LoadConfigDirectory32, security_cookie))
+            self.read_arch_dependent_u64(my_offset_of!(LoadConfigDirectory32, security_cookie))
         }
     }
 
     /// Returns the value of [LoadConfigDirectory::se_handler_table].
     pub fn se_handler_table(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(LoadConfigDirectory64, se_handler_table))
+            self.read_arch_dependent_u64(my_offset_of!(LoadConfigDirectory64, se_handler_table))
         } else {
-            self.read_arch_dependent_u64(offset_of!(LoadConfigDirectory32, se_handler_table))
+            self.read_arch_dependent_u64(my_offset_of!(LoadConfigDirectory32, se_handler_table))
         }
     }
 
     /// Returns the value of [LoadConfigDirectory::se_handler_count].
     pub fn se_handler_count(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(LoadConfigDirectory64, se_handler_count))
+            self.read_arch_dependent_u64(my_offset_of!(LoadConfigDirectory64, se_handler_count))
         } else {
-            self.read_arch_dependent_u64(offset_of!(LoadConfigDirectory32, se_handler_count))
+            self.read_arch_dependent_u64(my_offset_of!(LoadConfigDirectory32, se_handler_count))
         }
     }
 
     /// Returns the value of [LoadConfigDirectory::guard_cf_check_function_pointer].
     pub fn guard_cf_check_function_pointer(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory64,
                 guard_cf_check_function_pointer
             ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory32,
                 guard_cf_check_function_pointer
             ))
@@ -737,12 +767,12 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::guard_cf_dispatch_function_pointer].
     pub fn guard_cf_dispatch_function_pointer(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory64,
                 guard_cf_dispatch_function_pointer
             ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory32,
                 guard_cf_dispatch_function_pointer
             ))
@@ -752,18 +782,30 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::guard_cf_function_table].
     pub fn guard_cf_function_table(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(LoadConfigDirectory64, guard_cf_function_table))
+            self.read_arch_dependent_u64(my_offset_of!(
+                LoadConfigDirectory64,
+                guard_cf_function_table
+            ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(LoadConfigDirectory32, guard_cf_function_table))
+            self.read_arch_dependent_u64(my_offset_of!(
+                LoadConfigDirectory32,
+                guard_cf_function_table
+            ))
         }
     }
 
     /// Returns the value of [LoadConfigDirectory::guard_cf_function_count].
     pub fn guard_cf_function_count(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(LoadConfigDirectory64, guard_cf_function_count))
+            self.read_arch_dependent_u64(my_offset_of!(
+                LoadConfigDirectory64,
+                guard_cf_function_count
+            ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(LoadConfigDirectory32, guard_cf_function_count))
+            self.read_arch_dependent_u64(my_offset_of!(
+                LoadConfigDirectory32,
+                guard_cf_function_count
+            ))
         }
     }
 
@@ -773,14 +815,14 @@ impl<'a> LoadConfigData<'a> {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory64, guard_flags),
+                my_offset_of!(LoadConfigDirectory64, guard_flags),
                 u32
             )
         } else {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory32, guard_flags),
+                my_offset_of!(LoadConfigDirectory32, guard_flags),
                 u32
             )
         }
@@ -792,14 +834,14 @@ impl<'a> LoadConfigData<'a> {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory64, code_integrity),
+                my_offset_of!(LoadConfigDirectory64, code_integrity),
                 LoadConfigCodeIntegrity
             )
         } else {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory32, code_integrity),
+                my_offset_of!(LoadConfigDirectory32, code_integrity),
                 LoadConfigCodeIntegrity
             )
         }
@@ -808,12 +850,12 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::guard_address_taken_iat_entry_table].
     pub fn guard_address_taken_iat_entry_table(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory64,
                 guard_address_taken_iat_entry_table
             ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory32,
                 guard_address_taken_iat_entry_table
             ))
@@ -823,12 +865,12 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::guard_address_taken_iat_entry_count].
     pub fn guard_address_taken_iat_entry_count(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory64,
                 guard_address_taken_iat_entry_count
             ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory32,
                 guard_address_taken_iat_entry_count
             ))
@@ -838,12 +880,12 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::guard_long_jump_target_table].
     pub fn guard_long_jump_target_table(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory64,
                 guard_long_jump_target_table
             ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory32,
                 guard_long_jump_target_table
             ))
@@ -853,12 +895,12 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::guard_long_jump_target_count].
     pub fn guard_long_jump_target_count(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory64,
                 guard_long_jump_target_count
             ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory32,
                 guard_long_jump_target_count
             ))
@@ -868,12 +910,12 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::dynamic_value_reloc_table].
     pub fn dynamic_value_reloc_table(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory64,
                 dynamic_value_reloc_table
             ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory32,
                 dynamic_value_reloc_table
             ))
@@ -883,21 +925,27 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::chpe_metadata_pointer].
     pub fn chpe_metadata_pointer(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(LoadConfigDirectory64, chpe_metadata_pointer))
+            self.read_arch_dependent_u64(my_offset_of!(
+                LoadConfigDirectory64,
+                chpe_metadata_pointer
+            ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(LoadConfigDirectory32, chpe_metadata_pointer))
+            self.read_arch_dependent_u64(my_offset_of!(
+                LoadConfigDirectory32,
+                chpe_metadata_pointer
+            ))
         }
     }
 
     /// Returns the value of [LoadConfigDirectory::guard_rf_failure_routine].
     pub fn guard_rf_failure_routine(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory64,
                 guard_rf_failure_routine
             ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory32,
                 guard_rf_failure_routine
             ))
@@ -907,12 +955,12 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::guard_rf_failure_routine_function_pointer].
     pub fn guard_rf_failure_routine_function_pointer(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory64,
                 guard_rf_failure_routine_function_pointer
             ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory32,
                 guard_rf_failure_routine_function_pointer
             ))
@@ -925,14 +973,14 @@ impl<'a> LoadConfigData<'a> {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory64, dynamic_value_reloc_table_offset),
+                my_offset_of!(LoadConfigDirectory64, dynamic_value_reloc_table_offset),
                 u32
             )
         } else {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory32, dynamic_value_reloc_table_offset),
+                my_offset_of!(LoadConfigDirectory32, dynamic_value_reloc_table_offset),
                 u32
             )
         }
@@ -944,14 +992,14 @@ impl<'a> LoadConfigData<'a> {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory64, dynamic_value_reloc_table_section),
+                my_offset_of!(LoadConfigDirectory64, dynamic_value_reloc_table_section),
                 u16
             )
         } else {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory32, dynamic_value_reloc_table_section),
+                my_offset_of!(LoadConfigDirectory32, dynamic_value_reloc_table_section),
                 u16
             )
         }
@@ -963,14 +1011,14 @@ impl<'a> LoadConfigData<'a> {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory64, reserved2),
+                my_offset_of!(LoadConfigDirectory64, reserved2),
                 u16
             )
         } else {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory32, reserved2),
+                my_offset_of!(LoadConfigDirectory32, reserved2),
                 u16
             )
         }
@@ -979,12 +1027,12 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::guard_rf_verify_stack_pointer_function_pointer].
     pub fn guard_rf_verify_stack_pointer_function_pointer(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory64,
                 guard_rf_verify_stack_pointer_function_pointer
             ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory32,
                 guard_rf_verify_stack_pointer_function_pointer
             ))
@@ -997,14 +1045,14 @@ impl<'a> LoadConfigData<'a> {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory64, hot_patch_table_offset),
+                my_offset_of!(LoadConfigDirectory64, hot_patch_table_offset),
                 u32
             )
         } else {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory32, hot_patch_table_offset),
+                my_offset_of!(LoadConfigDirectory32, hot_patch_table_offset),
                 u32
             )
         }
@@ -1016,14 +1064,14 @@ impl<'a> LoadConfigData<'a> {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory64, reserved3),
+                my_offset_of!(LoadConfigDirectory64, reserved3),
                 u32
             )
         } else {
             have_field!(
                 self.bytes,
                 self.size,
-                offset_of!(LoadConfigDirectory32, reserved3),
+                my_offset_of!(LoadConfigDirectory32, reserved3),
                 u32
             )
         }
@@ -1032,12 +1080,12 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::enclave_configuration_pointer].
     pub fn enclave_configuration_pointer(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory64,
                 enclave_configuration_pointer
             ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory32,
                 enclave_configuration_pointer
             ))
@@ -1047,12 +1095,12 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::volatile_metadata_pointer].
     pub fn volatile_metadata_pointer(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory64,
                 volatile_metadata_pointer
             ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory32,
                 volatile_metadata_pointer
             ))
@@ -1062,12 +1110,12 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::guard_eh_continuation_table].
     pub fn guard_eh_continuation_table(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory64,
                 guard_eh_continuation_table
             ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory32,
                 guard_eh_continuation_table
             ))
@@ -1077,12 +1125,12 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::guard_eh_continuation_count].
     pub fn guard_eh_continuation_count(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory64,
                 guard_eh_continuation_count
             ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory32,
                 guard_eh_continuation_count
             ))
@@ -1092,12 +1140,12 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::guard_xfg_check_function_pointer].
     pub fn guard_xfg_check_function_pointer(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory64,
                 guard_xfg_check_function_pointer
             ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory32,
                 guard_xfg_check_function_pointer
             ))
@@ -1107,12 +1155,12 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::guard_xfg_dispatch_function_pointer].
     pub fn guard_xfg_dispatch_function_pointer(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory64,
                 guard_xfg_dispatch_function_pointer
             ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory32,
                 guard_xfg_dispatch_function_pointer
             ))
@@ -1122,12 +1170,12 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::guard_xfg_table_dispatch_function_pointer].
     pub fn guard_xfg_table_dispatch_function_pointer(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory64,
                 guard_xfg_table_dispatch_function_pointer
             ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory32,
                 guard_xfg_table_dispatch_function_pointer
             ))
@@ -1137,12 +1185,12 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::cast_guard_os_determined_failure_mode].
     pub fn cast_guard_os_determined_failure_mode(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory64,
                 cast_guard_os_determined_failure_mode
             ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory32,
                 cast_guard_os_determined_failure_mode
             ))
@@ -1152,12 +1200,12 @@ impl<'a> LoadConfigData<'a> {
     /// Returns the value of [LoadConfigDirectory::guard_memcpy_function_pointer].
     pub fn guard_memcpy_function_pointer(&self) -> Option<u64> {
         if self.is_64 {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory64,
                 guard_memcpy_function_pointer
             ))
         } else {
-            self.read_arch_dependent_u64(offset_of!(
+            self.read_arch_dependent_u64(my_offset_of!(
                 LoadConfigDirectory32,
                 guard_memcpy_function_pointer
             ))

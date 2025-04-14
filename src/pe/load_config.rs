@@ -342,12 +342,12 @@ macro_rules! have_field {
 macro_rules! my_offset_of {
     ($struct:path, $field:ident) => {{
         // SAFETY:
-        // - `std::mem::zeroed()` is used to create a dummy instance of the struct.
+        // - `core::mem::zeroed()` is used to create a dummy instance of the struct.
         // - The field is only being *referenced*, not read or written to.
         // - This is generally safe as long as the field type does not have invalid bit patterns
         //   (e.g., references or non-nullable pointers) and no actual dereferencing occurs.
         // - Using `#[repr(C)]` or `#[repr(packed)]` on the struct is strongly recommended.
-        let base: $struct = unsafe { std::mem::zeroed() };
+        let base: $struct = unsafe { core::mem::zeroed() };
         let base_addr = &base as *const _ as usize;
         let field_addr = &base.$field as *const _ as usize;
         field_addr - base_addr

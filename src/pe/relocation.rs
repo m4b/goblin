@@ -347,13 +347,36 @@ impl<'a> RelocationData<'a> {
                         dd.virtual_address
                     ))
                 })?;
+
+        let available_size = if offset + (dd.size as usize) <= bytes.len() {
+            dd.size as usize
+        } else {
+            // If directory size is wrong, find the containing .reloc section to get its size as a fallback 
+            let section = sections.iter()
+                .find(|s| {
+                    let section_start = utils::find_offset(s.virtual_address as usize, sections, file_alignment, opts).unwrap_or(0);
+                    let section_end = section_start + s.size_of_raw_data as usize;
+                    offset >= section_start && offset < section_end
+                })
+                .ok_or_else(|| error::Error::Malformed(format!(
+                    "base reloc offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",
+                    offset,
+                    dd.size,
+                    bytes.len()
+                )))?;
+            
+            let section_offset = utils::find_offset(section.virtual_address as usize, sections, file_alignment, opts).unwrap_or(0);
+            let remaining_in_section = (section.size_of_raw_data as usize).saturating_sub(offset - section_offset);
+            remaining_in_section.min(dd.size as usize)
+        };
+
         let bytes = bytes[offset..]
-            .pread::<&[u8]>(dd.size as usize)
+            .pread::<&[u8]>(available_size)
             .map_err(|_| {
                 error::Error::Malformed(format!(
                     "base reloc offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",
                     offset,
-                    dd.size,
+                    available_size,
                     bytes.len()
                 ))
             })?;

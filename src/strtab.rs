@@ -80,7 +80,13 @@ impl<'a> Strtab<'a> {
         let mut result = Self::from_slice_unparsed(bytes, offset, len, delim);
         let mut i = 0;
         while i < result.bytes.len() {
-            let string = get_str(i, result.bytes, result.delim)?;
+            let string = match get_str(i, result.bytes, result.delim) {
+                Ok(s) => s,
+                Err(_) => {
+                    // On error set to empty string
+                    ""
+                }
+            };
             result.strings.push((i, string));
             i += string.len() + 1;
         }

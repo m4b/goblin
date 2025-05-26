@@ -10,8 +10,8 @@ authors = [
 ]
 categories = ["parsing", "development-tools::debugging"]
 documentation = "https://docs.rs/goblin"
-edition = "2021"
-rust-version = "1.65.0"
+edition = "2024"
+rust-version = "1.85.0"
 include = [
     "src",
     "CHANGELOG.md",
@@ -34,7 +34,7 @@ default-features = false
 optional = true
 
 [dependencies.scroll]
-version = "0.12"
+version = "0.13"
 default-features = false
 
 [features]
@@ -57,4 +57,4 @@ branch = "master"
 repository = "m4b/goblin"
 
 [dev-dependencies]
-stderrlog = "0.5.4"
+stderrlog = "0.6.0"

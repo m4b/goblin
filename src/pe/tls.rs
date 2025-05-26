@@ -205,8 +205,7 @@ impl<'a> TlsData<'a> {
             if itd.start_address_of_raw_data > itd.end_address_of_raw_data {
                 return Err(error::Error::Malformed(format!(
                     "tls start_address_of_raw_data ({:#x}) is greater than end_address_of_raw_data ({:#x})",
-                    itd.start_address_of_raw_data,
-                    itd.end_address_of_raw_data
+                    itd.start_address_of_raw_data, itd.end_address_of_raw_data
                 )));
             }
 
@@ -238,7 +237,9 @@ impl<'a> TlsData<'a> {
             if offset > bytes.len() || offset_end > bytes.len() {
                 return Err(error::Error::Malformed(format!(
                     "tls raw data offset ({:#x}) and size ({:#x}) greater than byte slice len ({:#x})",
-                    offset, size, bytes.len()
+                    offset,
+                    size,
+                    bytes.len()
                 )));
             }
             raw_data = Some(&bytes[offset..offset + size as usize]);

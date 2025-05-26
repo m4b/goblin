@@ -35,7 +35,7 @@ use crate::pe::utils::pad;
 use crate::strtab;
 use options::ParseMode;
 
-use scroll::{ctx, Pwrite};
+use scroll::{Pwrite, ctx};
 
 use log::debug;
 
@@ -146,7 +146,7 @@ impl<'a> PE<'a> {
                     return Err(error::Error::Malformed(format!(
                         "Unsupported header magic ({:#x})",
                         magic
-                    )))
+                    )));
                 }
             };
 
@@ -395,9 +395,10 @@ impl<'a> PE<'a> {
 
             let written_data_size = file_offset - file_section_offset;
             if ondisk_size != written_data_size {
-                warn!("Original PE is inefficient or bug (on-disk data size in PE: {:#x}), we wrote {:#x} bytes",
-                    ondisk_size,
-                    written_data_size);
+                warn!(
+                    "Original PE is inefficient or bug (on-disk data size in PE: {:#x}), we wrote {:#x} bytes",
+                    ondisk_size, written_data_size
+                );
             }
         }
 

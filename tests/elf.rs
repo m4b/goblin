@@ -1,7 +1,7 @@
+use goblin::elf::Elf;
 use goblin::elf::section_header::{SHN_XINDEX, SHT_GNU_HASH};
 use goblin::elf::sym::{Sym, Symtab};
 use goblin::elf::symver::{VerdefSection, VerneedSection, VersymSection};
-use goblin::elf::Elf;
 use goblin::elf32::gnu_hash::GnuHash as GnuHash32;
 use goblin::elf64::gnu_hash::GnuHash as GnuHash64;
 use goblin::strtab::Strtab;

@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 use core::iter::FusedIterator;
 
-use scroll::{ctx, IOread, IOwrite, Pread, Pwrite, SizeWith};
+use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith, ctx};
 
 use crate::error;
 use crate::pe::{data_directories, debug, optional_header, section_table, symbol};
@@ -1380,14 +1380,14 @@ mod tests {
     use crate::{
         error,
         pe::{
-            header::{DosStub, TeHeader},
             Coff,
+            header::{DosStub, TeHeader},
         },
     };
 
     use super::{
-        machine_to_str, DosHeader, Header, RichHeader, RichMetadata, COFF_MACHINE_X86, DOS_MAGIC,
-        PE_MAGIC,
+        COFF_MACHINE_X86, DOS_MAGIC, DosHeader, Header, PE_MAGIC, RichHeader, RichMetadata,
+        machine_to_str,
     };
 
     const CRSS_HEADER: [u8; 688] = [

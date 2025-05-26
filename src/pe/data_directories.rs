@@ -1,7 +1,7 @@
 use crate::error;
 use scroll::{
-    ctx::{self},
     Pread, Pwrite, SizeWith,
+    ctx::{self},
 };
 
 #[repr(C)]
@@ -61,7 +61,7 @@ impl TryFrom<usize> for DataDirectoryType {
             _ => {
                 return Err(error::Error::Malformed(
                     "Wrong data directory index number".into(),
-                ))
+                ));
             }
         })
     }

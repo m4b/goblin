@@ -235,7 +235,10 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
                 file_alignment,
                 opts,
             ) {
-                debug!("Synthesizing lookup table imports for {} lib, with import lookup table rva: {:#x}", name, import_lookup_table_rva);
+                debug!(
+                    "Synthesizing lookup table imports for {} lib, with import lookup table rva: {:#x}",
+                    name, import_lookup_table_rva
+                );
                 let import_lookup_table = SyntheticImportLookupTableEntry::parse_with_opts::<T>(
                     bytes,
                     import_lookup_table_offset,
@@ -254,7 +257,10 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
                 file_alignment,
                 opts,
             ) {
-                debug!("Synthesizing lookup table imports for {} lib, with import address table rva: {:#x}", name, import_lookup_table_rva);
+                debug!(
+                    "Synthesizing lookup table imports for {} lib, with import address table rva: {:#x}",
+                    name, import_lookup_table_rva
+                );
                 let import_address_table = SyntheticImportLookupTableEntry::parse_with_opts::<T>(
                     bytes,
                     import_address_table_offset,
@@ -345,14 +351,18 @@ impl<'a> ImportData<'a> {
             "import_directory_table_rva {:#x}",
             import_directory_table_rva
         );
-        let offset =
-            &mut utils::find_offset(import_directory_table_rva, sections, file_alignment, opts)
-                .ok_or_else(|| {
-                    error::Error::Malformed(format!(
+        let offset = &mut utils::find_offset(
+            import_directory_table_rva,
+            sections,
+            file_alignment,
+            opts,
+        )
+        .ok_or_else(|| {
+            error::Error::Malformed(format!(
                 "Cannot create ImportData; cannot map import_directory_table_rva {:#x} into offset",
                 import_directory_table_rva
             ))
-                })?;
+        })?;
         debug!("import data offset {:#x}", offset);
         let mut import_data = Vec::new();
         loop {

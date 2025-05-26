@@ -187,7 +187,9 @@ impl<'a> DebugData<'a> {
         if offset + dd.size as usize > bytes.len() {
             return Err(error::Error::Malformed(format!(
                 "ImageDebugDirectory offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",
-                offset, dd.size, bytes.len()
+                offset,
+                dd.size,
+                bytes.len()
             )));
         }
         let data = &bytes[offset..offset + dd.size as usize];
@@ -731,9 +733,9 @@ impl<'a> POGOInfo<'a> {
 
         if idd.size_of_data as usize <= POGO_SIGNATURE_SIZE {
             return Err(error::Error::Malformed(format!(
-                    "ImageDebugDirectory size_of_data {:#x} is smaller or equal to POGO_SIGNATURE_SIZE {:#x}",
-                    idd.size_of_data, POGO_SIGNATURE_SIZE
-                )));
+                "ImageDebugDirectory size_of_data {:#x} is smaller or equal to POGO_SIGNATURE_SIZE {:#x}",
+                idd.size_of_data, POGO_SIGNATURE_SIZE
+            )));
         }
 
         let offset_end = offset
@@ -748,9 +750,11 @@ impl<'a> POGOInfo<'a> {
 
         if offset > bytes.len() || offset_end > bytes.len() {
             return Err(error::Error::Malformed(format!(
-                    "ImageDebugDirectory offset_start {:#x} or offset_end {:#x} exceed the bounds of the bytes size {:#x}",
-                    offset, offset_end, bytes.len()
-                )));
+                "ImageDebugDirectory offset_start {:#x} or offset_end {:#x} exceed the bounds of the bytes size {:#x}",
+                offset,
+                offset_end,
+                bytes.len()
+            )));
         }
 
         let data = &bytes[offset..offset_end];
@@ -784,7 +788,7 @@ impl<'a> Iterator for POGOEntryIterator<'a> {
         if offset >= self.data.len() {
             return Some(Err(error::Error::Malformed(format!(
                 "Offset {:#x} is too big for containing name field of POGO entry (rva {:#x} and size {:#X})",
-                offset,rva, size
+                offset, rva, size
             ))));
         }
         let name = match self.data[offset..].iter().position(|&b| b == 0) {
@@ -820,12 +824,11 @@ impl FusedIterator for POGOEntryIterator<'_> {}
 #[cfg(test)]
 mod tests {
     use super::{
-        ExDllCharacteristicsInfo, ImageDebugDirectory, POGOInfoEntry, ReproInfo, VCFeatureInfo,
-        CODEVIEW_PDB70_MAGIC, IMAGE_DEBUG_POGO_SIGNATURE_LTCG, IMAGE_DEBUG_TYPE_CODEVIEW,
-        IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS, IMAGE_DEBUG_TYPE_ILTCG, IMAGE_DEBUG_TYPE_POGO,
-        IMAGE_DEBUG_TYPE_REPRO, IMAGE_DEBUG_TYPE_VC_FEATURE,
+        CODEVIEW_PDB70_MAGIC, ExDllCharacteristicsInfo, IMAGE_DEBUG_POGO_SIGNATURE_LTCG,
+        IMAGE_DEBUG_TYPE_CODEVIEW, IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS, IMAGE_DEBUG_TYPE_ILTCG,
+        IMAGE_DEBUG_TYPE_POGO, IMAGE_DEBUG_TYPE_REPRO, IMAGE_DEBUG_TYPE_VC_FEATURE,
         IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT, IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT_STRICT_MODE,
-        POGO_SIGNATURE_SIZE,
+        ImageDebugDirectory, POGO_SIGNATURE_SIZE, POGOInfoEntry, ReproInfo, VCFeatureInfo,
     };
 
     const NO_DEBUG_DIRECTORIES_BIN: &[u8] =

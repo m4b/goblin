@@ -97,61 +97,64 @@ macro_rules! elf_gnu_hash_impl {
             pub unsafe fn from_raw_table(
                 hashtab: &'a [u8],
                 dynsyms: &'a [Sym],
-            ) -> Result<Self, &'static str> { unsafe {
-                if hashtab.as_ptr() as usize % INT_SIZE != 0 {
-                    return Err("hashtab is not aligned with 64-bit");
-                }
-
-                if hashtab.len() <= 16 {
-                    return Err("failed to read in number of buckets");
-                }
-
-                let [nbuckets, symindex, maskwords, shift2] =
-                    (hashtab.as_ptr() as *const u32 as *const [u32; 4]).read();
-
-                if !maskwords.is_power_of_two() {
-                    return Err("maskwords must be a power of two");
-                }
-
-                let hashtab = &hashtab[16..];
-                {
-                    // SAFETY: Condition to check for an overflow
-                    //   size_of(chains) + size_of(buckets) + size_of(bloom_filter) == size_of(hashtab)
-
-                    if dynsyms.len() <= symindex as usize {
-                        return Err("symindex must be smaller than dynsyms.len()");
+            ) -> Result<Self, &'static str> {
+                unsafe {
+                    if hashtab.as_ptr() as usize % INT_SIZE != 0 {
+                        return Err("hashtab is not aligned with 64-bit");
                     }
-                    let chains_size = (dynsyms.len() - symindex as usize).checked_mul(U32_SIZE);
-                    let buckets_size = (nbuckets as usize).checked_mul(U32_SIZE);
-                    let bloom_size = (maskwords as usize).checked_mul(INT_SIZE);
 
-                    let total_size = match (chains_size, buckets_size, bloom_size) {
-                        (Some(a), Some(b), Some(c)) => {
-                            a.checked_add(b).and_then(|t| t.checked_add(c))
+                    if hashtab.len() <= 16 {
+                        return Err("failed to read in number of buckets");
+                    }
+
+                    let [nbuckets, symindex, maskwords, shift2] =
+                        (hashtab.as_ptr() as *const u32 as *const [u32; 4]).read();
+
+                    if !maskwords.is_power_of_two() {
+                        return Err("maskwords must be a power of two");
+                    }
+
+                    let hashtab = &hashtab[16..];
+                    {
+                        // SAFETY: Condition to check for an overflow
+                        //   size_of(chains) + size_of(buckets) + size_of(bloom_filter) == size_of(hashtab)
+
+                        if dynsyms.len() <= symindex as usize {
+                            return Err("symindex must be smaller than dynsyms.len()");
                         }
-                        _ => None,
-                    };
-                    match total_size {
-                        Some(size) if size == hashtab.len() => {}
-                        _ => return Err("index out of bound or non-complete hash section"),
-                    }
-                }
+                        let chains_size = (dynsyms.len() - symindex as usize).checked_mul(U32_SIZE);
+                        let buckets_size = (nbuckets as usize).checked_mul(U32_SIZE);
+                        let bloom_size = (maskwords as usize).checked_mul(INT_SIZE);
 
-                let bloom_filter_ptr = hashtab.as_ptr() as *const $IntTy;
-                let buckets_ptr = bloom_filter_ptr.add(maskwords as usize) as *const u32;
-                let chains_ptr = buckets_ptr.add(nbuckets as usize);
-                let bloom_filter = slice::from_raw_parts(bloom_filter_ptr, maskwords as usize);
-                let buckets = slice::from_raw_parts(buckets_ptr, nbuckets as usize);
-                let chains = slice::from_raw_parts(chains_ptr, dynsyms.len() - symindex as usize);
-                Ok(Self {
-                    symindex,
-                    shift2,
-                    bloom_filter,
-                    buckets,
-                    chains,
-                    dynsyms,
-                })
-            }}
+                        let total_size = match (chains_size, buckets_size, bloom_size) {
+                            (Some(a), Some(b), Some(c)) => {
+                                a.checked_add(b).and_then(|t| t.checked_add(c))
+                            }
+                            _ => None,
+                        };
+                        match total_size {
+                            Some(size) if size == hashtab.len() => {}
+                            _ => return Err("index out of bound or non-complete hash section"),
+                        }
+                    }
+
+                    let bloom_filter_ptr = hashtab.as_ptr() as *const $IntTy;
+                    let buckets_ptr = bloom_filter_ptr.add(maskwords as usize) as *const u32;
+                    let chains_ptr = buckets_ptr.add(nbuckets as usize);
+                    let bloom_filter = slice::from_raw_parts(bloom_filter_ptr, maskwords as usize);
+                    let buckets = slice::from_raw_parts(buckets_ptr, nbuckets as usize);
+                    let chains =
+                        slice::from_raw_parts(chains_ptr, dynsyms.len() - symindex as usize);
+                    Ok(Self {
+                        symindex,
+                        shift2,
+                        bloom_filter,
+                        buckets,
+                        chains,
+                        dynsyms,
+                    })
+                }
+            }
 
             /// Locate the hash chain, and corresponding hash value element.
             #[cold]

@@ -5,6 +5,28 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.9, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
+## [0.10.0]  - 2025-5-25
+### Breaking
+pe: fix address size incompatibility on 32-bit builds, thanks @kkent030315: https://github.com/m4b/goblin/pull/441
+pe: fix fail on malformed certificate table parsing, thanks @ideeockus: https://github.com/m4b/goblin/pull/417
+pe: remove use of generics for is_32bit, thanks @kkent030315: https://github.com/m4b/goblin/pull/435
+pe: Support multiple debug directories and VCFeature, Repro, ExDllCharacteristics, POGO parsers, thanks @kkent030315: https://github.com/m4b/goblin/pull/403
+### Added
+elf: add Loongarch macros and name mapping, thanks @000lbh:  https://github.com/m4b/goblin/pull/446
+pe: Add base relocation parser thanks @kkent030315: https://github.com/m4b/goblin/pull/444
+### Fixed
+pe.header: fix parse without rich header, thanks @ideeockus: https://github.com/m4b/goblin/pull/451
+pe.header: fix parse header with no dos stub, thanks @ideeockus: https://github.com/m4b/goblin/pull/456
+pe.imports: ignore malformed imports in ParseMode::Permissive, thanks @ideeockus: https://github.com/m4b/goblin/pull/442
+pe: Change Section Table Real Name Handling, thanks @prettyroseslover: https://github.com/m4b/goblin/pull/438
+pe.tls: `tlsdata.parse_with_opts` - integer overflow + out of bound, thanks @BinFlip: https://github.com/m4b/goblin/pull/448
+pe.debug: `POGOInfo.parse_with_opts` - integer overflow + out of bound, thanks @BinFlip: https://github.com/m4b/goblin/pull/449
+archive: fix subtract with overflow in archive parser, thanks @kkent030315: https://github.com/m4b/goblin/pull/454
+te: fix subtract with overflow in TE header parser, thanks @kkent030315: https://github.com/m4b/goblin/pull/452
+archive: fix size overflow in name index parser, thanks @kkent030315: https://github.com/m4b/goblin/pull/455
+coff: fix subtract with overflow in COFF header parser, thanks @kkent030315: https://github.com/m4b/goblin/pull/453
+
+
 ## [0.9.3]  - 2025-1-5
 ### Fixed
 pe: fix import parser for non-well-formed import table, thanks @kkent030315: https://github.com/m4b/goblin/pull/429

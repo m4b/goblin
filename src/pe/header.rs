@@ -1778,6 +1778,7 @@ mod tests {
         }
     }
 
+    #[test]
     fn parse_with_omitted_dos_stub() {
         let header = Header::parse(&HEADER_WITH_OMITTED_DOS_STUB).unwrap();
 

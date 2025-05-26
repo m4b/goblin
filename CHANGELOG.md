@@ -3,10 +3,11 @@ All notable changes to this project will be documented in this file.
 
 Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-Goblin is now 0.9, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
+Goblin is now 0.10, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
 ## [0.10.0]  - 2025-5-25
 ### Breaking
+build: use rust 2024 edition; bump MSRV to 1.85
 pe: fix address size incompatibility on 32-bit builds, thanks @kkent030315: https://github.com/m4b/goblin/pull/441
 pe: fix fail on malformed certificate table parsing, thanks @ideeockus: https://github.com/m4b/goblin/pull/417
 pe: remove use of generics for is_32bit, thanks @kkent030315: https://github.com/m4b/goblin/pull/435

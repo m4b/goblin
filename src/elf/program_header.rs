@@ -341,9 +341,9 @@ macro_rules! elf_program_header_std_impl {
             pub unsafe fn from_raw_parts<'a>(
                 phdrp: *const ProgramHeader,
                 phnum: usize,
-            ) -> &'a [ProgramHeader] {
+            ) -> &'a [ProgramHeader] { unsafe {
                 slice::from_raw_parts(phdrp, phnum)
-            }
+            }}
 
             #[cfg(feature = "std")]
             pub fn from_fd(fd: &mut File, offset: u64, count: usize) -> Result<Vec<ProgramHeader>> {

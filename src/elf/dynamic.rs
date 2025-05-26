@@ -540,19 +540,19 @@ macro_rules! elf_dyn_std_impl {
             }
 
             /// Given a bias and a memory address (typically for a _correctly_ mmap'd binary in memory), returns the `_DYNAMIC` array as a slice of that memory
-            pub unsafe fn from_raw<'a>(bias: usize, vaddr: usize) -> &'a [Dyn] {
+            pub unsafe fn from_raw<'a>(bias: usize, vaddr: usize) -> &'a [Dyn] { unsafe {
                 let dynp = vaddr.wrapping_add(bias) as *const Dyn;
                 let mut idx = 0;
                 while u64::from((*dynp.offset(idx)).d_tag) != DT_NULL {
                     idx += 1;
                 }
                 slice::from_raw_parts(dynp, idx as usize)
-            }
+            }}
 
             // TODO: these bare functions have always seemed awkward, but not sure where they should go...
             /// Maybe gets and returns the dynamic array with the same lifetime as the `phdrs`, using the provided bias with wrapping addition.
             /// If the bias is wrong, it will either segfault or give you incorrect values, beware
-            pub unsafe fn from_phdrs(bias: usize, phdrs: &[$phdr]) -> Option<&[Dyn]> {
+            pub unsafe fn from_phdrs(bias: usize, phdrs: &[$phdr]) -> Option<&[Dyn]> { unsafe {
                 for phdr in phdrs {
                     // FIXME: change to casting to u64 similar to DT_*?
                     if phdr.p_type as u32 == PT_DYNAMIC {
@@ -560,10 +560,10 @@ macro_rules! elf_dyn_std_impl {
                     }
                 }
                 None
-            }
+            }}
 
             /// Gets the needed libraries from the `_DYNAMIC` array, with the str slices lifetime tied to the dynamic array/strtab's lifetime(s)
-            pub unsafe fn get_needed<'a>(dyns: &[Dyn], strtab: *const Strtab<'a>, count: usize) -> Vec<&'a str> {
+            pub unsafe fn get_needed<'a>(dyns: &[Dyn], strtab: *const Strtab<'a>, count: usize) -> Vec<&'a str> { unsafe {
                 let mut needed = Vec::with_capacity(count.min(dyns.len()));
                 for dynamic in dyns {
                     if u64::from(dynamic.d_tag) == DT_NEEDED {
@@ -572,7 +572,7 @@ macro_rules! elf_dyn_std_impl {
                     }
                 }
                 needed
-            }
+            }}
         }
     };
 }

@@ -97,7 +97,7 @@ macro_rules! elf_gnu_hash_impl {
             pub unsafe fn from_raw_table(
                 hashtab: &'a [u8],
                 dynsyms: &'a [Sym],
-            ) -> Result<Self, &'static str> {
+            ) -> Result<Self, &'static str> { unsafe {
                 if hashtab.as_ptr() as usize % INT_SIZE != 0 {
                     return Err("hashtab is not aligned with 64-bit");
                 }
@@ -151,7 +151,7 @@ macro_rules! elf_gnu_hash_impl {
                     chains,
                     dynsyms,
                 })
-            }
+            }}
 
             /// Locate the hash chain, and corresponding hash value element.
             #[cold]

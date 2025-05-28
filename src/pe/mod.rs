@@ -81,7 +81,7 @@ pub struct PE<'a> {
     /// Base relocation data if any
     pub relocation_data: Option<relocation::RelocationData<'a>>,
     /// Load config data if any
-    pub load_config_data: Option<load_config::LoadConfigData<'a>>,
+    pub load_config_data: Option<load_config::LoadConfigData>,
     /// Certificates present, if any, described by the Certificate Table
     pub certificates: certificate_table::CertificateDirectoryTable<'a>,
 }

@@ -309,21 +309,14 @@ pub struct LoadConfigCodeIntegrity {
 /// compatibility with potential changes in the Load Config Directory layout and
 /// helps avoid subtle bugs when parsing binaries built with different configurations.
 #[derive(Debug, PartialEq, Clone, Default)]
-pub struct LoadConfigData<'a> {
-    /// Whether the binary is 64-bit.
-    is_64: bool,
-    /// Raw bytes covering the entire bytes of the load config directory.
-    bytes: &'a [u8],
-    /// The struct size [LoadConfigDirectory::size] read from first
-    /// 4 bytes of [LoadConfigData::bytes].
-    size: u32,
+pub struct LoadConfigData {
     /// Parsed load config directory.
     directory: LoadConfigDirectory,
 }
 
-impl<'a> LoadConfigData<'a> {
+impl LoadConfigData {
     pub fn parse(
-        bytes: &'a [u8],
+        bytes: &[u8],
         dd: data_directories::DataDirectory,
         sections: &[section_table::SectionTable],
         file_alignment: u32,
@@ -340,7 +333,7 @@ impl<'a> LoadConfigData<'a> {
     }
 
     pub fn parse_with_opts(
-        bytes: &'a [u8],
+        bytes: &[u8],
         dd: data_directories::DataDirectory,
         sections: &[section_table::SectionTable],
         file_alignment: u32,
@@ -370,12 +363,7 @@ impl<'a> LoadConfigData<'a> {
         })?;
         let directory = bytes.pread_with(0, is_64)?;
 
-        Ok(Self {
-            is_64,
-            bytes,
-            size,
-            directory,
-        })
+        Ok(Self { directory })
     }
 }
 

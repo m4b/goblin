@@ -208,7 +208,7 @@ impl<'a> ctx::TryFromCtx<'a, bool> for LoadConfigDirectory {
     fn try_from_ctx(bytes: &'a [u8], is_64: bool) -> error::Result<(Self, usize)> {
         // `size` field must be present
         if bytes.len() < 4 {
-            return Err(error::Error::Malformed("Too small".to_string()));
+            return Err(error::Error::Malformed(format!("Too small")));
         }
 
         let mut offset = 0;

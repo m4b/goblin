@@ -295,19 +295,6 @@ pub struct LoadConfigCodeIntegrity {
 }
 
 /// Represents a PE load config directory data.
-///
-/// This struct encapsulates the raw bytes of a [`LoadConfigDirectory`], and provides
-/// access to its fields through accessor methods.
-///
-/// # Important
-///
-/// The layout and size of the [LoadConfigDirectory] may vary between Windows versions
-/// and toolchains. To keep it future-proof, you **must not** access the
-/// underlying bytes directly or assume a fixed structure.
-///
-/// Always use the provided accessor methods to retrieve field values. This ensures
-/// compatibility with potential changes in the Load Config Directory layout and
-/// helps avoid subtle bugs when parsing binaries built with different configurations.
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct LoadConfigData {
     /// Parsed load config directory.

@@ -147,6 +147,70 @@ pub fn try_name<'a>(
     }
 }
 
+/// Safe version of try_name that handles packed binaries gracefully
+pub fn safe_try_name<'a>(
+    bytes: &'a [u8],
+    rva: usize,
+    sections: &[section_table::SectionTable],
+    file_alignment: u32,
+    opts: &options::ParseOptions,
+) -> error::Result<&'a str> {
+    match find_offset(rva, sections, file_alignment, opts) {
+        Some(offset) => {
+            if offset >= bytes.len() {
+                if matches!(opts.parse_mode, options::ParseMode::Permissive) {
+                    log::warn!(
+                        "Name RVA {:#x} maps to offset {:#x} beyond file bounds (file size: {:#x}). \
+                        This is common in packed binaries. Using placeholder name.",
+                        rva, offset, bytes.len()
+                    );
+                    Ok("<packed_binary_name>")
+                } else {
+                    Err(error::Error::Malformed(format!(
+                        "Name RVA {:#x} maps to offset {:#x} beyond file bounds (file size: {:#x}). \
+                        This may indicate a packed binary.",
+                        rva, offset, bytes.len()
+                    )))
+                }
+            } else {
+                // Try to read the string, but handle potential scroll errors gracefully
+                match bytes.pread::<&str>(offset) {
+                    Ok(name) => Ok(name),
+                    Err(e) if matches!(opts.parse_mode, options::ParseMode::Permissive) => {
+                        log::warn!(
+                            "Failed to read name at offset {:#x} (RVA {:#x}): {}. \
+                            This may indicate a packed binary. Using placeholder name.",
+                            offset, rva, e
+                        );
+                        Ok("<packed_binary_name>")
+                    }
+                    Err(e) => Err(error::Error::Malformed(format!(
+                        "Failed to read name at offset {:#x} (RVA {:#x}): {}. \
+                        This may indicate a packed binary.",
+                        offset, rva, e
+                    )))
+                }
+            }
+        }
+        None => {
+            if matches!(opts.parse_mode, options::ParseMode::Permissive) {
+                log::warn!(
+                    "Cannot find name from RVA {:#x} in sections. \
+                    This is common in packed binaries. Using placeholder name.",
+                    rva
+                );
+                Ok("<packed_binary_name>")
+            } else {
+                Err(error::Error::Malformed(format!(
+                    "Cannot find name from rva {:#x} in sections: {:?}. \
+                    This may indicate a packed binary.",
+                    rva, sections
+                )))
+            }
+        }
+    }
+}
+
 pub fn get_data<'a, T>(
     bytes: &'a [u8],
     sections: &[section_table::SectionTable],

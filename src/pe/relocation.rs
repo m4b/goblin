@@ -8,6 +8,8 @@ use crate::pe::options;
 use crate::pe::section_table;
 use crate::pe::utils;
 
+use log;
+
 /// Size of a single COFF relocation.
 pub const COFF_RELOCATION_SIZE: usize = 10;
 
@@ -351,7 +353,7 @@ impl<'a> RelocationData<'a> {
         let available_size = if offset + (dd.size as usize) <= bytes.len() {
             dd.size as usize
         } else {
-            // If directory size is wrong, find the containing .reloc section to get its size as a fallback 
+            // If directory size is wrong, find the containing .reloc section to get its size as a fallback
             let section = sections.iter()
                 .find(|s| {
                     let section_start = utils::find_offset(s.virtual_address as usize, sections, file_alignment, opts).unwrap_or(0);
@@ -364,19 +366,56 @@ impl<'a> RelocationData<'a> {
                     dd.size,
                     bytes.len()
                 )))?;
-            
+
             let section_offset = utils::find_offset(section.virtual_address as usize, sections, file_alignment, opts).unwrap_or(0);
             let remaining_in_section = (section.size_of_raw_data as usize).saturating_sub(offset - section_offset);
             remaining_in_section.min(dd.size as usize)
         };
 
+        if offset >= bytes.len() {
+            if matches!(opts.parse_mode, options::ParseMode::Permissive) {
+                log::warn!(
+                    "Relocation offset {:#x} is beyond file bounds (file size: {:#x}). \
+                    This is common in packed binaries. Using empty relocation data.",
+                    offset, bytes.len()
+                );
+                return Ok(Self { bytes: &[] });
+            } else {
+                return Err(error::Error::Malformed(format!(
+                    "Relocation offset {:#x} is beyond file bounds (file size: {:#x}). \
+                    This may indicate a packed binary.",
+                    offset, bytes.len()
+                )));
+            }
+        }
+
+        // Ensure we don't try to read more bytes than are actually available
+        let remaining_bytes = bytes.len() - offset;
+        let safe_available_size = available_size.min(remaining_bytes);
+
+        if safe_available_size != available_size {
+            if matches!(opts.parse_mode, options::ParseMode::Permissive) {
+                log::warn!(
+                    "Relocation size {:#x} at offset {:#x} exceeds remaining file data ({:#x} bytes). \
+                    Truncating to {:#x} bytes. This is common in packed binaries.",
+                    available_size, offset, remaining_bytes, safe_available_size
+                );
+            } else {
+                return Err(error::Error::Malformed(format!(
+                    "Relocation size {:#x} at offset {:#x} exceeds remaining file data ({:#x} bytes). \
+                    This may indicate a packed binary.",
+                    available_size, offset, remaining_bytes
+                )));
+            }
+        }
+
         let bytes = bytes[offset..]
-            .pread::<&[u8]>(available_size)
+            .pread::<&[u8]>(safe_available_size)
             .map_err(|_| {
                 error::Error::Malformed(format!(
                     "base reloc offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",
                     offset,
-                    available_size,
+                    safe_available_size,
                     bytes.len()
                 ))
             })?;

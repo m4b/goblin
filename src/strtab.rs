@@ -4,7 +4,7 @@
 use core::fmt;
 use core::ops::Index;
 use core::str;
-use scroll::{ctx, Pread};
+use scroll::{Pread, ctx};
 if_alloc! {
     use crate::error;
     use alloc::vec::Vec;
@@ -161,7 +161,7 @@ impl<'a> Strtab<'a> {
     /// # Safety
     /// This function creates a `Strtab` directly from a raw pointer and size
     pub unsafe fn from_raw(ptr: *const u8, len: usize, delim: u8) -> Strtab<'a> {
-        Self::from_slice_unparsed(core::slice::from_raw_parts(ptr, len), 0, len, delim)
+        unsafe { Self::from_slice_unparsed(core::slice::from_raw_parts(ptr, len), 0, len, delim) }
     }
     #[deprecated(since = "0.4.2", note = "Bad performance, use get_at() instead")]
     #[cfg(feature = "alloc")]

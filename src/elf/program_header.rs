@@ -342,7 +342,7 @@ macro_rules! elf_program_header_std_impl {
                 phdrp: *const ProgramHeader,
                 phnum: usize,
             ) -> &'a [ProgramHeader] {
-                slice::from_raw_parts(phdrp, phnum)
+                unsafe { slice::from_raw_parts(phdrp, phnum) }
             }
 
             #[cfg(feature = "std")]

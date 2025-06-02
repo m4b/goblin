@@ -481,12 +481,12 @@ impl<'a> Archive<'a> {
                         Index::parse_windows_linker_member(data)?
                     }
                     IndexType::BSD => {
-                        return Err(Error::Malformed("SysV index occurs after BSD index".into()))
+                        return Err(Error::Malformed("SysV index occurs after BSD index".into()));
                     }
                     IndexType::Windows => {
                         return Err(Error::Malformed(
                             "More than two Windows Linker members".into(),
-                        ))
+                        ));
                     }
                 }
             } else if member.bsd_name == Some(BSD_SYMDEF_NAME)

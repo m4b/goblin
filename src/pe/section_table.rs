@@ -3,7 +3,7 @@ use crate::pe::relocation;
 use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
-use scroll::{ctx, Pread, Pwrite};
+use scroll::{Pread, Pwrite, ctx};
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Clone, Default)]
@@ -84,7 +84,7 @@ impl SectionTable {
         Ok(table)
     }
 
-    pub fn data<'a, 'b: 'a>(&'a self, pe_bytes: &'b [u8]) -> error::Result<Option<Cow<[u8]>>> {
+    pub fn data<'a, 'b: 'a>(&'a self, pe_bytes: &'b [u8]) -> error::Result<Option<Cow<'a, [u8]>>> {
         let section_start: usize = self.pointer_to_raw_data.try_into().map_err(|_| {
             Error::Malformed(format!("Virtual address cannot fit in platform `usize`"))
         })?;

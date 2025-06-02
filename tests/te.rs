@@ -71,7 +71,12 @@ mod te_tests {
                 0x0a, 0x4a
             ]
         );
-        assert_eq!(String::from_utf8_lossy(debug_info.filename), String::from("c:\\src\\mu_tiano_platforms\\Build\\QemuQ35Pkg\\DEBUG_VS2022\\X64\\QemuQ35Pkg\\RustTerseImageTestDxe\\RustTerseImageTestDxe\\DEBUG\\RustTerseImageTestDxe.pdb\0"));
+        assert_eq!(
+            String::from_utf8_lossy(debug_info.filename),
+            String::from(
+                "c:\\src\\mu_tiano_platforms\\Build\\QemuQ35Pkg\\DEBUG_VS2022\\X64\\QemuQ35Pkg\\RustTerseImageTestDxe\\RustTerseImageTestDxe\\DEBUG\\RustTerseImageTestDxe.pdb\0"
+            )
+        );
 
         // Misc matches
         assert_eq!(te.header.base_of_code, te.sections[0].virtual_address);

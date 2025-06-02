@@ -188,9 +188,9 @@ macro_rules! elf_rela_std_impl {
             /// 1. `ptr` points to memory received from the kernel (i.e., it loaded the executable), _or_
             /// 2. The binary has already been mmapped (i.e., it's a `SharedObject`), and hence it's safe to return a slice of that memory.
             /// 3. Or if you obtained the pointer in some other lawful manner
-            pub unsafe fn from_raw_rela<'a>(ptr: *const Rela, size: usize) -> &'a [Rela] {
+            pub unsafe fn from_raw_rela<'a>(ptr: *const Rela, size: usize) -> &'a [Rela] { unsafe {
                 slice::from_raw_parts(ptr, size / SIZEOF_RELA)
-            }
+            }}
 
             /// Gets the rel entries given a rel pointer and the _size_ of the rel section in the binary,
             /// in bytes.
@@ -198,9 +198,9 @@ macro_rules! elf_rela_std_impl {
             /// 1. `ptr` points to memory received from the kernel (i.e., it loaded the executable), _or_
             /// 2. The binary has already been mmapped (i.e., it's a `SharedObject`), and hence it's safe to return a slice of that memory.
             /// 3. Or if you obtained the pointer in some other lawful manner
-            pub unsafe fn from_raw_rel<'a>(ptr: *const Rel, size: usize) -> &'a [Rel] {
+            pub unsafe fn from_raw_rel<'a>(ptr: *const Rel, size: usize) -> &'a [Rel] { unsafe {
                 slice::from_raw_parts(ptr, size / SIZEOF_REL)
-            }
+            }}
 
             #[cfg(feature = "std")]
             pub fn from_fd(fd: &mut File, offset: usize, size: usize) -> Result<Vec<Rela>> {

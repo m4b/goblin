@@ -240,7 +240,7 @@ macro_rules! elf_sym_std_impl {
         /// This function creates a `Sym` slice directly from a raw pointer
         #[inline]
         pub unsafe fn from_raw<'a>(symp: *const Sym, count: usize) -> &'a [Sym] {
-            slice::from_raw_parts(symp, count)
+            unsafe { slice::from_raw_parts(symp, count) }
         }
 
         if_std! {

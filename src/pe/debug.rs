@@ -174,25 +174,66 @@ impl<'a> DebugData<'a> {
         opts: &options::ParseOptions,
         rva_offset: u32,
     ) -> error::Result<Self> {
-        let offset =
-            utils::find_offset(dd.virtual_address as usize, sections, file_alignment, opts)
-                .ok_or_else(|| {
-                    error::Error::Malformed(format!(
-                        "Cannot map ImageDebugDirectory rva {:#x} into offset",
+        let offset = match utils::find_offset(dd.virtual_address as usize, sections, file_alignment, opts) {
+            Some(offset) => offset,
+            None => {
+                if matches!(opts.parse_mode, options::ParseMode::Permissive) {
+                    log::warn!(
+                        "Cannot map ImageDebugDirectory rva {:#x} into offset. \
+                        This is common in packed binaries. Using empty debug data.",
                         dd.virtual_address
-                    ))
-                })?;
+                    );
+                    return Ok(Self {
+                        data: &[],
+                        rva_offset,
+                        codeview_pdb70_debug_info: None,
+                        codeview_pdb20_debug_info: None,
+                        vcfeature_info: None,
+                        ex_dll_characteristics_info: None,
+                        repro_info: None,
+                        pogo_info: None,
+                    });
+                } else {
+                    return Err(error::Error::Malformed(format!(
+                        "Cannot map ImageDebugDirectory rva {:#x} into offset. \
+                        This may indicate a packed binary.",
+                        dd.virtual_address
+                    )));
+                }
+            }
+        };
 
         // Ensure that the offset and size do not exceed the length of the bytes slice
-        if offset + dd.size as usize > bytes.len() {
-            return Err(error::Error::Malformed(format!(
-                "ImageDebugDirectory offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",
-                offset,
-                dd.size,
-                bytes.len()
-            )));
-        }
-        let data = &bytes[offset..offset + dd.size as usize];
+        let available_size = if offset + dd.size as usize > bytes.len() {
+            let remaining_bytes = bytes.len().saturating_sub(offset);
+            if matches!(opts.parse_mode, options::ParseMode::Permissive) {
+                log::warn!(
+                    "ImageDebugDirectory offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}. \
+                    Truncating to {:#x} bytes. This is common in packed binaries.",
+                    offset,
+                    dd.size,
+                    bytes.len(),
+                    remaining_bytes
+                );
+                remaining_bytes
+            } else {
+                return Err(error::Error::Malformed(format!(
+                    "ImageDebugDirectory offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}. \
+                    This may indicate a packed binary.",
+                    offset,
+                    dd.size,
+                    bytes.len()
+                )));
+            }
+        } else {
+            dd.size as usize
+        };
+        
+        let data = if available_size > 0 {
+            &bytes[offset..offset + available_size]
+        } else {
+            &[]
+        };
         let it = ImageDebugDirectoryIterator { data, rva_offset };
 
         let mut codeview_pdb70_debug_info = None;

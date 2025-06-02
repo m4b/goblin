@@ -45,6 +45,7 @@ pub(crate) mod gnu_hash;
 // They are publicly re-exported by the pub-using module
 pub mod compression_header;
 pub mod header;
+pub mod options;
 pub mod program_header;
 pub mod section_header;
 #[macro_use]
@@ -81,6 +82,7 @@ if_sylvan! {
     pub use reloc::Reloc;
     pub use reloc::RelocSection;
     pub use symver::{VersymSection, VerdefSection, VerneedSection};
+    pub use options::{ParseOptions, ParseMode};
 
     pub type ProgramHeaders = Vec<ProgramHeader>;
     pub type SectionHeaders = Vec<SectionHeader>;
@@ -260,9 +262,15 @@ if_sylvan! {
 
         /// Parses the contents of the byte stream in `bytes`, and maybe returns a unified binary
         pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
+            Self::parse_with_opts(bytes, &ParseOptions::default())
+        }
+
+        /// Parses the contents of the byte stream in `bytes` with options, and maybe returns a unified binary
+        pub fn parse_with_opts(bytes: &'a [u8], opts: &ParseOptions) -> error::Result<Self> {
             let header = Self::parse_header(bytes)?;
             let misc = parse_misc(&header)?;
             let ctx = misc.ctx;
+            let permissive = opts.is_permissive();
 
             let program_headers = ProgramHeader::parse(bytes, header.e_phoff as usize, header.e_phnum as usize, ctx)?;
 
@@ -290,8 +298,8 @@ if_sylvan! {
                     Ok(Strtab::default())
                 } else {
                     let shdr = &section_headers[section_idx];
-                    shdr.check_size(bytes.len())?;
-                    Strtab::parse(bytes, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0)
+                    shdr.check_size_with_opts(bytes.len(), permissive)?;
+                    Strtab::parse_with_opts(bytes, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0, permissive)
                 }
             };
 
@@ -303,7 +311,7 @@ if_sylvan! {
             if let Some(shdr) = section_headers.iter().rfind(|shdr| shdr.sh_type as u32 == section_header::SHT_SYMTAB) {
                 let size = shdr.sh_entsize;
                 let count = if size == 0 { 0 } else { shdr.sh_size / size };
-                syms = Symtab::parse(bytes, shdr.sh_offset as usize, count as usize, ctx)?;
+                syms = Symtab::parse_with_opts(bytes, shdr.sh_offset as usize, count as usize, ctx, permissive)?;
                 strtab = get_strtab(&section_headers, shdr.sh_link as usize)?;
             }
 
@@ -372,7 +380,7 @@ if_sylvan! {
             for (idx, section) in section_headers.iter().enumerate() {
                 let is_rela = section.sh_type == section_header::SHT_RELA;
                 if is_rela || section.sh_type == section_header::SHT_REL {
-                    section.check_size(bytes.len())?;
+                    section.check_size_with_opts(bytes.len(), permissive)?;
                     let sh_relocs = RelocSection::parse(bytes, section.sh_offset as usize, section.sh_size as usize, is_rela, ctx)?;
                     shdr_relocs.push((idx, sh_relocs));
                 }

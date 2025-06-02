@@ -477,6 +477,10 @@ if_alloc! {
             Ok(section_headers)
         }
         pub fn check_size(&self, size: usize) -> error::Result<()> {
+            self.check_size_with_opts(size, false)
+        }
+
+        pub fn check_size_with_opts(&self, size: usize, permissive: bool) -> error::Result<()> {
             if self.sh_type == SHT_NOBITS || self.sh_size == 0 {
                 return Ok(());
             }
@@ -484,17 +488,25 @@ if_alloc! {
             if overflow || end > size as u64 {
                 let message = format!("Section {} size ({}) + offset ({}) is out of bounds. Overflowed: {}",
                     self.sh_name, self.sh_offset, self.sh_size, overflow);
-                log::warn!("Malformed section header (permissive mode): {}", message);
-                // Continue instead of failing - this allows parsing of corrupted ELF files
-                return Ok(());
+                if permissive {
+                    log::warn!("Malformed section header (permissive mode): {}", message);
+                    // Continue instead of failing - this allows parsing of corrupted ELF files
+                    return Ok(());
+                } else {
+                    return Err(error::Error::Malformed(message));
+                }
             }
             let (_, overflow) = self.sh_addr.overflowing_add(self.sh_size);
             if overflow {
                 let message = format!("Section {} size ({}) + addr ({}) is out of bounds. Overflowed: {}",
                     self.sh_name, self.sh_addr, self.sh_size, overflow);
-                log::warn!("Malformed section header (permissive mode): {}", message);
-                // Continue instead of failing - this allows parsing of corrupted ELF files
-                return Ok(());
+                if permissive {
+                    log::warn!("Malformed section header (permissive mode): {}", message);
+                    // Continue instead of failing - this allows parsing of corrupted ELF files
+                    return Ok(());
+                } else {
+                    return Err(error::Error::Malformed(message));
+                }
             }
             Ok(())
         }

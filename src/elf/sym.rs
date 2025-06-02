@@ -515,14 +515,28 @@ if_alloc! {
     impl<'a> Symtab<'a> {
         /// Parse a table of `count` ELF symbols from `offset`.
         pub fn parse(bytes: &'a [u8], offset: usize, count: usize, ctx: Ctx) -> Result<Symtab<'a>> {
-            let size = count
+            let mut requested_size = count
                 .checked_mul(Sym::size_with(&ctx))
                 .ok_or_else(|| crate::error::Error::Malformed(
                     format!("Too many ELF symbols (offset {:#x}, count {})", offset, count)
                 ))?;
-            // TODO: make this a better error message when too large
-            let bytes = bytes.pread_with(offset, size)?;
-            Ok(Symtab { bytes, count, ctx, start: offset, end: offset+size })
+            
+            let mut actual_count = count;
+            
+            // Check if the requested size extends beyond the file
+            let available_bytes = bytes.len().saturating_sub(offset);
+            if requested_size > available_bytes {
+                log::warn!("Symbol table extends beyond file boundary (requested: {}, available: {}), truncating", 
+                          requested_size, available_bytes);
+                requested_size = available_bytes;
+                // Recalculate count based on available bytes
+                let sym_size = Sym::size_with(&ctx);
+                actual_count = if sym_size > 0 { requested_size / sym_size } else { 0 };
+                log::warn!("Adjusted symbol count from {} to {}", count, actual_count);
+            }
+            
+            let symbol_bytes = bytes.pread_with(offset, requested_size)?;
+            Ok(Symtab { bytes: symbol_bytes, count: actual_count, ctx, start: offset, end: offset + requested_size })
         }
 
         /// Try to parse a single symbol from the binary, at `index`.

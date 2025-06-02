@@ -68,16 +68,27 @@ impl<'a> Strtab<'a> {
     /// Requires `feature = "alloc"`
     pub fn parse(bytes: &'a [u8], offset: usize, len: usize, delim: u8) -> error::Result<Self> {
         let (end, overflow) = offset.overflowing_add(len);
-        if overflow || end > bytes.len() {
-            return Err(error::Error::Malformed(format!(
-                "Strtable size ({}) + offset ({}) is out of bounds for {} #bytes. Overflowed: {}",
-                len,
-                offset,
-                bytes.len(),
-                overflow
-            )));
+        
+        // Handle completely invalid offset
+        if offset >= bytes.len() {
+            log::warn!("String table offset ({}) is beyond file boundary ({}), returning empty string table",
+                      offset, bytes.len());
+            return Ok(Self {
+                delim: ctx::StrCtx::Delimiter(delim),
+                bytes: &[],
+                #[cfg(feature = "alloc")]
+                strings: Vec::new(),
+            });
         }
-        let mut result = Self::from_slice_unparsed(bytes, offset, len, delim);
+        
+        let actual_len = if overflow || end > bytes.len() {
+            log::warn!("String table extends beyond file boundary (requested size: {}, offset: {}, available: {}), truncating",
+                      len, offset, bytes.len());
+            bytes.len() - offset
+        } else {
+            len
+        };
+        let mut result = Self::from_slice_unparsed(bytes, offset, actual_len, delim);
         let mut i = 0;
         while i < result.bytes.len() {
             let string = match get_str(i, result.bytes, result.delim) {

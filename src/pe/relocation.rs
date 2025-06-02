@@ -341,14 +341,25 @@ impl<'a> RelocationData<'a> {
         file_alignment: u32,
         opts: &options::ParseOptions,
     ) -> error::Result<Self> {
-        let offset =
-            utils::find_offset(dd.virtual_address as usize, sections, file_alignment, opts)
-                .ok_or_else(|| {
-                    error::Error::Malformed(format!(
-                        "Cannot map base reloc rva {:#x} into offset",
+        let offset = match utils::find_offset(dd.virtual_address as usize, sections, file_alignment, opts) {
+            Some(offset) => offset,
+            None => {
+                if matches!(opts.parse_mode, options::ParseMode::Permissive) {
+                    log::warn!(
+                        "Cannot map base reloc rva {:#x} into offset. \
+                        This is common in packed binaries. Using empty relocation data.",
                         dd.virtual_address
-                    ))
-                })?;
+                    );
+                    return Ok(Self { bytes: &[] });
+                } else {
+                    return Err(error::Error::Malformed(format!(
+                        "Cannot map base reloc rva {:#x} into offset. \
+                        This may indicate a packed binary.",
+                        dd.virtual_address
+                    )));
+                }
+            }
+        };
 
         let available_size = if offset + (dd.size as usize) <= bytes.len() {
             dd.size as usize

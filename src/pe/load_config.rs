@@ -95,7 +95,6 @@ pub const LOAD_LIBRARY_OS_INTEGRITY_CONTINUITY: u32 = 0x0000_8000;
 /// This structure may grow in future versions of the PE format, so be cautious
 /// when working with it, as some fields may not be available or relevant for
 /// all versions of PE files.
-#[repr(C)]
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct LoadConfigDirectory {

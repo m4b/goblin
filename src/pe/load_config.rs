@@ -1,6 +1,7 @@
 use scroll::ctx;
 use scroll::{Pread, Pwrite, SizeWith};
 
+use crate::container::{Container, Ctx};
 use crate::error;
 use crate::pe::data_directories;
 use crate::pe::options;
@@ -202,14 +203,15 @@ pub struct LoadConfigDirectory {
     pub guard_memcpy_function_pointer: Option<u64>,
 }
 
-impl<'a> ctx::TryFromCtx<'a, bool> for LoadConfigDirectory {
+impl<'a> ctx::TryFromCtx<'a, Ctx> for LoadConfigDirectory {
     type Error = crate::error::Error;
-    fn try_from_ctx(bytes: &'a [u8], is_64: bool) -> error::Result<(Self, usize)> {
+    fn try_from_ctx(bytes: &'a [u8], ctx: Ctx) -> error::Result<(Self, usize)> {
         // `size` field must be present
         if bytes.len() < 4 {
             return Err(error::Error::Malformed(format!("Too small")));
         }
 
+        let is_64 = ctx.is_big();
         let mut offset = 0;
 
         let mut read_arch_dependent_u64 = |offset: &mut usize| {
@@ -347,7 +349,15 @@ impl LoadConfigData {
         let size = bytes.pread::<u32>(0).map_err(|_| {
             error::Error::Malformed(format!("cannot read cb size ({})", bytes.len()))
         })?;
-        let directory = bytes.pread_with(0, is_64)?;
+        let ctx = Ctx::new(
+            if is_64 {
+                Container::Big
+            } else {
+                Container::Little
+            },
+            scroll::LE,
+        );
+        let directory = bytes.pread_with(0, ctx)?;
 
         Ok(Self { directory })
     }
@@ -400,8 +410,9 @@ mod tests {
 
     #[test]
     fn parse_loadconfig64_data0() {
+        let ctx = Ctx::new(crate::container::Container::Big, scroll::LE);
         let data = LOADCONFIG64_DATA0
-            .pread_with::<LoadConfigDirectory>(0, true)
+            .pread_with::<LoadConfigDirectory>(0, ctx)
             .unwrap();
 
         assert_eq!(data.size, 320);
@@ -484,8 +495,9 @@ mod tests {
 
     #[test]
     fn parse_loadconfig32_data0() {
+        let ctx = Ctx::new(crate::container::Container::Little, scroll::LE);
         let data = LOADCONFIG32_DATA0
-            .pread_with::<LoadConfigDirectory>(0, false)
+            .pread_with::<LoadConfigDirectory>(0, ctx)
             .unwrap();
 
         assert_eq!(data.size, 188);

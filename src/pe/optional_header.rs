@@ -626,7 +626,7 @@ impl ctx::TryIntoCtx<scroll::Endian> for OptionalHeader {
                 bytes.gwrite_with(self.windows_fields, offset, ctx)?;
                 bytes.gwrite_with(self.data_directories, offset, ctx)?;
             }
-            _ => panic!(),
+            n => Err(Self::Error::BadMagic(n.into()))?,
         }
         Ok(*offset)
     }

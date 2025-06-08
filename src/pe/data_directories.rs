@@ -1,8 +1,6 @@
 use crate::error;
-use scroll::{
-    Pread, Pwrite, SizeWith,
-    ctx::{self},
-};
+use scroll::ctx::{self};
+use scroll::{Pread, Pwrite, SizeWith};
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default, Pread, Pwrite, SizeWith)]
@@ -12,7 +10,7 @@ pub struct DataDirectory {
 }
 
 pub const SIZEOF_DATA_DIRECTORY: usize = 8;
-const NUM_DATA_DIRECTORIES: usize = 16;
+pub(crate) const NUM_DATA_DIRECTORIES: usize = 16;
 
 impl DataDirectory {
     pub fn parse(bytes: &[u8], offset: &mut usize) -> error::Result<Self> {

@@ -1,12 +1,10 @@
 //! The module for the PE optional header ([`OptionalHeader`]) and related items.
 
-use crate::container;
-use crate::error;
+use crate::{container, error};
 
 use crate::pe::data_directories;
 
-use scroll::{Endian, LE, ctx};
-use scroll::{Pread, Pwrite, SizeWith};
+use scroll::{Endian, LE, Pread, Pwrite, SizeWith, ctx};
 
 /// Standard 32-bit COFF fields (for `PE32`).
 ///
@@ -597,7 +595,7 @@ impl<'a> ctx::TryFromCtx<'a, Endian> for OptionalHeader {
             _ => return Err(error::Error::BadMagic(u64::from(magic))),
         };
         let data_directories = data_directories::DataDirectories::parse(
-            &bytes,
+            bytes,
             windows_fields.number_of_rva_and_sizes as usize,
             offset,
         )?;
@@ -607,8 +605,8 @@ impl<'a> ctx::TryFromCtx<'a, Endian> for OptionalHeader {
                 windows_fields,
                 data_directories,
             },
-            0,
-        )) // TODO: FIXME
+            *offset,
+        ))
     }
 }
 
@@ -637,6 +635,8 @@ impl ctx::TryIntoCtx<scroll::Endian> for OptionalHeader {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use scroll::{Pread, Pwrite};
+
     #[test]
     fn sizeof_standards32() {
         assert_eq!(
@@ -663,6 +663,157 @@ mod tests {
         assert_eq!(
             ::std::mem::size_of::<WindowsFields64>(),
             SIZEOF_WINDOWS_FIELDS_64
+        );
+    }
+
+    // Taken from `C:\Windows\System32\calc.exe`
+    const OPTIONAL_HEADER_BYTES: &[u8] = &[
+        11, 2, 14, 38, 0, 32, 0, 0, 0, 144, 0, 0, 0, 0, 0, 0, 64, 23, 0, 0, 0, 16, 0, 0, 0, 0, 0,
+        64, 1, 0, 0, 0, 0, 16, 0, 0, 0, 16, 0, 0, 10, 0, 0, 0, 10, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0,
+        0, 0, 192, 0, 0, 0, 16, 0, 0, 117, 98, 1, 0, 2, 0, 96, 193, 0, 0, 8, 0, 0, 0, 0, 0, 0, 32,
+        0, 0, 0, 0, 0, 0, 0, 0, 16, 0, 0, 0, 0, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 248, 56, 0, 0, 160, 0, 0, 0, 0, 96, 0, 0, 16, 71, 0, 0, 0, 80,
+        0, 0, 8, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 176, 0, 0, 60, 0, 0, 0, 104, 51, 0, 0, 112, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 48, 0, 0,
+        64, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 80, 49, 0, 0, 72, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    ];
+
+    // Taken from `C:\Windows\System32\calc.exe`
+    const OPTIONAL_HEADER: OptionalHeader = OptionalHeader {
+        standard_fields: StandardFields {
+            magic: 523,
+            major_linker_version: 14,
+            minor_linker_version: 38,
+            size_of_code: 8192,
+            size_of_initialized_data: 36864,
+            size_of_uninitialized_data: 0,
+            address_of_entry_point: 5952,
+            base_of_code: 4096,
+            base_of_data: 0,
+        },
+        windows_fields: WindowsFields64 {
+            image_base: 5368709120,
+            section_alignment: 4096,
+            file_alignment: 4096,
+            major_operating_system_version: 10,
+            minor_operating_system_version: 0,
+            major_image_version: 10,
+            minor_image_version: 0,
+            major_subsystem_version: 10,
+            minor_subsystem_version: 0,
+            win32_version_value: 0,
+            size_of_image: 49152,
+            size_of_headers: 4096,
+            check_sum: 90741,
+            subsystem: 2,
+            dll_characteristics: 49504,
+            size_of_stack_reserve: 524288,
+            size_of_stack_commit: 8192,
+            size_of_heap_reserve: 1048576,
+            size_of_heap_commit: 4096,
+            loader_flags: 0,
+            number_of_rva_and_sizes: 16,
+        },
+        data_directories: data_directories::DataDirectories {
+            data_directories: [
+                None,
+                Some((
+                    128,
+                    data_directories::DataDirectory {
+                        virtual_address: 14584,
+                        size: 160,
+                    },
+                )),
+                Some((
+                    136,
+                    data_directories::DataDirectory {
+                        virtual_address: 24576,
+                        size: 18192,
+                    },
+                )),
+                Some((
+                    144,
+                    data_directories::DataDirectory {
+                        virtual_address: 20480,
+                        size: 264,
+                    },
+                )),
+                None,
+                Some((
+                    160,
+                    data_directories::DataDirectory {
+                        virtual_address: 45056,
+                        size: 60,
+                    },
+                )),
+                Some((
+                    168,
+                    data_directories::DataDirectory {
+                        virtual_address: 13160,
+                        size: 112,
+                    },
+                )),
+                None,
+                None,
+                None,
+                Some((
+                    200,
+                    data_directories::DataDirectory {
+                        virtual_address: 12304,
+                        size: 320,
+                    },
+                )),
+                None,
+                Some((
+                    216,
+                    data_directories::DataDirectory {
+                        virtual_address: 12624,
+                        size: 328,
+                    },
+                )),
+                None,
+                None,
+                None,
+            ],
+        },
+    };
+
+    #[test]
+    fn read() {
+        let optional_header: OptionalHeader = OPTIONAL_HEADER_BYTES
+            .pread(0)
+            .expect("failed to read optional header");
+        assert_eq!(optional_header, OPTIONAL_HEADER);
+    }
+
+    #[test]
+    fn write() {
+        let mut buf = [0_u8; 1024];
+        let len = buf
+            .pwrite(OPTIONAL_HEADER, 0)
+            .expect("failed to write optional header");
+        assert_eq!(
+            OPTIONAL_HEADER_BYTES,
+            buf.get(..len).expect("not enough data")
+        );
+    }
+
+    #[test]
+    fn read_and_write_consistent() {
+        let optional_header: OptionalHeader = OPTIONAL_HEADER_BYTES
+            .pread(0)
+            .expect("failed to read optional header");
+
+        let mut buf = [0_u8; 1024];
+        let len = buf
+            .pwrite(optional_header, 0)
+            .expect("failed to write optional_header");
+
+        assert_eq!(len, OPTIONAL_HEADER_BYTES.len());
+        assert_eq!(
+            OPTIONAL_HEADER_BYTES,
+            buf.get(..len).expect("not enough data")
         );
     }
 }

@@ -442,7 +442,7 @@ impl<'a> DelayImportData<'a> {
                         ))
                     })?;
 
-            let mut current_address_table_rva = descriptor.address_table_rva;
+            let mut index = 0;
             let mut current_name_offset = name_table_offset;
 
             'inner: loop {
@@ -460,12 +460,13 @@ impl<'a> DelayImportData<'a> {
                     thunk.is_ordinal32()
                 };
                 let ordinal = if is_ordinal { thunk.ordinal() } else { 0 };
+                let rva = descriptor.address_table_rva + (index * ctx.size()) as u32;
 
                 if is_ordinal {
                     imports.push(DelayImportEntry {
                         descriptor,
                         offset: current_name_offset as u32,
-                        rva: current_address_table_rva,
+                        rva,
                         hint: 0,
                         dll: dll_name,
                         name: None,
@@ -486,7 +487,7 @@ impl<'a> DelayImportData<'a> {
                     imports.push(DelayImportEntry {
                         descriptor,
                         offset: current_name_offset as u32,
-                        rva: current_address_table_rva,
+                        rva,
                         hint,
                         dll: dll_name,
                         name: Some(name),
@@ -495,7 +496,7 @@ impl<'a> DelayImportData<'a> {
                 }
 
                 current_name_offset += if is_64 { 8 } else { 4 };
-                current_address_table_rva += if is_64 { 8 } else { 4 };
+                index += 1;
             }
 
             descriptor =

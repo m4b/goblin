@@ -21,6 +21,7 @@ pub mod exception;
 pub mod export;
 pub mod header;
 pub mod import;
+pub mod load_config;
 pub mod optional_header;
 pub mod options;
 pub mod relocation;
@@ -82,6 +83,8 @@ pub struct PE<'a> {
     pub relocation_data: Option<relocation::RelocationData<'a>>,
     /// Delay import data if any
     pub delay_import_data: Option<delay_import::DelayImportData<'a>>,
+    /// Load config data if any
+    pub load_config_data: Option<load_config::LoadConfigData>,
     /// Certificates present, if any, described by the Certificate Table
     pub certificates: certificate_table::CertificateDirectoryTable<'a>,
 }
@@ -119,6 +122,7 @@ impl<'a> PE<'a> {
         let mut exception_data = None;
         let mut relocation_data = None;
         let mut delay_import_data = None;
+        let mut load_config_data = None;
         let mut certificates = Default::default();
         let mut is_64 = false;
         if let Some(optional_header) = header.optional_header {
@@ -282,6 +286,18 @@ impl<'a> PE<'a> {
                     is_64,
                 )?);
             }
+          
+            if let Some(&load_config_dir) = optional_header.data_directories.get_load_config_table()
+            {
+                load_config_data = Some(load_config::LoadConfigData::parse_with_opts(
+                    bytes,
+                    load_config_dir,
+                    &sections,
+                    file_alignment,
+                    opts,
+                    is_64,
+                )?);
+            }
 
             // Parse attribute certificates unless opted out of
             let certificate_table_size = if opts.parse_attribute_certificates {
@@ -337,6 +353,7 @@ impl<'a> PE<'a> {
             tls_data,
             exception_data,
             relocation_data,
+            load_config_data,
             certificates,
             delay_import_data,
         })

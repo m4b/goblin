@@ -29,7 +29,7 @@ pub struct DelayImportEntry<'a> {
     pub name: Option<&'a str>,
     /// Ordinal number if the function is imported by ordinal.
     ///
-    /// This is `0` if `name` is `None` and vice versa.
+    /// This is `0` if `name` is `Some` and vice versa.
     pub ordinal: u16,
 }
 

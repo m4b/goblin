@@ -10,6 +10,217 @@ use crate::pe::options;
 use crate::pe::section_table;
 use crate::pe::utils;
 
+/// A binary parsing context for PE parser
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct PeCtx<'a> {
+    pub container: Container,
+    pub le: scroll::Endian,
+    pub sections: &'a [section_table::SectionTable],
+    pub file_alignment: u32,
+    pub opts: options::ParseOptions,
+    pub bytes: &'a [u8], // full binary view
+}
+
+impl<'a> PeCtx<'a> {
+    pub fn new(
+        container: Container,
+        le: scroll::Endian,
+        sections: &'a [section_table::SectionTable],
+        file_alignment: u32,
+        opts: options::ParseOptions,
+        bytes: &'a [u8],
+    ) -> Self {
+        Self {
+            container,
+            le,
+            sections,
+            file_alignment,
+            opts,
+            bytes,
+        }
+    }
+
+    /// Whether this binary container context is "big" or not
+    pub fn is_big(self) -> bool {
+        self.container.is_big()
+    }
+
+    /// Whether this binary container context is little endian or not
+    pub fn is_little_endian(self) -> bool {
+        self.le.is_little()
+    }
+
+    /// Return a dubious pointer/address byte size for the container
+    pub fn size(self) -> usize {
+        match self.container {
+            // TODO: require pointer size initialization/setting or default to container size with these values, e.g., avr pointer width will be smaller iirc
+            Container::Little => 4,
+            Container::Big => 8,
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct DelayImportFunction<'a> {
+    pub name: Option<&'a str>,
+    pub ordinal: u16,
+}
+
+impl<'a> ctx::TryFromCtx<'a, (DelayImportDescriptor, PeCtx<'a>)> for DelayImportFunction<'a> {
+    type Error = crate::error::Error;
+    fn try_from_ctx(
+        bytes: &'a [u8],
+        ctx: (DelayImportDescriptor, PeCtx<'a>),
+    ) -> error::Result<(Self, usize)> {
+        let mut offset = 0;
+
+        let (descriptor, ctx) = ctx;
+        let thunk =
+            bytes.gread_with::<DelayImportThunk>(&mut offset, Ctx::new(ctx.container, ctx.le))?;
+        if thunk.is_null() {
+            return Ok((DelayImportFunction::default(), offset));
+        }
+
+        let is_ordinal = if ctx.is_big() {
+            thunk.is_ordinal64()
+        } else {
+            thunk.is_ordinal32()
+        };
+        let ordinal = if is_ordinal { thunk.ordinal() } else { 0 };
+        let name = if is_ordinal {
+            None
+        } else {
+            let dll_name_rva = descriptor.name_rva;
+            let dll_name_offset = utils::find_offset(
+                dll_name_rva as usize,
+                ctx.sections,
+                ctx.file_alignment,
+                &ctx.opts,
+            )
+            .ok_or_else(|| {
+                error::Error::Malformed(format!(
+                    "cannot map delay import dll name rva {dll_name_rva:#x}"
+                ))
+            })?;
+            let dll_name = ctx.bytes.pread::<&'a str>(dll_name_offset)?;
+            Some(dll_name)
+        };
+
+        let func = DelayImportFunction { name, ordinal };
+
+        Ok((func, offset))
+    }
+}
+
+#[derive(Debug)]
+pub struct DelayImportDll<'a> {
+    pub descriptor: DelayImportDescriptor,
+    ctx: PeCtx<'a>,
+    bytes: &'a [u8],
+}
+
+impl<'a> DelayImportDll<'a> {
+    pub fn functions(
+        &self,
+        sections: &'a [section_table::SectionTable],
+    ) -> DelayImportFunctionIterator<'a> {
+        // Replace sections with an actual sections ref
+        let pectx = PeCtx::new(
+            self.ctx.container,
+            self.ctx.le,
+            &sections,
+            self.ctx.file_alignment,
+            self.ctx.opts,
+            self.ctx.bytes,
+        );
+        DelayImportFunctionIterator {
+            ctx: pectx,
+            bytes: self.bytes,
+            offset: 0,
+            descriptor: self.descriptor,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct DelayImportDllIterator<'a> {
+    ctx: PeCtx<'a>,
+    bytes: &'a [u8],
+    offset: usize,
+}
+
+impl<'a> Iterator for DelayImportDllIterator<'a> {
+    type Item = error::Result<DelayImportDll<'a>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.offset >= self.bytes.len() {
+            return None;
+        }
+
+        let descriptor = self
+            .bytes
+            .gread_with::<DelayImportDescriptor>(&mut self.offset, scroll::LE)
+            .ok()?;
+        if descriptor.is_null() || !descriptor.is_possibly_valid() {
+            self.bytes = &[];
+            return None;
+        }
+
+        let name_table_rva = descriptor.name_table_rva;
+        let name_table_offset = utils::find_offset(
+            name_table_rva as usize,
+            self.ctx.sections,
+            self.ctx.file_alignment,
+            &self.ctx.opts,
+        )?;
+        if self.ctx.bytes.len() < name_table_offset {
+            self.bytes = &[];
+            return None;
+        }
+
+        let res = DelayImportDll {
+            descriptor,
+            ctx: self.ctx,
+            bytes: &self.ctx.bytes[name_table_offset..],
+        };
+
+        Some(Ok(res))
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct DelayImportFunctionIterator<'a> {
+    ctx: PeCtx<'a>,
+    bytes: &'a [u8],
+    offset: usize,
+    descriptor: DelayImportDescriptor,
+}
+
+impl<'a> Iterator for DelayImportFunctionIterator<'a> {
+    type Item = error::Result<DelayImportFunction<'a>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.offset >= self.bytes.len() {
+            return None;
+        }
+
+        let ctx = Ctx::new(self.ctx.container, scroll::LE);
+        let thunk = self
+            .bytes
+            .gread_with::<DelayImportThunk>(&mut self.offset, ctx)
+            .ok()?;
+        if thunk.is_null() {
+            self.bytes = &[];
+            return None;
+        }
+
+        let ctx = (self.descriptor, self.ctx);
+        let func = self.bytes.pread_with::<DelayImportFunction>(0, ctx).ok()?;
+
+        Some(Ok(func))
+    }
+}
+
 /// Represents a single entry in the delay import table of a PE (Portable Executable) file.
 #[derive(Debug)]
 pub struct DelayImportEntry<'a> {
@@ -143,6 +354,8 @@ impl<'a> DelayImportDescriptor {
 /// Represents a PE delay import directory data.
 #[derive(Debug)]
 pub struct DelayImportData<'a> {
+    ctx: PeCtx<'a>,
+    bytes: &'a [u8],
     /// Delay imported entries.
     pub imports: Vec<DelayImportEntry<'a>>,
 }
@@ -191,14 +404,15 @@ impl<'a> DelayImportData<'a> {
         }
         let directory_bytes = &bytes[offset..offset + dd.size as usize];
 
-        let ctx = Ctx::new(
-            if is_64 {
-                Container::Big
-            } else {
-                Container::Little
-            },
-            scroll::LE,
-        );
+        let container = if is_64 {
+            Container::Big
+        } else {
+            Container::Little
+        };
+        // Avoid borrowing of sections here, we store the rest and modify sections field on demand
+        let pectx = PeCtx::new(container, scroll::LE, &[], file_alignment, *opts, bytes);
+
+        let ctx = Ctx::new(container, scroll::LE);
 
         let mut cursor = 0;
         let mut imports = Vec::new();
@@ -288,6 +502,27 @@ impl<'a> DelayImportData<'a> {
                 directory_bytes.gread_with::<DelayImportDescriptor>(&mut cursor, scroll::LE)?;
         }
 
-        Ok(Self { imports })
+        Ok(Self {
+            ctx: pectx,
+            bytes: directory_bytes,
+            imports,
+        })
+    }
+
+    pub fn dlls(&self, sections: &'a [section_table::SectionTable]) -> DelayImportDllIterator<'a> {
+        // Replace sections with an actual sections ref
+        let pectx = PeCtx::new(
+            self.ctx.container,
+            self.ctx.le,
+            &sections,
+            self.ctx.file_alignment,
+            self.ctx.opts,
+            self.ctx.bytes,
+        );
+        DelayImportDllIterator {
+            ctx: pectx,
+            bytes: self.bytes,
+            offset: 0,
+        }
     }
 }

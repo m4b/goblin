@@ -81,10 +81,10 @@ pub struct PE<'a> {
     pub exception_data: Option<exception::ExceptionData<'a>>,
     /// Base relocation data if any
     pub relocation_data: Option<relocation::RelocationData<'a>>,
-    /// Delay import data if any
-    pub delay_import_data: Option<delay_import::DelayImportData<'a>>,
     /// Load config data if any
     pub load_config_data: Option<load_config::LoadConfigData>,
+    /// Delay import data if any
+    pub delay_import_data: Option<delay_import::DelayImportData<'a>>,
     /// Certificates present, if any, described by the Certificate Table
     pub certificates: certificate_table::CertificateDirectoryTable<'a>,
 }
@@ -273,6 +273,18 @@ impl<'a> PE<'a> {
                 )?);
             }
 
+            if let Some(&load_config_dir) = optional_header.data_directories.get_load_config_table()
+            {
+                load_config_data = Some(load_config::LoadConfigData::parse_with_opts(
+                    bytes,
+                    load_config_dir,
+                    &sections,
+                    file_alignment,
+                    opts,
+                    is_64,
+                )?);
+            }
+
             if let Some(&delay_import_dir) = optional_header
                 .data_directories
                 .get_delay_import_descriptor()
@@ -280,18 +292,6 @@ impl<'a> PE<'a> {
                 delay_import_data = Some(delay_import::DelayImportData::parse_with_opts(
                     bytes,
                     delay_import_dir,
-                    &sections,
-                    file_alignment,
-                    opts,
-                    is_64,
-                )?);
-            }
-          
-            if let Some(&load_config_dir) = optional_header.data_directories.get_load_config_table()
-            {
-                load_config_data = Some(load_config::LoadConfigData::parse_with_opts(
-                    bytes,
-                    load_config_dir,
                     &sections,
                     file_alignment,
                     opts,
@@ -354,8 +354,8 @@ impl<'a> PE<'a> {
             exception_data,
             relocation_data,
             load_config_data,
-            certificates,
             delay_import_data,
+            certificates,
         })
     }
 

@@ -283,7 +283,18 @@ if_sylvan! {
                 }
             }
 
-            let section_headers = SectionHeader::parse(bytes, header.e_shoff as usize, header.e_shnum as usize, ctx)?;
+            let section_headers = if permissive {
+                // Try to parse, but fall back to empty headers if it fails
+                match SectionHeader::parse(bytes, header.e_shoff as usize, header.e_shnum as usize, ctx) {
+                    Ok(headers) => headers,
+                    Err(e) => {
+                        log::warn!("Failed to parse section headers in permissive mode: {}, continuing with empty section headers", e);
+                        Vec::new()
+                    }
+                }
+            } else {
+                SectionHeader::parse(bytes, header.e_shoff as usize, header.e_shnum as usize, ctx)?
+            };
 
             let get_strtab = |section_headers: &[SectionHeader], mut section_idx: usize| {
                 if section_idx == section_header::SHN_XINDEX as usize {

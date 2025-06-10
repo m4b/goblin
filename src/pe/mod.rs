@@ -91,7 +91,7 @@ impl<'a> PE<'a> {
 
     /// Reads a PE binary from the underlying `bytes`
     pub fn parse_with_opts(bytes: &'a [u8], opts: &options::ParseOptions) -> error::Result<Self> {
-        let header = header::Header::parse(bytes)?;
+        let header = header::Header::parse_with_opts(bytes, opts)?;
         let mut authenticode_excluded_sections = None;
 
         debug!("{:#?}", header);
@@ -650,7 +650,7 @@ mod tests {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x60, 0x92, 0x01, 0x00, 0x30, 0x01, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x01, 0x00, 0x48, 0x02, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00,
+        0x00, 0x00, 0x00,
     ];
 
     static INVALID_PE_SIGNATURE: [u8; 512] = [
@@ -688,7 +688,7 @@ mod tests {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x60, 0x92, 0x01, 0x00, 0x30, 0x01, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x01, 0x00, 0x48, 0x02, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00,
+        0x00, 0x00, 0x00,
     ];
 
     // The assembler program used to generate this string is as follows:
@@ -800,5 +800,44 @@ mod tests {
         let binary = PE::parse(HEADERONLY_EMPTY_PE64).unwrap();
         assert_eq!(binary.entry, 0x1020u32);
         assert_eq!(binary.image_base, 0x140000000u64);
+    }
+
+    #[test]
+    fn test_packed_binary_permissive_parsing() {
+        use crate::pe::options::{ParseOptions, ParseMode};
+        
+        // Create a minimal PE with a PE pointer that's before the DOS stub offset
+        // This simulates a packed binary scenario
+        let mut packed_pe = vec![0u8; 0x100];
+        
+        // DOS header with MZ signature
+        packed_pe[0] = 0x4D; // 'M'
+        packed_pe[1] = 0x5A; // 'Z'
+        
+        // Set PE pointer to 0x30 (before DOS_STUB_OFFSET which is 0x40)
+        packed_pe[0x3C] = 0x30;
+        packed_pe[0x3D] = 0x00;
+        packed_pe[0x3E] = 0x00;
+        packed_pe[0x3F] = 0x00;
+        
+        // PE signature at offset 0x30
+        packed_pe[0x30] = 0x50; // 'P'
+        packed_pe[0x31] = 0x45; // 'E'
+        packed_pe[0x32] = 0x00;
+        packed_pe[0x33] = 0x00;
+        
+        // Minimal COFF header (machine type, etc.)
+        packed_pe[0x34] = 0x4C; // IMAGE_FILE_MACHINE_I386
+        packed_pe[0x35] = 0x01;
+        
+        // Test strict parsing - should fail
+        let strict_result = PE::parse(&packed_pe);
+        assert!(strict_result.is_err(), "Strict parsing should fail for packed binary");
+        
+        // Test permissive parsing - should succeed
+        let permissive_opts = ParseOptions::default()
+            .with_parse_mode(ParseMode::Permissive);
+        let permissive_result = PE::parse_with_opts(&packed_pe, &permissive_opts);
+        assert!(permissive_result.is_ok(), "Permissive parsing should succeed for packed binary");
     }
 }

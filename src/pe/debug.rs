@@ -408,10 +408,18 @@ impl<'a> CodeviewPDB70DebugInfo<'a> {
         let filename_length = idd.size_of_data as isize - 24;
         if filename_length < 0 {
             // the record is too short to be plausible
-            return Err(error::Error::Malformed(format!(
-                "ImageDebugDirectory size of data seems wrong: {:?}",
-                idd.size_of_data
-            )));
+            if matches!(opts.parse_mode, options::ParseMode::Permissive) {
+                log::warn!(
+                    "ImageDebugDirectory size of data seems wrong: {}, but continuing in permissive mode",
+                    idd.size_of_data
+                );
+                return Ok(None);
+            } else {
+                return Err(error::Error::Malformed(format!(
+                    "ImageDebugDirectory size of data seems wrong: {:?}",
+                    idd.size_of_data
+                )));
+            }
         }
         let filename_length = filename_length as usize;
 
@@ -519,10 +527,18 @@ impl<'a> CodeviewPDB20DebugInfo<'a> {
         let filename_length = idd.size_of_data as isize - 16;
         if filename_length < 0 {
             // the record is too short to be plausible
-            return Err(error::Error::Malformed(format!(
-                "ImageDebugDirectory size of data seems wrong: {:?}",
-                idd.size_of_data
-            )));
+            if matches!(opts.parse_mode, options::ParseMode::Permissive) {
+                log::warn!(
+                    "ImageDebugDirectory size of data seems wrong: {}, but continuing in permissive mode",
+                    idd.size_of_data
+                );
+                return Ok(None);
+            } else {
+                return Err(error::Error::Malformed(format!(
+                    "ImageDebugDirectory size of data seems wrong: {:?}",
+                    idd.size_of_data
+                )));
+            }
         }
         let filename_length = filename_length as usize;
 

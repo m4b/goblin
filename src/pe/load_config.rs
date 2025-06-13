@@ -337,7 +337,7 @@ impl LoadConfigData {
                     ))
                 })?;
         let bytes = bytes[offset..]
-            .pread::<&[u8]>(dd.size as usize)
+            .pread_with::<&[u8]>(0, dd.size as usize)
             .map_err(|_| {
                 error::Error::Malformed(format!(
                     "load config offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",

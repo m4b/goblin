@@ -278,6 +278,8 @@ impl<'a> PE<'a> {
 
             if let Some(&load_config_dir) = optional_header.data_directories.get_load_config_table()
             {
+                debug!("LoadConfig directory found: virtual_address={:#x}, size={:#x}",
+                       load_config_dir.virtual_address, load_config_dir.size);
                 load_config_data = Some(load_config::LoadConfigData::parse_with_opts(
                     bytes,
                     load_config_dir,
@@ -822,35 +824,35 @@ mod tests {
     #[test]
     fn test_packed_binary_permissive_parsing() {
         use crate::pe::options::{ParseOptions, ParseMode};
-        
+
         // Create a minimal PE with a PE pointer that's before the DOS stub offset
         // This simulates a packed binary scenario
         let mut packed_pe = vec![0u8; 0x100];
-        
+
         // DOS header with MZ signature
         packed_pe[0] = 0x4D; // 'M'
         packed_pe[1] = 0x5A; // 'Z'
-        
+
         // Set PE pointer to 0x30 (before DOS_STUB_OFFSET which is 0x40)
         packed_pe[0x3C] = 0x30;
         packed_pe[0x3D] = 0x00;
         packed_pe[0x3E] = 0x00;
         packed_pe[0x3F] = 0x00;
-        
+
         // PE signature at offset 0x30
         packed_pe[0x30] = 0x50; // 'P'
         packed_pe[0x31] = 0x45; // 'E'
         packed_pe[0x32] = 0x00;
         packed_pe[0x33] = 0x00;
-        
+
         // Minimal COFF header (machine type, etc.)
         packed_pe[0x34] = 0x4C; // IMAGE_FILE_MACHINE_I386
         packed_pe[0x35] = 0x01;
-        
+
         // Test strict parsing - should fail
         let strict_result = PE::parse(&packed_pe);
         assert!(strict_result.is_err(), "Strict parsing should fail for packed binary");
-        
+
         // Test permissive parsing - should succeed
         let permissive_opts = ParseOptions::default()
             .with_parse_mode(ParseMode::Permissive);

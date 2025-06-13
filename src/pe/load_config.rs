@@ -7,6 +7,7 @@ use crate::pe::data_directories;
 use crate::pe::options;
 use crate::pe::section_table;
 use crate::pe::utils;
+use log;
 
 // GuardFlags: bitflags for LoadConfigDirectory::guard_flags.
 
@@ -336,8 +337,31 @@ impl LoadConfigData {
                         dd.virtual_address
                     ))
                 })?;
+        // Check if the data directory size is sufficient for at least the cb size field (4 bytes)
+        if dd.size < 4 {
+            if matches!(opts.parse_mode, options::ParseMode::Permissive) {
+                log::warn!(
+                    "LoadConfig data directory has insufficient size {:#x} (minimum 4 bytes required). \
+                    This is common in packed binaries. Using default LoadConfig data.",
+                    dd.size
+                );
+                // Return a minimal LoadConfigDirectory with default values
+                let directory = LoadConfigDirectory::default();
+                return Ok(Self { directory });
+            } else {
+                return Err(error::Error::Malformed(format!(
+                    "LoadConfig data directory has insufficient size {:#x} (minimum 4 bytes required)",
+                    dd.size
+                )));
+            }
+        }
+
+        log::debug!(
+            "LoadConfig parsing: offset={:#x}, dd.size={:#x}, total_bytes_len={:#x}, remaining_bytes_from_offset={:#x}",
+            offset, dd.size, bytes.len(), bytes.len().saturating_sub(offset)
+        );
         let bytes = bytes[offset..]
-            .pread::<&[u8]>(dd.size as usize)
+            .pread_with::<&[u8]>(0, dd.size as usize)
             .map_err(|_| {
                 error::Error::Malformed(format!(
                     "load config offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",
@@ -346,9 +370,8 @@ impl LoadConfigData {
                     bytes.len()
                 ))
             })?;
-        let size = bytes.pread::<u32>(0).map_err(|_| {
-            error::Error::Malformed(format!("cannot read cb size ({})", bytes.len()))
-        })?;
+        log::debug!("LoadConfig bytes slice created successfully, length={}", bytes.len());
+
         let ctx = Ctx::new(
             if is_64 {
                 Container::Big

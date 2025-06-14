@@ -347,23 +347,16 @@ impl<'a> RelocationData<'a> {
                         dd.virtual_address
                     ))
                 })?;
+        // To allow parsing the rest, we will not raise an malformation error
+        // when we found that the base relocation directory lies in the binary.
+        // If that's the case, we store an empty `bytes`, which implies no-op
+        // when `blocks` is called.
         if bytes.len() < offset {
-            return Err(error::Error::Malformed(format!(
-                "base reloc offset {:#x} out of bounds {:#x}",
-                offset,
-                bytes.len()
-            )));
+            return Ok(Self { bytes: &[] });
         }
         let bytes = bytes[offset..]
-            .pread::<&[u8]>(dd.size as usize)
-            .map_err(|_| {
-                error::Error::Malformed(format!(
-                    "base reloc offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",
-                    offset,
-                    dd.size,
-                    bytes.len()
-                ))
-            })?;
+            .pread_with::<&[u8]>(0, dd.size as usize)
+            .unwrap_or_default();
 
         Ok(Self { bytes })
     }

@@ -214,7 +214,7 @@ impl<'a> ctx::TryFromCtx<'a, Ctx> for LoadConfigDirectory {
         let is_64 = ctx.is_big();
         let mut offset = 0;
 
-        let mut read_arch_dependent_u64 = |offset: &mut usize| {
+        let read_arch_dependent_u64 = |offset: &mut usize| {
             if is_64 {
                 bytes.gread_with(offset, scroll::LE).ok()
             } else {
@@ -346,9 +346,7 @@ impl LoadConfigData {
                     bytes.len()
                 ))
             })?;
-        let size = bytes.pread::<u32>(0).map_err(|_| {
-            error::Error::Malformed(format!("cannot read cb size ({})", bytes.len()))
-        })?;
+
         let ctx = Ctx::new(
             if is_64 {
                 Container::Big

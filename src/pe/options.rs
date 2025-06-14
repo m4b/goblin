@@ -11,8 +11,6 @@ pub struct ParseOptions {
     pub parse_attribute_certificates: bool,
     /// Whether or not to end with an error in case of incorrect data or continue parsing if able. Default: ParseMode::Strict
     pub parse_mode: ParseMode,
-    /// Whether or not to parse PE base relocation directory.
-    pub parse_basereloc: bool,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -30,7 +28,6 @@ impl Default for ParseOptions {
             resolve_rva: true,
             parse_attribute_certificates: true,
             parse_mode: ParseMode::Strict,
-            parse_basereloc: true,
         }
     }
 }
@@ -41,7 +38,6 @@ impl ParseOptions {
             resolve_rva: false,
             parse_attribute_certificates: false,
             parse_mode: ParseMode::Strict,
-            parse_basereloc: false,
         }
     }
 

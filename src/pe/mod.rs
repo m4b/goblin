@@ -253,18 +253,16 @@ impl<'a> PE<'a> {
                 }
             }
 
-            if opts.parse_basereloc {
-                if let Some(&baserelocs_dir) =
-                    optional_header.data_directories.get_base_relocation_table()
-                {
-                    relocation_data = Some(relocation::RelocationData::parse_with_opts(
-                        bytes,
-                        baserelocs_dir,
-                        &sections,
-                        file_alignment,
-                        opts,
-                    )?);
-                }
+            if let Some(&baserelocs_dir) =
+                optional_header.data_directories.get_base_relocation_table()
+            {
+                relocation_data = Some(relocation::RelocationData::parse_with_opts(
+                    bytes,
+                    baserelocs_dir,
+                    &sections,
+                    file_alignment,
+                    opts,
+                )?);
             }
 
             // Parse attribute certificates unless opted out of

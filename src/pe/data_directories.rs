@@ -1,8 +1,6 @@
 use crate::error;
-use scroll::{
-    Pread, Pwrite, SizeWith,
-    ctx::{self},
-};
+use scroll::ctx::{self};
+use scroll::{Pread, Pwrite, SizeWith};
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default, Pread, Pwrite, SizeWith)]
@@ -12,7 +10,7 @@ pub struct DataDirectory {
 }
 
 pub const SIZEOF_DATA_DIRECTORY: usize = 8;
-const NUM_DATA_DIRECTORIES: usize = 16;
+pub(crate) const NUM_DATA_DIRECTORIES: usize = 16;
 
 impl DataDirectory {
     pub fn parse(bytes: &[u8], offset: &mut usize) -> error::Result<Self> {
@@ -78,14 +76,13 @@ impl ctx::TryIntoCtx<scroll::Endian> for DataDirectories {
     fn try_into_ctx(self, bytes: &mut [u8], ctx: scroll::Endian) -> Result<usize, Self::Error> {
         let offset = &mut 0;
         for opt_dd in self.data_directories {
-            if let Some((dd_offset, dd)) = opt_dd {
-                bytes.pwrite_with(dd, dd_offset, ctx)?;
-                *offset += dd_offset;
+            if let Some((_, dd)) = opt_dd {
+                bytes.gwrite_with(dd, offset, ctx)?;
             } else {
-                bytes.gwrite(&[0; SIZEOF_DATA_DIRECTORY][..], offset)?;
+                bytes.gwrite([0_u8; SIZEOF_DATA_DIRECTORY], offset)?;
             }
         }
-        Ok(NUM_DATA_DIRECTORIES * SIZEOF_DATA_DIRECTORY)
+        Ok(*offset)
     }
 }
 
@@ -103,8 +100,7 @@ impl DataDirectories {
         let mut data_directories = [None; NUM_DATA_DIRECTORIES];
         if count > NUM_DATA_DIRECTORIES {
             return Err(error::Error::Malformed(format!(
-                "data directory count ({}) is greater than maximum number of data directories ({})",
-                count, NUM_DATA_DIRECTORIES
+                "data directory count ({count}) is greater than maximum number of data directories ({NUM_DATA_DIRECTORIES})"
             )));
         }
         for dir in data_directories.iter_mut().take(count) {
@@ -149,5 +145,125 @@ impl DataDirectories {
                 // Therefore, the unwrap can never fail as long as Rust guarantees
                 // on types are honored.
                 o.map(|(_, v)| (i.try_into().unwrap(), v)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use scroll::Pwrite;
+
+    // Taken from `C:\Windows\System32\calc.exe`
+    const DATA_DIRECTORIES: DataDirectories = DataDirectories {
+        data_directories: [
+            None,
+            Some((
+                16,
+                DataDirectory {
+                    virtual_address: 14584,
+                    size: 160,
+                },
+            )),
+            Some((
+                24,
+                DataDirectory {
+                    virtual_address: 24576,
+                    size: 18192,
+                },
+            )),
+            Some((
+                32,
+                DataDirectory {
+                    virtual_address: 20480,
+                    size: 264,
+                },
+            )),
+            None,
+            Some((
+                48,
+                DataDirectory {
+                    virtual_address: 45056,
+                    size: 60,
+                },
+            )),
+            Some((
+                56,
+                DataDirectory {
+                    virtual_address: 13160,
+                    size: 112,
+                },
+            )),
+            None,
+            None,
+            None,
+            Some((
+                88,
+                DataDirectory {
+                    virtual_address: 12304,
+                    size: 320,
+                },
+            )),
+            None,
+            Some((
+                104,
+                DataDirectory {
+                    virtual_address: 12624,
+                    size: 328,
+                },
+            )),
+            None,
+            None,
+            None,
+        ],
+    };
+
+    // Taken from `C:\Windows\System32\calc.exe`
+    const DATA_DIRECTORIES_BYTES: &[u8] = &[
+        0, 0, 0, 0, 0, 0, 0, 0, 248, 56, 0, 0, 160, 0, 0, 0, 0, 96, 0, 0, 16, 71, 0, 0, 0, 80, 0,
+        0, 8, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 176, 0, 0, 60, 0, 0, 0, 104, 51, 0, 0, 112, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 48, 0, 0,
+        64, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 80, 49, 0, 0, 72, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    ];
+
+    #[test]
+    fn parse() {
+        let mut offset = 0;
+        let data_directories =
+            DataDirectories::parse(DATA_DIRECTORIES_BYTES, NUM_DATA_DIRECTORIES, &mut offset)
+                .expect("failed to parse data directories");
+
+        assert_eq!(offset, NUM_DATA_DIRECTORIES * SIZEOF_DATA_DIRECTORY);
+        assert_eq!(data_directories, DATA_DIRECTORIES);
+    }
+
+    #[test]
+    fn write() {
+        let mut buf = [0_u8; 1024];
+        let len = buf
+            .pwrite(DATA_DIRECTORIES, 0)
+            .expect("failed to write optional header");
+        assert_eq!(len, NUM_DATA_DIRECTORIES * SIZEOF_DATA_DIRECTORY);
+        assert_eq!(
+            DATA_DIRECTORIES_BYTES,
+            buf.get(..len).expect("not enough data")
+        );
+    }
+
+    #[test]
+    fn read_and_write_consistent() {
+        let data_directories =
+            DataDirectories::parse(DATA_DIRECTORIES_BYTES, NUM_DATA_DIRECTORIES, &mut 0)
+                .expect("failed to parse data directories");
+
+        let mut buf = [0_u8; 1024];
+        let len = buf
+            .pwrite(data_directories, 0)
+            .expect("failed to write data directories");
+        assert_eq!(len, NUM_DATA_DIRECTORIES * SIZEOF_DATA_DIRECTORY);
+        assert_eq!(
+            DATA_DIRECTORIES_BYTES,
+            buf.get(..len).expect("not enough data")
+        );
     }
 }

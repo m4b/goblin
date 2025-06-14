@@ -11,7 +11,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [MSRV, stable, nightly, macos, win32, win64]
+        build: [MSRV, stable, macos, win32, win64]
         include:
           - build: MSRV # Minimum supported Rust version
             os: ubuntu-latest
@@ -19,9 +19,6 @@ jobs:
           - build: stable
             os: ubuntu-latest
             rust: stable
-          - build: nightly
-            os: ubuntu-latest
-            rust: nightly
           - build: macos
             os: macos-latest
             rust: stable

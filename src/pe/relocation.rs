@@ -347,7 +347,7 @@ impl<'a> RelocationData<'a> {
                         dd.virtual_address
                     ))
                 })?;
-        // To allow parsing the rest, we will not raise an malformation error
+        // To allow parsing the rest, we will not raise a malformation error
         // when we found that the base relocation directory lies in the binary.
         // If that's the case, we store an empty `bytes`, which implies no-op
         // when `blocks` is called.

@@ -348,7 +348,7 @@ impl<'a> RelocationData<'a> {
                     ))
                 })?;
         // To allow parsing the rest, we will not raise a malformation error
-        // when we found that the base relocation directory lies in the binary.
+        // when we found that the base relocation directory not lies in the binary.
         // If that's the case, we store an empty `bytes`, which implies no-op
         // when `blocks` is called.
         if bytes.len() < offset {

@@ -196,3 +196,19 @@ pub(crate) fn pad(length: usize, alignment: Option<usize>) -> Option<Vec<u8>> {
         None => None,
     }
 }
+
+/// Performs arbitrary alignment of values based on homogeneous numerical types.
+#[inline]
+pub(crate) fn align_up<N>(value: N, align: N) -> N
+where
+    N: core::ops::Add<Output = N>
+        + core::ops::Not<Output = N>
+        + core::ops::BitAnd<Output = N>
+        + core::ops::Sub<Output = N>
+        + core::cmp::PartialEq
+        + core::marker::Copy,
+    u8: Into<N>,
+{
+    debug_assert!(align != 0u8.into(), "Align must be non-zero");
+    (value + align - 1u8.into()) & !(align - 1u8.into())
+}

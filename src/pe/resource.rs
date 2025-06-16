@@ -13,6 +13,7 @@ use crate::pe::utils;
 
 /// Size of `wchar_t` in C (aka [`u16`] in Rust)
 pub(super) const SIZE_OF_WCHAR: usize = core::mem::size_of::<u16>();
+
 /// Converts [`u8`] slice into a vector of [`u16`] and then utf-16 [`String`].
 ///
 /// This function assumes that input bytes are multiple of `2`.
@@ -23,21 +24,6 @@ pub(super) fn to_utf16_string(bytes: &[u8]) -> String {
         .take_while(|&wchar| wchar != 0)
         .collect::<Vec<_>>();
     String::from_utf16_lossy(&u16_slice)
-}
-/// Performs arbitrary alignment of values based on homogeneous numerical types.
-#[inline]
-pub(super) fn align_up<N>(value: N, align: N) -> N
-where
-    N: core::ops::Add<Output = N>
-        + core::ops::Not<Output = N>
-        + core::ops::BitAnd<Output = N>
-        + core::ops::Sub<Output = N>
-        + core::cmp::PartialEq
-        + core::marker::Copy,
-    u8: Into<N>,
-{
-    debug_assert!(align != 0u8.into(), "Align must be non-zero");
-    (value + align - 1u8.into()) & !(align - 1u8.into())
 }
 
 /// Windows resource type identifier for cursors.
@@ -746,7 +732,7 @@ impl<'a> ResourceString<'a> {
         }
         let value_len = bytes.gread_with::<u16>(offset, scroll::LE)?;
         let r#type = bytes.gread_with::<u16>(offset, scroll::LE)?;
-        *offset = align_up(*offset, RESOURCE_STRING_FIELD_ALIGNMENT);
+        *offset = utils::align_up(*offset, RESOURCE_STRING_FIELD_ALIGNMENT);
         let key_size = &bytes[*offset..]
             .chunks(2)
             .take_while(|x| u16::from_le_bytes([x[0], x[1]]) != 0u16)
@@ -762,8 +748,8 @@ impl<'a> ResourceString<'a> {
         }
         let key =
             &bytes[*offset - SIZE_OF_WCHAR..*offset - SIZE_OF_WCHAR + key_size + SIZE_OF_WCHAR];
-        *offset += align_up(key.len(), RESOURCE_STRING_FIELD_ALIGNMENT);
-        let real_value_len = align_up(
+        *offset += utils::align_up(key.len(), RESOURCE_STRING_FIELD_ALIGNMENT);
+        let real_value_len = utils::align_up(
             if r#type == 1 {
                 value_len as usize * SIZE_OF_WCHAR
             } else {
@@ -1281,8 +1267,8 @@ impl<'a> ManifestData<'a> {
 #[cfg(test)]
 mod tests {
     use super::{
-        ResourceEntry, ResourceStringIterator, VersionField, VFT_APP, VOS_NT_WINDOWS32,
-        VS_FFI_FILEFLAGSMASK, VS_FFI_SIGNATURE, VS_FFI_STRUCVERSION, VS_VERSION_INFO_KEY,
+        ResourceEntry, ResourceStringIterator, VFT_APP, VOS_NT_WINDOWS32, VS_FFI_FILEFLAGSMASK,
+        VS_FFI_SIGNATURE, VS_FFI_STRUCVERSION, VS_VERSION_INFO_KEY, VersionField,
     };
 
     const HAS_NO_RES: &[u8] = include_bytes!("../../tests/bins/pe/has_no_res.exe.bin");
@@ -1691,7 +1677,9 @@ mod tests {
         assert_eq!(it_vec[4].value_string(), "setup");
         assert_eq!(
             it_vec[4].value,
-            &[0x73, 0x00, 0x65, 0x00, 0x74, 0x00, 0x75, 0x00, 0x70, 0x00, 0x00, 0x00,]
+            &[
+                0x73, 0x00, 0x65, 0x00, 0x74, 0x00, 0x75, 0x00, 0x70, 0x00, 0x00, 0x00,
+            ]
         );
 
         assert_eq!(it_vec[5].is_binary_data(), true);

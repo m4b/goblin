@@ -15,22 +15,6 @@ use crate::pe::utils;
 
 use super::import::Bitfield;
 
-/// Performs arbitrary alignment of values based on homogeneous numerical types.
-#[inline]
-pub(super) fn align_up<N>(value: N, align: N) -> N
-where
-    N: core::ops::Add<Output = N>
-        + core::ops::Not<Output = N>
-        + core::ops::BitAnd<Output = N>
-        + core::ops::Sub<Output = N>
-        + core::cmp::PartialEq
-        + core::marker::Copy,
-    u8: Into<N>,
-{
-    debug_assert!(align != 0u8.into(), "Align must be non-zero");
-    (value + align - 1u8.into()) & !(align - 1u8.into())
-}
-
 /// [`ClrData::signature`]: Indicates a valid signature gathered from first 4-bytes of [`Cor20Header::metadata`] (`'BSJB'`)
 pub const DOTNET_SIGNATURE: u32 = 0x424A5342;
 
@@ -512,7 +496,7 @@ impl<'a> StorageStream<'a> {
             )));
         }
         let name = &bytes[*offset..*offset + name_size + core::mem::size_of::<u8>()];
-        *offset += align_up(name.len(), core::mem::size_of::<u32>());
+        *offset += utils::align_up(name.len(), core::mem::size_of::<u32>());
         Ok(Self {
             offset: offset_,
             size,

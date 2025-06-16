@@ -25,7 +25,7 @@ pub(super) fn to_utf16_string(bytes: &[u8]) -> String {
         .take_while(|&wchar| wchar != 0)
         .count();
     let ptr = bytes.as_ptr() as *const u16;
-    // Safety: `self.0` is assumed properly aligned and has even length.
+    // Safety: `len` is assumed properly aligned and has even length.
     let u16_buf = unsafe { std::slice::from_raw_parts(ptr, len) };
     String::from_utf16_lossy(&u16_buf)
 }
@@ -39,7 +39,6 @@ impl<'a> Utf16String<'a> {
     pub fn to_string(&self) -> String {
         let len = self.0.len() / 2;
         let ptr = self.0.as_ptr() as *const u16;
-
         // Safety: `self.0` is assumed properly aligned and has even length.
         let u16_buf = unsafe { std::slice::from_raw_parts(ptr, len) };
         String::from_utf16_lossy(&u16_buf)

@@ -1011,31 +1011,31 @@ impl VsFixedFileInfo {
 #[derive(Copy, Clone)]
 pub struct StringFileInfo<'a> {
     /// Additional information for diagnostic purposes. Can be of arbitrary length.
-    pub comments: Option<&'a [u8]>,
+    comments: Option<&'a [u8]>,
     /// The name of the company that produced the file, e.g., "Microsoft Corporation".
-    pub company_name: Option<&'a [u8]>,
+    company_name: Option<&'a [u8]>,
     /// A description of the file suitable for presentation to users, e.g., "Keyboard driver for AT-style keyboards".
-    pub file_description: Option<&'a [u8]>,
+    file_description: Option<&'a [u8]>,
     /// The version of the file, e.g., "3.00A" or "5.00.RC2".
-    pub file_version: Option<&'a [u8]>,
+    file_version: Option<&'a [u8]>,
     /// The internal name of the file, which may include module names for DLLs or device names.
-    pub internal_name: Option<&'a [u8]>,
+    internal_name: Option<&'a [u8]>,
     /// Copyright notices and trademarks related to the file, formatted as "Copyright Microsoft Corp. 1990 1994".
-    pub legal_copyright: Option<&'a [u8]>,
+    legal_copyright: Option<&'a [u8]>,
     /// Trademarks and registered trademarks associated with the file, e.g., "Windows is a trademark of Microsoft Corporation".
-    pub legal_trademarks: Option<&'a [u8]>,
+    legal_trademarks: Option<&'a [u8]>,
     /// The original name of the file (without a path), used to determine if it has been renamed.
-    pub original_filename: Option<&'a [u8]>,
+    original_filename: Option<&'a [u8]>,
     /// Information about who, where, and why the private version of the file was built,
     /// applicable only if the [`VS_FF_PRIVATEBUILD`] flag is set.
-    pub private_build: Option<&'a [u8]>,
+    private_build: Option<&'a [u8]>,
     /// The name of the product with which this file is distributed, e.g., "Microsoft Windows".
-    pub product_name: Option<&'a [u8]>,
+    product_name: Option<&'a [u8]>,
     /// The version of the product associated with this file, e.g., "3.00A" or "5.00.RC2".
-    pub product_version: Option<&'a [u8]>,
+    product_version: Option<&'a [u8]>,
     /// A description of how this version differs from the normal version, applicable only if the
     /// [`VS_FF_SPECIALBUILD`] flag is set.
-    pub special_build: Option<&'a [u8]>,
+    special_build: Option<&'a [u8]>,
 }
 
 impl fmt::Debug for StringFileInfo<'_> {

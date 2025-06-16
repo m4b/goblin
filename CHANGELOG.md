@@ -5,6 +5,15 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.10, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
+## [0.10.1]  - Unreleased
+## Added
+pe: Add load config parser, thanks @kkent030315: https://github.com/m4b/goblin/pull/464
+elf: added `type_to_str` support for coredump constants, thanks @gunbux: https://github.com/m4b/goblin/pull/475
+## Fixed
+pe: Fix some offsets computation when using scroll, thanks @DreydenGys: https://github.com/m4b/goblin/pull/471
+pe: cannot read cb size, thanks chf0x: https://github.com/m4b/goblin/pull/472
+pe: fix tls raw data parser, thanks @jorgeaduran and @kkent030315: https://github.com/m4b/goblin/pull/473
+
 ## [0.10.0]  - 2025-5-25
 ### Breaking
 build: use rust 2024 edition; bump MSRV to 1.85

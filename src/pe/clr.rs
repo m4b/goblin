@@ -1,4 +1,3 @@
-use crate::error;
 use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -8,6 +7,7 @@ use core::ops::Not;
 use log::debug;
 use scroll::{Pread, Pwrite, SizeWith};
 
+use crate::error;
 use crate::pe::data_directories;
 use crate::pe::options;
 use crate::pe::section_table;

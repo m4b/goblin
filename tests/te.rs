@@ -53,16 +53,16 @@ mod te_tests {
         assert_eq!(te.sections[4].pointer_to_raw_data, 0x5e60);
         assert_eq!(te.sections[4].pointer_to_relocations, 0);
 
+        let debug_directories = te
+            .debug_data
+            .entries()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+
         // Verify the debug directory is correct
-        assert_eq!(te.debug_data.image_debug_directory.size_of_data, 0xab);
-        assert_eq!(
-            te.debug_data.image_debug_directory.address_of_raw_data,
-            0x3b54
-        );
-        assert_eq!(
-            te.debug_data.image_debug_directory.pointer_to_raw_data,
-            0x3b54
-        );
+        assert_eq!(debug_directories[0].size_of_data, 0xab);
+        assert_eq!(debug_directories[0].address_of_raw_data, 0x3b54);
+        assert_eq!(debug_directories[0].pointer_to_raw_data, 0x3b54);
         let debug_info = te.debug_data.codeview_pdb70_debug_info.unwrap();
         assert_eq!(
             debug_info.signature,
@@ -71,7 +71,12 @@ mod te_tests {
                 0x0a, 0x4a
             ]
         );
-        assert_eq!(String::from_utf8_lossy(debug_info.filename), String::from("c:\\src\\mu_tiano_platforms\\Build\\QemuQ35Pkg\\DEBUG_VS2022\\X64\\QemuQ35Pkg\\RustTerseImageTestDxe\\RustTerseImageTestDxe\\DEBUG\\RustTerseImageTestDxe.pdb\0"));
+        assert_eq!(
+            String::from_utf8_lossy(debug_info.filename),
+            String::from(
+                "c:\\src\\mu_tiano_platforms\\Build\\QemuQ35Pkg\\DEBUG_VS2022\\X64\\QemuQ35Pkg\\RustTerseImageTestDxe\\RustTerseImageTestDxe\\DEBUG\\RustTerseImageTestDxe.pdb\0"
+            )
+        );
 
         // Misc matches
         assert_eq!(te.header.base_of_code, te.sections[0].virtual_address);

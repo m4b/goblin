@@ -188,6 +188,15 @@ if_alloc! {
 
     impl<'a> Note<'a> {
         pub fn type_to_str(&self) -> &'static str {
+            // If the Note is from a coredump, match to different tags
+            if self.name == "CORE" {
+                return match self.n_type {
+                    NT_PRPSINFO => "NT_PRPSINFO",
+                    NT_PRSTATUS => "NT_PRSTATUS",
+                    NT_SIGINFO => "NT_SIGINFO",
+                    _ => "NT_UNKNOWN"
+                };
+            }
             match self.n_type {
                 NT_GNU_ABI_TAG => "NT_GNU_ABI_TAG",
                 NT_GNU_HWCAP => "NT_GNU_HWCAP",

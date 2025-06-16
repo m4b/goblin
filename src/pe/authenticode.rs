@@ -12,7 +12,7 @@ use alloc::collections::VecDeque;
 use core::ops::Range;
 use log::debug;
 
-use super::{section_table::SectionTable, PE};
+use super::{PE, section_table::SectionTable};
 
 static PADDING: [u8; 7] = [0; 7];
 

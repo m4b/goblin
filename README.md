@@ -20,13 +20,13 @@ https://docs.rs/goblin/
 
 ### Usage
 
-Goblin requires `rustc` 1.63.0 (Rust 2021 edition).
+Goblin requires `rustc` 1.85.0 (Rust 2024 edition).
 
 Add to your `Cargo.toml`
 
 ```toml
 [dependencies]
-goblin = "0.9"
+goblin = "0.10"
 ```
 
 ### Features
@@ -108,6 +108,7 @@ Thank you all :heart: !
 
 In lexicographic order:
 
+- [@000lbh]
 - [@2vg]
 - [@5225225]
 - [@alessandrod]
@@ -115,17 +116,22 @@ In lexicographic order:
 - [@anfedotoff]
 - [@apalm]
 - [@baloo]
+- [@BinFlip]
 - [@burjui]
+- [@chf0x]
 - [@connorkuehl]
 - [@dancrossnyc]
+- [@DreydenGys]
 - [@dureuill]
 - [@Evian-Zhang]
 - [@ExPixel]
 - [@flanfly]
 - [@glandium]
+- [@gunbux]
 - [@h33p]
 - [@ibabushkin]
 - [@ideeockus]
+- [@ivlzme]
 - [@jackcmay]
 - [@jan-auer]
 - [@Javagedes]
@@ -163,6 +169,7 @@ In lexicographic order:
 - [@nico-abram]
 - [@npmccallum]
 - [@pchickey]
+- [@prettyroseslover]
 - [@philipc]
 - [@Pzixel]
 - [@quake]
@@ -192,6 +199,7 @@ In lexicographic order:
 
 <!-- Contributors -->
 
+[@000lbh]: https://github.com/000lbh
 [@2vg]: https://github.com/2vg
 [@5225225]: https://github.com/5225225
 [@alessandrod]: https://github.com/alessandrod
@@ -199,18 +207,23 @@ In lexicographic order:
 [@anfedotoff]: https://github.com/anfedotoff
 [@apalm]: https://github.com/apalm
 [@baloo]: https://github.com/baloo
+[@BinFlip]: https://github.com/BinFlip
 [@burjui]: https://github.com/burjui
+[@chf0x]: https://github.com/chf0x
 [@connorkuehl]: https://github.com/connorkuehl
 [@crzysdrs]: https://github.com/crzysdrs
 [@dancrossnyc]: https://github.com/dancrossnyc
+[@DreydenGys]: https://github.com/DreydenGys
 [@dureuill]: https://github.com/dureuill
 [@Evian-Zhang]: https://github.com/Evian-Zhang
 [@ExPixel]: https://github.com/ExPixel
 [@flanfly]: https://github.com/flanfly
 [@glandium]: https://github.com/glandium
+[@gunbux]: https://github.com/gunbux]
 [@h33p]: https://github.com/h33p
 [@ibabushkin]: https://github.com/ibabushkin
 [@ideeockus]: https://github.com/ideeockus
+[@ivlzme]: https://github.com/ivlzme
 [@jackcmay]: https://github.com/jackcmay
 [@jan-auer]: https://github.com/jan-auer
 [@Javagedes]: https://github.com/Javagedes
@@ -249,6 +262,7 @@ In lexicographic order:
 [@npmccallum]: https://github.com/npmccallum
 [@pchickey]: https://github.com/pchickey
 [@philipc]: https://github.com/philipc
+[@prettyroseslover]: https://github.com/prettyroseslover
 [@Pzixel]: https://github.com/Pzixel
 [@quake]: https://github.com/quake
 [@raindev]: https://github.com/raindev

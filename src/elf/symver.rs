@@ -60,7 +60,7 @@
 //! [lsb-verdef]: https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/symversion.html#SYMVERDEFS
 
 use crate::container;
-use crate::elf::section_header::{SectionHeader, SHT_GNU_VERDEF, SHT_GNU_VERNEED, SHT_GNU_VERSYM};
+use crate::elf::section_header::{SHT_GNU_VERDEF, SHT_GNU_VERNEED, SHT_GNU_VERSYM, SectionHeader};
 use crate::error::Result;
 use core::iter::FusedIterator;
 use scroll::Pread;
@@ -831,7 +831,7 @@ pub struct Vernaux {
 #[cfg(test)]
 mod test {
     use super::{ElfVerdaux, ElfVerdef, ElfVernaux, ElfVerneed, ElfVersym};
-    use super::{Versym, VERSYM_HIDDEN, VER_NDX_GLOBAL, VER_NDX_LOCAL};
+    use super::{VER_NDX_GLOBAL, VER_NDX_LOCAL, VERSYM_HIDDEN, Versym};
     use core::mem::size_of;
 
     #[test]

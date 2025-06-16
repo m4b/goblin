@@ -8,7 +8,7 @@ if_std! {
 }
 
 use crate::error;
-use crate::mach::constants::cputype::{CpuSubType, CpuType, CPU_ARCH_ABI64, CPU_SUBTYPE_MASK};
+use crate::mach::constants::cputype::{CPU_ARCH_ABI64, CPU_SUBTYPE_MASK, CpuSubType, CpuType};
 use scroll::{Pread, Pwrite, SizeWith};
 
 pub const FAT_MAGIC: u32 = 0xcafe_babe;

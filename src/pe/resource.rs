@@ -479,28 +479,30 @@ impl<'a> ResourceData<'a> {
             ))
         })?;
 
-        if offset + dd.size as usize > bytes.len() {
+        if offset > bytes.len() {
             return Err(error::Error::Malformed(format!(
-                "Resource directory offset ({:#x}) and size ({:#x}) exceeds bytes slice ({:#x})",
-                offset,
-                dd.size,
-                bytes.len()
+                "Resource entry offset ({offset:#x}) out of bounds"
             )));
         }
-        let data = &bytes[offset..offset + dd.size as usize];
+        let data = bytes[offset..]
+            .pread_with::<&[u8]>(0, dd.size as usize)
+            .map_err(|_| {
+                error::Error::Malformed(format!(
+                    "Resource directory offset ({offset:#x}) out of bounds"
+                ))
+            })?;
 
         let count = image_resource_directory.count() as usize;
         let offset = core::mem::size_of::<ImageResourceDirectory>();
         let size = image_resource_directory.entries_size();
-        if offset + size as usize > data.len() {
+        if offset > data.len() {
             return Err(error::Error::Malformed(format!(
-                "Resource entry offset ({:#x}) and size ({:#x}) exceeds data slice ({:#x})",
-                offset,
-                size,
-                data.len()
+                "Resource entry offset ({offset:#x}) out of bounds"
             )));
         }
-        let iterator_data = &data[offset..offset + size];
+        let iterator_data = data[offset..].pread_with::<&[u8]>(0, size).map_err(|_| {
+            error::Error::Malformed(format!("Resource entry offset ({offset:#x}) out of bounds"))
+        })?;
         let iterator = ResourceEntryIterator {
             num_resources: count,
             data: iterator_data,

@@ -126,7 +126,13 @@ impl<'a> ClrData<'a> {
         let metadata_header = StorageSignature::parse(bytes, &mut offset)?;
         let storage_header = bytes.gread_with::<StorageHeader>(&mut offset, scroll::LE)?;
         let offset_of_metadata = offset - saved_offset;
-        let metadata_data = &bytes[offset..offset + cor20_header.metadata.size as usize];
+
+        if offset > bytes.len() {
+            return Err(error::Error::Malformed(format!(
+                "COR20 metadata offset ({offset:#x}) out of bounds"
+            )));
+        }
+        let metadata_data = bytes.pread_with::<&[u8]>(0, cor20_header.metadata.size as usize)?;
 
         Ok(Self {
             signature,

@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 use core::fmt;
 use core::ops::Not;
 use log::debug;
+use scroll::ctx;
 use scroll::{Pread, Pwrite, SizeWith};
 
 use crate::pe::data_directories;
@@ -18,12 +19,59 @@ pub(super) const SIZE_OF_WCHAR: usize = core::mem::size_of::<u16>();
 ///
 /// This function assumes that input bytes are multiple of `2`.
 pub(super) fn to_utf16_string(bytes: &[u8]) -> String {
-    let u16_slice = bytes
+    let len = bytes
         .chunks(2)
         .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
         .take_while(|&wchar| wchar != 0)
-        .collect::<Vec<_>>();
-    String::from_utf16_lossy(&u16_slice)
+        .count();
+    let ptr = bytes.as_ptr() as *const u16;
+    // Safety: `self.0` is assumed properly aligned and has even length.
+    let u16_buf = unsafe { std::slice::from_raw_parts(ptr, len) };
+    String::from_utf16_lossy(&u16_buf)
+}
+
+/// Helper for parsing `wchar_t` utf-16 strings in a safe manner.
+#[derive(Debug, Copy, Clone, Default, PartialEq)]
+pub struct Utf16String<'a>(&'a [u8]);
+
+impl<'a> Utf16String<'a> {
+    /// Converts underlying bytes into an owned [String].
+    pub fn to_string(&self) -> String {
+        let len = self.0.len() / 2;
+        let ptr = self.0.as_ptr() as *const u16;
+
+        // Safety: `self.0` is assumed properly aligned and has even length.
+        let u16_buf = unsafe { std::slice::from_raw_parts(ptr, len) };
+        String::from_utf16_lossy(&u16_buf)
+    }
+
+    /// Returns the underlying bytes length. This includes null terminator.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Returns the underlying bytes.
+    pub fn bytes(&self) -> &'a [u8] {
+        self.0
+    }
+}
+
+impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Utf16String<'a> {
+    type Error = crate::error::Error;
+    fn try_from_ctx(bytes: &'a [u8], ctx: scroll::Endian) -> error::Result<(Self, usize)> {
+        let len = bytes
+            .chunks(2)
+            .take_while(|x| u16::from_le_bytes([x[0], x[1]]) != 0u16)
+            .count()
+            * SIZE_OF_WCHAR;
+        if len > bytes.len() {
+            return Err(error::Error::Malformed(format!(
+                "Invalid UTF-16 string length: {len}"
+            )));
+        }
+
+        Ok((Self(&bytes[..len]), len + SIZE_OF_WCHAR)) // + null terminated
+    }
 }
 
 /// Windows resource type identifier for cursors.
@@ -655,7 +703,7 @@ pub struct ResourceString<'a> {
     /// and `0` if the version resource contains binary data, otherwise sometimes an invalid value.
     pub r#type: u16,
     /// An arbitrary null-terminated utf-16 unicode string.
-    pub key: &'a [u8],
+    pub key: Utf16String<'a>,
     /// An arbitrary null-terminated utf-16 unicode string or binary data depends on [`ResourceString::type`].
     pub value: &'a [u8],
 }
@@ -732,23 +780,11 @@ impl<'a> ResourceString<'a> {
         }
         let value_len = bytes.gread_with::<u16>(offset, scroll::LE)?;
         let r#type = bytes.gread_with::<u16>(offset, scroll::LE)?;
+        *offset = utils::align_up(*offset, RESOURCE_STRING_FIELD_ALIGNMENT) - SIZE_OF_WCHAR;
+
+        let key = bytes.gread_with::<Utf16String>(offset, scroll::LE)?;
         *offset = utils::align_up(*offset, RESOURCE_STRING_FIELD_ALIGNMENT);
-        let key_size = &bytes[*offset..]
-            .chunks(2)
-            .take_while(|x| u16::from_le_bytes([x[0], x[1]]) != 0u16)
-            .count()
-            * SIZE_OF_WCHAR;
-        if (*offset - SIZE_OF_WCHAR) + key_size + SIZE_OF_WCHAR > bytes.len() {
-            return Err(error::Error::Malformed(format!(
-                "offset ({:#x}) and key_size ({:#x}) is greater than bytes len {:#x}",
-                offset,
-                key_size,
-                bytes.len()
-            )));
-        }
-        let key =
-            &bytes[*offset - SIZE_OF_WCHAR..*offset - SIZE_OF_WCHAR + key_size + SIZE_OF_WCHAR];
-        *offset += utils::align_up(key.len(), RESOURCE_STRING_FIELD_ALIGNMENT);
+
         let real_value_len = utils::align_up(
             if r#type == 1 {
                 value_len as usize * SIZE_OF_WCHAR
@@ -767,6 +803,7 @@ impl<'a> ResourceString<'a> {
         }
         let value = &bytes[*offset..*offset + real_value_len as usize];
         *offset += value.len();
+
         Ok(Some(Self {
             len,
             value_len,
@@ -788,7 +825,7 @@ impl<'a> ResourceString<'a> {
 
     /// Converts [`ResourceString::key`] into a [`String`]
     pub fn key_string(&self) -> String {
-        to_utf16_string(&self.key)
+        self.key.to_string()
     }
 
     /// Converts [`ResourceString::value`] into a [`String`]

@@ -792,7 +792,6 @@ impl<'a> ResourceString<'a> {
         }
         let value_len = bytes.gread_with::<u16>(offset, scroll::LE)?;
         let r#type = bytes.gread_with::<u16>(offset, scroll::LE)?;
-        *offset = utils::align_up(*offset, RESOURCE_STRING_FIELD_ALIGNMENT) - SIZE_OF_WCHAR;
 
         let key = bytes.gread_with::<Utf16String>(offset, scroll::LE)?;
         *offset = utils::align_up(*offset, RESOURCE_STRING_FIELD_ALIGNMENT);

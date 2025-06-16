@@ -189,11 +189,22 @@ impl<'a> ImageResourceDirectory {
     }
 
     /// Returns the next resource entry iterator
-    pub fn next_iter(&self, offset: usize, bytes: &'a [u8]) -> ResourceEntryIterator<'a> {
-        ResourceEntryIterator {
-            num_resources: self.count() as usize,
-            data: &bytes[offset..offset + self.entries_size()],
+    pub fn next_iter(
+        &self,
+        offset: usize,
+        bytes: &'a [u8],
+    ) -> error::Result<ResourceEntryIterator<'a>> {
+        if offset > bytes.len() {
+            return Err(error::Error::Malformed(format!(
+                "offset ({offset:#x}) out of bounds"
+            )));
         }
+        let bytes = bytes[offset..].pread_with::<&[u8]>(0, self.entries_size())?;
+
+        Ok(ResourceEntryIterator {
+            num_resources: self.count() as usize,
+            data: bytes,
+        })
     }
 }
 
@@ -385,7 +396,7 @@ impl ResourceEntry {
         let mut offset = self.offset_to_directory() as usize;
 
         let dir = bytes.gread_with::<ImageResourceDirectory>(&mut offset, scroll::LE)?;
-        let iterator = dir.next_iter(offset, bytes);
+        let iterator = dir.next_iter(offset, bytes)?;
         let entries = iterator.collect::<Result<Vec<_>, _>>()?;
 
         Ok(entries.first().map(|x| *x))

@@ -68,6 +68,7 @@ impl TryFrom<usize> for DataDirectoryType {
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub struct DataDirectories {
     pub data_directories: [Option<(usize, DataDirectory)>; NUM_DATA_DIRECTORIES],
+    pub count: usize,
 }
 
 impl ctx::TryIntoCtx<scroll::Endian> for DataDirectories {
@@ -75,7 +76,7 @@ impl ctx::TryIntoCtx<scroll::Endian> for DataDirectories {
 
     fn try_into_ctx(self, bytes: &mut [u8], ctx: scroll::Endian) -> Result<usize, Self::Error> {
         let offset = &mut 0;
-        for opt_dd in self.data_directories {
+        for opt_dd in self.data_directories.iter().take(self.count) {
             if let Some((_, dd)) = opt_dd {
                 bytes.gwrite_with(dd, offset, ctx)?;
             } else {
@@ -112,7 +113,10 @@ impl DataDirectories {
             };
             *dir = dd;
         }
-        Ok(DataDirectories { data_directories })
+        Ok(DataDirectories {
+            data_directories,
+            count,
+        })
     }
 
     build_dd_getter!(get_export_table, 0);
@@ -155,6 +159,7 @@ mod tests {
 
     // Taken from `C:\Windows\System32\calc.exe`
     const DATA_DIRECTORIES: DataDirectories = DataDirectories {
+        count: NUM_DATA_DIRECTORIES,
         data_directories: [
             None,
             Some((
@@ -265,5 +270,18 @@ mod tests {
             DATA_DIRECTORIES_BYTES,
             buf.get(..len).expect("not enough data")
         );
+    }
+
+    #[test]
+    fn read_and_write_fewer() {
+        let data_directories = DataDirectories::parse(DATA_DIRECTORIES_BYTES, 10, &mut 0)
+            .expect("failed to parse data directories");
+
+        let mut buf = DATA_DIRECTORIES_BYTES.to_owned();
+        let len = buf
+            .pwrite(data_directories, 0)
+            .expect("failed to write data directories");
+        assert_eq!(len, 10 * SIZEOF_DATA_DIRECTORY);
+        assert_eq!(DATA_DIRECTORIES_BYTES, buf);
     }
 }

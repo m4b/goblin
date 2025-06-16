@@ -634,6 +634,8 @@ impl ctx::TryIntoCtx<scroll::Endian> for OptionalHeader {
 
 #[cfg(test)]
 mod tests {
+    use crate::pe::data_directories::NUM_DATA_DIRECTORIES;
+
     use super::*;
     use scroll::{Pread, Pwrite};
 
@@ -716,6 +718,7 @@ mod tests {
             number_of_rva_and_sizes: 16,
         },
         data_directories: data_directories::DataDirectories {
+            count: NUM_DATA_DIRECTORIES,
             data_directories: [
                 None,
                 Some((

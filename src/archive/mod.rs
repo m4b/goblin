@@ -534,7 +534,7 @@ impl<'a> Archive<'a> {
     /// Get the member named `member` in this archive, if any. If there are
     /// multiple files in the archive with the same name it only returns one
     /// of them.
-    pub fn get(&self, member: &str) -> Option<&Member> {
+    pub fn get(&self, member: &str) -> Option<&Member<'_>> {
         if let Some(idx) = self.members.get(member) {
             Some(&self.member_array[*idx])
         } else {
@@ -543,7 +543,7 @@ impl<'a> Archive<'a> {
     }
 
     /// Get the member at position `index` in this archive, if any.
-    pub fn get_at(&self, index: usize) -> Option<&Member> {
+    pub fn get_at(&self, index: usize) -> Option<&Member<'_>> {
         self.member_array.get(index)
     }
 
@@ -565,7 +565,7 @@ impl<'a> Archive<'a> {
     }
 
     /// Gets a summary of this archive, returning a list of membername, the member, and the list of symbols the member contains
-    pub fn summarize(&self) -> Vec<(&str, &Member, Vec<&'a str>)> {
+    pub fn summarize(&self) -> Vec<(&str, &Member<'_>, Vec<&str>)> {
         // build a result array, with indexes matching the member indexes
         let mut result = self
             .member_array

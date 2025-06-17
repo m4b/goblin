@@ -116,7 +116,7 @@ impl<'a> MachO<'a> {
     /// Return a vector of the relocations in this binary
     pub fn relocations(
         &self,
-    ) -> error::Result<Vec<(usize, segment::RelocationIterator, segment::Section)>> {
+    ) -> error::Result<Vec<(usize, segment::RelocationIterator<'_>, segment::Section)>> {
         debug!("Iterating relocations");
         let mut relocs = Vec::new();
         for segment in (&self.segments).into_iter() {
@@ -130,7 +130,7 @@ impl<'a> MachO<'a> {
         Ok(relocs)
     }
     /// Return the exported symbols in this binary (if any)
-    pub fn exports(&self) -> error::Result<Vec<exports::Export>> {
+    pub fn exports(&self) -> error::Result<Vec<exports::Export<'_>>> {
         if let Some(ref trie) = self.export_trie {
             trie.exports(self.libs.as_slice())
         } else {
@@ -138,7 +138,7 @@ impl<'a> MachO<'a> {
         }
     }
     /// Return the imported symbols in this binary that dyld knows about (if any)
-    pub fn imports(&self) -> error::Result<Vec<imports::Import>> {
+    pub fn imports(&self) -> error::Result<Vec<imports::Import<'_>>> {
         if let Some(ref interpreter) = self.bind_interpreter {
             interpreter.imports(self.libs.as_slice(), self.segments.as_slice(), self.ctx)
         } else {
@@ -388,7 +388,7 @@ pub fn peek_bytes(bytes: &[u8; 16]) -> error::Result<crate::Hint> {
     }
 }
 
-fn extract_multi_entry(bytes: &[u8]) -> error::Result<SingleArch> {
+fn extract_multi_entry(bytes: &[u8]) -> error::Result<SingleArch<'_>> {
     if let Some(hint_bytes) = take_hint_bytes(bytes) {
         match peek_bytes(hint_bytes)? {
             crate::Hint::Mach(_) => {
@@ -452,7 +452,7 @@ impl<'a> MultiArch<'a> {
         })
     }
     /// Iterate every fat arch header
-    pub fn iter_arches(&self) -> FatArchIterator {
+    pub fn iter_arches(&self) -> FatArchIterator<'_> {
         FatArchIterator {
             index: 0,
             data: self.data,

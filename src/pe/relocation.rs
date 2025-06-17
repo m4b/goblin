@@ -391,7 +391,7 @@ pub struct RelocationBlock<'a> {
 
 impl RelocationBlock<'_> {
     /// Returns iterator for [`RelocationWord`]
-    pub fn words(&self) -> RelocationWordIterator {
+    pub fn words(&self) -> RelocationWordIterator<'_> {
         RelocationWordIterator {
             bytes: self.bytes,
             offset: 0,

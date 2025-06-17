@@ -215,7 +215,7 @@ impl<'a> ctx::TryFromCtx<'a, Ctx> for LoadConfigDirectory {
         let is_64 = ctx.is_big();
         let mut offset = 0;
 
-        let mut read_arch_dependent_u64 = |offset: &mut usize| {
+        let read_arch_dependent_u64 = |offset: &mut usize| {
             if is_64 {
                 bytes.gread_with(offset, scroll::LE).ok()
             } else {

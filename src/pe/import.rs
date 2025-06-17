@@ -77,7 +77,12 @@ pub struct HintNameTableEntry<'a> {
 }
 
 impl<'a> HintNameTableEntry<'a> {
-    fn parse(bytes: &'a [u8], mut offset: usize) -> error::Result<Self> {
+    #[allow(dead_code)]
+    fn parse(bytes: &'a [u8], offset: usize) -> error::Result<Self> {
+        Self::parse_with_opts(bytes, offset, &crate::pe::options::ParseOptions::default())
+    }
+
+    fn parse_with_opts(bytes: &'a [u8], mut offset: usize, opts: &crate::pe::options::ParseOptions) -> error::Result<Self> {
         let offset = &mut offset;
 
         if *offset + 2 > bytes.len() {
@@ -98,7 +103,18 @@ impl<'a> HintNameTableEntry<'a> {
             )));
         }
 
-        let name = bytes.pread::<&'a str>(*offset)?;
+        let name = match bytes.pread::<&'a str>(*offset) {
+            Ok(s) => s,
+            Err(e) => {
+                if matches!(opts.parse_mode, crate::pe::options::ParseMode::Permissive) {
+                    log::warn!("Invalid UTF-8 in import name at offset {:#x}, using empty string", offset);
+                    ""
+                } else {
+                    return Err(e.into());
+                }
+            }
+        };
+
         Ok(HintNameTableEntry { hint, name })
     }
 }
@@ -191,7 +207,7 @@ impl<'a> SyntheticImportLookupTableEntry<'a> {
                                         )));
                                     }
                                 }
-                                match HintNameTableEntry::parse(bytes, entry_offset) {
+                                match HintNameTableEntry::parse_with_opts(bytes, entry_offset, opts) {
                                     Ok(entry) => entry,
                                     Err(e) if matches!(opts.parse_mode, ParseMode::Permissive) => {
                                         warn!(

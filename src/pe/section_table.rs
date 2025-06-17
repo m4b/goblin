@@ -114,7 +114,13 @@ impl SectionTable {
         // Based on https://github.com/llvm-mirror/llvm/blob/af7b1832a03ab6486c42a40d21695b2c03b2d8a3/lib/Object/COFFObjectFile.cpp#L1054
         if self.name[0] == b'/' {
             let idx: usize = if self.name[1] == b'/' {
-                let b64idx = self.name.pread::<&str>(2)?;
+                let b64idx = match self.name.pread::<&str>(2) {
+                    Ok(s) => s,
+                    Err(_) => {
+                        log::warn!("Invalid UTF-8 in section name, skipping base64 decoding");
+                        return Ok(None);
+                    }
+                };
                 base64_decode_string_entry(b64idx).map_err(|_| {
                     Error::Malformed(format!(
                         "Invalid indirect section name //{}: base64 decoding failed",
@@ -122,7 +128,13 @@ impl SectionTable {
                     ))
                 })?
             } else {
-                let name = self.name.pread::<&str>(1)?;
+                let name = match self.name.pread::<&str>(1) {
+                    Ok(s) => s,
+                    Err(_) => {
+                        log::warn!("Invalid UTF-8 in section name, skipping name offset parsing");
+                        return Ok(None);
+                    }
+                };
                 name.parse().map_err(|err| {
                     Error::Malformed(format!("Invalid indirect section name /{}: {}", name, err))
                 })?

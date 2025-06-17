@@ -25,6 +25,17 @@ fn get_str(offset: usize, bytes: &[u8], delim: ctx::StrCtx) -> scroll::Result<&s
     bytes.pread_with::<&str>(offset, delim)
 }
 
+#[inline(always)]
+fn get_str_permissive(offset: usize, bytes: &[u8], delim: ctx::StrCtx) -> &str {
+    match bytes.pread_with::<&str>(offset, delim) {
+        Ok(s) => s,
+        Err(_) => {
+            // If UTF-8 parsing fails skip the string
+            ""
+        }
+    }
+}
+
 impl<'a> Strtab<'a> {
     /// Creates a `Strtab` with `bytes` as the backing string table, using `delim` as the delimiter between entries.
     ///
@@ -77,7 +88,7 @@ impl<'a> Strtab<'a> {
     /// Requires `feature = "alloc"`
     pub fn parse_with_opts(bytes: &'a [u8], offset: usize, len: usize, delim: u8, permissive: bool) -> error::Result<Self> {
         let (end, overflow) = offset.overflowing_add(len);
-        
+
         let mut result = if permissive {
             // Handle completely invalid offset
             if offset >= bytes.len() {
@@ -90,7 +101,7 @@ impl<'a> Strtab<'a> {
                     strings: Vec::new(),
                 });
             }
-            
+
             let actual_len = if overflow || end > bytes.len() {
                 log::warn!("String table extends beyond file boundary (requested size: {}, offset: {}, available: {}), truncating",
                           len, offset, bytes.len());
@@ -112,14 +123,15 @@ impl<'a> Strtab<'a> {
             }
             Self::from_slice_unparsed(bytes, offset, len, delim)
         };
-        
+
         let mut i = 0;
         while i < result.bytes.len() {
-            let string = match get_str(i, result.bytes, result.delim) {
-                Ok(s) => s,
-                Err(_) => {
-                    // On error set to empty string
-                    ""
+            let string = if permissive {
+                get_str_permissive(i, result.bytes, result.delim)
+            } else {
+                match get_str(i, result.bytes, result.delim) {
+                    Ok(s) => s,
+                    Err(e) => return Err(e.into()),
                 }
             };
             result.strings.push((i, string));

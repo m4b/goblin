@@ -1,6 +1,6 @@
 /// Parsing Options structure for the PE parser
 #[non_exhaustive]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct ParseOptions {
     /// Wether the parser should resolve rvas or not. Default: true
     pub resolve_rva: bool,
@@ -13,7 +13,7 @@ pub struct ParseOptions {
     pub parse_mode: ParseMode,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum ParseMode {
     /// Always end with error on incorrect data
     Strict,

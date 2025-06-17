@@ -232,7 +232,7 @@ if_alloc! {
             match self.e_ident[EI_CLASS] {
                 ELFCLASS32 => { Ok(Container::Little) },
                 ELFCLASS64 => { Ok(Container::Big) },
-                class => Err(Error::Malformed(format!("Invalid class in Header: {}", class)))
+                class => Err(Error::Malformed(format!("Invalid class in Header: {class}")))
             }
         }
         /// Returns the byte order this header specifies
@@ -241,7 +241,7 @@ if_alloc! {
             match self.e_ident[EI_DATA] {
                 ELFDATA2LSB => { Ok(scroll::LE) },
                 ELFDATA2MSB => { Ok(scroll::BE) },
-                class => Err(Error::Malformed(format!("Invalid endianness in Header: {}", class)))
+                class => Err(Error::Malformed(format!("Invalid endianness in Header: {class}")))
             }
         }
         pub fn new(ctx: Ctx) -> Self {
@@ -351,7 +351,7 @@ if_alloc! {
                     Ok((Header::from(bytes.pread::<header64::Header>(0)?), header64::SIZEOF_EHDR))
                 },
                 _ => {
-                    Err(error::Error::Malformed(format!("invalid ELF class {:x}", class)))
+                    Err(error::Error::Malformed(format!("invalid ELF class {class:x}")))
                 }
             }
         }

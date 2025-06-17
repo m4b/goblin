@@ -7,8 +7,7 @@ use log::debug;
 use scroll::ctx::SizeWith;
 use scroll::{BE, Pread};
 
-use crate::{archive, container};
-use crate::{error, take_hint_bytes};
+use crate::{archive, container, error, take_hint_bytes};
 
 pub mod bind_opcodes;
 pub mod constants;
@@ -120,7 +119,7 @@ impl<'a> MachO<'a> {
     ) -> error::Result<Vec<(usize, segment::RelocationIterator, segment::Section)>> {
         debug!("Iterating relocations");
         let mut relocs = Vec::new();
-        for (_i, segment) in (&self.segments).into_iter().enumerate() {
+        for segment in (&self.segments).into_iter() {
             for (j, section) in segment.into_iter().enumerate() {
                 let (section, _data) = section?;
                 if section.nreloc > 0 {
@@ -164,10 +163,10 @@ impl<'a> MachO<'a> {
         } else {
             return Err(error::Error::BadMagic(u64::from(magic)));
         };
-        debug!("Ctx: {:?}", ctx);
+        debug!("Ctx: {ctx:?}");
         let offset = &mut offset;
         let header: header::Header = bytes.pread_with(*offset, ctx)?;
-        debug!("Mach-o header: {:?}", header);
+        debug!("Mach-o header: {header:?}");
         let little_endian = ctx.le.is_little();
         let is_64 = ctx.container.is_big();
         *offset += header::Header::size_with(&ctx.container);
@@ -191,7 +190,7 @@ impl<'a> MachO<'a> {
         let mut segments = segment::Segments::new(ctx);
         for i in 0..ncmds {
             let cmd = load_command::LoadCommand::parse(bytes, offset, ctx.le)?;
-            debug!("{} - {:?}", i, cmd);
+            debug!("{i} - {cmd:?}");
             match cmd.command {
                 load_command::CommandVariant::Segment32(command) => segments.push(
                     segment::Segment::from_32_impl(bytes, &command, cmd.offset, ctx, lossy)?,
@@ -281,8 +280,7 @@ impl<'a> MachO<'a> {
                 .next()
                 .ok_or_else(|| {
                     error::Error::Malformed(format!(
-                        "image specifies LC_MAIN offset {} but has no __TEXT segment",
-                        offset
+                        "image specifies LC_MAIN offset {offset} but has no __TEXT segment"
                     ))
                 })?;
 
@@ -376,8 +374,7 @@ pub fn peek_bytes(bytes: &[u8; 16]) -> error::Result<crate::Hint> {
                     }))
                 } else {
                     Err(error::Error::Malformed(format!(
-                        "Correct mach magic {:#x} does not have a matching parsing context!",
-                        magic
+                        "Correct mach magic {magic:#x} does not have a matching parsing context!"
                     )))
                 }
             }
@@ -402,12 +399,12 @@ fn extract_multi_entry(bytes: &[u8]) -> error::Result<SingleArch> {
                 let archive = archive::Archive::parse(bytes)?;
                 Ok(SingleArch::Archive(archive))
             }
-            _ => Err(error::Error::Malformed(format!(
-                "multi-arch entry must be a Mach-O binary or an archive"
-            ))),
+            _ => Err(error::Error::Malformed(
+                "multi-arch entry must be a Mach-O binary or an archive".into(),
+            )),
         }
     } else {
-        Err(error::Error::Malformed(format!("Object is too small")))
+        Err(error::Error::Malformed("Object is too small".into()))
     }
 }
 
@@ -431,7 +428,7 @@ impl<'a> Iterator for SingleArchIterator<'a> {
     }
 }
 
-impl<'a, 'b> IntoIterator for &'b MultiArch<'a> {
+impl<'a> IntoIterator for &MultiArch<'a> {
     type Item = error::Result<SingleArch<'a>>;
     type IntoIter = SingleArchIterator<'a>;
     fn into_iter(self) -> Self::IntoIter {
@@ -549,7 +546,7 @@ impl<'a> Mach<'a> {
             let error = error::Error::Malformed("size is smaller than a magical number".into());
             return Err(error);
         }
-        let magic = peek(&bytes, 0)?;
+        let magic = peek(bytes, 0)?;
         match magic {
             fat::FAT_MAGIC => {
                 let multi = MultiArch::new(bytes)?;
@@ -589,7 +586,7 @@ mod test {
                         SingleArch::MachO(macho) => {
                             assert!(macho.symbols().count() > 0);
                         }
-                        _ => panic!("expected MultiArchEntry::MachO, got {:?}", entry),
+                        _ => panic!("expected MultiArchEntry::MachO, got {entry:?}"),
                     }
                 }
             }
@@ -618,7 +615,7 @@ mod test {
                         SingleArch::Archive(archive) => {
                             assert!(!archive.members().is_empty())
                         }
-                        _ => panic!("expected MultiArchEntry::Archive, got {:?}", entry),
+                        _ => panic!("expected MultiArchEntry::Archive, got {entry:?}"),
                     }
                 }
             }

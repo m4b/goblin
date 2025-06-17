@@ -1,5 +1,4 @@
-use crate::error;
-use crate::strtab;
+use crate::{error, strtab};
 use alloc::vec::Vec;
 use core::fmt::{self, Debug};
 use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith, ctx};
@@ -200,7 +199,7 @@ impl Symbol {
     ///
     /// If the symbol has an inline name, then also returns a reference to the name's
     /// location in `bytes`.
-    pub fn parse<'a>(bytes: &'a [u8], offset: usize) -> error::Result<(Option<&'a str>, Symbol)> {
+    pub fn parse(bytes: &[u8], offset: usize) -> error::Result<(Option<&str>, Symbol)> {
         let symbol = bytes.pread::<Symbol>(offset)?;
         let name = if symbol.name[0] != 0 {
             bytes
@@ -219,7 +218,7 @@ impl Symbol {
     pub fn name<'a>(&'a self, strtab: &'a strtab::Strtab) -> error::Result<&'a str> {
         if let Some(offset) = self.name_offset() {
             strtab.get_at(offset as usize).ok_or_else(|| {
-                error::Error::Malformed(format!("Invalid Symbol name offset {:#x}", offset))
+                error::Error::Malformed(format!("Invalid Symbol name offset {offset:#x}"))
             })
         } else {
             Ok(self.name.pread(0)?)

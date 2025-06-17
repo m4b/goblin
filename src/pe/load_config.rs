@@ -1,12 +1,8 @@
-use scroll::ctx;
-use scroll::{Pread, Pwrite, SizeWith};
+use scroll::{Pread, Pwrite, SizeWith, ctx};
 
 use crate::container::{Container, Ctx};
 use crate::error;
-use crate::pe::data_directories;
-use crate::pe::options;
-use crate::pe::section_table;
-use crate::pe::utils;
+use crate::pe::{data_directories, options, section_table, utils};
 
 // GuardFlags: bitflags for LoadConfigDirectory::guard_flags.
 
@@ -208,7 +204,7 @@ impl<'a> ctx::TryFromCtx<'a, Ctx> for LoadConfigDirectory {
     fn try_from_ctx(bytes: &'a [u8], ctx: Ctx) -> error::Result<(Self, usize)> {
         // `size` field must be present
         if bytes.len() < 4 {
-            return Err(error::Error::Malformed(format!("Too small")));
+            return Err(error::Error::Malformed("Too small".into()));
         }
 
         let is_64 = ctx.is_big();

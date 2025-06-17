@@ -48,10 +48,7 @@ use scroll::{self, Pread, Pwrite};
 
 use crate::error;
 
-use crate::pe::data_directories;
-use crate::pe::options;
-use crate::pe::section_table;
-use crate::pe::utils;
+use crate::pe::{data_directories, options, section_table, utils};
 
 /// The function has an exception handler that should be called when looking for functions that need
 /// to examine exceptions.
@@ -365,7 +362,7 @@ impl<'a> TryFromCtx<'a, UnwindOpContext> for UnwindCode {
                     0 => u32::from(bytes.gread_with::<u16>(&mut read, scroll::LE)?) * 8,
                     1 => bytes.gread_with::<u32>(&mut read, scroll::LE)?,
                     i => {
-                        let msg = format!("invalid op info ({}) for UWOP_ALLOC_LARGE", i);
+                        let msg = format!("invalid op info ({i}) for UWOP_ALLOC_LARGE");
                         return Err(error::Error::Malformed(msg));
                     }
                 };
@@ -420,14 +417,14 @@ impl<'a> TryFromCtx<'a, UnwindOpContext> for UnwindCode {
                     0 => false,
                     1 => true,
                     i => {
-                        let msg = format!("invalid op info ({}) for UWOP_PUSH_MACHFRAME", i);
+                        let msg = format!("invalid op info ({i}) for UWOP_PUSH_MACHFRAME");
                         return Err(error::Error::Malformed(msg));
                     }
                 };
                 UnwindOperation::PushMachineFrame(is_error)
             }
             op => {
-                let msg = format!("unknown unwind op code ({})", op);
+                let msg = format!("unknown unwind op code ({op})");
                 return Err(error::Error::Malformed(msg));
             }
         };
@@ -542,8 +539,8 @@ impl<'a> UnwindInfo<'a> {
         let version = version_flags & 0b111;
         let flags = version_flags >> 3;
 
-        if version < 1 || version > 2 {
-            let msg = format!("unsupported unwind code version ({})", version);
+        if !(1..=2).contains(&version) {
+            let msg = format!("unsupported unwind code version ({version})");
             return Err(error::Error::Malformed(msg));
         }
 
@@ -696,7 +693,7 @@ impl<'a> ExceptionData<'a> {
 
         let rva = directory.virtual_address as usize;
         let offset = utils::find_offset(rva, sections, file_alignment, opts).ok_or_else(|| {
-            error::Error::Malformed(format!("cannot map exception_rva ({:#x}) into offset", rva))
+            error::Error::Malformed(format!("cannot map exception_rva ({rva:#x}) into offset"))
         })?;
 
         if offset % 4 != 0 {
@@ -801,7 +798,7 @@ impl<'a> ExceptionData<'a> {
         let rva = function.unwind_info_address as usize;
         let offset =
             utils::find_offset(rva, sections, self.file_alignment, opts).ok_or_else(|| {
-                error::Error::Malformed(format!("cannot map unwind rva ({:#x}) into offset", rva))
+                error::Error::Malformed(format!("cannot map unwind rva ({rva:#x}) into offset"))
             })?;
 
         UnwindInfo::parse(self.bytes, offset)
@@ -824,10 +821,7 @@ impl<'a> ExceptionData<'a> {
     ) -> error::Result<RuntimeFunction> {
         let offset =
             utils::find_offset(rva, sections, self.file_alignment, opts).ok_or_else(|| {
-                error::Error::Malformed(format!(
-                    "cannot map exception rva ({:#x}) into offset",
-                    rva
-                ))
+                error::Error::Malformed(format!("cannot map exception rva ({rva:#x}) into offset"))
             })?;
 
         self.get_function_by_offset(offset)

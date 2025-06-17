@@ -3,9 +3,8 @@ use core::iter::FusedIterator;
 
 use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith, ctx};
 
-use crate::error;
 use crate::pe::{data_directories, debug, optional_header, section_table, symbol};
-use crate::strtab;
+use crate::{error, strtab};
 
 /// In `winnt.h` and `pe.h`, it's `IMAGE_DOS_HEADER`. It's a DOS header present in all PE binaries.
 ///
@@ -305,8 +304,7 @@ impl DosHeader {
         })?;
         if signature != DOS_MAGIC {
             return Err(error::Error::Malformed(format!(
-                "DOS header is malformed (signature {:#x})",
-                signature
+                "DOS header is malformed (signature {signature:#x})"
             )));
         }
 
@@ -330,16 +328,14 @@ impl DosHeader {
 
         debug_assert!(
             offset == PE_POINTER_OFFSET as usize,
-            "expected offset ({:#x}) after reading DOS header to be at 0x3C",
-            offset
+            "expected offset ({offset:#x}) after reading DOS header to be at 0x3C"
         );
 
         let pe_pointer: u32 = bytes
             .pread_with(PE_POINTER_OFFSET as usize, scroll::LE)
             .map_err(|_| {
                 error::Error::Malformed(format!(
-                    "cannot parse PE header pointer (offset {:#x})",
-                    PE_POINTER_OFFSET
+                    "cannot parse PE header pointer (offset {PE_POINTER_OFFSET:#x})"
                 ))
             })?;
 
@@ -348,14 +344,12 @@ impl DosHeader {
                 .pread_with(pe_pointer as usize, scroll::LE)
                 .map_err(|_| {
                     error::Error::Malformed(format!(
-                        "cannot parse PE header signature (offset {:#x})",
-                        pe_pointer
+                        "cannot parse PE header signature (offset {pe_pointer:#x})"
                     ))
                 })?;
         if pe_signature != PE_MAGIC {
             return Err(error::Error::Malformed(format!(
-                "PE header is malformed (signature {:#x})",
-                pe_signature
+                "PE header is malformed (signature {pe_signature:#x})"
             )));
         }
 
@@ -450,7 +444,7 @@ impl<'a> ctx::TryIntoCtx<scroll::Endian> for DosStub<'a> {
 
     fn try_into_ctx(self, bytes: &mut [u8], _: scroll::Endian) -> Result<usize, Self::Error> {
         let offset = &mut 0;
-        bytes.gwrite_with(&*self.data, offset, ())?;
+        bytes.gwrite_with(self.data, offset, ())?;
         Ok(*offset)
     }
 }
@@ -468,8 +462,7 @@ impl<'a> DosStub<'a> {
         // end_offset == start_offset may mean there is no dos stub
         if end_offset < start_offset {
             return Err(error::Error::Malformed(format!(
-                "PE pointer ({:#x}) cannot be before the DOS stub start ({:#x})",
-                pe_pointer, start_offset
+                "PE pointer ({pe_pointer:#x}) cannot be before the DOS stub start ({start_offset:#x})",
             )));
         }
 
@@ -810,9 +803,8 @@ impl CoffHeader {
         let string_table_offset = self.pointer_to_symbol_table as usize
             + symbol::SymbolTable::size(self.number_of_symbol_table as usize);
         for i in 0..nsections {
-            let section =
-                section_table::SectionTable::parse(bytes, offset, string_table_offset as usize)?;
-            debug!("({}) {:#?}", i, section);
+            let section = section_table::SectionTable::parse(bytes, offset, string_table_offset)?;
+            debug!("({i}) {section:#?}");
             sections.push(section);
         }
         Ok(sections)
@@ -884,15 +876,15 @@ impl<'a> Header<'a> {
         let mut offset = dos_header.pe_pointer as usize;
 
         let rich_header = if parse_rich_header {
-            RichHeader::parse(&bytes)?
+            RichHeader::parse(bytes)?
         } else {
             None
         };
 
         let signature = bytes.gread_with(&mut offset, scroll::LE).map_err(|_| {
-            error::Error::Malformed(format!("cannot parse PE signature (offset {:#x})", offset))
+            error::Error::Malformed(format!("cannot parse PE signature (offset {offset:#x})"))
         })?;
-        let coff_header = CoffHeader::parse(&bytes, &mut offset)?;
+        let coff_header = CoffHeader::parse(bytes, &mut offset)?;
         let optional_header = if coff_header.size_of_optional_header > 0 {
             Some(bytes.pread::<optional_header::OptionalHeader>(offset)?)
         } else {
@@ -911,7 +903,7 @@ impl<'a> Header<'a> {
 
     /// Parses PE header from the given bytes; this will fail if the DosHeader or DosStub is malformed or missing in some way
     pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
-        let dos_header = DosHeader::parse(&bytes)?;
+        let dos_header = DosHeader::parse(bytes)?;
         let dos_stub = DosStub::parse(bytes, dos_header.pe_pointer)?;
 
         Header::parse_impl(bytes, dos_header, dos_stub, true)
@@ -1015,14 +1007,14 @@ impl Iterator for RichMetadataIterator<'_> {
         }
 
         // Data within this iterator should not have padding
-        Some(match RichMetadata::parse(&self.data, self.key) {
+        Some(match RichMetadata::parse(self.data, self.key) {
             Ok(metadata) => {
                 self.data = &self.data[RICH_METADATA_SIZE..];
                 Ok(metadata)
             }
             Err(error) => {
                 self.data = &[];
-                Err(error.into())
+                Err(error)
             }
         })
     }
@@ -1066,8 +1058,7 @@ impl<'a> RichHeader<'a> {
         let scan_end = pe_header_start_offset;
         if scan_start > scan_end {
             return Err(error::Error::Malformed(format!(
-                "Rich header scan start ({:#X}) is greater than scan end ({:#X})",
-                scan_start, scan_end
+                "Rich header scan start ({scan_start:#X}) is greater than scan end ({scan_end:#X})"
             )));
         }
         let scan_stub = &bytes[scan_start..scan_end];
@@ -1134,9 +1125,9 @@ impl<'a> RichHeader<'a> {
             Some(Err(e)) => return Err(e),
             // DanS marker did not found
             None => {
-                return Err(error::Error::Malformed(format!(
-                    "Rich header does not contain the DanS marker"
-                )));
+                return Err(error::Error::Malformed(
+                    "Rich header does not contain the DanS marker".into(),
+                ));
             }
         };
 
@@ -1258,7 +1249,7 @@ impl TeHeader {
         for i in 0..nsections {
             let mut section = section_table::SectionTable::parse(bytes, offset, 0)?;
             TeHeader::fixup_section(&mut section, adj_offset);
-            debug!("({}) {:#?}", i, section);
+            debug!("({i}) {section:#?}");
             sections.push(section);
         }
         Ok(sections)
@@ -1377,13 +1368,9 @@ pub fn machine_to_str(machine: u16) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        error,
-        pe::{
-            Coff,
-            header::{DosStub, TeHeader},
-        },
-    };
+    use crate::error;
+    use crate::pe::Coff;
+    use crate::pe::header::{DosStub, TeHeader};
 
     use super::{
         COFF_MACHINE_X86, DOS_MAGIC, DosHeader, Header, PE_MAGIC, RichHeader, RichMetadata,
@@ -1627,7 +1614,7 @@ mod tests {
 
     #[test]
     fn crss_header() {
-        let header = Header::parse(&&CRSS_HEADER[..]).unwrap();
+        let header = Header::parse(&CRSS_HEADER).unwrap();
         assert!(header.dos_header.signature == DOS_MAGIC);
         assert!(header.signature == PE_MAGIC);
         assert!(header.coff_header.machine == COFF_MACHINE_X86);
@@ -1638,7 +1625,7 @@ mod tests {
     #[test]
     fn parse_without_dos_rich() {
         // Get a PE pointer (e_lfanew)
-        let dos_header = DosHeader::parse(&WELL_FORMED_WITH_RICH_HEADER).unwrap();
+        let dos_header = DosHeader::parse(WELL_FORMED_WITH_RICH_HEADER).unwrap();
         // Skip DOS header and DOS stub
         let buf = &WELL_FORMED_WITH_RICH_HEADER[dos_header.pe_pointer as usize..];
         let header = Header::parse_without_dos(buf).unwrap();
@@ -1669,11 +1656,11 @@ mod tests {
     #[test]
     fn parse_no_rich_header_invalid_pe_pointer() {
         let header = RichHeader::parse(&NO_RICH_HEADER_INVALID_PE_POINTER);
-        assert_eq!(header.is_err(), true);
+        assert!(header.is_err());
         if let Err(error::Error::Malformed(msg)) = header {
             assert_eq!(msg, "cannot parse PE header signature (offset 0xff3c)");
         } else {
-            panic!("Expected a Malformed error but got {:?}", header);
+            panic!("Expected a Malformed error but got {header:?}");
         }
     }
 
@@ -1746,35 +1733,35 @@ mod tests {
     #[test]
     fn parse_corrupted_rich_header() {
         let header_result = RichHeader::parse(&CORRUPTED_RICH_HEADER);
-        assert_eq!(header_result.is_err(), true);
+        assert!(header_result.is_err());
     }
 
     #[test]
     fn parse_malformed_small_te() {
         let mut offset = 0;
         let header = TeHeader::parse(&MALFORMED_SMALL_TE, &mut offset);
-        assert_eq!(header.is_err(), true);
+        assert!(header.is_err());
         if let Err(error::Error::Malformed(msg)) = header {
             assert_eq!(
                 msg,
                 "Stripped size (0x17) is smaller than TE header size (0x28)"
             );
         } else {
-            panic!("Expected a Malformed error but got {:?}", header);
+            panic!("Expected a Malformed error but got {header:?}");
         }
     }
 
     #[test]
     fn parse_invalid_small_coff() {
         let header = Coff::parse(&INVALID_COFF_OBJECT);
-        assert_eq!(header.is_err(), true);
+        assert!(header.is_err());
         if let Err(error::Error::Malformed(msg)) = header {
             assert_eq!(
                 msg,
                 "COFF length field size (0x4) is larger than the parsed length value"
             );
         } else {
-            panic!("Expected a Malformed error but got {:?}", header);
+            panic!("Expected a Malformed error but got {header:?}");
         }
     }
 

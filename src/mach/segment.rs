@@ -8,8 +8,7 @@ use alloc::vec::Vec;
 use core::fmt;
 use core::ops::{Deref, DerefMut};
 
-use crate::container;
-use crate::error;
+use crate::{container, error};
 
 use crate::mach::constants::{S_GB_ZEROFILL, S_THREAD_LOCAL_ZEROFILL, S_ZEROFILL, SECTION_TYPE};
 use crate::mach::load_command::{
@@ -100,8 +99,8 @@ impl From<Section> for Section64 {
         Section64 {
             sectname: section.sectname,
             segname: section.segname,
-            addr: section.addr as u64,
-            size: section.size as u64,
+            addr: section.addr,
+            size: section.size,
             offset: section.offset,
             align: section.align,
             reloff: section.reloff,
@@ -283,7 +282,7 @@ impl<'a> Iterator for SectionIterator<'a> {
     }
 }
 
-impl<'a, 'b> IntoIterator for &'b Segment<'a> {
+impl<'a> IntoIterator for &Segment<'a> {
     type Item = error::Result<(Section, SectionData<'a>)>;
     type IntoIter = SectionIterator<'a>;
     fn into_iter(self) -> Self::IntoIter {
@@ -322,10 +321,10 @@ impl<'a> From<Segment<'a>> for SegmentCommand64 {
             cmd: segment.cmd,
             cmdsize: segment.cmdsize,
             segname: segment.segname,
-            vmaddr: segment.vmaddr as u64,
-            vmsize: segment.vmsize as u64,
-            fileoff: segment.fileoff as u64,
-            filesize: segment.filesize as u64,
+            vmaddr: segment.vmaddr,
+            vmsize: segment.vmsize,
+            fileoff: segment.fileoff,
+            filesize: segment.filesize,
             maxprot: segment.maxprot,
             initprot: segment.initprot,
             nsects: segment.nsects,

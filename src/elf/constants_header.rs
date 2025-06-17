@@ -2,7 +2,7 @@
 // pub const \([[:word:]|_]*\)[[:space:]]*\([[:digit:]]+\)[[:space:]]*/\*\(.*\) \*/
 // \\\\3 C-q C-j pub const \1: u32 = \2;
 
-/// TODO: use Enum with explicit discriminant and get debug printer for free?
+// TODO: use Enum with explicit discriminant and get debug printer for free?
 
 /// No machine
 pub const EM_NONE: u16 = 0;

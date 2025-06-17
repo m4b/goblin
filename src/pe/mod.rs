@@ -30,10 +30,8 @@ pub mod symbol;
 pub mod tls;
 pub mod utils;
 
-use crate::container;
-use crate::error;
 use crate::pe::utils::pad;
-use crate::strtab;
+use crate::{container, error, strtab};
 use options::ParseMode;
 
 use scroll::{Pwrite, ctx};
@@ -97,7 +95,7 @@ impl<'a> PE<'a> {
         let header = header::Header::parse(bytes)?;
         let mut authenticode_excluded_sections = None;
 
-        debug!("{:#?}", header);
+        debug!("{header:#?}");
         let optional_header_offset = header.dos_header.pe_pointer as usize
             + header::SIZEOF_PE_MAGIC
             + header::SIZEOF_COFF_HEADER;
@@ -148,8 +146,7 @@ impl<'a> PE<'a> {
                 }
                 magic => {
                     return Err(error::Error::Malformed(format!(
-                        "Unsupported header magic ({:#x})",
-                        magic
+                        "Unsupported header magic ({magic:#x})"
                     )));
                 }
             };
@@ -157,10 +154,7 @@ impl<'a> PE<'a> {
             entry = optional_header.standard_fields.address_of_entry_point;
             image_base = optional_header.windows_fields.image_base;
             is_64 = optional_header.container()? == container::Container::Big;
-            debug!(
-                "entry {:#x} image_base {:#x} is_64: {}",
-                entry, image_base, is_64
-            );
+            debug!("entry {entry:#x} image_base {image_base:#x} is_64: {is_64}");
             let file_alignment = optional_header.windows_fields.file_alignment;
             if let Some(&export_table) = optional_header.data_directories.get_export_table() {
                 if let Ok(ed) = export::ExportData::parse_with_opts(
@@ -170,7 +164,7 @@ impl<'a> PE<'a> {
                     file_alignment,
                     opts,
                 ) {
-                    debug!("export data {:#?}", ed);
+                    debug!("export data {ed:#?}");
                     exports = export::Export::parse_with_opts(
                         bytes,
                         &ed,
@@ -179,11 +173,11 @@ impl<'a> PE<'a> {
                         opts,
                     )?;
                     name = ed.name;
-                    debug!("name: {:#?}", name);
+                    debug!("name: {name:#?}");
                     export_data = Some(ed);
                 }
             }
-            debug!("exports: {:#?}", exports);
+            debug!("exports: {exports:#?}");
             if let Some(&import_table) = optional_header.data_directories.get_import_table() {
                 let id = if is_64 {
                     import::ImportData::parse_with_opts::<u64>(
@@ -202,7 +196,7 @@ impl<'a> PE<'a> {
                         opts,
                     )?
                 };
-                debug!("import data {:#?}", id);
+                debug!("import data {id:#?}");
                 if is_64 {
                     imports = import::Import::parse::<u64>(bytes, &id, &sections)?
                 } else {
@@ -217,7 +211,7 @@ impl<'a> PE<'a> {
                 libraries.dedup();
                 import_data = Some(id);
             }
-            debug!("imports: {:#?}", imports);
+            debug!("imports: {imports:#?}");
             if let Some(&debug_table) = optional_header.data_directories.get_debug_table() {
                 debug_data = Some(debug::DebugData::parse_with_opts(
                     bytes,
@@ -238,12 +232,12 @@ impl<'a> PE<'a> {
                     opts,
                     is_64,
                 )?;
-                debug!("tls data: {:#?}", tls_data);
+                debug!("tls data: {tls_data:#?}");
             }
 
             if header.coff_header.machine == header::COFF_MACHINE_X86_64 {
                 // currently only x86_64 is supported
-                debug!("exception data: {:#?}", exception_data);
+                debug!("exception data: {exception_data:#?}");
                 if let Some(&exception_table) =
                     optional_header.data_directories.get_exception_table()
                 {
@@ -295,7 +289,7 @@ impl<'a> PE<'a> {
                     certificates = match opts.parse_mode {
                         ParseMode::Strict => certificates_result?,
                         ParseMode::Permissive => certificates_result.unwrap_or_else(|err| {
-                            warn!("Cannot parse CertificateTable: {:?}", err);
+                            warn!("Cannot parse CertificateTable: {err:?}");
                             Default::default()
                         }),
                     };
@@ -364,7 +358,7 @@ impl<'a> PE<'a> {
         );
 
         for section in &self.sections {
-            let section_data = section.data(&self.bytes)?.ok_or_else(|| {
+            let section_data = section.data(self.bytes)?.ok_or_else(|| {
                 error::Error::Malformed(format!(
                     "Section data `{}` is malformed",
                     section.name().unwrap_or("unknown name")
@@ -413,8 +407,7 @@ impl<'a> PE<'a> {
             let written_data_size = file_offset - file_section_offset;
             if ondisk_size != written_data_size {
                 warn!(
-                    "Original PE is inefficient or bug (on-disk data size in PE: {:#x}), we wrote {:#x} bytes",
-                    ondisk_size, written_data_size
+                    "Original PE is inefficient or bug (on-disk data size in PE: {ondisk_size:#x}), we wrote {written_data_size:#x} bytes"
                 );
             }
         }
@@ -427,12 +420,9 @@ impl<'a> PE<'a> {
         bytes: &mut [u8],
         ctx: scroll::Endian,
     ) -> Result<usize, error::Error> {
-        let opt_header = self
-            .header
-            .optional_header
-            .ok_or(error::Error::Malformed(format!(
-                "This PE binary has no optional header; it is required to write certificates"
-            )))?;
+        let opt_header = self.header.optional_header.ok_or(error::Error::Malformed(
+            "This PE binary has no optional header; it is required to write certificates".into(),
+        ))?;
         let mut max_offset = 0;
 
         if let Some(certificate_directory) = opt_header.data_directories.get_certificate_table() {
@@ -605,7 +595,7 @@ impl<'a> Coff<'a> {
     pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
         let offset = &mut 0;
         let header = header::CoffHeader::parse(bytes, offset)?;
-        debug!("{:#?}", header);
+        debug!("{header:#?}");
         // TODO: maybe parse optional header, but it isn't present for Windows.
         *offset += header.size_of_optional_header as usize;
         let sections = header.sections(bytes, offset)?;
@@ -622,8 +612,7 @@ impl<'a> Coff<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::Coff;
-    use super::PE;
+    use super::{Coff, PE};
 
     static INVALID_DOS_SIGNATURE: [u8; 512] = [
         0x3D, 0x5A, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00,
@@ -771,7 +760,7 @@ mod tests {
 
     #[test]
     fn string_table_excludes_length() {
-        let coff = Coff::parse(&&COFF_FILE_SINGLE_STRING_IN_STRING_TABLE[..]).unwrap();
+        let coff = Coff::parse(&COFF_FILE_SINGLE_STRING_IN_STRING_TABLE).unwrap();
         let string_table = coff.strings.unwrap().to_vec().unwrap();
 
         assert!(string_table == vec!["ExitProcess"]);
@@ -793,14 +782,14 @@ mod tests {
 
     #[test]
     fn invalid_dos_header() {
-        if let Ok(_) = PE::parse(&INVALID_DOS_SIGNATURE) {
+        if PE::parse(&INVALID_DOS_SIGNATURE).is_ok() {
             panic!("must not parse PE with invalid DOS header");
         }
     }
 
     #[test]
     fn invalid_pe_header() {
-        if let Ok(_) = PE::parse(&INVALID_PE_SIGNATURE) {
+        if PE::parse(&INVALID_PE_SIGNATURE).is_ok() {
             panic!("must not parse PE with invalid PE header");
         }
     }

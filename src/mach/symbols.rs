@@ -6,9 +6,8 @@ use crate::container::{self, Container};
 use crate::error;
 use crate::mach::load_command;
 use core::fmt::{self, Debug};
-use scroll::ctx;
 use scroll::ctx::SizeWith;
-use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith};
+use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith, ctx};
 
 // The n_type field really contains four fields which are used via the following masks.
 /// if any of these bits set, a symbolic debugging entry
@@ -395,7 +394,7 @@ pub struct Symbols<'a> {
     ctx: container::Ctx,
 }
 
-impl<'a, 'b> IntoIterator for &'b Symbols<'a> {
+impl<'a> IntoIterator for &Symbols<'a> {
     type Item = <SymbolIterator<'a> as Iterator>::Item;
     type IntoIter = SymbolIterator<'a>;
     fn into_iter(self) -> Self::IntoIter {
@@ -444,8 +443,8 @@ impl<'a> Symbols<'a> {
 
     pub fn iter(&self) -> SymbolIterator<'a> {
         SymbolIterator {
-            offset: self.start as usize,
-            nsyms: self.nsyms as usize,
+            offset: self.start,
+            nsyms: self.nsyms,
             count: 0,
             data: self.data,
             ctx: self.ctx,
@@ -480,7 +479,7 @@ impl<'a> Debug for Symbols<'a> {
                     "{: >10x} {} sect: {:#x} type: {:#02x} desc: {:#03x}",
                     nlist.n_value, name, nlist.n_sect, nlist.n_type, nlist.n_desc
                 )?,
-                Err(error) => writeln!(fmt, "  Bad symbol, index: {}, sym: {:?}", i, error)?,
+                Err(error) => writeln!(fmt, "  Bad symbol, index: {i}, sym: {error:?}")?,
             }
         }
         writeln!(fmt, "}}")

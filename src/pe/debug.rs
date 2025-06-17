@@ -4,10 +4,7 @@ use crate::error;
 use log::debug;
 use scroll::{Pread, Pwrite, SizeWith};
 
-use crate::pe::data_directories;
-use crate::pe::options;
-use crate::pe::section_table;
-use crate::pe::utils;
+use crate::pe::{data_directories, options, section_table, utils};
 
 /// Size of [`ImageDebugDirectory`]
 pub const IMAGE_DEBUG_DIRECTORY_SIZE: usize = 0x1C;
@@ -245,7 +242,7 @@ impl<'a> DebugData<'a> {
     /// Returns iterator for [`ImageDebugDirectory`]
     pub fn entries(&self) -> ImageDebugDirectoryIterator<'a> {
         ImageDebugDirectoryIterator {
-            data: &self.data,
+            data: self.data,
             rva_offset: self.rva_offset,
         }
     }
@@ -393,8 +390,7 @@ impl<'a> CodeviewPDB70DebugInfo<'a> {
             }))
         } else {
             Err(error::Error::Malformed(format!(
-                "ImageDebugDirectory seems corrupted: {:?}",
-                idd
+                "ImageDebugDirectory seems corrupted: {idd:?}"
             )))
         }
     }
@@ -505,8 +501,7 @@ impl<'a> CodeviewPDB20DebugInfo<'a> {
             }))
         } else {
             Err(error::Error::Malformed(format!(
-                "ImageDebugDirectory seems corrupted: {:?}",
-                idd
+                "ImageDebugDirectory seems corrupted: {idd:?}"
             )))
         }
     }
@@ -560,8 +555,7 @@ impl<'a> ReproInfo<'a> {
                 Ok(Self::Buffer { length, buffer })
             } else {
                 Err(error::Error::Malformed(format!(
-                    "ImageDebugDirectory seems corrupted: {:?}",
-                    idd
+                    "ImageDebugDirectory seems corrupted: {idd:?}"
                 )))
             }
         } else {
@@ -763,7 +757,7 @@ impl<'a> POGOInfo<'a> {
 
     /// Returns iterator for [`POGOInfoEntry`]
     pub fn entries(&self) -> POGOEntryIterator<'a> {
-        POGOEntryIterator { data: &self.data }
+        POGOEntryIterator { data: self.data }
     }
 }
 
@@ -787,16 +781,14 @@ impl<'a> Iterator for POGOEntryIterator<'a> {
 
         if offset >= self.data.len() {
             return Some(Err(error::Error::Malformed(format!(
-                "Offset {:#x} is too big for containing name field of POGO entry (rva {:#x} and size {:#X})",
-                offset, rva, size
+                "Offset {offset:#x} is too big for containing name field of POGO entry (rva {rva:#x} and size {size:#X})"
             ))));
         }
         let name = match self.data[offset..].iter().position(|&b| b == 0) {
             Some(pos) => {
-                if offset + pos as usize >= self.data.len() {
+                if offset + pos >= self.data.len() {
                     return Some(Err(error::Error::Malformed(format!(
-                        "Null-terminator for POGO entry (rva {:#x} and size {:#X}) found but exceeds iterator buffer",
-                        rva, size
+                        "Null-terminator for POGO entry (rva {rva:#x} and size {size:#X}) found but exceeds iterator buffer"
                     ))));
                 }
                 let name = &self.data[offset..offset + pos + 1];
@@ -807,10 +799,8 @@ impl<'a> Iterator for POGOEntryIterator<'a> {
             }
             None => {
                 return Some(Err(error::Error::Malformed(format!(
-                    "Cannot find null-terimnator for POGO entry (rva {:#x} and size {:#X})",
-                    rva, size
-                ))
-                .into()));
+                    "Cannot find null-terimnator for POGO entry (rva {rva:#x} and size {size:#X})"
+                ))));
             }
         };
 
@@ -848,17 +838,17 @@ mod tests {
     fn parse_no_debug_directories() {
         let binary =
             crate::pe::PE::parse(NO_DEBUG_DIRECTORIES_BIN).expect("Unable to parse binary");
-        assert_eq!(binary.debug_data.is_none(), true);
+        assert!(binary.debug_data.is_none());
     }
 
     #[test]
     fn parse_debug_entries_iterator() {
         let binary =
             crate::pe::PE::parse(DEBUG_DIRECTORIES_TEST_MSVC_BIN).expect("Unable to parse binary");
-        assert_eq!(binary.debug_data.is_some(), true);
+        assert!(binary.debug_data.is_some());
         let debug_data = binary.debug_data.unwrap();
         let entries = debug_data.entries().collect::<Result<Vec<_>, _>>();
-        assert_eq!(entries.is_ok(), true);
+        assert!(entries.is_ok());
         let entries = entries.unwrap();
         let entries_expect = vec![
             ImageDebugDirectory {
@@ -929,9 +919,9 @@ mod tests {
     fn parse_debug_codeview_pdb70_msvc() {
         let binary =
             crate::pe::PE::parse(DEBUG_DIRECTORIES_TEST_MSVC_BIN).expect("Unable to parse binary");
-        assert_eq!(binary.debug_data.is_some(), true);
+        assert!(binary.debug_data.is_some());
         let debug_data = binary.debug_data.unwrap();
-        assert_eq!(debug_data.codeview_pdb70_debug_info.is_some(), true);
+        assert!(debug_data.codeview_pdb70_debug_info.is_some());
         let codeview_pdb70_debug_info = debug_data.codeview_pdb70_debug_info.unwrap();
         let filename = ffi_to_string(codeview_pdb70_debug_info.filename);
         assert_eq!(filename, String::from("THIS-IS-BINARY-FOR-GOBLIN-TESTS"));
@@ -953,9 +943,9 @@ mod tests {
     fn parse_debug_codeview_pdb70_clang() {
         let binary = crate::pe::PE::parse(DEBUG_DIRECTORIES_TEST_CLANG_LLD_BIN)
             .expect("Unable to parse binary");
-        assert_eq!(binary.debug_data.is_some(), true);
+        assert!(binary.debug_data.is_some());
         let debug_data = binary.debug_data.unwrap();
-        assert_eq!(debug_data.codeview_pdb70_debug_info.is_some(), true);
+        assert!(debug_data.codeview_pdb70_debug_info.is_some());
         let codeview_pdb70_debug_info = debug_data.codeview_pdb70_debug_info.unwrap();
         let filename = ffi_to_string(codeview_pdb70_debug_info.filename);
         assert_eq!(filename, String::from("THIS-IS-BINARY-FOR-GOBLIN-TESTS"));
@@ -977,9 +967,9 @@ mod tests {
     fn parse_debug_vcfeature() {
         let binary =
             crate::pe::PE::parse(DEBUG_DIRECTORIES_TEST_MSVC_BIN).expect("Unable to parse binary");
-        assert_eq!(binary.debug_data.is_some(), true);
+        assert!(binary.debug_data.is_some());
         let debug_data = binary.debug_data.unwrap();
-        assert_eq!(debug_data.vcfeature_info.is_some(), true);
+        assert!(debug_data.vcfeature_info.is_some());
         let vcfeature_info = debug_data.vcfeature_info.unwrap();
         let vcfeature_info_expect = VCFeatureInfo {
             pre_vc_plusplus_count: 0,
@@ -995,9 +985,9 @@ mod tests {
     fn parse_debug_repro_msvc() {
         let binary =
             crate::pe::PE::parse(DEBUG_DIRECTORIES_TEST_MSVC_BIN).expect("Unable to parse binary");
-        assert_eq!(binary.debug_data.is_some(), true);
+        assert!(binary.debug_data.is_some());
         let debug_data = binary.debug_data.unwrap();
-        assert_eq!(debug_data.repro_info.is_some(), true);
+        assert!(debug_data.repro_info.is_some());
         let repro_info = debug_data.repro_info.unwrap();
         let repro_info_expect = ReproInfo::Buffer {
             length: 32,
@@ -1014,9 +1004,9 @@ mod tests {
     fn parse_debug_repro_clang_lld() {
         let binary = crate::pe::PE::parse(DEBUG_DIRECTORIES_TEST_CLANG_LLD_BIN)
             .expect("Unable to parse binary");
-        assert_eq!(binary.debug_data.is_some(), true);
+        assert!(binary.debug_data.is_some());
         let debug_data = binary.debug_data.unwrap();
-        assert_eq!(debug_data.repro_info.is_some(), true);
+        assert!(debug_data.repro_info.is_some());
         let repro_info = debug_data.repro_info.unwrap();
         let repro_info_expect = ReproInfo::TimeDateStamp(0xDB2F3908);
         assert_eq!(repro_info, repro_info_expect);
@@ -1026,9 +1016,9 @@ mod tests {
     fn parse_debug_exdllcharacteristics() {
         let binary =
             crate::pe::PE::parse(DEBUG_DIRECTORIES_TEST_MSVC_BIN).expect("Unable to parse binary");
-        assert_eq!(binary.debug_data.is_some(), true);
+        assert!(binary.debug_data.is_some());
         let debug_data = binary.debug_data.unwrap();
-        assert_eq!(debug_data.ex_dll_characteristics_info.is_some(), true);
+        assert!(debug_data.ex_dll_characteristics_info.is_some());
         let ex_dll_characteristics_info = debug_data.ex_dll_characteristics_info.unwrap();
         let ex_dll_characteristics_info_expect = ExDllCharacteristicsInfo {
             characteristics_ex: IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT
@@ -1044,9 +1034,9 @@ mod tests {
     fn parse_debug_pogo() {
         let binary =
             crate::pe::PE::parse(DEBUG_DIRECTORIES_TEST_MSVC_BIN).expect("Unable to parse binary");
-        assert_eq!(binary.debug_data.is_some(), true);
+        assert!(binary.debug_data.is_some());
         let debug_data = binary.debug_data.unwrap();
-        assert_eq!(debug_data.pogo_info.is_some(), true);
+        assert!(debug_data.pogo_info.is_some());
         let pogo_info = debug_data.pogo_info.unwrap();
         assert_eq!(pogo_info.signature, IMAGE_DEBUG_POGO_SIGNATURE_LTCG);
         assert_eq!(pogo_info.data.len(), 88 - POGO_SIGNATURE_SIZE);

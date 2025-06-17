@@ -6,10 +6,7 @@ use crate::error;
 use scroll::ctx::TryFromCtx;
 use scroll::{Pread, Pwrite, SizeWith};
 
-use crate::pe::data_directories;
-use crate::pe::options;
-use crate::pe::section_table;
-use crate::pe::utils;
+use crate::pe::{data_directories, options, section_table, utils};
 
 use crate::pe::options::ParseMode;
 use log::{debug, warn};
@@ -60,7 +57,7 @@ impl<'a> Bitfield<'a> for u32 {
         (0xffff & self) as u16
     }
     fn to_rva(&self) -> u32 {
-        (self & IMPORT_RVA_MASK_32) as u32
+        self & IMPORT_RVA_MASK_32
     }
     fn size_of() -> usize {
         4
@@ -126,20 +123,20 @@ impl<'a> SyntheticImportLookupTableEntry<'a> {
                 break;
             } else {
                 let entry = {
-                    debug!("bitfield {:#x}", bitfield);
+                    debug!("bitfield {bitfield:#x}");
                     use self::SyntheticImportLookupTableEntry::*;
                     if bitfield.is_ordinal() {
                         let ordinal = bitfield.to_ordinal();
-                        debug!("importing by ordinal {:#x} ({})", ordinal, ordinal);
+                        debug!("importing by ordinal {ordinal:#x} ({ordinal})");
                         OrdinalNumber(ordinal)
                     } else {
                         let rva = bitfield.to_rva();
                         let hentry = {
-                            debug!("searching for RVA {:#x}", rva);
+                            debug!("searching for RVA {rva:#x}");
                             if let Some(offset) =
                                 utils::find_offset(rva as usize, sections, file_alignment, opts)
                             {
-                                debug!("offset {:#x}", offset);
+                                debug!("offset {offset:#x}");
                                 HintNameTableEntry::parse(bytes, offset)?
                             } else {
                                 warn!("Entry {} has bad RVA: {:#x}", table.len(), rva);
@@ -236,8 +233,7 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
                 opts,
             ) {
                 debug!(
-                    "Synthesizing lookup table imports for {} lib, with import lookup table rva: {:#x}",
-                    name, import_lookup_table_rva
+                    "Synthesizing lookup table imports for {name} lib, with import lookup table rva: {import_lookup_table_rva:#x}"
                 );
                 let import_lookup_table = SyntheticImportLookupTableEntry::parse_with_opts::<T>(
                     bytes,
@@ -247,8 +243,7 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
                     opts,
                 )?;
                 debug!(
-                    "Successfully synthesized import lookup table entry from lookup table: {:#?}",
-                    import_lookup_table
+                    "Successfully synthesized import lookup table entry from lookup table: {import_lookup_table:#?}"
                 );
                 Some(import_lookup_table)
             } else if let Some(import_address_table_offset) = utils::find_offset(
@@ -258,8 +253,7 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
                 opts,
             ) {
                 debug!(
-                    "Synthesizing lookup table imports for {} lib, with import address table rva: {:#x}",
-                    name, import_lookup_table_rva
+                    "Synthesizing lookup table imports for {name} lib, with import address table rva: {import_lookup_table_rva:#x}"
                 );
                 let import_address_table = SyntheticImportLookupTableEntry::parse_with_opts::<T>(
                     bytes,
@@ -269,8 +263,7 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
                     opts,
                 )?;
                 debug!(
-                    "Successfully synthesized import lookup table entry from IAT: {:#?}",
-                    import_address_table
+                    "Successfully synthesized import lookup table entry from IAT: {import_address_table:#?}"
                 );
                 Some(import_address_table)
             } else {
@@ -292,8 +285,7 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
                         "import_address_table_rva"
                     };
                     error::Error::Malformed(format!(
-                        "Cannot map {} {:#x} into offset for {}",
-                        target, rva, name
+                        "Cannot map {target} {rva:#x} into offset for {name}"
                     ))
                 },
             )?;
@@ -347,10 +339,7 @@ impl<'a> ImportData<'a> {
         opts: &options::ParseOptions,
     ) -> error::Result<ImportData<'a>> {
         let import_directory_table_rva = dd.virtual_address as usize;
-        debug!(
-            "import_directory_table_rva {:#x}",
-            import_directory_table_rva
-        );
+        debug!("import_directory_table_rva {import_directory_table_rva:#x}");
         let offset = &mut utils::find_offset(
             import_directory_table_rva,
             sections,
@@ -359,16 +348,15 @@ impl<'a> ImportData<'a> {
         )
         .ok_or_else(|| {
             error::Error::Malformed(format!(
-                "Cannot create ImportData; cannot map import_directory_table_rva {:#x} into offset",
-                import_directory_table_rva
+                "Cannot create ImportData; cannot map import_directory_table_rva {import_directory_table_rva:#x} into offset"
             ))
         })?;
-        debug!("import data offset {:#x}", offset);
+        debug!("import data offset {offset:#x}");
         let mut import_data = Vec::new();
         loop {
             let import_directory_entry: ImportDirectoryEntry =
                 bytes.gread_with(offset, scroll::LE)?;
-            debug!("{:#?} at {:#x}", import_directory_entry, offset);
+            debug!("{import_directory_entry:#?} at {offset:#x}");
             if import_directory_entry.is_null() || !import_directory_entry.is_possibly_valid() {
                 break;
             } else {
@@ -433,7 +421,7 @@ impl<'a> Import<'a> {
                             (rva, Cow::Borrowed(hint_entry.name), hint_entry.hint)
                         }
                         OrdinalNumber(ordinal) => {
-                            let name = format!("ORDINAL {}", ordinal);
+                            let name = format!("ORDINAL {ordinal}");
                             (0x0, Cow::Owned(name), ordinal)
                         }
                     };
@@ -463,7 +451,7 @@ mod tests {
     #[test]
     fn parse_non_well_formed_import_table() {
         let binary = crate::pe::PE::parse(NOT_WELL_FORMED_IMPORT).expect("Unable to parse binary");
-        assert_eq!(binary.import_data.is_some(), true);
+        assert!(binary.import_data.is_some());
         assert_eq!(binary.imports.len(), 1);
         assert_eq!(binary.imports[0].name, "ORDINAL 51398");
         assert_eq!(binary.imports[0].dll, "abcd.dll");
@@ -476,7 +464,7 @@ mod tests {
     #[test]
     fn parse_well_formed_import_table() {
         let binary = crate::pe::PE::parse(WELL_FORMED_IMPORT).expect("Unable to parse binary");
-        assert_eq!(binary.import_data.is_some(), true);
+        assert!(binary.import_data.is_some());
         assert_eq!(binary.imports.len(), 1);
         assert_eq!(binary.imports[0].name, "GetLastError");
         assert_eq!(binary.imports[0].dll, "KERNEL32.dll");

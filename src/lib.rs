@@ -261,7 +261,7 @@ if_everything! {
         } else if &bytes[0..archive::SIZEOF_MAGIC] == archive::MAGIC {
             Ok(Hint::Archive)
         } else {
-            match *&bytes[0..2].pread_with::<u16>(0, LE)? {
+            match bytes[0..2].pread_with::<u16>(0, LE)? {
                 pe::header::DOS_MAGIC => Ok(Hint::PE),
                 pe::header::TE_MAGIC => Ok(Hint::TE),
                 pe::header::COFF_MACHINE_X86 |
@@ -318,7 +318,7 @@ if_everything! {
                     Hint::Unknown(magic) => Ok(Object::Unknown(magic)),
                 }
             } else {
-                Err(error::Error::Malformed(format!("Object is too small.")))
+                Err(error::Error::Malformed("Object is too small.".into()))
             }
         }
     }

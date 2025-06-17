@@ -2,7 +2,6 @@ use crate::error::{self, Error};
 use crate::pe::relocation;
 use alloc::borrow::Cow;
 use alloc::string::String;
-use alloc::vec::Vec;
 use scroll::{Pread, Pwrite, ctx};
 
 #[repr(C)]
@@ -31,13 +30,13 @@ fn base64_decode_string_entry(s: &str) -> Result<usize, ()> {
 
     let mut val = 0;
     for c in s.bytes() {
-        let v = if b'A' <= c && c <= b'Z' {
+        let v = if c.is_ascii_uppercase() {
             // 00..=25
             c - b'A'
-        } else if b'a' <= c && c <= b'z' {
+        } else if c.is_ascii_lowercase() {
             // 26..=51
             c - b'a' + 26
-        } else if b'0' <= c && c <= b'9' {
+        } else if c.is_ascii_digit() {
             // 52..=61
             c - b'0' + 52
         } else if c == b'+' {
@@ -86,28 +85,28 @@ impl SectionTable {
 
     pub fn data<'a, 'b: 'a>(&'a self, pe_bytes: &'b [u8]) -> error::Result<Option<Cow<'a, [u8]>>> {
         let section_start: usize = self.pointer_to_raw_data.try_into().map_err(|_| {
-            Error::Malformed(format!("Virtual address cannot fit in platform `usize`"))
+            Error::Malformed("Virtual address cannot fit in platform `usize`".into())
         })?;
 
         // assert!(self.virtual_size <= self.size_of_raw_data);
         // if vsize > size_of_raw_data, the section is zero padded.
         let section_end: usize = section_start
             + usize::try_from(self.size_of_raw_data).map_err(|_| {
-                Error::Malformed(format!("Virtual size cannot fit in platform `usize`"))
+                Error::Malformed("Virtual size cannot fit in platform `usize`".into())
             })?;
 
         let original_bytes = pe_bytes.get(section_start..section_end).map(Cow::Borrowed);
 
-        if original_bytes.is_some() && self.virtual_size > self.size_of_raw_data {
-            let mut bytes: Vec<u8> = Vec::new();
-            bytes.resize(self.size_of_raw_data.try_into()?, 0);
-            bytes.copy_from_slice(&original_bytes.unwrap());
-            bytes.resize(self.virtual_size.try_into()?, 0);
-
-            Ok(Some(Cow::Owned(bytes)))
-        } else {
-            Ok(original_bytes)
+        if let Some(ref original_bytes) = original_bytes {
+            if self.virtual_size > self.size_of_raw_data {
+                let mut bytes = vec![0; self.size_of_raw_data.try_into()?];
+                bytes.copy_from_slice(original_bytes);
+                bytes.resize(self.virtual_size.try_into()?, 0);
+                return Ok(Some(Cow::Owned(bytes)));
+            }
         }
+
+        Ok(original_bytes)
     }
 
     pub fn name_offset(&self) -> error::Result<Option<usize>> {
@@ -117,14 +116,13 @@ impl SectionTable {
                 let b64idx = self.name.pread::<&str>(2)?;
                 base64_decode_string_entry(b64idx).map_err(|_| {
                     Error::Malformed(format!(
-                        "Invalid indirect section name //{}: base64 decoding failed",
-                        b64idx
+                        "Invalid indirect section name //{b64idx}: base64 decoding failed"
                     ))
                 })?
             } else {
                 let name = self.name.pread::<&str>(1)?;
                 name.parse().map_err(|err| {
-                    Error::Malformed(format!("Invalid indirect section name /{}: {}", name, err))
+                    Error::Malformed(format!("Invalid indirect section name /{name}: {err}"))
                 })?
             };
             Ok(Some(idx))
@@ -176,8 +174,7 @@ impl SectionTable {
             Ok(())
         } else {
             Err(Error::Malformed(format!(
-                "Invalid section name offset: {}",
-                idx
+                "Invalid section name offset: {idx}"
             )))
         }
     }

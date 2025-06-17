@@ -1,9 +1,8 @@
 //! A byte-offset based string table.
 //! Commonly used in ELF binaries, Unix archives, and even PE binaries.
 
-use core::fmt;
 use core::ops::Index;
-use core::str;
+use core::{fmt, str};
 use scroll::{Pread, ctx};
 if_alloc! {
     use crate::error;
@@ -13,6 +12,7 @@ if_alloc! {
 /// A common string table format which is indexed by byte offsets (and not
 /// member index). Constructed using [`parse`](#method.parse)
 /// with your choice of delimiter. Please be careful.
+#[derive(Default)]
 pub struct Strtab<'a> {
     delim: ctx::StrCtx,
     bytes: &'a [u8],
@@ -37,6 +37,11 @@ impl<'a> Strtab<'a> {
     /// Returns the length of this `Strtab` in bytes
     pub fn len(&self) -> usize {
         self.bytes.len()
+    }
+
+    /// Return `true` if the table is empty
+    pub fn is_empty(&self) -> bool {
+        self.bytes.is_empty()
     }
 
     /// Creates a `Strtab` directly without bounds check and without parsing it.
@@ -178,17 +183,6 @@ impl<'a> fmt::Debug for Strtab<'a> {
             .field("delim", &self.delim)
             .field("bytes", &str::from_utf8(self.bytes))
             .finish()
-    }
-}
-
-impl<'a> Default for Strtab<'a> {
-    fn default() -> Self {
-        Self {
-            delim: ctx::StrCtx::default(),
-            bytes: &[],
-            #[cfg(feature = "alloc")]
-            strings: Vec::new(),
-        }
     }
 }
 

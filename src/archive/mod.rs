@@ -13,7 +13,6 @@ use crate::strtab;
 
 use alloc::collections::btree_map::BTreeMap;
 use alloc::vec::Vec;
-use core::usize;
 
 pub const SIZEOF_MAGIC: usize = 8;
 /// The magic number of a Unix Archive
@@ -73,16 +72,15 @@ impl MemberHeader {
             .pread_with::<&str>(0, ::scroll::ctx::StrCtx::Length(SIZEOF_FILE_IDENTIFER))?)
     }
     pub fn size(&self) -> Result<usize> {
-        match usize::from_str_radix(
-            self.file_size
-                .pread_with::<&str>(0, ::scroll::ctx::StrCtx::Length(self.file_size.len()))?
-                .trim_end(),
-            10,
-        ) {
+        match self
+            .file_size
+            .pread_with::<&str>(0, ::scroll::ctx::StrCtx::Length(self.file_size.len()))?
+            .trim_end()
+            .parse::<usize>()
+        {
             Ok(file_size) => Ok(file_size),
             Err(err) => Err(Error::Malformed(format!(
-                "{:?} Bad file_size in header: {:?}",
-                err, self
+                "{err:?} Bad file_size in header: {self:?}"
             ))),
         }
     }
@@ -166,11 +164,7 @@ impl<'a> Member<'a> {
 
         if let Some(name) = name.strip_prefix("#1/") {
             let trimmed_name = name.trim_end_matches(' ');
-            if let Ok(len) = usize::from_str(trimmed_name) {
-                Some(len)
-            } else {
-                None
-            }
+            usize::from_str(trimmed_name).ok()
         } else {
             None
         }
@@ -180,7 +174,7 @@ impl<'a> Member<'a> {
     pub fn extended_name(&self) -> &'a str {
         if let Some(bsd_name) = self.bsd_name {
             bsd_name
-        } else if let Some(ref sysv_name) = self.sysv_name {
+        } else if let Some(sysv_name) = self.sysv_name {
             sysv_name
         } else {
             self.header.name.trim_end_matches(' ').trim_end_matches('/')
@@ -298,8 +292,7 @@ impl<'a> Index<'a> {
             let string = match strtab.get_at(string_offset as usize) {
                 Some(result) => Ok(result),
                 None => Err(Error::Malformed(format!(
-                    "{} entry {} has string offset {}, which is out of bounds",
-                    BSD_SYMDEF_NAME, i, string_offset
+                    "{BSD_SYMDEF_NAME} entry {i} has string offset {string_offset}, which is out of bounds"
                 ))),
             }?;
 
@@ -343,8 +336,7 @@ impl<'a> Index<'a> {
         let mut symbol_offsets = Vec::with_capacity(symbols);
         for _ in 0..symbols {
             let index = buffer.gread_with::<u16>(offset, scroll::LE)?;
-            // <=0 and ==0 are semantically same in unsigned integer
-            if index <= 0 {
+            if index == 0 {
                 return Err(Error::BufferTooShort(members, "members"));
             }
             if let Some(symbol_offset) = member_offsets.get(index as usize - 1) {
@@ -388,28 +380,25 @@ impl<'a> NameIndex<'a> {
 
     pub fn get(&self, name: &str) -> Result<&'a str> {
         let idx = name.trim_start_matches('/').trim_end();
-        match usize::from_str_radix(idx, 10) {
+        match idx.parse::<usize>() {
             Ok(idx) => {
                 let name = match self.strtab.get_at(idx + 1) {
                     Some(result) => Ok(result),
                     None => Err(Error::Malformed(format!(
-                        "Name {} is out of range in archive NameIndex",
-                        name
+                        "Name {name} is out of range in archive NameIndex"
                     ))),
                 }?;
 
-                if name != "" {
+                if !name.is_empty() {
                     Ok(name.trim_end_matches('/'))
                 } else {
                     Err(Error::Malformed(format!(
-                        "Could not find {:?} in index",
-                        name
+                        "Could not find {name:?} in index"
                     )))
                 }
             }
             Err(_) => Err(Error::Malformed(format!(
-                "Bad name index {:?} in index",
-                name
+                "Bad name index {name:?} in index"
             ))),
         }
     }
@@ -465,7 +454,7 @@ impl<'a> Archive<'a> {
             let member = Member::parse(buffer, offset)?;
 
             // advance to the next record
-            *offset = member.offset as usize + member.size() as usize;
+            *offset = member.offset as usize + member.size();
 
             let name = member.raw_name();
             if name == INDEX_NAME {
@@ -529,11 +518,10 @@ impl<'a> Archive<'a> {
         for (member_offset, name) in index.symbol_indexes.iter().zip(index.strtab.iter()) {
             let member_index = *member_index_by_offset.get(member_offset).ok_or_else(|| {
                 Error::Malformed(format!(
-                    "Could not get member {:?} at offset: {}",
-                    name, member_offset
+                    "Could not get member {name:?} at offset: {member_offset}"
                 ))
             })?;
-            symbol_index.insert(&name, member_index);
+            symbol_index.insert(name, member_index);
         }
 
         Ok(Archive {
@@ -571,8 +559,7 @@ impl<'a> Archive<'a> {
             Ok(bytes)
         } else {
             Err(Error::Malformed(format!(
-                "Cannot extract member {:?}",
-                member
+                "Cannot extract member {member:?}"
             )))
         }
     }
@@ -583,7 +570,7 @@ impl<'a> Archive<'a> {
         let mut result = self
             .member_array
             .iter()
-            .map(|ref member| (member.extended_name(), *member, Vec::new()))
+            .map(|member| (member.extended_name(), member, Vec::new()))
             .collect::<Vec<_>>();
 
         // walk the symbol index once, adding each symbol to the appropriate result Vec
@@ -679,24 +666,24 @@ mod tests {
     #[test]
     fn parse_name_index_too_small() {
         let res = Archive::parse(&MALFORMED_ARCHIVE_INDEX_TOO_SMALL);
-        assert_eq!(res.is_err(), true);
+        assert!(res.is_err());
         if let Err(Error::Malformed(msg)) = res {
             assert_eq!(msg, "Size (0x1) too small");
         } else {
-            panic!("Expected a Malformed error but got {:?}", res);
+            panic!("Expected a Malformed error but got {res:?}");
         }
     }
 
     #[test]
     fn parse_malformed_archive() {
         let res = Archive::parse(&MALFORMED_ARCHIVE);
-        assert_eq!(res.is_err(), true);
+        assert!(res.is_err());
         match res {
             Err(error::Error::BufferTooShort(num_member, msg)) => {
                 assert_eq!(num_member, 1);
                 assert_eq!(msg, "members");
             }
-            _ => panic!("Expected a BufferTooShort error but got {:?}", res),
+            _ => panic!("Expected a BufferTooShort error but got {res:?}"),
         }
     }
 }

@@ -3,10 +3,7 @@ use core::iter::FusedIterator;
 use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith};
 
 use crate::error;
-use crate::pe::data_directories;
-use crate::pe::options;
-use crate::pe::section_table;
-use crate::pe::utils;
+use crate::pe::{data_directories, options, section_table, utils};
 
 /// Size of a single COFF relocation.
 pub const COFF_RELOCATION_SIZE: usize = 10;
@@ -364,7 +361,7 @@ impl<'a> RelocationData<'a> {
     /// Returns iterator for [`RelocationBlock`]
     pub fn blocks(&self) -> RelocationBlockIterator<'a> {
         RelocationBlockIterator {
-            bytes: &self.bytes,
+            bytes: self.bytes,
             offset: 0,
         }
     }
@@ -396,7 +393,7 @@ impl RelocationBlock<'_> {
     /// Returns iterator for [`RelocationWord`]
     pub fn words(&self) -> RelocationWordIterator {
         RelocationWordIterator {
-            bytes: &self.bytes,
+            bytes: self.bytes,
             offset: 0,
         }
     }
@@ -457,7 +454,7 @@ impl<'a> Iterator for RelocationBlockIterator<'a> {
                 Ok(block) => Ok(block),
                 Err(error) => {
                     self.bytes = &[];
-                    Err(error.into())
+                    Err(error)
                 }
             },
         )
@@ -492,7 +489,7 @@ impl RelocationWord {
 
     /// Returns the relocation offset from the lower 16 bits of [Self::value].
     pub fn offset(&self) -> u16 {
-        (self.value & 0xFFF) as u16
+        self.value & 0xFFF
     }
 }
 

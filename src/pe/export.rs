@@ -5,10 +5,7 @@ use log::debug;
 
 use crate::error;
 
-use crate::pe::data_directories;
-use crate::pe::options;
-use crate::pe::section_table;
-use crate::pe::utils;
+use crate::pe::{data_directories, options, section_table, utils};
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default, Pread, Pwrite)]
@@ -90,19 +87,18 @@ impl<'a> ExportData<'a> {
     ) -> error::Result<ExportData<'a>> {
         let export_rva = dd.virtual_address as usize;
         let size = dd.size as usize;
-        debug!("export_rva {:#x} size {:#}", export_rva, size);
+        debug!("export_rva {export_rva:#x} size {size:#}");
         let export_offset = utils::find_offset_or(
             export_rva,
             sections,
             file_alignment,
             opts,
-            &format!("cannot map export_rva ({:#x}) into offset", export_rva),
+            &format!("cannot map export_rva ({export_rva:#x}) into offset"),
         )?;
         let export_directory_table =
             ExportDirectoryTable::parse(bytes, export_offset).map_err(|_| {
                 error::Error::Malformed(format!(
-                    "cannot parse export_directory_table (offset {:#x})",
-                    export_offset
+                    "cannot parse export_directory_table (offset {export_offset:#x})"
                 ))
             })?;
         let number_of_name_pointers = export_directory_table.number_of_name_pointers as usize;
@@ -223,7 +219,7 @@ impl<'a> scroll::ctx::TryFromCtx<'a, scroll::Endian> for Reexport<'a> {
         debug!("reexport: {}", &reexport);
         for o in 0..reexport_len {
             let c: u8 = bytes.pread(o)?;
-            debug!("reexport offset: {:#x} char: {:#x}", o, c);
+            debug!("reexport offset: {o:#x} char: {c:#x}");
             if c == b'.' {
                 let dll: &'a str = bytes.pread_with(0, scroll::ctx::StrCtx::Length(o))?;
                 debug!("dll: {:?}", &dll);
@@ -256,8 +252,7 @@ impl<'a> scroll::ctx::TryFromCtx<'a, scroll::Endian> for Reexport<'a> {
             }
         }
         Err(error::Error::Malformed(format!(
-            "Reexport {:#} is malformed",
-            reexport
+            "Reexport {reexport:#} is malformed"
         )))
     }
 }
@@ -335,8 +330,7 @@ impl<'a, 'b> scroll::ctx::TryFromCtx<'a, ExportCtx<'b>> for Export<'a> {
                             file_alignment,
                             &opts,
                             &format!(
-                                "cannot map RVA ({:#x}) of export ordinal {} into offset",
-                                rva, ordinal
+                                "cannot map RVA ({rva:#x}) of export ordinal {ordinal} into offset"
                             ),
                         )?;
                         let reexport = Reexport::parse(bytes, offset)?;
@@ -354,14 +348,12 @@ impl<'a, 'b> scroll::ctx::TryFromCtx<'a, ExportCtx<'b>> for Export<'a> {
                 }
             } else {
                 Err(error::Error::Malformed(format!(
-                    "cannot get RVA of export ordinal {}",
-                    ordinal
+                    "cannot get RVA of export ordinal {ordinal}"
                 )))
             }
         } else {
             Err(error::Error::Malformed(format!(
-                "cannot get ordinal of export name entry {}",
-                idx
+                "cannot get ordinal of export name entry {idx}"
             )))
         }
     }

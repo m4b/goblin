@@ -123,8 +123,7 @@ impl<'a> AttributeCertificate<'a> {
             Ok(attr)
         } else {
             Err(error::Error::Malformed(format!(
-                "Unable to extract certificate. Probably cert_size:{} is malformed",
-                cert_size
+                "Unable to extract certificate. Probably cert_size:{cert_size} is malformed"
             )))
         }
     }

@@ -97,7 +97,7 @@ impl<'a> ExportInfo<'a> {
             };
             let lib_symbol_name = bytes.pread::<&str>(offset)?;
             let lib = libs[lib_ordinal as usize];
-            let lib_symbol_name = if lib_symbol_name == "" {
+            let lib_symbol_name = if lib_symbol_name.is_empty() {
                 None
             } else {
                 Some(lib_symbol_name)
@@ -214,7 +214,7 @@ impl<'a> ExportTrie<'a> {
             *offset = *offset + string.len() + 1;
             //println!("\t({}) string_len: {} offset: {:#x}", i, string.len(), *offset);
             // value is relative to export trie base
-            let next_node = Uleb128::read(&self.data, offset)? as usize + self.location.start;
+            let next_node = Uleb128::read(self.data, offset)? as usize + self.location.start;
             //println!("\t({}) string: {} next_node: {:#x}", _i, key, next_node);
             branches.push((key, next_node));
         }
@@ -230,12 +230,12 @@ impl<'a> ExportTrie<'a> {
     ) -> error::Result<()> {
         if start < self.location.end {
             let mut offset = start;
-            let terminal_size = Uleb128::read(&self.data, &mut offset)?;
+            let terminal_size = Uleb128::read(self.data, &mut offset)?;
             // let mut input = String::new();
             // ::std::io::stdin().read_line(&mut input).unwrap();
             // println!("@ {:#x} node: {:#x} current_symbol: {}", start, terminal_size, current_symbol);
             if terminal_size == 0 {
-                let nbranches = Uleb128::read(&self.data, &mut offset)? as usize;
+                let nbranches = Uleb128::read(self.data, &mut offset)? as usize;
                 //println!("\t@ {:#x} BRAN {}", *offset, nbranches);
                 let branches = self.walk_branches(nbranches, current_symbol, offset)?;
                 self.walk_nodes(libs, branches, exports)
@@ -243,10 +243,10 @@ impl<'a> ExportTrie<'a> {
                 // terminal node, but the tricky part is that they can have children...
                 let pos = offset;
                 let children_start = &mut (pos + terminal_size as usize);
-                let nchildren = Uleb128::read(&self.data, children_start)? as usize;
-                let flags = Uleb128::read(&self.data, &mut offset)?;
+                let nchildren = Uleb128::read(self.data, children_start)? as usize;
+                let flags = Uleb128::read(self.data, &mut offset)?;
                 //println!("\t@ {:#x} TERM {} flags: {:#x}", offset, nchildren, flags);
-                let info = ExportInfo::parse(&self.data, libs, flags, offset)?;
+                let info = ExportInfo::parse(self.data, libs, flags, offset)?;
                 let export = Export::new(current_symbol.clone(), info);
                 //println!("\t{:?}", &export);
                 exports.push(export);
@@ -337,9 +337,11 @@ mod tests {
         ];
         let exports = &EXPORTS[..];
         let libs = vec!["/usr/lib/libderp.so", "/usr/lib/libthuglife.so"];
-        let mut command = load_command::DyldInfoCommand::default();
-        command.export_size = exports.len() as u32;
-        let trie = ExportTrie::new(&exports, &command);
+        let command = load_command::DyldInfoCommand {
+            export_size: exports.len() as u32,
+            ..Default::default()
+        };
+        let trie = ExportTrie::new(exports, &command);
         println!("trie: {:#?}", &trie);
         let exports = trie.exports(&libs).unwrap();
         println!("len: {} exports: {:#?}", exports.len(), &exports);
@@ -370,9 +372,11 @@ mod tests {
 
     #[test]
     fn invalid_range() {
-        let mut command = load_command::DyldInfoCommand::default();
-        command.export_off = 0xffff_ff00;
-        command.export_size = 0x00ff_ff00;
+        let command = load_command::DyldInfoCommand {
+            export_off: 0xffff_ff00,
+            export_size: 0x00ff_ff00,
+            ..Default::default()
+        };
         let trie = ExportTrie::new(&[], &command);
         // FIXME: it would have been nice if this were an `Err`.
         let exports = trie.exports(&[]).unwrap();

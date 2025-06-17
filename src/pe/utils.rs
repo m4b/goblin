@@ -3,8 +3,7 @@ use alloc::string::ToString;
 use alloc::vec::Vec;
 use scroll::Pread;
 
-use super::options;
-use super::section_table;
+use super::{options, section_table};
 
 use crate::pe::data_directories::DataDirectory;
 use core::cmp;
@@ -103,8 +102,8 @@ pub fn find_offset(
                 section.virtual_address,
                 section.virtual_address + section.virtual_size
             );
-            if is_in_section(rva, &section, file_alignment) {
-                let offset = rva2offset(rva, &section);
+            if is_in_section(rva, section, file_alignment) {
+                let offset = rva2offset(rva, section);
                 debug!(
                     "Found in section {}({}), remapped into offset {:#x}",
                     section.name().unwrap_or(""),
@@ -141,8 +140,7 @@ pub fn try_name<'a>(
     match find_offset(rva, sections, file_alignment, opts) {
         Some(offset) => Ok(bytes.pread::<&str>(offset)?),
         None => Err(error::Error::Malformed(format!(
-            "Cannot find name from rva {:#x} in sections: {:?}",
-            rva, sections
+            "Cannot find name from rva {rva:#x} in sections: {sections:?}"
         ))),
     }
 }

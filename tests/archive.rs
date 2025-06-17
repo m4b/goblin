@@ -1,5 +1,4 @@
 use std::env;
-use std::fs;
 use std::path::PathBuf;
 
 use goblin::archive::*;
@@ -50,7 +49,7 @@ fn parse_archive() {
             assert_eq!(archive.len(), 1);
             assert_eq!(archive.get_at(0).unwrap().extended_name(), "crt1.o");
         }
-        Err(err) => panic!("could not parse archive: {:?}", err),
+        Err(err) => panic!("could not parse archive: {err:?}"),
     };
 }
 
@@ -67,7 +66,7 @@ fn get_libgoblin_rlib() -> PathBuf {
 #[test]
 fn parse_self() {
     let path = get_libgoblin_rlib();
-    let buffer = fs::read(path).expect("run `cargo build` first?");
+    let buffer = std::fs::read(path).expect("run `cargo build` first?");
 
     let archive = Archive::parse(&buffer).expect("parse rlib");
 

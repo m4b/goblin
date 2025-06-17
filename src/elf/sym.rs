@@ -163,8 +163,7 @@ macro_rules! elf_sym_std_impl {
 
         use crate::elf::sym::Sym as ElfSym;
 
-        use core::fmt;
-        use core::slice;
+        use core::{fmt, slice};
 
         impl Sym {
             /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` bind and a `st_value` of 0
@@ -518,7 +517,7 @@ if_alloc! {
             let size = count
                 .checked_mul(Sym::size_with(&ctx))
                 .ok_or_else(|| crate::error::Error::Malformed(
-                    format!("Too many ELF symbols (offset {:#x}, count {})", offset, count)
+                    format!("Too many ELF symbols (offset {offset:#x}, count {count})")
                 ))?;
             // TODO: make this a better error message when too large
             let bytes = bytes.pread_with(offset, size)?;
@@ -571,7 +570,7 @@ if_alloc! {
         }
     }
 
-    impl<'a, 'b> IntoIterator for &'b Symtab<'a> {
+    impl<'a> IntoIterator for &Symtab<'a> {
         type Item = <SymIterator<'a> as Iterator>::Item;
         type IntoIter = SymIterator<'a>;
 

@@ -2,9 +2,8 @@
 
 use core::fmt;
 use plain::Plain;
-use scroll::ctx;
 use scroll::ctx::SizeWith;
-use scroll::{Pread, Pwrite, SizeWith};
+use scroll::{Pread, Pwrite, SizeWith, ctx};
 
 use crate::container::{self, Container};
 use crate::error;
@@ -323,18 +322,22 @@ impl From<Header> for Header64 {
 
 impl Header {
     pub fn new(ctx: container::Ctx) -> Self {
-        let mut header = Header::default();
-        header.magic = if ctx.is_big() { MH_MAGIC_64 } else { MH_MAGIC };
-        header
+        Self {
+            magic: if ctx.is_big() { MH_MAGIC_64 } else { MH_MAGIC },
+            ..Default::default()
+        }
     }
+
     /// Returns the cpu type
     pub fn cputype(&self) -> CpuType {
         self.cputype
     }
+
     /// Returns the cpu subtype with the capabilities removed
     pub fn cpusubtype(&self) -> CpuSubType {
         self.cpusubtype & !CPU_SUBTYPE_MASK
     }
+
     /// Returns the capabilities of the CPU
     pub fn cpu_caps(&self) -> u32 {
         (self.cpusubtype & CPU_SUBTYPE_MASK) >> 24

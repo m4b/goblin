@@ -420,8 +420,7 @@ if_alloc! {
                     let bytes = if filesz > 0 {
                         bytes
                             .pread_with::<&[u8]>(offset, filesz)
-                            .map_err(|_| crate::error::Error::Malformed(format!("Invalid PT_DYNAMIC size (offset {:#x}, filesz {:#x})",
-                                                               offset, filesz)))?
+                            .map_err(|_| crate::error::Error::Malformed(format!("Invalid PT_DYNAMIC size (offset {offset:#x}, filesz {filesz:#x})")))?
                     } else {
                         &[]
                     };
@@ -440,7 +439,7 @@ if_alloc! {
                     for dynamic in &dyns {
                         info.update(phdrs, dynamic);
                     }
-                    return Ok(Some(Dynamic { dyns: dyns, info: info, }));
+                    return Ok(Some(Dynamic { dyns, info, }));
                 }
             }
             Ok(None)
@@ -451,7 +450,7 @@ if_alloc! {
             let count = self.info.needed_count.min(self.dyns.len());
             let mut needed = Vec::with_capacity(count);
             for dynamic in &self.dyns {
-                if dynamic.d_tag as u64 == DT_NEEDED {
+                if dynamic.d_tag == DT_NEEDED {
                     if let Some(lib) = strtab.get_at(dynamic.d_val as usize) {
                         needed.push(lib)
                     } else {

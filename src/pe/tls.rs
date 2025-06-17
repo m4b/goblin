@@ -2,10 +2,7 @@ use crate::error;
 use alloc::vec::Vec;
 use scroll::{Pread, Pwrite, SizeWith};
 
-use crate::pe::data_directories;
-use crate::pe::options;
-use crate::pe::section_table;
-use crate::pe::utils;
+use crate::pe::{data_directories, options, section_table, utils};
 
 /// Indicates 1-byte alignment for Thread Local Storage (TLS) characteristics field in [`ImageTlsDirectory::characteristics`]
 pub const TLS_CHARACTERISTICS_ALIGN_1BYTES: u32 = 0x00100000;
@@ -123,8 +120,7 @@ impl ImageTlsDirectory {
         let mut offset =
             utils::find_offset(rva, sections, file_alignment, opts).ok_or_else(|| {
                 error::Error::Malformed(format!(
-                    "Cannot map ImageTlsDirectory rva {:#x} into offset",
-                    rva
+                    "Cannot map ImageTlsDirectory rva {rva:#x} into offset",
                 ))
             })?;
 
@@ -223,7 +219,7 @@ impl<'a> TlsData<'a> {
 
             raw_data = offset.and_then(|offset| {
                 if offset < bytes.len() {
-                    (&bytes[offset..]).pread_with(0, size as usize).ok()
+                    bytes[offset..].pread_with(0, size as usize).ok()
                 } else {
                     None
                 }
@@ -259,8 +255,7 @@ impl<'a> TlsData<'a> {
             let offset = utils::find_offset(rva as usize, sections, file_alignment, opts)
                 .ok_or_else(|| {
                     error::Error::Malformed(format!(
-                        "cannot map tls address_of_callbacks rva ({:#x}) into offset",
-                        rva
+                        "cannot map tls address_of_callbacks rva ({rva:#x}) into offset"
                     ))
                 })?;
             let mut i = 0;
@@ -274,10 +269,9 @@ impl<'a> TlsData<'a> {
                 if callback == 0 {
                     break;
                 }
-                if callback < image_base as u64 {
+                if callback < image_base {
                     return Err(error::Error::Malformed(format!(
-                        "tls callback ({:#x}) is less than image base ({:#x})",
-                        callback, image_base
+                        "tls callback ({callback:#x}) is less than image base ({image_base:#x})"
                     )));
                 }
                 // Each callback is an VA so convert it to RVA
@@ -287,8 +281,7 @@ impl<'a> TlsData<'a> {
                     .is_none()
                 {
                     return Err(error::Error::Malformed(format!(
-                        "cannot map tls callback ({:#x})",
-                        callback
+                        "cannot map tls callback ({callback:#x})"
                     )));
                 }
                 callbacks.push(callback);
@@ -322,13 +315,13 @@ mod tests {
     #[test]
     fn parse_no_tls() {
         let binary = crate::pe::PE::parse(LLD_NO_TLS_BIN64).expect("Unable to parse binary");
-        assert_eq!(binary.tls_data.is_none(), true);
+        assert!(binary.tls_data.is_none());
     }
 
     #[test]
     fn parse_with_tls() {
         let binary = crate::pe::PE::parse(LLD_WITH_TLS_BIN64).expect("Unable to parse binary");
-        assert_eq!(binary.tls_data.is_some(), true);
+        assert!(binary.tls_data.is_some());
         let tls_data = binary.tls_data.unwrap();
         let dir = tls_data.image_tls_directory;
 
@@ -336,13 +329,12 @@ mod tests {
         assert_eq!(dir.address_of_callbacks, 0x140001020);
 
         let raw_data_expect: &[u8] = &[0, 0, 0, 0];
-        assert_eq!(
+        assert!(
             tls_data
                 .raw_data
                 .as_ref()
                 .map(|x| x.len() == 4)
                 .unwrap_or(false),
-            true
         );
         assert_eq!(tls_data.raw_data, Some(raw_data_expect));
         assert_eq!(dir.start_address_of_raw_data, 0x140001060);
@@ -378,7 +370,7 @@ mod tests {
     fn parse_tls_slot_nonexist_in_raw() {
         let binary =
             crate::pe::PE::parse(LLD_TLS_SLOT_VIRTONLY_BIN64).expect("Unable to parse binary");
-        assert_eq!(binary.tls_data.is_some(), true);
+        assert!(binary.tls_data.is_some());
         let tls_data = binary.tls_data.unwrap();
         assert_eq!(tls_data.slot, None);
     }

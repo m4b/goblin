@@ -384,7 +384,7 @@ pub mod cputype {
 
     /// Get the cputype and cpusubtype from a name
     pub fn get_arch_from_flag(name: &str) -> Option<(CpuType, CpuSubType)> {
-        get_arch_from_flag_no_alias(name).or_else(|| {
+        get_arch_from_flag_no_alias(name).or(
             // we also handle some common aliases
             match name {
                 // these are used by apple
@@ -393,8 +393,8 @@ pub mod cputype {
                 // these are used commonly for consistency
                 "x86" => Some((CPU_TYPE_I386, CPU_SUBTYPE_I386_ALL)),
                 _ => None,
-            }
-        })
+            },
+        )
     }
 
     cpu_flag_mapping! {

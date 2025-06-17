@@ -219,7 +219,7 @@ if_alloc! {
             let header: NoteHeader = {
                 match alignment {
                     4|8 => bytes.gread_with::<Nhdr32>(offset, ctx.le)?.into(),
-                    _ => return Err(error::Error::Malformed(format!("Notes has unimplemented alignment requirement: {:#x}", alignment)))
+                    _ => return Err(error::Error::Malformed(format!("Notes has unimplemented alignment requirement: {alignment:#x}")))
                 }
             };
             debug!("{:?} - {:#x}", header, *offset);

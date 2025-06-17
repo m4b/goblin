@@ -153,7 +153,7 @@ impl From<StandardFields> for StandardFields32 {
             size_of_code: fields.size_of_code as u32,
             size_of_initialized_data: fields.size_of_initialized_data as u32,
             size_of_uninitialized_data: fields.size_of_uninitialized_data as u32,
-            address_of_entry_point: fields.address_of_entry_point as u32,
+            address_of_entry_point: fields.address_of_entry_point,
             base_of_code: fields.base_of_code as u32,
             base_of_data: fields.base_of_data,
         }
@@ -185,7 +185,7 @@ impl From<StandardFields> for StandardFields64 {
             size_of_code: fields.size_of_code as u32,
             size_of_initialized_data: fields.size_of_initialized_data as u32,
             size_of_uninitialized_data: fields.size_of_uninitialized_data as u32,
-            address_of_entry_point: fields.address_of_entry_point as u32,
+            address_of_entry_point: fields.address_of_entry_point,
             base_of_code: fields.base_of_code as u32,
         }
     }
@@ -634,6 +634,8 @@ impl ctx::TryIntoCtx<scroll::Endian> for OptionalHeader {
 
 #[cfg(test)]
 mod tests {
+    use crate::pe::data_directories::NUM_DATA_DIRECTORIES;
+
     use super::*;
     use scroll::{Pread, Pwrite};
 
@@ -716,6 +718,7 @@ mod tests {
             number_of_rva_and_sizes: 16,
         },
         data_directories: data_directories::DataDirectories {
+            count: NUM_DATA_DIRECTORIES,
             data_directories: [
                 None,
                 Some((

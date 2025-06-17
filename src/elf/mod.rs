@@ -173,7 +173,7 @@ if_sylvan! {
                 None
             } else {
                 Some(note::NoteIterator {
-                    iters: iters,
+                    iters,
                     index: 0,
                 })
             }
@@ -210,7 +210,7 @@ if_sylvan! {
                 None
             } else {
                 Some(note::NoteIterator {
-                    iters: iters,
+                    iters,
                     index: 0,
                 })
             }
@@ -300,7 +300,7 @@ if_sylvan! {
 
             let mut syms = Symtab::default();
             let mut strtab = Strtab::default();
-            if let Some(shdr) = section_headers.iter().rfind(|shdr| shdr.sh_type as u32 == section_header::SHT_SYMTAB) {
+            if let Some(shdr) = section_headers.iter().rfind(|shdr| shdr.sh_type == section_header::SHT_SYMTAB) {
                 let size = shdr.sh_entsize;
                 let count = if size == 0 { 0 } else { shdr.sh_size / size };
                 syms = Symtab::parse(bytes, shdr.sh_offset as usize, count as usize, ctx)?;
@@ -348,7 +348,7 @@ if_sylvan! {
                 // parse the dynamic relocations
                 dynrelas = RelocSection::parse(bytes, dyn_info.rela, dyn_info.relasz, true, ctx)?;
                 dynrels = RelocSection::parse(bytes, dyn_info.rel, dyn_info.relsz, false, ctx)?;
-                let is_rela = dyn_info.pltrel as u64 == dynamic::DT_RELA;
+                let is_rela = dyn_info.pltrel == dynamic::DT_RELA;
                 pltrelocs = RelocSection::parse(bytes, dyn_info.jmprel, dyn_info.pltrelsz, is_rela, ctx)?;
 
                 let mut num_syms = if let Some(gnu_hash) = dyn_info.gnu_hash {
@@ -407,7 +407,7 @@ if_sylvan! {
                 is_lib,
                 entry: misc.entry,
                 little_endian: misc.little_endian,
-                ctx: ctx,
+                ctx,
                 versym,
                 verdef,
                 verneed,
@@ -429,8 +429,7 @@ if_sylvan! {
         let bloom_size = bytes.pread_with::<u32>(offset + 8, ctx.le)? as usize;
         // We could handle min_chain==0 if we really had to, but it shouldn't happen.
         if buckets_num == 0 || min_chain == 0 || bloom_size == 0 {
-            return Err(error::Error::Malformed(format!("Invalid DT_GNU_HASH: buckets_num={} min_chain={} bloom_size={}",
-                                                       buckets_num, min_chain, bloom_size)));
+            return Err(error::Error::Malformed(format!("Invalid DT_GNU_HASH: buckets_num={buckets_num} min_chain={min_chain} bloom_size={bloom_size}")));
         }
         // Find the last bucket.
         let buckets_offset = offset + 16 + bloom_size * if ctx.container.is_big() { 8 } else { 4 };
@@ -526,7 +525,7 @@ mod tests {
                 assert!(!syms.is_empty());
             }
             Err(err) => {
-                panic!("failed: {}", err);
+                panic!("failed: {err}");
             }
         }
     }
@@ -554,7 +553,7 @@ mod tests {
                 assert!(!syms.is_empty());
             }
             Err(err) => {
-                panic!("failed: {}", err);
+                panic!("failed: {err}");
             }
         }
     }

@@ -123,8 +123,7 @@ impl<'a> AttributeCertificate<'a> {
             Ok(attr)
         } else {
             Err(error::Error::Malformed(format!(
-                "Unable to extract certificate. Probably cert_size:{} is malformed",
-                cert_size
+                "Unable to extract certificate. Probably cert_size:{cert_size} is malformed"
             )))
         }
     }
@@ -156,7 +155,7 @@ pub(crate) fn enumerate_certificates(
     bytes: &[u8],
     table_virtual_address: u32,
     table_size: u32,
-) -> Result<CertificateDirectoryTable, error::Error> {
+) -> Result<CertificateDirectoryTable<'_>, error::Error> {
     let table_start_offset = usize::try_from(table_virtual_address).map_err(|_err| {
         error::Error::Malformed("Certificate table RVA do not fit in a usize".to_string())
     })?;

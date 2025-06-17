@@ -5,16 +5,16 @@
 //!
 //!  * A: The addend used to compute the value of the relocatable field.
 //!  * B: The base address at which a shared object is loaded into memory
-//!       during execution. Generally, a shared object file is built with a
-//!       base virtual address of 0. However, the execution address of the
-//!       shared object is different.
+//!    during execution. Generally, a shared object file is built with a
+//!    base virtual address of 0. However, the execution address of the
+//!    shared object is different.
 //!  * G: The offset into the global offset table at which the address of
-//!       the relocation entry's symbol resides during execution.
+//!    the relocation entry's symbol resides during execution.
 //!  * GOT: The address of the global offset table.
 //!  * L: The section offset or address of the procedure linkage table entry
-//!       for a symbol.
+//!    for a symbol.
 //!  * P: The section offset or address of the storage unit being relocated,
-//!       computed using r_offset.
+//!    computed using r_offset.
 //!  * S: The value of the symbol whose index resides in the relocation entry.
 //!  * Z: The size of the symbol whose index resides in the relocation entry.
 //!
@@ -166,7 +166,7 @@ macro_rules! elf_rela_std_impl {
                     let r_info = r_info(rela.r_sym as $size, $size::from(rela.r_type));
                     Rela {
                         r_offset: rela.r_offset as $size,
-                        r_info: r_info,
+                        r_info,
                         r_addend: rela.r_addend.unwrap_or(0) as $isize,
                     }
                 }
@@ -177,7 +177,7 @@ macro_rules! elf_rela_std_impl {
                     let r_info = r_info(rel.r_sym as $size, $size::from(rel.r_type));
                     Rel {
                         r_offset: rel.r_offset as $size,
-                        r_info: r_info,
+                        r_info,
                     }
                 }
             }
@@ -420,7 +420,7 @@ if_alloc! {
             };
 
             Ok(RelocSection {
-                bytes: bytes,
+                bytes,
                 count: filesz / Reloc::size(is_rela, ctx),
                 ctx: (is_rela, ctx),
                 start: offset,
@@ -461,7 +461,7 @@ if_alloc! {
         }
     }
 
-    impl<'a, 'b> IntoIterator for &'b RelocSection<'a> {
+    impl<'a> IntoIterator for &RelocSection<'a> {
         type Item = <RelocIterator<'a> as Iterator>::Item;
         type IntoIter = RelocIterator<'a>;
 

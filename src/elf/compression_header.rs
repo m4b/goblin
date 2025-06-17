@@ -149,8 +149,8 @@ pub mod compression_header64 {
                 CompressionHeader {
                     ch_type: ch.ch_type,
                     ch_reserved: 0,
-                    ch_size: ch.ch_size as u64,
-                    ch_addralign: ch.ch_addralign as u64,
+                    ch_size: ch.ch_size,
+                    ch_addralign: ch.ch_addralign,
                 }
             }
         }

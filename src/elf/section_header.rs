@@ -457,7 +457,7 @@ if_alloc! {
         pub fn parse_from(bytes: &[u8], mut offset: usize, mut count: usize, ctx: Ctx) -> error::Result<Vec<SectionHeader>> {
             use scroll::Pread;
             let empty_sh = bytes.gread_with::<SectionHeader>(&mut offset, ctx)?;
-            if count == 0 as usize {
+            if count == 0 {
                 // Zero count means either no section headers or the number of section headers
                 // overflows SHN_LORESERVE, in which case the count is stored in the sh_size field
                 // of the null section header.

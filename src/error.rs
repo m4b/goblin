@@ -2,9 +2,8 @@
 //!
 
 use alloc::string::String;
-use core::fmt;
 use core::num::TryFromIntError;
-use core::result;
+use core::{fmt, result};
 #[cfg(feature = "std")]
 use std::{error, io};
 
@@ -59,11 +58,11 @@ impl fmt::Display for Error {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             #[cfg(feature = "std")]
-            Error::IO(ref err) => write!(fmt, "{}", err),
-            Error::Scroll(ref err) => write!(fmt, "{}", err),
-            Error::BadMagic(magic) => write!(fmt, "Invalid magic number: 0x{:x}", magic),
-            Error::Malformed(ref msg) => write!(fmt, "Malformed entity: {}", msg),
-            Error::BufferTooShort(n, item) => write!(fmt, "Buffer is too short for {} {}", n, item),
+            Error::IO(ref err) => write!(fmt, "{err}"),
+            Error::Scroll(ref err) => write!(fmt, "{err}"),
+            Error::BadMagic(magic) => write!(fmt, "Invalid magic number: 0x{magic:x}"),
+            Error::Malformed(ref msg) => write!(fmt, "Malformed entity: {msg}"),
+            Error::BufferTooShort(n, item) => write!(fmt, "Buffer is too short for {n} {item}"),
         }
     }
 }

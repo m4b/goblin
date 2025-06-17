@@ -3,8 +3,7 @@
 use crate::error;
 use core::convert::TryFrom;
 use core::fmt::{self, Display};
-use scroll::{Endian, ctx};
-use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith};
+use scroll::{Endian, IOread, IOwrite, Pread, Pwrite, SizeWith, ctx};
 
 ///////////////////////////////////////
 // Load Commands from mach-o/loader.h
@@ -491,8 +490,7 @@ impl ThreadCommand {
             // (and hence its binary format) to any other machines except the above,
             // but I would be happy to learn otherwise
             _ => Err(error::Error::Malformed(format!(
-                "unable to find instruction pointer for cputype {:?}",
-                cputype
+                "unable to find instruction pointer for cputype {cputype:?}"
             ))),
         }
     }
@@ -509,8 +507,7 @@ impl<'a> ctx::TryFromCtx<'a, Endian> for ThreadCommand {
 
         if count > 70 {
             return Err(error::Error::Malformed(format!(
-                "thread command specifies {} longs for thread state but we handle only 70",
-                count
+                "thread command specifies {count} longs for thread state but we handle only 70"
             )));
         }
 
@@ -879,8 +876,8 @@ pub struct TwolevelHintsCommand {
 /// symbol was found in when it was built by the static link editor.  If
 /// isub-image is 0 the the symbol is expected to be defined in library and not
 /// in the sub-images.  If isub-image is non-zero it is an index into the array
-/// of sub-images for the umbrella with the first index in the sub-images being
-/// 1. The array of sub-images is the ordered list of sub-images of the umbrella
+/// of sub-images for the umbrella with the first index in the sub-images being 1.
+/// The array of sub-images is the ordered list of sub-images of the umbrella
 /// that would be searched for a symbol that has the umbrella recorded as its
 /// primary library.  The table of contents index is an index into the
 /// library's table of contents.  This is used as the starting point of the
@@ -1024,8 +1021,7 @@ impl TryFrom<u32> for Platform {
             LC_VERSION_MIN_WATCHOS => Platform::Watchos,
             _ => {
                 return Err(error::Error::Malformed(format!(
-                    "unknown platform for load command: {:x}",
-                    cmd
+                    "unknown platform for load command: {cmd:x}"
                 )));
             }
         })

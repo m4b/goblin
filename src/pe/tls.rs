@@ -219,30 +219,15 @@ impl<'a> TlsData<'a> {
             // VA to RVA
             let rva = itd.start_address_of_raw_data - image_base;
             let size = itd.end_address_of_raw_data - itd.start_address_of_raw_data;
-            let offset = utils::find_offset(rva as usize, sections, file_alignment, opts)
-                .ok_or_else(|| {
-                    error::Error::Malformed(format!(
-                        "cannot map tls start_address_of_raw_data rva ({:#x}) into offset",
-                        rva
-                    ))
-                })?;
+            let offset = utils::find_offset(rva as usize, sections, file_alignment, opts);
 
-            let offset_end = offset.checked_add(size as usize).ok_or_else(|| {
-                error::Error::Malformed(format!(
-                    "tls start_address_of_raw_data ({:#x}) + size_of_raw_data ({:#x}) casues an integer overflow",
-                    offset, size
-                ))
-            })?;
-
-            if offset > bytes.len() || offset_end > bytes.len() {
-                return Err(error::Error::Malformed(format!(
-                    "tls raw data offset ({:#x}) and size ({:#x}) greater than byte slice len ({:#x})",
-                    offset,
-                    size,
-                    bytes.len()
-                )));
-            }
-            raw_data = Some(&bytes[offset..offset + size as usize]);
+            raw_data = offset.and_then(|offset| {
+                if offset < bytes.len() {
+                    (&bytes[offset..]).pread_with(0, size as usize).ok()
+                } else {
+                    None
+                }
+            });
         }
 
         // Parse the index if any

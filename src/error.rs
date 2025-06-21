@@ -2,12 +2,13 @@
 //!
 
 use alloc::string::String;
+#[cfg(not(feature = "std"))]
+use core::error;
 use core::fmt;
 use core::num::TryFromIntError;
 use core::result;
 #[cfg(feature = "std")]
 use std::{error, io};
-
 #[non_exhaustive]
 #[derive(Debug)]
 /// A custom Goblin error
@@ -25,10 +26,10 @@ pub enum Error {
     BufferTooShort(usize, &'static str),
 }
 
-#[cfg(feature = "std")]
 impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match *self {
+            #[cfg(feature = "std")]
             Error::IO(ref io) => Some(io),
             Error::Scroll(ref scroll) => Some(scroll),
             _ => None,

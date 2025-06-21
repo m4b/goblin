@@ -696,9 +696,7 @@ impl<'a> UnwindInfo<'a> {
         let mut offset = 0;
         let num_entries = data.gread_with::<u32>(&mut offset, scroll::LE).ok()?;
         let table_size = num_entries * core::mem::size_of::<ScopeTableEntry>() as u32;
-        let data = data[..]
-            .pread_with::<&[u8]>(offset, table_size as usize)
-            .ok()?;
+        let data = data.pread_with::<&[u8]>(offset, table_size as usize).ok()?;
         Some(ScopeTableIterator { data })
     }
 }

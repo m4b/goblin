@@ -106,14 +106,17 @@ pub struct ScopeTableEntry {
     ///
     /// This marks the beginning of a `try` block.
     pub begin: u32,
+
     /// The ending RVA (exclusive) of the protected code region.
     ///
     /// This marks the end of the `try` block.
     pub end: u32,
+
     /// The RVA of the exception handler function.
     ///
     /// e.g., be invoked when an exception occurs in the associated code range.
     pub handler: u32,
+
     /// The RVA of the continuation target after the handler is executed.
     ///
     /// This is used for control transfer (e.g., continuation blocks, to resume execution after `finally`).

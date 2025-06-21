@@ -127,26 +127,22 @@ pub struct ScopeTableEntry {
 #[derive(Debug)]
 pub struct ScopeTableIterator<'a> {
     data: &'a [u8],
+    offset: usize,
 }
 
 impl Iterator for ScopeTableIterator<'_> {
     type Item = error::Result<ScopeTableEntry>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.data.is_empty() {
+        if self.offset >= self.data.len() {
             return None;
         }
 
-        Some(match self.data.pread_with(0, scroll::LE) {
-            Ok(func) => {
-                self.data = &self.data[core::mem::size_of::<ScopeTableEntry>()..];
-                Ok(func)
-            }
-            Err(error) => {
-                self.data = &[];
-                Err(error.into())
-            }
-        })
+        Some(
+            self.data
+                .gread_with(&mut self.offset, scroll::LE)
+                .map_err(Into::into),
+        )
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -700,7 +696,7 @@ impl<'a> UnwindInfo<'a> {
         let num_entries = data.gread_with::<u32>(&mut offset, scroll::LE).ok()?;
         let table_size = num_entries * core::mem::size_of::<ScopeTableEntry>() as u32;
         let data = data.pread_with::<&[u8]>(offset, table_size as usize).ok()?;
-        Some(ScopeTableIterator { data })
+        Some(ScopeTableIterator { data, offset: 0 })
     }
 }
 

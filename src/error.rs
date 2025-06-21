@@ -2,13 +2,10 @@
 //!
 
 use alloc::string::String;
-#[cfg(not(feature = "std"))]
 use core::error;
 use core::fmt;
 use core::num::TryFromIntError;
 use core::result;
-#[cfg(feature = "std")]
-use std::{error, io};
 #[non_exhaustive]
 #[derive(Debug)]
 /// A custom Goblin error
@@ -21,7 +18,7 @@ pub enum Error {
     Scroll(scroll::Error),
     /// An IO based error
     #[cfg(feature = "std")]
-    IO(io::Error),
+    IO(std::io::Error),
     /// Buffer is too short to hold N items
     BufferTooShort(usize, &'static str),
 }
@@ -38,8 +35,8 @@ impl error::Error for Error {
 }
 
 #[cfg(feature = "std")]
-impl From<io::Error> for Error {
-    fn from(err: io::Error) -> Error {
+impl From<std::io::Error> for Error {
+    fn from(err: std::io::Error) -> Error {
         Error::IO(err)
     }
 }

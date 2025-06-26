@@ -56,6 +56,10 @@ pub mod note;
 #[cfg(all(any(feature = "elf32", feature = "elf64"), feature = "alloc"))]
 pub mod symver;
 
+pub mod build_attributes;
+
+pub mod arm;
+
 macro_rules! if_sylvan {
     ($($i:item)*) => ($(
         #[cfg(all(feature = "elf32", feature = "elf64", feature = "endian_fd"))]

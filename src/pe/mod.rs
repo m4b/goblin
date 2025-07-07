@@ -228,17 +228,19 @@ impl<'a> PE<'a> {
                 )?);
             }
 
-            if let Some(tls_table) = optional_header.data_directories.get_tls_table() {
-                tls_data = tls::TlsData::parse_with_opts(
-                    bytes,
-                    image_base,
-                    tls_table,
-                    &sections,
-                    file_alignment,
-                    opts,
-                    is_64,
-                )?;
-                debug!("tls data: {:#?}", tls_data);
+            if opts.parse_tls_data {
+                if let Some(tls_table) = optional_header.data_directories.get_tls_table() {
+                    tls_data = tls::TlsData::parse_with_opts(
+                        bytes,
+                        image_base,
+                        tls_table,
+                        &sections,
+                        file_alignment,
+                        opts,
+                        is_64,
+                    )?;
+                    debug!("tls data: {:#?}", tls_data);
+                }
             }
 
             if header.coff_header.machine == header::COFF_MACHINE_X86_64 {

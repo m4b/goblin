@@ -16,8 +16,6 @@ use crate::pe::utils;
 pub(super) const SIZE_OF_WCHAR: usize = core::mem::size_of::<u16>();
 
 /// Converts [`u8`] slice into a vector of [`u16`] and then utf-16 [`String`].
-///
-/// This function assumes that input bytes are multiple of `2`.
 pub(super) fn to_utf16_string(bytes: &[u8]) -> Option<String> {
     if bytes.len() % 2 != 0 {
         return None;

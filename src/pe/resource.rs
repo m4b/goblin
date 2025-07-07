@@ -1,5 +1,5 @@
 use crate::error;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::fmt;
 use core::ops::Not;

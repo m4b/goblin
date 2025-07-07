@@ -70,6 +70,7 @@ if_sylvan! {
     use crate::container::{Container, Ctx};
     use alloc::vec::Vec;
     use core::cmp;
+    use log::warn;
 
     pub use header::Header;
     pub use program_header::ProgramHeader;
@@ -286,12 +287,19 @@ if_sylvan! {
                 }
 
                 if section_idx >= section_headers.len() {
-                    // FIXME: warn! here
+                    warn!("strtab section idx {} is out of bounds ({})", section_idx, section_headers.len());
                     Ok(Strtab::default())
                 } else {
                     let shdr = &section_headers[section_idx];
-                    shdr.check_size(bytes.len())?;
-                    Strtab::parse(bytes, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0)
+                    // If size check fails, that means strtab is outside user supplied buffer. We
+                    // can either hard-fail there, or return an empty strtab. The latter is less
+                    // disturbing.
+                    if shdr.check_size(bytes.len()).is_ok() {
+                        Strtab::parse(bytes, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0)
+                    } else {
+                        warn!("strtab section goes outside the provided buffer");
+                        Ok(Strtab::default())
+                    }
                 }
             };
 

@@ -15,6 +15,7 @@ pub mod certificate_table;
 pub mod characteristic;
 pub mod data_directories;
 pub mod debug;
+pub mod delay_import;
 pub mod dll_characteristic;
 pub mod exception;
 pub mod export;
@@ -82,6 +83,8 @@ pub struct PE<'a> {
     pub relocation_data: Option<relocation::RelocationData<'a>>,
     /// Load config data if any
     pub load_config_data: Option<load_config::LoadConfigData>,
+    /// Delay import data if any
+    pub delay_import_data: Option<delay_import::DelayImportData<'a>>,
     /// Certificates present, if any, described by the Certificate Table
     pub certificates: certificate_table::CertificateDirectoryTable<'a>,
 }
@@ -118,6 +121,7 @@ impl<'a> PE<'a> {
         let mut tls_data = None;
         let mut exception_data = None;
         let mut relocation_data = None;
+        let mut delay_import_data = None;
         let mut load_config_data = None;
         let mut certificates = Default::default();
         let mut is_64 = false;
@@ -281,6 +285,20 @@ impl<'a> PE<'a> {
                 )?);
             }
 
+            if let Some(&delay_import_dir) = optional_header
+                .data_directories
+                .get_delay_import_descriptor()
+            {
+                delay_import_data = Some(delay_import::DelayImportData::parse_with_opts(
+                    bytes,
+                    delay_import_dir,
+                    &sections,
+                    file_alignment,
+                    opts,
+                    is_64,
+                )?);
+            }
+
             // Parse attribute certificates unless opted out of
             let certificate_table_size = if opts.parse_attribute_certificates {
                 if let Some(&certificate_table) =
@@ -336,6 +354,7 @@ impl<'a> PE<'a> {
             exception_data,
             relocation_data,
             load_config_data,
+            delay_import_data,
             certificates,
         })
     }

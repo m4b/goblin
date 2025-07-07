@@ -18,16 +18,39 @@ pub(super) const SIZE_OF_WCHAR: usize = core::mem::size_of::<u16>();
 /// Converts [`u8`] slice into a vector of [`u16`] and then utf-16 [`String`].
 ///
 /// This function assumes that input bytes are multiple of `2`.
-pub(super) fn to_utf16_string(bytes: &[u8]) -> String {
-    let len = bytes
-        .chunks(2)
-        .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
-        .take_while(|&wchar| wchar != 0)
-        .count();
-    let ptr = bytes.as_ptr() as *const u16;
-    // Safety: `len` is assumed properly aligned and has even length.
-    let u16_buf = unsafe { std::slice::from_raw_parts(ptr, len) };
-    String::from_utf16_lossy(&u16_buf)
+pub(super) fn to_utf16_string(bytes: &[u8]) -> Option<String> {
+    if bytes.len() % 2 != 0 {
+        return None;
+    }
+    match (cfg!(target_endian = "little"), unsafe {
+        bytes.align_to::<u16>()
+    }) {
+        (true, ([], aligned_u16, [])) => {
+            let null_pos = aligned_u16.iter().position(|&val| val == 0);
+            let slice = match null_pos {
+                Some(pos) => &aligned_u16[..pos],
+                None => aligned_u16,
+            };
+            Some(String::from_utf16_lossy(slice))
+        }
+        _ => {
+            let result = char::decode_utf16(
+                bytes
+                    .chunks_exact(2)
+                    .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
+                    .take_while(|&val| val != 0),
+            )
+            .collect::<Result<String, _>>();
+            Some(result.unwrap_or_else(|_| {
+                let u16_vec = bytes
+                    .chunks_exact(2)
+                    .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
+                    .take_while(|&val| val != 0)
+                    .collect::<Vec<_>>();
+                String::from_utf16_lossy(&u16_vec)
+            }))
+        }
+    }
 }
 
 /// Helper for parsing `wchar_t` utf-16 strings in a safe manner.
@@ -36,12 +59,8 @@ pub struct Utf16String<'a>(&'a [u8]);
 
 impl<'a> Utf16String<'a> {
     /// Converts underlying bytes into an owned [String].
-    pub fn to_string(&self) -> String {
-        let len = self.0.len() / 2;
-        let ptr = self.0.as_ptr() as *const u16;
-        // Safety: `self.0` is assumed properly aligned and has even length.
-        let u16_buf = unsafe { std::slice::from_raw_parts(ptr, len) };
-        String::from_utf16_lossy(&u16_buf)
+    pub fn to_string(&self) -> Option<String> {
+        to_utf16_string(self.0)
     }
 
     /// Returns the underlying bytes length. This includes null terminator.
@@ -117,7 +136,6 @@ pub const RT_HTML: u16 = 23;
 pub const RT_MANIFEST: u16 = 24;
 
 /// Represents an image resource directory in the PE (Portable Executable) format.
-#[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default, Pread, Pwrite, SizeWith)]
 pub struct ImageResourceDirectory {
     /// The characteristics of the resource directory.
@@ -262,7 +280,6 @@ impl<'a> ResourceEntryIterator<'a> {
 /// This struct contains information about a specific resource, including
 /// the offset to the resource data, the size of the resource, the code page,
 /// and any reserved fields for future use.
-#[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default, Pread, Pwrite, SizeWith)]
 pub struct ResourceDataEntry {
     /// The offset from the beginning of the resource data directory to the actual
@@ -280,7 +297,6 @@ pub struct ResourceDataEntry {
 }
 
 /// Represents a resource entry in the PE (Portable Executable) format.
-#[repr(C)]
 #[derive(PartialEq, Copy, Clone, Default, Pread, Pwrite, SizeWith)]
 pub struct ResourceEntry {
     /// The name or identifier of the resource entry.
@@ -432,12 +448,12 @@ impl From<u64> for ResourceEntry {
 pub struct ResourceData<'a> {
     /// The image resource directory containing metadata about the resources.
     pub image_resource_directory: ImageResourceDirectory,
-    /// The raw data of the resources.
-    data: &'a [u8],
     /// Version information if present
     pub version_info: Option<VersionInfo<'a>>,
     /// Manifest data if present
     pub manifest_data: Option<ManifestData<'a>>,
+    /// The raw data of the resources.
+    data: &'a [u8],
 }
 
 impl<'a> ResourceData<'a> {
@@ -817,12 +833,12 @@ impl<'a> ResourceString<'a> {
     }
 
     /// Converts [`ResourceString::key`] into a [`String`]
-    pub fn key_string(&self) -> String {
+    pub fn key_string(&self) -> Option<String> {
         self.key.to_string()
     }
 
     /// Converts [`ResourceString::value`] into a [`String`]
-    pub fn value_string(&self) -> String {
+    pub fn value_string(&self) -> Option<String> {
         to_utf16_string(&self.value)
     }
 }
@@ -1067,9 +1083,9 @@ impl fmt::Debug for StringFileInfo<'_> {
 
 impl<'a> StringFileInfo<'a> {
     fn from_resource_string_iterator(it: ResourceStringIterator<'a>) -> Self {
-        let find = |s| {
+        let find = |s: &'static str| {
             it.filter_map(Result::ok)
-                .find(|x| x.key_string() == s)
+                .find(|x| x.key_string() == Some(s.to_string()))
                 .and_then(|x| Some(x.value))
         };
 
@@ -1091,62 +1107,62 @@ impl<'a> StringFileInfo<'a> {
 
     /// Stringize the [`StringFileInfo::comments`] slice into a [`String`].
     pub fn comments(&self) -> Option<String> {
-        self.comments.map(|x| to_utf16_string(x))
+        self.comments.and_then(to_utf16_string)
     }
 
     /// Stringize the [`StringFileInfo::company_name`] slice into a [`String`].
     pub fn company_name(&self) -> Option<String> {
-        self.company_name.map(|x| to_utf16_string(x))
+        self.company_name.and_then(to_utf16_string)
     }
 
     /// Stringize the [`StringFileInfo::file_description`] slice into a [`String`].
     pub fn file_description(&self) -> Option<String> {
-        self.file_description.map(|x| to_utf16_string(x))
+        self.file_description.and_then(to_utf16_string)
     }
 
     /// Stringize the [`StringFileInfo::file_version`] slice into a [`String`].
     pub fn file_version(&self) -> Option<String> {
-        self.file_version.map(|x| to_utf16_string(x))
+        self.file_version.and_then(to_utf16_string)
     }
 
     /// Stringize the [`StringFileInfo::internal_name`] slice into a [`String`].
     pub fn internal_name(&self) -> Option<String> {
-        self.internal_name.map(|x| to_utf16_string(x))
+        self.internal_name.and_then(to_utf16_string)
     }
 
     /// Stringize the [`StringFileInfo::legal_copyright`] slice into a [`String`].
     pub fn legal_copyright(&self) -> Option<String> {
-        self.legal_copyright.map(|x| to_utf16_string(x))
+        self.legal_copyright.and_then(to_utf16_string)
     }
 
     /// Stringize the [`StringFileInfo::legal_trademarks`] slice into a [`String`].
     pub fn legal_trademarks(&self) -> Option<String> {
-        self.legal_trademarks.map(|x| to_utf16_string(x))
+        self.legal_trademarks.and_then(to_utf16_string)
     }
 
     /// Stringize the [`StringFileInfo::original_filename`] slice into a [`String`].
     pub fn original_filename(&self) -> Option<String> {
-        self.original_filename.map(|x| to_utf16_string(x))
+        self.original_filename.and_then(to_utf16_string)
     }
 
     /// Stringize the [`StringFileInfo::private_build`] slice into a [`String`].
     pub fn private_build(&self) -> Option<String> {
-        self.private_build.map(|x| to_utf16_string(x))
+        self.private_build.and_then(to_utf16_string)
     }
 
     /// Stringize the [`StringFileInfo::product_name`] slice into a [`String`].
     pub fn product_name(&self) -> Option<String> {
-        self.product_name.map(|x| to_utf16_string(x))
+        self.product_name.and_then(to_utf16_string)
     }
 
     /// Stringize the [`StringFileInfo::product_version`] slice into a [`String`].
     pub fn product_version(&self) -> Option<String> {
-        self.product_version.map(|x| to_utf16_string(x))
+        self.product_version.and_then(to_utf16_string)
     }
 
     /// Stringize the [`StringFileInfo::special_build`] slice into a [`String`].
     pub fn special_build(&self) -> Option<String> {
-        self.special_build.map(|x| to_utf16_string(x))
+        self.special_build.and_then(to_utf16_string)
     }
 }
 
@@ -1212,7 +1228,7 @@ impl<'a> VersionInfo<'a> {
 
             let fixed_info = match strings
                 .iter()
-                .find(|x| x.key_string() == VS_VERSION_INFO_KEY)
+                .find(|x| x.key_string() == Some(VS_VERSION_INFO_KEY.to_string()))
             {
                 Some(version_info) => Some(version_info.value.pread_with(0, scroll::LE)?),
                 None => None,
@@ -1639,7 +1655,10 @@ mod tests {
         let it_vec = it_vec.unwrap();
 
         assert_eq!(it_vec[0].is_binary_data(), true);
-        assert_eq!(it_vec[0].key_string(), VS_VERSION_INFO_KEY);
+        assert_eq!(
+            it_vec[0].key_string(),
+            Some(VS_VERSION_INFO_KEY.to_string())
+        );
         assert_eq!(
             it_vec[0].value,
             &[
@@ -1651,7 +1670,7 @@ mod tests {
         );
 
         assert_eq!(it_vec[1].r#type, 103); // Invalid, seems broken by RC (resource compiler)
-        assert_eq!(it_vec[1].key_string(), "FileInfo");
+        assert_eq!(it_vec[1].key_string(), Some("FileInfo".to_string()));
         assert_eq!(
             it_vec[1].value,
             &[
@@ -1667,8 +1686,11 @@ mod tests {
         );
 
         assert_eq!(it_vec[2].is_binary_data(), true);
-        assert_eq!(it_vec[2].key_string(), "FileDescription");
-        assert_eq!(it_vec[2].value_string(), "Python 3.11.3 (64-bit)");
+        assert_eq!(it_vec[2].key_string(), Some("FileDescription".to_string()));
+        assert_eq!(
+            it_vec[2].value_string(),
+            Some("Python 3.11.3 (64-bit)".to_string())
+        );
         assert_eq!(
             it_vec[2].value,
             &[
@@ -1680,8 +1702,8 @@ mod tests {
         );
 
         assert_eq!(it_vec[3].is_binary_data(), true);
-        assert_eq!(it_vec[3].key_string(), "FileVersion");
-        assert_eq!(it_vec[3].value_string(), "3.11.3150.0");
+        assert_eq!(it_vec[3].key_string(), Some("FileVersion".to_string()));
+        assert_eq!(it_vec[3].value_string(), Some("3.11.3150.0".to_string()));
         assert_eq!(
             it_vec[3].value,
             &[
@@ -1691,8 +1713,8 @@ mod tests {
         );
 
         assert_eq!(it_vec[4].is_text_data(), true);
-        assert_eq!(it_vec[4].key_string(), "InternalName");
-        assert_eq!(it_vec[4].value_string(), "setup");
+        assert_eq!(it_vec[4].key_string(), Some("InternalName".to_string()));
+        assert_eq!(it_vec[4].value_string(), Some("setup".to_string()));
         assert_eq!(
             it_vec[4].value,
             &[
@@ -1701,10 +1723,10 @@ mod tests {
         );
 
         assert_eq!(it_vec[5].is_binary_data(), true);
-        assert_eq!(it_vec[5].key_string(), "LegalCopyright");
+        assert_eq!(it_vec[5].key_string(), Some("LegalCopyright".to_string()));
         assert_eq!(
             it_vec[5].value_string(),
-            "Copyright (c) Python Software Foundation. All rights reserved."
+            Some("Copyright (c) Python Software Foundation. All rights reserved.".to_string())
         );
         assert_eq!(
             it_vec[5].value,
@@ -1723,8 +1745,11 @@ mod tests {
         );
 
         assert_eq!(it_vec[6].is_binary_data(), true);
-        assert_eq!(it_vec[6].key_string(), "OriginalFilename");
-        assert_eq!(it_vec[6].value_string(), "python-3.11.3-amd64.exe");
+        assert_eq!(it_vec[6].key_string(), Some("OriginalFilename".to_string()));
+        assert_eq!(
+            it_vec[6].value_string(),
+            Some("python-3.11.3-amd64.exe".to_string())
+        );
         assert_eq!(
             it_vec[6].value,
             &[
@@ -1736,8 +1761,11 @@ mod tests {
         );
 
         assert_eq!(it_vec[7].is_binary_data(), true);
-        assert_eq!(it_vec[7].key_string(), "ProductName");
-        assert_eq!(it_vec[7].value_string(), "Python 3.11.3 (64-bit)");
+        assert_eq!(it_vec[7].key_string(), Some("ProductName".to_string()));
+        assert_eq!(
+            it_vec[7].value_string(),
+            Some("Python 3.11.3 (64-bit)".to_string())
+        );
         assert_eq!(
             it_vec[7].value,
             &[
@@ -1749,8 +1777,8 @@ mod tests {
         );
 
         assert_eq!(it_vec[8].is_binary_data(), true);
-        assert_eq!(it_vec[8].key_string(), "ProductVersion");
-        assert_eq!(it_vec[8].value_string(), "3.11.3150.0");
+        assert_eq!(it_vec[8].key_string(), Some("ProductVersion".to_string()));
+        assert_eq!(it_vec[8].value_string(), Some("3.11.3150.0".to_string()));
         assert_eq!(
             it_vec[8].value,
             &[
@@ -1760,11 +1788,11 @@ mod tests {
         );
 
         assert_eq!(it_vec[9].is_binary_data(), true);
-        assert_eq!(it_vec[9].key_string(), "VarFileInfo");
+        assert_eq!(it_vec[9].key_string(), Some("VarFileInfo".to_string()));
         assert_eq!(it_vec[9].value, &[]);
 
         assert_eq!(it_vec[9].is_binary_data(), true);
-        assert_eq!(it_vec[10].key_string(), "Translation");
+        assert_eq!(it_vec[10].key_string(), Some("Translation".to_string()));
         assert_eq!(it_vec[10].value, &[0x09, 0x04, 0xe4, 0x04]);
 
         assert_eq!(it_vec.get(11), None);
@@ -1775,5 +1803,142 @@ mod tests {
         };
         let it_vec = it.collect::<Result<Vec<_>, _>>();
         assert_eq!(it_vec.is_ok(), true);
+    }
+
+    #[test]
+    fn test_empty_bytes() {
+        let bytes = &[];
+        let result = to_utf16_string(bytes);
+        assert_eq!(result, Some(String::new()));
+    }
+
+    #[test]
+    fn test_odd_length_bytes() {
+        let bytes = &[0x48, 0x00, 0x65]; // Odd length
+        let result = to_utf16_string(bytes);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_simple_ascii_string() {
+        // "Hello" in UTF-16 LE
+        let bytes = &[0x48, 0x00, 0x65, 0x00, 0x6c, 0x00, 0x6c, 0x00, 0x6f, 0x00];
+        let result = to_utf16_string(bytes);
+        assert_eq!(result, Some("Hello".to_string()));
+    }
+
+    #[test]
+    fn test_null_terminated_string() {
+        // "Hi" followed by null terminator in UTF-16 LE
+        let bytes = &[0x48, 0x00, 0x69, 0x00, 0x00, 0x00, 0x65, 0x00, 0x78, 0x00];
+        let result = to_utf16_string(bytes);
+        assert_eq!(result, Some("Hi".to_string()));
+    }
+
+    #[test]
+    fn test_unicode_characters() {
+        // "こんにちは" (Hello in Japanese) in UTF-16 LE
+        let bytes = &[
+            0x53, 0x30, // こ
+            0x93, 0x30, // ん
+            0x6b, 0x30, // に
+            0x61, 0x30, // ち
+            0x6f, 0x30, // は
+        ];
+        let result = to_utf16_string(bytes);
+        assert_eq!(result, Some("こんにちは".to_string()));
+    }
+
+    #[test]
+    fn test_emoji_characters() {
+        // "🦀" (a crab emoji) in UTF-16LE (surrogate pair)
+        let bytes = &[0x3E, 0xD8, 0x80, 0xDD];
+        let result = to_utf16_string(bytes);
+        assert_eq!(result, Some("🦀".to_string()));
+    }
+
+    #[test]
+    fn test_mixed_characters() {
+        // "A日本B" in UTF-16 LE
+        let bytes = &[
+            0x41, 0x00, // A
+            0xe5, 0x65, // 日
+            0x2c, 0x67, // 本
+            0x42, 0x00, // B
+        ];
+        let result = to_utf16_string(bytes);
+        assert_eq!(result, Some("A日本B".to_string()));
+    }
+
+    #[test]
+    fn test_only_null_bytes() {
+        let bytes = &[0x00, 0x00];
+        let result = to_utf16_string(bytes);
+        assert_eq!(result, Some(String::new()));
+    }
+
+    #[test]
+    fn test_multiple_null_terminators() {
+        // "A" followed by multiple null terminators
+        let bytes = &[0x41, 0x00, 0x00, 0x00, 0x00, 0x00];
+        let result = to_utf16_string(bytes);
+        assert_eq!(result, Some("A".to_string()));
+    }
+
+    #[test]
+    fn test_long_string() {
+        // make a longer string to test performance characteristics
+        let mut bytes = Vec::new();
+        for i in 0..1000 {
+            let ch = (0x41 + (i % 26)) as u8; // A-Z cycling
+            bytes.push(ch);
+            bytes.push(0x00);
+        }
+
+        let result = to_utf16_string(&bytes);
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().len(), 1000);
+    }
+
+    #[test]
+    fn test_invalid_utf16_sequence() {
+        // Invalid surrogate pair (lone high surrogate)
+        let bytes = &[0x3d, 0xd8, 0x41, 0x00]; // High surrogate followed by 'A'
+        let result = to_utf16_string(bytes);
+        // Should still return Some due to from_utf16_lossy
+        assert!(result.is_some());
+        let string = result.unwrap();
+        assert!(string.contains('A'));
+    }
+
+    #[test]
+    fn test_alignment_edge_cases() {
+        // different alignments
+        let test_cases = vec![
+            vec![0x48, 0x00, 0x69, 0x00],       // "Hi" - may be aligned
+            vec![0x00, 0x48, 0x00, 0x69, 0x00], // Offset by 1 byte - unaligned
+        ];
+
+        for bytes in test_cases {
+            if bytes.len() % 2 == 0 {
+                let result = to_utf16_string(&bytes);
+                assert!(result.is_some());
+            }
+        }
+    }
+
+    #[test]
+    fn test_high_unicode_codepoints() {
+        // chars in different Unicode planes
+        // "𝓗𝓮𝓵𝓵𝓸" (Mathematical script letters), requires surrogate pairs
+        let bytes = &[
+            0x35, 0xd8, 0xd7, 0xdc, // 𝓗
+            0x35, 0xd8, 0xee, 0xdc, // 𝓮
+            0x35, 0xd8, 0xf5, 0xdc, // 𝓵
+            0x35, 0xd8, 0xf5, 0xdc, // 𝓵
+            0x35, 0xd8, 0xf8, 0xdc, // 𝓸
+        ];
+        let result = to_utf16_string(bytes);
+        assert!(result.is_some());
     }
 }

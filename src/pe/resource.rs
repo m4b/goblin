@@ -57,7 +57,7 @@ impl<'a> Utf16String<'a> {
 
 impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Utf16String<'a> {
     type Error = crate::error::Error;
-    fn try_from_ctx(bytes: &'a [u8], ctx: scroll::Endian) -> error::Result<(Self, usize)> {
+    fn try_from_ctx(bytes: &'a [u8], _ctx: scroll::Endian) -> error::Result<(Self, usize)> {
         let len = bytes
             .chunks(2)
             .take_while(|x| u16::from_le_bytes([x[0], x[1]]) != 0u16)
@@ -194,12 +194,7 @@ impl<'a> ImageResourceDirectory {
         offset: usize,
         bytes: &'a [u8],
     ) -> error::Result<ResourceEntryIterator<'a>> {
-        if offset > bytes.len() {
-            return Err(error::Error::Malformed(format!(
-                "offset ({offset:#x}) out of bounds"
-            )));
-        }
-        let bytes = bytes[offset..].pread_with::<&[u8]>(0, self.entries_size())?;
+        let bytes = bytes.pread_with::<&[u8]>(offset, self.entries_size())?;
 
         Ok(ResourceEntryIterator {
             num_resources: self.count() as usize,
@@ -479,13 +474,8 @@ impl<'a> ResourceData<'a> {
             ))
         })?;
 
-        if offset > bytes.len() {
-            return Err(error::Error::Malformed(format!(
-                "Resource entry offset ({offset:#x}) out of bounds"
-            )));
-        }
-        let data = bytes[offset..]
-            .pread_with::<&[u8]>(0, dd.size as usize)
+        let data = bytes
+            .pread_with::<&[u8]>(offset, dd.size as usize)
             .map_err(|_| {
                 error::Error::Malformed(format!(
                     "Resource directory offset ({offset:#x}) out of bounds"
@@ -500,7 +490,7 @@ impl<'a> ResourceData<'a> {
                 "Resource entry offset ({offset:#x}) out of bounds"
             )));
         }
-        let iterator_data = data[offset..].pread_with::<&[u8]>(0, size).map_err(|_| {
+        let iterator_data = data.pread_with::<&[u8]>(offset, size).map_err(|_| {
             error::Error::Malformed(format!("Resource entry offset ({offset:#x}) out of bounds"))
         })?;
         let iterator = ResourceEntryIterator {
@@ -670,7 +660,7 @@ pub const VFT2_FONT_TRUETYPE: u32 = 0x00000003;
 #[derive(Debug, Copy, Clone)]
 pub struct ResourceStringIterator<'a> {
     /// The raw data must be scoped to the [`ResourceDataEntry`]
-    pub data: &'a [u8],
+    data: &'a [u8],
 }
 
 impl<'a> Iterator for ResourceStringIterator<'a> {
@@ -804,15 +794,7 @@ impl<'a> ResourceString<'a> {
             },
             4,
         );
-        if *offset + (real_value_len as usize) > bytes.len() {
-            return Err(error::Error::Malformed(format!(
-                "offset ({:#x}) and real_value_len ({:#x}) is greater than bytes len {:#x}",
-                offset,
-                real_value_len,
-                bytes.len()
-            )));
-        }
-        let value = &bytes[*offset..*offset + real_value_len as usize];
+        let value = bytes.pread_with::<&[u8]>(*offset, real_value_len as usize)?;
         *offset += value.len();
 
         Ok(Some(Self {
@@ -910,7 +892,6 @@ impl VersionField {
 
 /// Represents the fixed file information structure used in the version resource
 /// of a Portable Executable (PE) file.
-#[repr(C)]
 #[derive(PartialEq, Copy, Clone, Default, Pread, Pwrite, SizeWith)]
 pub struct VsFixedFileInfo {
     /// The signature of the fixed file information structure. Must be equals to [`VS_FFI_SIGNATURE`].
@@ -1221,15 +1202,11 @@ impl<'a> VersionInfo<'a> {
                 ))
             })?;
 
-            if offset + data_entry.size as usize > pe.len() {
-                return Err(error::Error::Malformed(format!(
-                    "offset ({:#x}) and data_entry.size ({:#x}) is greater than pe len {:#x}",
-                    offset,
-                    data_entry.size,
-                    bytes.len()
-                )));
-            }
-            let data = &pe[offset..offset + data_entry.size as usize];
+            let data = pe
+                .pread_with::<&[u8]>(offset, data_entry.size as usize)
+                .map_err(|_| {
+                    error::Error::Malformed(format!("Cannot map RT_VERSION at {offset:#x}"))
+                })?;
             let iterator = ResourceStringIterator { data };
             let strings = iterator.collect::<Result<Vec<_>, _>>()?;
 
@@ -1296,15 +1273,11 @@ impl<'a> ManifestData<'a> {
                 ))
             })?;
 
-            if offset + data_entry.size as usize > pe.len() {
-                return Err(error::Error::Malformed(format!(
-                    "offset ({:#x}) and data_entry.size ({:#x}) is greater than pe len {:#x}",
-                    offset,
-                    data_entry.size,
-                    bytes.len()
-                )));
-            }
-            let data = &pe[offset..offset + data_entry.size as usize];
+            let data = pe
+                .pread_with::<&[u8]>(offset, data_entry.size as usize)
+                .map_err(|_| {
+                    error::Error::Malformed(format!("Cannot map RT_MANIFEST at {offset:#x}"))
+                })?;
             Ok(Some(Self { data }))
         } else {
             Ok(None)
@@ -1314,10 +1287,7 @@ impl<'a> ManifestData<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        ResourceEntry, ResourceStringIterator, VFT_APP, VOS_NT_WINDOWS32, VS_FFI_FILEFLAGSMASK,
-        VS_FFI_SIGNATURE, VS_FFI_STRUCVERSION, VS_VERSION_INFO_KEY, VersionField,
-    };
+    use super::*;
 
     const HAS_NO_RES: &[u8] = include_bytes!("../../tests/bins/pe/has_no_res.exe.bin");
     const HAS_RES_FULL_VERSION_AND_MANIFEST: &[u8] =

@@ -53,6 +53,8 @@ use crate::pe::options;
 use crate::pe::section_table;
 use crate::pe::utils;
 
+/// **N**o handlers.
+const UNW_FLAG_NHANDLER: u8 = 0x00;
 /// The function has an exception handler that should be called when looking for functions that need
 /// to examine exceptions.
 const UNW_FLAG_EHANDLER: u8 = 0x01;
@@ -567,13 +569,15 @@ impl<'a> UnwindInfo<'a> {
         let codes_size = count_of_codes as usize * UNWIND_CODE_SIZE;
         let code_bytes = bytes.gread_with(&mut offset, codes_size)?;
 
-        // For alignment purposes, the codes array always has an even number of entries, and the
+        // For alignment purposes, the codes array typically has an even number of entries, and the
         // final entry is potentially unused. In that case, the array is one longer than indicated
         // by the count of unwind codes field.
+        //
+        // Sometimes, developers decided to handy craft unwind info in their assembly forget to align
+        // unwind infos. This is not really desirable behavior for such cases anyway.
         if count_of_codes % 2 != 0 {
             offset += 2;
         }
-        debug_assert!(offset % 4 == 0);
 
         let mut chained_info = None;
         let mut handler = None;

@@ -436,18 +436,30 @@ impl<'a> ImportData<'a> {
             "import_directory_table_rva {:#x}",
             import_directory_table_rva
         );
-        let offset = &mut utils::find_offset(
+        let offset = &mut match utils::find_offset(
             import_directory_table_rva,
             sections,
             file_alignment,
             opts,
-        )
-        .ok_or_else(|| {
-            error::Error::Malformed(format!(
-                "Cannot create ImportData; cannot map import_directory_table_rva {:#x} into offset",
-                import_directory_table_rva
-            ))
-        })?;
+        ) {
+            Some(offset) => offset,
+            None => {
+                if matches!(opts.parse_mode, ParseMode::Permissive) {
+                    warn!(
+                        "Cannot map import_directory_table_rva {:#x} into offset. \
+                        This is common in packed binaries. Returning empty import data.",
+                        import_directory_table_rva
+                    );
+                    return Ok(ImportData { import_data: Vec::new() });
+                } else {
+                    return Err(error::Error::Malformed(format!(
+                        "Cannot create ImportData; cannot map import_directory_table_rva {:#x} into offset",
+                        import_directory_table_rva
+                    )));
+                }
+            }
+        };
+
         debug!("import data offset {:#x}", offset);
         let mut import_data = Vec::new();
         loop {

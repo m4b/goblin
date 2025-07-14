@@ -245,6 +245,7 @@ impl<'a> PE<'a> {
                     Err(err) => {
                         debug!("Failed to parse TLS data: {:?}", err);
                     }
+
                 }
             }
 

@@ -697,8 +697,10 @@ pub struct ResourceString<'a> {
     /// and `0` if the version resource contains binary data, otherwise sometimes an invalid value.
     pub r#type: u16,
     /// An arbitrary null-terminated utf-16 unicode string.
-    pub key: Utf16String<'a>,
+    pub(crate) key: Utf16String<'a>,
     /// An arbitrary null-terminated utf-16 unicode string or binary data depends on [`ResourceString::type`].
+    ///
+    /// Note: It might be a utf-16 unicode string on some cases.
     pub value: &'a [u8],
 }
 

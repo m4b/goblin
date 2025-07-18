@@ -20,35 +20,12 @@ pub(super) fn to_utf16_string(bytes: &[u8]) -> Option<String> {
     if bytes.len() % 2 != 0 {
         return None;
     }
-    match (cfg!(target_endian = "little"), unsafe {
-        bytes.align_to::<u16>()
-    }) {
-        (true, ([], aligned_u16, [])) => {
-            let null_pos = aligned_u16.iter().position(|&val| val == 0);
-            let slice = match null_pos {
-                Some(pos) => &aligned_u16[..pos],
-                None => aligned_u16,
-            };
-            Some(String::from_utf16_lossy(slice))
-        }
-        _ => {
-            let result = char::decode_utf16(
-                bytes
-                    .chunks_exact(2)
-                    .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
-                    .take_while(|&val| val != 0),
-            )
-            .collect::<Result<String, _>>();
-            Some(result.unwrap_or_else(|_| {
-                let u16_vec = bytes
-                    .chunks_exact(2)
-                    .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
-                    .take_while(|&val| val != 0)
-                    .collect::<Vec<_>>();
-                String::from_utf16_lossy(&u16_vec)
-            }))
-        }
-    }
+    let u16_chars = bytes
+        .chunks_exact(2)
+        .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
+        .take_while(|&wchar| wchar != 0)
+        .collect::<Vec<_>>();
+    Some(String::from_utf16_lossy(&u16_chars))
 }
 
 /// Helper for parsing `wchar_t` utf-16 strings in a safe manner.

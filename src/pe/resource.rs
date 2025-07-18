@@ -111,6 +111,7 @@ pub const RT_HTML: u16 = 23;
 pub const RT_MANIFEST: u16 = 24;
 
 /// Represents an image resource directory in the PE (Portable Executable) format.
+#[repr(C)]
 #[derive(Debug, PartialEq, Copy, Clone, Default, Pread, Pwrite, SizeWith)]
 pub struct ImageResourceDirectory {
     /// The characteristics of the resource directory.

@@ -516,9 +516,9 @@ impl<'a> StorageStream<'a> {
 #[derive(Debug, Copy, Clone)]
 pub struct ClrSectionIterator<'a> {
     /// The storage header, used to acquire the number of CLR sections
-    pub storage_header: StorageHeader,
+    storage_header: StorageHeader,
     /// The raw data that scoped to the appropriate offset at the end of [`StorageHeader`]
-    pub data: &'a [u8],
+    data: &'a [u8],
     /// Internal counter since there are no way to know the size of [`ClrSectionIterator::data`] at the ctor.
     index_cursor: usize,
 }

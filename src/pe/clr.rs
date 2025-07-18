@@ -172,7 +172,6 @@ impl<'a> ClrData<'a> {
     }
 }
 
-/// Represents the .NET COR20 header in a PE file, which includes metadata and flags specific
 /// to .NET assemblies. This header is found in the COM descriptor directory of a PE file.
 #[repr(C)]
 #[derive(PartialEq, Copy, Clone, Default, Pread, Pwrite, SizeWith)]
@@ -436,7 +435,6 @@ impl<'a> StorageSignature<'a> {
 
 /// Represents the header structure for a storage section in .NET metadata.
 /// This structure contains information about the storage's format and the number of streams.
-#[repr(C)]
 #[derive(PartialEq, Copy, Clone, Default, Pread, Pwrite, SizeWith)]
 pub struct StorageHeader {
     /// Indicates the flags for this storage header, defining specific attributes or settings.
@@ -522,7 +520,7 @@ pub struct ClrSectionIterator<'a> {
     /// The raw data that scoped to the appropriate offset at the end of [`StorageHeader`]
     pub data: &'a [u8],
     /// Internal counter since there are no way to know the size of [`ClrSectionIterator::data`] at the ctor.
-    pub(self) index_cursor: usize,
+    index_cursor: usize,
 }
 
 impl<'a> ClrSectionIterator<'a> {

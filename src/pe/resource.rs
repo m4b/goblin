@@ -25,12 +25,12 @@ pub(super) fn to_utf16_string(bytes: &[u8]) -> Option<String> {
         .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
         .take_while(|&wchar| wchar != 0)
         .collect::<Vec<_>>();
-    Some(String::from_utf16_lossy(&u16_chars))
+    String::from_utf16(&u16_chars).ok()
 }
 
 /// Helper for parsing `wchar_t` utf-16 strings in a safe manner.
 #[derive(Debug, Copy, Clone, Default, PartialEq)]
-pub struct Utf16String<'a>(&'a [u8]);
+pub(crate) struct Utf16String<'a>(&'a [u8]);
 
 impl<'a> Utf16String<'a> {
     /// Converts underlying bytes into an owned [String].

@@ -131,17 +131,19 @@ pub struct ScopeTableIterator<'a> {
 }
 
 impl Iterator for ScopeTableIterator<'_> {
-    type Item = error::Result<ScopeTableEntry>;
+    type Item = ScopeTableEntry;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.offset >= self.data.len() {
             return None;
         }
 
+        // It is guarabteed that .expect here is really a unreachable.
+        // See: that we do `num_entries * core::mem::size_of::<ScopeTableEntry>() as u32;`
         Some(
             self.data
                 .gread_with(&mut self.offset, scroll::LE)
-                .map_err(Into::into),
+                .expect("Scope table is not aligned"),
         )
     }
 
@@ -1162,6 +1164,38 @@ mod tests {
         0x06, 0x16, 0x00, 0x00, // JumpTarget     = 0x00001606
     ];
 
+    #[rustfmt::skip]
+    const UNWIND_INFO_C_SCOPE_TABLE_INVALID: &[u8] = &[
+        // UNWIND_INFO_HDR
+        0x09, 0x0F, 0x06, 0x00,
+    
+        // UNWIND_CODEs
+        0x0F, 0x64,             // UWOP_SAVE_NONVOL (Offset=6, Reg=0x0F)
+        0x09, 0x00,
+        0x0F, 0x34,             // UWOP_SAVE_NONVOL (Offset=3, Reg=0x0F)
+        0x08, 0x00,
+        0x0F, 0x52,             // UWOP_ALLOC_SMALL (Size = (2 * 8) + 8 = 24 bytes)
+        0x0B, 0x70,             // UWOP_PUSH_NONVOL (Reg=0x0B)
+    
+        // Exception handler RVA
+        0xC0, 0x1F, 0x00, 0x00, // __C_specific_handler
+    
+        // Scope count
+        0x02, 0x00, 0x00, 0x00, // Scope table count = 2
+    
+        // First C_SCOPE_TABLE entry
+        0x01, 0x15, 0x00, 0x00, // BeginAddress   = 0x00001501
+        0x06, 0x16, 0x00, 0x00, // EndAddress     = 0x00001606
+        0x76, 0x1F, 0x00, 0x00, // HandlerAddress = 0x00001F76
+        0x06, 0x16, 0x00, 0x00, // JumpTarget     = 0x00001606
+
+        // Second C_SCOPE_TABLE entry
+        0x3A, 0x16, 0x00, 0x00, // BeginAddress   = 0x0000163A
+        0x4C, 0x16, 0x00, 0x00, // EndAddress     = 0x0000164C
+        0x76, 0x1F, 0x00, 0x00, // HandlerAddress = 0x00001F76
+        0x06,                   // JumpTarget     = 0x??????06
+    ];
+
     #[test]
     fn parse_c_scope_table() {
         let unwind_info = UnwindInfo::parse(UNWIND_INFO_C_SCOPE_TABLE, 0)
@@ -1169,10 +1203,7 @@ mod tests {
         let entries = unwind_info
             .c_scope_table_entries()
             .expect("C scope table should present");
-        let entries = entries
-            .enumerate()
-            .map(|(i, x)| x.expect(&format!("Failed to parse C scope table entry at {i}")))
-            .collect::<Vec<_>>();
+        let entries = entries.collect::<Vec<_>>();
         assert_eq!(entries.len(), 2);
         assert_eq!(
             entries[0],
@@ -1192,5 +1223,25 @@ mod tests {
                 target: 0x00001606,
             }
         );
+    }
+
+    #[test]
+    #[should_panic(expected = "C scope table should present")]
+    fn malformed_scope_table_is_not_allowed() {
+        let unwind_info = UnwindInfo::parse(UNWIND_INFO_C_SCOPE_TABLE_INVALID, 0)
+            .expect("Failed to parse unwind info with C scope table");
+        unwind_info
+            .c_scope_table_entries()
+            .expect("C scope table should present");
+    }
+
+    #[test]
+    #[should_panic(expected = "Scope table is not aligned")]
+    fn unaligned_scope_table_is_not_allowed() {
+        let it = ScopeTableIterator {
+            data: &[0x00, 0x00, 0x00, 0x00, 0x00],
+            offset: 0,
+        };
+        let _ = it.collect::<Vec<_>>();
     }
 }

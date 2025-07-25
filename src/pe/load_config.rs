@@ -336,6 +336,15 @@ impl LoadConfigData {
                         dd.virtual_address
                     ))
                 })?;
+        // Ensure that the offset does not exceed the length of the bytes slice
+        if offset >= bytes.len() {
+            return Err(error::Error::Malformed(format!(
+                "load config offset {:#x} exceeds the bounds of the bytes size {:#x}",
+                offset,
+                bytes.len()
+            )));
+        }
+                
         let bytes = bytes[offset..]
             .pread_with::<&[u8]>(0, dd.size as usize)
             .map_err(|_| {

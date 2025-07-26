@@ -336,8 +336,8 @@ impl LoadConfigData {
                         dd.virtual_address
                     ))
                 })?;
-        let bytes = bytes[offset..]
-            .pread_with::<&[u8]>(0, dd.size as usize)
+        let bytes = bytes
+            .pread_with::<&[u8]>(offset, dd.size as usize)
             .map_err(|_| {
                 error::Error::Malformed(format!(
                     "load config offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",

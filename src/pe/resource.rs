@@ -1883,10 +1883,8 @@ mod tests {
         // Invalid surrogate pair (lone high surrogate)
         let bytes = &[0x3d, 0xd8, 0x41, 0x00]; // High surrogate followed by 'A'
         let result = to_utf16_string(bytes);
-        // Should still return Some due to from_utf16_lossy
-        assert!(result.is_some());
-        let string = result.unwrap();
-        assert!(string.contains('A'));
+        // Should return None due to from_utf16
+        assert_eq!(result, None);
     }
 
     #[test]

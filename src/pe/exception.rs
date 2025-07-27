@@ -138,7 +138,7 @@ impl Iterator for ScopeTableIterator<'_> {
             return None;
         }
 
-        // It is guarabteed that .expect here is really a unreachable.
+        // It is guaranteed that .expect here is really a unreachable.
         // See: that we do `num_entries * core::mem::size_of::<ScopeTableEntry>() as u32;`
         Some(
             self.data

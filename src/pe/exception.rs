@@ -44,7 +44,7 @@ use core::fmt;
 use core::iter::FusedIterator;
 
 use scroll::ctx::TryFromCtx;
-use scroll::{self, Pread, Pwrite};
+use scroll::{self, Pread, Pwrite, SizeWith};
 
 use crate::error;
 
@@ -95,6 +95,68 @@ const UWOP_PUSH_MACHFRAME: u8 = 10;
 const RUNTIME_FUNCTION_SIZE: usize = 12;
 /// Size of unwind code slots. Codes take 1 - 3 slots.
 const UNWIND_CODE_SIZE: usize = 2;
+
+/// Represents a single entry in a Windows PE exception handling scope table `C_SCOPE_TABLE_ENTRY`.
+///
+/// Each entry defines a protected range of code and its associated exception handler.
+/// These entries are typically found in the scope table associated with `UNWIND_INFO`
+/// structures in Windows x64 exception handling.
+#[derive(Debug, Copy, Clone, Default, PartialEq, Hash, Pread, Pwrite, SizeWith)]
+#[repr(C)]
+pub struct ScopeTableEntry {
+    /// The starting RVA (relative virtual address) of the protected code region.
+    ///
+    /// This marks the beginning of a `try` block.
+    pub begin: u32,
+
+    /// The ending RVA (exclusive) of the protected code region.
+    ///
+    /// This marks the end of the `try` block.
+    pub end: u32,
+
+    /// The RVA of the exception handler function.
+    ///
+    /// e.g., be invoked when an exception occurs in the associated code range.
+    pub handler: u32,
+
+    /// The RVA of the continuation target after the handler is executed.
+    ///
+    /// This is used for control transfer (e.g., continuation blocks, to resume execution after `finally`).
+    pub target: u32,
+}
+
+/// Iterator over [ScopeTableEntry] entries in `C_SCOPE_TABLE`.
+#[derive(Debug)]
+pub struct ScopeTableIterator<'a> {
+    data: &'a [u8],
+    offset: usize,
+}
+
+impl Iterator for ScopeTableIterator<'_> {
+    type Item = ScopeTableEntry;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.offset >= self.data.len() {
+            return None;
+        }
+
+        // It is guaranteed that .expect here is really a unreachable.
+        // See: that we do `num_entries * core::mem::size_of::<ScopeTableEntry>() as u32;`
+        Some(
+            self.data
+                .gread_with(&mut self.offset, scroll::LE)
+                .expect("Scope table is not aligned"),
+        )
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.data.len() / core::mem::size_of::<ScopeTableEntry>();
+        (len, Some(len))
+    }
+}
+
+impl FusedIterator for ScopeTableIterator<'_> {}
+impl ExactSizeIterator for ScopeTableIterator<'_> {}
 
 /// An unwind entry for a range of a function.
 ///
@@ -628,6 +690,20 @@ impl<'a> UnwindInfo<'a> {
             },
         }
     }
+
+    /// Returns an iterator over C scope table entries in this unwind info.
+    ///
+    /// If this unwind info has no [UnwindHandler::ExceptionHandler], this will always return `None`.
+    pub fn c_scope_table_entries(&self) -> Option<ScopeTableIterator<'a>> {
+        let UnwindHandler::ExceptionHandler(_, data) = self.handler? else {
+            return None;
+        };
+        let mut offset = 0;
+        let num_entries = data.gread_with::<u32>(&mut offset, scroll::LE).ok()?;
+        let table_size = num_entries * core::mem::size_of::<ScopeTableEntry>() as u32;
+        let data = data.pread_with::<&[u8]>(offset, table_size as usize).ok()?;
+        Some(ScopeTableIterator { data, offset: 0 })
+    }
 }
 
 impl fmt::Debug for UnwindInfo<'_> {
@@ -1058,5 +1134,118 @@ mod tests {
         };
 
         assert_eq!(unwind_codes[0], expected);
+    }
+
+    #[rustfmt::skip]
+    const UNWIND_INFO_C_SCOPE_TABLE: &[u8] = &[
+        // UNWIND_INFO_HDR
+        0x09, 0x0F, 0x06, 0x00,
+    
+        // UNWIND_CODEs
+        0x0F, 0x64,             // UWOP_SAVE_NONVOL (Offset=6, Reg=0x0F)
+        0x09, 0x00,
+        0x0F, 0x34,             // UWOP_SAVE_NONVOL (Offset=3, Reg=0x0F)
+        0x08, 0x00,
+        0x0F, 0x52,             // UWOP_ALLOC_SMALL (Size = (2 * 8) + 8 = 24 bytes)
+        0x0B, 0x70,             // UWOP_PUSH_NONVOL (Reg=0x0B)
+    
+        // Exception handler RVA
+        0xC0, 0x1F, 0x00, 0x00, // __C_specific_handler
+    
+        // Scope count
+        0x02, 0x00, 0x00, 0x00, // Scope table count = 2
+    
+        // First C_SCOPE_TABLE entry
+        0x01, 0x15, 0x00, 0x00, // BeginAddress   = 0x00001501
+        0x06, 0x16, 0x00, 0x00, // EndAddress     = 0x00001606
+        0x76, 0x1F, 0x00, 0x00, // HandlerAddress = 0x00001F76
+        0x06, 0x16, 0x00, 0x00, // JumpTarget     = 0x00001606
+
+        // Second C_SCOPE_TABLE entry
+        0x3A, 0x16, 0x00, 0x00, // BeginAddress   = 0x0000163A
+        0x4C, 0x16, 0x00, 0x00, // EndAddress     = 0x0000164C
+        0x76, 0x1F, 0x00, 0x00, // HandlerAddress = 0x00001F76
+        0x06, 0x16, 0x00, 0x00, // JumpTarget     = 0x00001606
+    ];
+
+    #[rustfmt::skip]
+    const UNWIND_INFO_C_SCOPE_TABLE_INVALID: &[u8] = &[
+        // UNWIND_INFO_HDR
+        0x09, 0x0F, 0x06, 0x00,
+    
+        // UNWIND_CODEs
+        0x0F, 0x64,             // UWOP_SAVE_NONVOL (Offset=6, Reg=0x0F)
+        0x09, 0x00,
+        0x0F, 0x34,             // UWOP_SAVE_NONVOL (Offset=3, Reg=0x0F)
+        0x08, 0x00,
+        0x0F, 0x52,             // UWOP_ALLOC_SMALL (Size = (2 * 8) + 8 = 24 bytes)
+        0x0B, 0x70,             // UWOP_PUSH_NONVOL (Reg=0x0B)
+    
+        // Exception handler RVA
+        0xC0, 0x1F, 0x00, 0x00, // __C_specific_handler
+    
+        // Scope count
+        0x02, 0x00, 0x00, 0x00, // Scope table count = 2
+    
+        // First C_SCOPE_TABLE entry
+        0x01, 0x15, 0x00, 0x00, // BeginAddress   = 0x00001501
+        0x06, 0x16, 0x00, 0x00, // EndAddress     = 0x00001606
+        0x76, 0x1F, 0x00, 0x00, // HandlerAddress = 0x00001F76
+        0x06, 0x16, 0x00, 0x00, // JumpTarget     = 0x00001606
+
+        // Second C_SCOPE_TABLE entry
+        0x3A, 0x16, 0x00, 0x00, // BeginAddress   = 0x0000163A
+        0x4C, 0x16, 0x00, 0x00, // EndAddress     = 0x0000164C
+        0x76, 0x1F, 0x00, 0x00, // HandlerAddress = 0x00001F76
+        0x06,                   // JumpTarget     = 0x??????06
+    ];
+
+    #[test]
+    fn parse_c_scope_table() {
+        let unwind_info = UnwindInfo::parse(UNWIND_INFO_C_SCOPE_TABLE, 0)
+            .expect("Failed to parse unwind info with C scope table");
+        let entries = unwind_info
+            .c_scope_table_entries()
+            .expect("C scope table should present");
+        let entries = entries.collect::<Vec<_>>();
+        assert_eq!(entries.len(), 2);
+        assert_eq!(
+            entries[0],
+            ScopeTableEntry {
+                begin: 0x00001501,
+                end: 0x00001606,
+                handler: 0x00001F76,
+                target: 0x00001606,
+            }
+        );
+        assert_eq!(
+            entries[1],
+            ScopeTableEntry {
+                begin: 0x0000163A,
+                end: 0x0000164C,
+                handler: 0x00001F76,
+                target: 0x00001606,
+            }
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "C scope table should present")]
+    fn malformed_scope_table_is_not_allowed() {
+        let unwind_info = UnwindInfo::parse(UNWIND_INFO_C_SCOPE_TABLE_INVALID, 0)
+            .expect("Failed to parse unwind info with C scope table");
+        unwind_info
+            .c_scope_table_entries()
+            .expect("C scope table should present");
+    }
+
+    #[test]
+    #[should_panic(expected = "Scope table is not aligned")]
+    fn unaligned_scope_table_is_not_allowed() {
+        let it = ScopeTableIterator {
+            data: &[0x00, 0x00, 0x00, 0x00, 0x00],
+            offset: 0,
+        };
+        let _ = it.collect::<Vec<_>>();
     }
 }

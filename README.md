@@ -102,6 +102,20 @@ Here are some things you could do with this crate (or help to implement so they 
 * endian_fd - parses according to the endianness in the binary
 * std - to allow `no_std` environments
 
+# Maintainers
+
+1. PE: [@kkent030315]
+2. Elf: [@m4b], open for applications
+3. Mach-o: [@m4b], open for applications
+
+Maintainers are first contact reviewers for that particular backend. They are chosen based on prior contributions, activity, base knowledge, and amicable and gregarious behavior :D
+
+Currently, I ([@m4b]) only have merge rights for all PRs. In the future it is likely, that the maintainer(s) for that given backend will also have merge rights as well.
+
+Lastly, I will still likely give cursory reviews to all PRs, but will mostly/entirely default to the maintainer for that backend.
+
+And always remember the wisdom of Bill and Ted: "Be excellent to each other!"
+
 # Contributors
 
 Thank you all :heart: !
@@ -302,8 +316,8 @@ Unless explicitly stated otherwise, you agree that your contributions are licens
 1. If you are making a large change to a module, please raise an issue first and lets discuss;
    I don't want to waste your time if its not a good technical direction, or etc.
 1. If your PR is not getting attention, please respond to all relevant comments raised on the PR,
-   and if still no response, ping [@m4b], [@philipc], or [@willglynn] in github and also feel free
+   and if still no response, ping [@m4b] in github and also feel free
    to email [@m4b].
 1. Please add tests if you are adding a new feature. Feel free to add tests even if you are not,
    tests are awesome and easy in rust.
-1. Once cargo format is officially released, please format your _patch_ using the default settings.
+

@@ -988,6 +988,215 @@ pub const R_PPC_EMB_SPE_WORD_SDA: u32 = 214;
 pub const R_PPC_EMB_SPE_HALF_SDA: u32 = 215;
 
 /////////////////////
+// PowerPC64
+// See: https://files.openpower.foundation/s/cfA2oFPXbbZwEBK
+/////////////////////
+pub const R_PPC64_NONE: u32 = R_PPC_NONE;
+/// 32-bit absolute address.
+pub const R_PPC64_ADDR32: u32 = R_PPC_ADDR32;
+/// 26-bit address, word aligned.
+pub const R_PPC64_ADDR24: u32 = R_PPC_ADDR24;
+/// 16-bit absolute address.
+pub const R_PPC64_ADDR16: u32 = R_PPC_ADDR16;
+/// Lower 16 bits of absolute address.
+pub const R_PPC64_ADDR16_LO: u32 = R_PPC_ADDR16_LO;
+/// High 16 bits of absolute address.
+pub const R_PPC64_ADDR16_HI: u32 = R_PPC_ADDR16_HI;
+/// Adjusted high 16 bits.
+pub const R_PPC64_ADDR16_HA: u32 = R_PPC_ADDR16_HA;
+/// 16-bit address, word aligned.
+pub const R_PPC64_ADDR14: u32 = R_PPC_ADDR14;
+pub const R_PPC64_ADDR14_BRTAKEN: u32 = R_PPC_ADDR14_BRTAKEN;
+pub const R_PPC64_ADDR14_BRNTAKEN: u32 = R_PPC_ADDR14_BRNTAKEN;
+/// PC relative 26-bit, word aligned.
+pub const R_PPC64_REL24: u32 = R_PPC_REL24;
+/// PC relative 16 bit.
+pub const R_PPC64_REL14: u32 = R_PPC_REL14;
+pub const R_PPC64_REL14_BRTAKEN: u32 = R_PPC_REL14_BRTAKEN;
+pub const R_PPC64_REL14_BRNTAKEN: u32 = R_PPC_REL14_BRNTAKEN;
+pub const R_PPC64_GOT16: u32 = R_PPC_GOT16;
+pub const R_PPC64_GOT16_LO: u32 = R_PPC_GOT16_LO;
+pub const R_PPC64_GOT16_HI: u32 = R_PPC_GOT16_HI;
+pub const R_PPC64_GOT16_HA: u32 = R_PPC_GOT16_HA;
+pub const R_PPC64_COPY: u32 = R_PPC_COPY;
+pub const R_PPC64_GLOB_DAT: u32 = R_PPC_GLOB_DAT;
+pub const R_PPC64_JMP_SLOT: u32 = R_PPC_JMP_SLOT;
+pub const R_PPC64_RELATIVE: u32 = R_PPC_RELATIVE;
+pub const R_PPC64_UADDR32: u32 = R_PPC_UADDR32;
+pub const R_PPC64_UADDR16: u32 = R_PPC_UADDR16;
+pub const R_PPC64_REL32: u32 = R_PPC_REL32;
+pub const R_PPC64_PLT32: u32 = R_PPC_PLT32;
+pub const R_PPC64_PLTREL32: u32 = R_PPC_PLTREL32;
+pub const R_PPC64_PLT16_LO: u32 = R_PPC_PLT16_LO;
+pub const R_PPC64_PLT16_HI: u32 = R_PPC_PLT16_HI;
+pub const R_PPC64_PLT16_HA: u32 = R_PPC_PLT16_HA;
+pub const R_PPC64_SECTOFF: u32 = R_PPC_SECTOFF;
+pub const R_PPC64_SECTOFF_LO: u32 = R_PPC_SECTOFF_LO;
+pub const R_PPC64_SECTOFF_HI: u32 = R_PPC_SECTOFF_HI;
+pub const R_PPC64_SECTOFF_HA: u32 = R_PPC_SECTOFF_HA;
+/// word30 (S + A - P) >> 2.
+pub const R_PPC64_ADDR30: u32 = 37;
+/// doubleword64 S + A.
+pub const R_PPC64_ADDR64: u32 = 38;
+/// half16 #higher(S + A).
+pub const R_PPC64_ADDR16_HIGHER: u32 = 39;
+/// half16 #highera(S + A).
+pub const R_PPC64_ADDR16_HIGHERA: u32 = 40;
+/// half16 #highest(S + A).
+pub const R_PPC64_ADDR16_HIGHEST: u32 = 41;
+/// half16 #highesta(S + A).
+pub const R_PPC64_ADDR16_HIGHESTA: u32 = 42;
+/// doubleword64 S + A.
+pub const R_PPC64_UADDR64: u32 = 43;
+/// doubleword64 S + A - P.
+pub const R_PPC64_REL64: u32 = 44;
+/// doubleword64 L + A.
+pub const R_PPC64_PLT64: u32 = 45;
+/// doubleword64 L + A - P.
+pub const R_PPC64_PLTREL64: u32 = 46;
+/// half16* S + A - .TOC.
+pub const R_PPC64_TOC16: u32 = 47;
+/// half16 #lo(S + A - .TOC).
+pub const R_PPC64_TOC16_LO: u32 = 48;
+/// half16 #hi(S + A - .TOC).
+pub const R_PPC64_TOC16_HI: u32 = 49;
+/// half16 #ha(S + A - .TOC).
+pub const R_PPC64_TOC16_HA: u32 = 50;
+/// doubleword64 .TOC.
+pub const R_PPC64_TOC: u32 = 51;
+/// half16* M + A.
+pub const R_PPC64_PLTGOT16: u32 = 52;
+/// half16 #lo(M + A).
+pub const R_PPC64_PLTGOT16_LO: u32 = 53;
+/// half16 #hi(M + A).
+pub const R_PPC64_PLTGOT16_HI: u32 = 54;
+/// half16 #ha(M + A).
+pub const R_PPC64_PLTGOT16_HA: u32 = 55;
+/// half16ds* (S + A) >> 2.
+pub const R_PPC64_ADDR16_DS: u32 = 56;
+/// half16ds #lo(S + A) >> 2.
+pub const R_PPC64_ADDR16_LO_DS: u32 = 57;
+/// half16ds* (G + A) >> 2.
+pub const R_PPC64_GOT16_DS: u32 = 58;
+/// half16ds #lo(G + A) >> 2.
+pub const R_PPC64_GOT16_LO_DS: u32 = 59;
+/// half16ds #lo(L + A) >> 2.
+pub const R_PPC64_PLT16_LO_DS: u32 = 60;
+/// half16ds* (R + A) >> 2.
+pub const R_PPC64_SECTOFF_DS: u32 = 61;
+/// half16ds #lo(R + A) >> 2.
+pub const R_PPC64_SECTOFF_LO_DS: u32 = 62;
+/// half16ds* (S + A - .TOC.) >> 2.
+pub const R_PPC64_TOC16_DS: u32 = 63;
+/// half16ds #lo(S + A - .TOC.) >> 2.
+pub const R_PPC64_TOC16_LO_DS: u32 = 64;
+/// half16ds* (M + A) >> 2.
+pub const R_PPC64_PLTGOT16_DS: u32 = 65;
+/// half16ds #lo(M + A) >> 2.
+pub const R_PPC64_PLTGOT16_LO_DS: u32 = 66;
+/// none (sym+add)@tls
+pub const R_PPC64_TLS: u32 = 67;
+/// doubleword64 (sym+add)@dtpmod
+pub const R_PPC64_DTPMOD64: u32 = 68;
+/// half16* (sym+add)@tprel
+pub const R_PPC64_TPREL16: u32 = 69;
+/// half16 (sym+add)@tprel@l
+pub const R_PPC64_TPREL16_LO: u32 = 70;
+/// half16 (sym+add)@tprel@h
+pub const R_PPC64_TPREL16_HI: u32 = 71;
+/// half16 (sym+add)@tprel@ha
+pub const R_PPC64_TPREL16_HA: u32 = 72;
+/// doubleword64 (sym+add)@tprel
+pub const R_PPC64_TPREL64: u32 = 73;
+/// half16* (sym+add)@dtprel
+pub const R_PPC64_DTPREL16: u32 = 74;
+/// half16 (sym+add)@dtprel@l
+pub const R_PPC64_DTPREL16_LO: u32 = 75;
+/// half16 (sym+add)@dtprel@h
+pub const R_PPC64_DTPREL16_HI: u32 = 76;
+/// half16 (sym+add)@dtprel@ha
+pub const R_PPC64_DTPREL16_HA: u32 = 77;
+/// doubleword64 (sym+add)@dtprel
+pub const R_PPC64_DTPREL64: u32 = 78;
+/// half16* (sym+add)@got@tlsgd
+pub const R_PPC64_GOT_TLSGD16: u32 = 79;
+/// half16 (sym+add)@got@tlsgd@l
+pub const R_PPC64_GOT_TLSGD16_LO: u32 = 80;
+/// half16 (sym+add)@got@tlsgd@h
+pub const R_PPC64_GOT_TLSGD16_HI: u32 = 81;
+/// half16 (sym+add)@got@tlsgd@ha
+pub const R_PPC64_GOT_TLSGD16_HA: u32 = 82;
+/// half16* (sym+add)@got@tlsld
+pub const R_PPC64_GOT_TLSLD16: u32 = 83;
+/// half16 (sym+add)@got@tlsld@l
+pub const R_PPC64_GOT_TLSLD16_LO: u32 = 84;
+/// half16 (sym+add)@got@tlsld@h
+pub const R_PPC64_GOT_TLSLD16_HI: u32 = 85;
+/// half16 (sym+add)@got@tlsld@ha
+pub const R_PPC64_GOT_TLSLD16_HA: u32 = 86;
+/// half16ds* (sym+add)@got@tprel
+pub const R_PPC64_GOT_TPREL16_DS: u32 = 87;
+/// half16ds (sym+add)@got@tprel@l
+pub const R_PPC64_GOT_TPREL16_LO_DS: u32 = 88;
+/// half16 (sym+add)@got@tprel@h
+pub const R_PPC64_GOT_TPREL16_HI: u32 = 89;
+/// half16 (sym+add)@got@tprel@ha
+pub const R_PPC64_GOT_TPREL16_HA: u32 = 90;
+/// half16ds* (sym+add)@got@dtprel
+pub const R_PPC64_GOT_DTPREL16_DS: u32 = 91;
+/// half16ds (sym+add)@got@dtprel@l
+pub const R_PPC64_GOT_DTPREL16_LO_DS: u32 = 92;
+/// half16 (sym+add)@got@dtprel@h
+pub const R_PPC64_GOT_DTPREL16_HI: u32 = 93;
+/// half16 (sym+add)@got@dtprel@ha
+pub const R_PPC64_GOT_DTPREL16_HA: u32 = 94;
+/// half16ds* (sym+add)@tprel
+pub const R_PPC64_TPREL16_DS: u32 = 95;
+/// half16ds (sym+add)@tprel@l
+pub const R_PPC64_TPREL16_LO_DS: u32 = 96;
+/// half16 (sym+add)@tprel@higher
+pub const R_PPC64_TPREL16_HIGHER: u32 = 97;
+/// half16 (sym+add)@tprel@highera
+pub const R_PPC64_TPREL16_HIGHERA: u32 = 98;
+/// half16 (sym+add)@tprel@highest
+pub const R_PPC64_TPREL16_HIGHEST: u32 = 99;
+/// half16 (sym+add)@tprel@highesta
+pub const R_PPC64_TPREL16_HIGHESTA: u32 = 100;
+/// half16ds* (sym+add)@dtprel
+pub const R_PPC64_DTPREL16_DS: u32 = 101;
+/// half16ds (sym+add)@dtprel@l
+pub const R_PPC64_DTPREL16_LO_DS: u32 = 102;
+/// half16 (sym+add)@dtprel@higher
+pub const R_PPC64_DTPREL16_HIGHER: u32 = 103;
+/// half16 (sym+add)@dtprel@highera
+pub const R_PPC64_DTPREL16_HIGHERA: u32 = 104;
+/// half16 (sym+add)@dtprel@highest
+pub const R_PPC64_DTPREL16_HIGHEST: u32 = 105;
+/// half16 (sym+add)@dtprel@highesta
+pub const R_PPC64_DTPREL16_HIGHESTA: u32 = 106;
+pub const R_PPC64_TLSGD: u32 = 107;
+pub const R_PPC64_TLSLD: u32 = 108;
+pub const R_PPC64_TOCSAVE: u32 = 109;
+pub const R_PPC64_ADDR16_HIGH: u32 = 110;
+pub const R_PPC64_ADDR16_HIGHA: u32 = 111;
+pub const R_PPC64_TPREL16_HIGH: u32 = 112;
+pub const R_PPC64_TPREL16_HIGHA: u32 = 113;
+pub const R_PPC64_DTPREL16_HIGH: u32 = 114;
+pub const R_PPC64_DTPREL16_HIGHA: u32 = 115;
+pub const R_PPC64_REL24_NOTOC: u32 = 116;
+pub const R_PPC64_ADDR64_LOCAL: u32 = 117;
+pub const R_PPC64_ENTRY: u32 = 118;
+pub const R_PPC64_PCREL34: u32 = 132;
+pub const R_PPC64_GOT_PCREL34: u32 = 133;
+pub const R_PPC64_IRELATIVE: u32 = 248;
+pub const R_PPC64_REL16: u32 = 249;
+pub const R_PPC64_REL16_LO: u32 = 250;
+pub const R_PPC64_REL16_HI: u32 = 251;
+pub const R_PPC64_REL16_HA: u32 = 252;
+pub const R_PPC64_GNU_VTINHERIT: u32 = 253;
+pub const R_PPC64_GNU_VTENTRY: u32 = 254;
+
+/////////////////////
 // LOONGARCH
 /////////////////////
 pub const R_LARCH_NONE: u32 = 0;
@@ -1695,6 +1904,135 @@ pub fn r_to_str(typ: u32, machine: u16) -> &'static str {
             R_PPC_EMB_SPE_WORD_SDA => "R_PPC_EMB_SPE_WORD_SDA",
             R_PPC_EMB_SPE_HALF_SDA => "R_PPC_EMB_SPE_HALF_SDA",
             _ => "R_UNKNOWN_PPC",
+        },
+        // Power-PC
+        EM_PPC64 => match typ {
+            R_PPC64_NONE => "R_PPC64_NONE",
+            R_PPC64_ADDR32 => "R_PPC64_ADDR32",
+            R_PPC64_ADDR24 => "R_PPC64_ADDR24",
+            R_PPC64_ADDR16 => "R_PPC64_ADDR16",
+            R_PPC64_ADDR16_LO => "R_PPC64_ADDR16_LO",
+            R_PPC64_ADDR16_HI => "R_PPC64_ADDR16_HI",
+            R_PPC64_ADDR16_HA => "R_PPC64_ADDR16_HA",
+            R_PPC64_ADDR14 => "R_PPC64_ADDR14",
+            R_PPC64_ADDR14_BRTAKEN => "R_PPC64_ADDR14_BRTAKEN",
+            R_PPC64_ADDR14_BRNTAKEN => "R_PPC64_ADDR14_BRNTAKEN",
+            R_PPC64_REL24 => "R_PPC64_REL24",
+            R_PPC64_REL14 => "R_PPC64_REL14",
+            R_PPC64_REL14_BRTAKEN => "R_PPC64_REL14_BRTAKEN",
+            R_PPC64_REL14_BRNTAKEN => "R_PPC64_REL14_BRNTAKEN",
+            R_PPC64_GOT16 => "R_PPC64_GOT16",
+            R_PPC64_GOT16_LO => "R_PPC64_GOT16_LO",
+            R_PPC64_GOT16_HI => "R_PPC64_GOT16_HI",
+            R_PPC64_GOT16_HA => "R_PPC64_GOT16_HA",
+            R_PPC64_COPY => "R_PPC64_COPY",
+            R_PPC64_GLOB_DAT => "R_PPC64_GLOB_DAT",
+            R_PPC64_JMP_SLOT => "R_PPC64_JMP_SLOT",
+            R_PPC64_RELATIVE => "R_PPC64_RELATIVE",
+            R_PPC64_UADDR32 => "R_PPC64_UADDR32",
+            R_PPC64_UADDR16 => "R_PPC64_UADDR16",
+            R_PPC64_REL32 => "R_PPC64_REL32",
+            R_PPC64_PLT32 => "R_PPC64_PLT32",
+            R_PPC64_PLTREL32 => "R_PPC64_PLTREL32",
+            R_PPC64_PLT16_LO => "R_PPC64_PLT16_LO",
+            R_PPC64_PLT16_HI => "R_PPC64_PLT16_HI",
+            R_PPC64_PLT16_HA => "R_PPC64_PLT16_HA",
+            R_PPC64_SECTOFF => "R_PPC64_SECTOFF",
+            R_PPC64_SECTOFF_LO => "R_PPC64_SECTOFF_LO",
+            R_PPC64_SECTOFF_HI => "R_PPC64_SECTOFF_HI",
+            R_PPC64_SECTOFF_HA => "R_PPC64_SECTOFF_HA",
+            R_PPC64_ADDR30 => "R_PPC64_ADDR30",
+            R_PPC64_ADDR64 => "R_PPC64_ADDR64",
+            R_PPC64_ADDR16_HIGHER => "R_PPC64_ADDR16_HIGHER",
+            R_PPC64_ADDR16_HIGHERA => "R_PPC64_ADDR16_HIGHERA",
+            R_PPC64_ADDR16_HIGHEST => "R_PPC64_ADDR16_HIGHEST",
+            R_PPC64_ADDR16_HIGHESTA => "R_PPC64_ADDR16_HIGHESTA",
+            R_PPC64_UADDR64 => "R_PPC64_UADDR64",
+            R_PPC64_REL64 => "R_PPC64_REL64",
+            R_PPC64_PLT64 => "R_PPC64_PLT64",
+            R_PPC64_PLTREL64 => "R_PPC64_PLTREL64",
+            R_PPC64_TOC16 => "R_PPC64_TOC16",
+            R_PPC64_TOC16_LO => "R_PPC64_TOC16_LO",
+            R_PPC64_TOC16_HI => "R_PPC64_TOC16_HI",
+            R_PPC64_TOC16_HA => "R_PPC64_TOC16_HA",
+            R_PPC64_TOC => "R_PPC64_TOC",
+            R_PPC64_PLTGOT16 => "R_PPC64_PLTGOT16",
+            R_PPC64_PLTGOT16_LO => "R_PPC64_PLTGOT16_LO",
+            R_PPC64_PLTGOT16_HI => "R_PPC64_PLTGOT16_HI",
+            R_PPC64_PLTGOT16_HA => "R_PPC64_PLTGOT16_HA",
+            R_PPC64_ADDR16_DS => "R_PPC64_ADDR16_DS",
+            R_PPC64_ADDR16_LO_DS => "R_PPC64_ADDR16_LO_DS",
+            R_PPC64_GOT16_DS => "R_PPC64_GOT16_DS",
+            R_PPC64_GOT16_LO_DS => "R_PPC64_GOT16_LO_DS",
+            R_PPC64_PLT16_LO_DS => "R_PPC64_PLT16_LO_DS",
+            R_PPC64_SECTOFF_DS => "R_PPC64_SECTOFF_DS",
+            R_PPC64_SECTOFF_LO_DS => "R_PPC64_SECTOFF_LO_DS",
+            R_PPC64_TOC16_DS => "R_PPC64_TOC16_DS",
+            R_PPC64_TOC16_LO_DS => "R_PPC64_TOC16_LO_DS",
+            R_PPC64_PLTGOT16_DS => "R_PPC64_PLTGOT16_DS",
+            R_PPC64_PLTGOT16_LO_DS => "R_PPC64_PLTGOT16_LO_DS",
+            R_PPC64_TLS => "R_PPC64_TLS",
+            R_PPC64_DTPMOD64 => "R_PPC64_DTPMOD64",
+            R_PPC64_TPREL16 => "R_PPC64_TPREL16",
+            R_PPC64_TPREL16_LO => "R_PPC64_TPREL16_LO",
+            R_PPC64_TPREL16_HI => "R_PPC64_TPREL16_HI",
+            R_PPC64_TPREL16_HA => "R_PPC64_TPREL16_HA",
+            R_PPC64_TPREL64 => "R_PPC64_TPREL64",
+            R_PPC64_DTPREL16 => "R_PPC64_DTPREL16",
+            R_PPC64_DTPREL16_LO => "R_PPC64_DTPREL16_LO",
+            R_PPC64_DTPREL16_HI => "R_PPC64_DTPREL16_HI",
+            R_PPC64_DTPREL16_HA => "R_PPC64_DTPREL16_HA",
+            R_PPC64_DTPREL64 => "R_PPC64_DTPREL64",
+            R_PPC64_GOT_TLSGD16 => "R_PPC64_GOT_TLSGD16",
+            R_PPC64_GOT_TLSGD16_LO => "R_PPC64_GOT_TLSGD16_LO",
+            R_PPC64_GOT_TLSGD16_HI => "R_PPC64_GOT_TLSGD16_HI",
+            R_PPC64_GOT_TLSGD16_HA => "R_PPC64_GOT_TLSGD16_HA",
+            R_PPC64_GOT_TLSLD16 => "R_PPC64_GOT_TLSLD16",
+            R_PPC64_GOT_TLSLD16_LO => "R_PPC64_GOT_TLSLD16_LO",
+            R_PPC64_GOT_TLSLD16_HI => "R_PPC64_GOT_TLSLD16_HI",
+            R_PPC64_GOT_TLSLD16_HA => "R_PPC64_GOT_TLSLD16_HA",
+            R_PPC64_GOT_TPREL16_DS => "R_PPC64_GOT_TPREL16_DS",
+            R_PPC64_GOT_TPREL16_LO_DS => "R_PPC64_GOT_TPREL16_LO_DS",
+            R_PPC64_GOT_TPREL16_HI => "R_PPC64_GOT_TPREL16_HI",
+            R_PPC64_GOT_TPREL16_HA => "R_PPC64_GOT_TPREL16_HA",
+            R_PPC64_GOT_DTPREL16_DS => "R_PPC64_GOT_DTPREL16_DS",
+            R_PPC64_GOT_DTPREL16_LO_DS => "R_PPC64_GOT_DTPREL16_LO_DS",
+            R_PPC64_GOT_DTPREL16_HI => "R_PPC64_GOT_DTPREL16_HI",
+            R_PPC64_GOT_DTPREL16_HA => "R_PPC64_GOT_DTPREL16_HA",
+            R_PPC64_TPREL16_DS => "R_PPC64_TPREL16_DS",
+            R_PPC64_TPREL16_LO_DS => "R_PPC64_TPREL16_LO_DS",
+            R_PPC64_TPREL16_HIGHER => "R_PPC64_TPREL16_HIGHER",
+            R_PPC64_TPREL16_HIGHERA => "R_PPC64_TPREL16_HIGHERA",
+            R_PPC64_TPREL16_HIGHEST => "R_PPC64_TPREL16_HIGHEST",
+            R_PPC64_TPREL16_HIGHESTA => "R_PPC64_TPREL16_HIGHESTA",
+            R_PPC64_DTPREL16_DS => "R_PPC64_DTPREL16_DS",
+            R_PPC64_DTPREL16_LO_DS => "R_PPC64_DTPREL16_LO_DS",
+            R_PPC64_DTPREL16_HIGHER => "R_PPC64_DTPREL16_HIGHER",
+            R_PPC64_DTPREL16_HIGHERA => "R_PPC64_DTPREL16_HIGHERA",
+            R_PPC64_DTPREL16_HIGHEST => "R_PPC64_DTPREL16_HIGHEST",
+            R_PPC64_DTPREL16_HIGHESTA => "R_PPC64_DTPREL16_HIGHESTA",
+            R_PPC64_TLSGD => "R_PPC64_TLSGD",
+            R_PPC64_TLSLD => "R_PPC64_TLSLD",
+            R_PPC64_TOCSAVE => "R_PPC64_TOCSAVE",
+            R_PPC64_ADDR16_HIGH => "R_PPC64_ADDR16_HIGH",
+            R_PPC64_ADDR16_HIGHA => "R_PPC64_ADDR16_HIGHA",
+            R_PPC64_TPREL16_HIGH => "R_PPC64_TPREL16_HIGH",
+            R_PPC64_TPREL16_HIGHA => "R_PPC64_TPREL16_HIGHA",
+            R_PPC64_DTPREL16_HIGH => "R_PPC64_DTPREL16_HIGH",
+            R_PPC64_DTPREL16_HIGHA => "R_PPC64_DTPREL16_HIGHA",
+            R_PPC64_REL24_NOTOC => "R_PPC64_REL24_NOTOC",
+            R_PPC64_ADDR64_LOCAL => "R_PPC64_ADDR64_LOCAL",
+            R_PPC64_ENTRY => "R_PPC64_ENTRY",
+            R_PPC64_PCREL34 => "R_PPC64_PCREL34",
+            R_PPC64_GOT_PCREL34 => "R_PPC64_GOT_PCREL34",
+            R_PPC64_IRELATIVE => "R_PPC64_IRELATIVE",
+            R_PPC64_REL16 => "R_PPC64_REL16",
+            R_PPC64_REL16_LO => "R_PPC64_REL16_LO",
+            R_PPC64_REL16_HI => "R_PPC64_REL16_HI",
+            R_PPC64_REL16_HA => "R_PPC64_REL16_HA",
+            R_PPC64_GNU_VTINHERIT => "R_PPC64_GNU_VTINHERIT",
+            R_PPC64_GNU_VTENTRY => "R_PPC64_GNU_VTENTRY",
+            _ => "R_UNKNOWN_PPC64",
         },
         // Loongarch 64
         EM_LOONGARCH => match typ {

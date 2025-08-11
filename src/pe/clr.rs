@@ -478,7 +478,6 @@ impl<'a> Iterator for ClrSectionIterator<'a> {
 
         Some(match StorageStream::parse(self.data, &mut self.offset) {
             Ok(stream) => {
-                debug!("Parsed next CLR section: ({:#x}) {:?}", self.offset, stream);
                 self.index_cursor += 1;
                 Ok(stream)
             }

@@ -302,7 +302,6 @@ impl<'a> PE<'a> {
                     opts,
                 )?;
                 clr_data = Some(data);
-                debug!("CLR data: {:#?}", data);
             }
 
             // Parse attribute certificates unless opted out of

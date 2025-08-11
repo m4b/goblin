@@ -21,7 +21,7 @@ pub const DOTNET_SIGNATURE: u32 = 0x424A5342;
 /// Representsa CLR data in a PE file
 #[derive(PartialEq, Copy, Clone, Default)]
 pub struct ClrData<'a> {
-    /// The .NET signature gathered from first 4-bytes of [`Cor20Header::metadata`] must equals to [`DOTNET_SIGNATURE`].
+    /// The .NET signature gathered from first 4-bytes of [`Cor20Header::metadata`] must be [`DOTNET_SIGNATURE`].
     pub signature: u32,
     /// The COR20 header contains metadatas about the IL.
     pub cor20_header: Cor20Header,

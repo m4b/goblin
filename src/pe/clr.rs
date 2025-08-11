@@ -535,7 +535,6 @@ mod tests {
                 name: "#~"
             })
         );
-        assert_eq!(at_0.unwrap().name, "#~");
 
         let at_1 = it_vec.get(1).map(|x| *x);
         assert_eq!(
@@ -546,7 +545,6 @@ mod tests {
                 name: "#Strings"
             })
         );
-        assert_eq!(at_1.unwrap().name, "#Strings");
 
         let at_2 = it_vec.get(2).map(|x| *x);
         assert_eq!(
@@ -557,7 +555,6 @@ mod tests {
                 name: "#US"
             })
         );
-        assert_eq!(at_2.unwrap().name, "#US");
 
         let at_3 = it_vec.get(3).map(|x| *x);
         assert_eq!(
@@ -568,7 +565,6 @@ mod tests {
                 name: "#GUID"
             })
         );
-        assert_eq!(at_3.unwrap().name, "#GUID");
 
         let at_4 = it_vec.get(4).map(|x| *x);
         assert_eq!(
@@ -579,7 +575,6 @@ mod tests {
                 name: "#Blob"
             })
         );
-        assert_eq!(at_4.unwrap().name, "#Blob");
 
         let at_5 = it_vec.get(5);
         assert_eq!(at_5, None);

@@ -153,21 +153,17 @@ impl<'a> ClrData<'a> {
             .iter()
             .find(|x| x.name == "#GUID")
             .map(|x| {
-                if x.offset as usize - self.offset_of_metadata + x.size as usize
-                    > self.metadata_data.len()
-                {
-                    Err(error::Error::Malformed(format!(
-                        "CLR section offset ({:#x}) and size ({:#x}) exceeds metadata slice ({:#x})",
-                        x.offset,
-                        x.size as usize - self.offset_of_metadata,
-                        self.metadata_data.len()
-                    )))
-                } else {
-                    Ok(
-                        &self.metadata_data[x.offset as usize - self.offset_of_metadata
-                            ..x.offset as usize - self.offset_of_metadata + x.size as usize],
-                    )
-                }
+                let offset = (x.offset as usize)
+                    .checked_sub(self.offset_of_metadata)
+                    .ok_or_else(|| {
+                        error::Error::Malformed(format!(
+                            "CLR section offset ({:#x}) is less than metadata offset ({:#x})",
+                            x.offset, self.offset_of_metadata
+                        ))
+                    })?;
+                self.metadata_data
+                    .pread_with::<&[u8]>(offset, x.size as usize)
+                    .map_err(Into::<error::Error>::into)
             })
             .transpose()?)
     }

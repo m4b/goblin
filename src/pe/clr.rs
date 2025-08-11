@@ -354,8 +354,8 @@ pub struct StorageSignature<'a> {
     pub extra_data: u32,
     /// Indicates the length of the version string, in bytes.
     pub version_len: u32,
-    /// The raw data representation of an null-terminated string with size of [`StorageSignature::version_len`]
-    pub version: &'a [u8],
+    /// Indicates the version of this metadata.
+    pub version: &'a str,
 }
 
 impl<'a> fmt::Debug for StorageSignature<'a> {
@@ -377,14 +377,7 @@ impl<'a> fmt::Debug for StorageSignature<'a> {
             .field("minor_version", &self.minor_version)
             .field("extra_data", &format_args!("{:#x}", &self.extra_data))
             .field("version_len", &format_args!("{:#x}", &self.version_len))
-            .field(
-                "version",
-                &format_args!(
-                    "{:?} ({} bytes)",
-                    &self.to_version_string(),
-                    &self.version_len
-                ),
-            )
+            .field("version", &self.version)
             .finish()
     }
 }
@@ -396,7 +389,8 @@ impl<'a> StorageSignature<'a> {
         let minor_version = bytes.gread_with::<u16>(offset, scroll::LE)?;
         let extra_data = bytes.gread_with::<u32>(offset, scroll::LE)?;
         let version_len = bytes.gread_with::<u32>(offset, scroll::LE)?;
-        let version = bytes.pread_with::<&[u8]>(*offset, version_len as usize)?;
+        let version =
+            bytes.gread_with::<&str>(offset, scroll::ctx::StrCtx::Length(version_len as usize))?;
         Ok(Self {
             signature,
             major_version,
@@ -410,17 +404,6 @@ impl<'a> StorageSignature<'a> {
     /// Returns `true` if [`Self::signature`] matches the [`DOTNET_SIGNATURE`], otherwise `false`.
     pub fn is_valid(&self) -> bool {
         self.signature == DOTNET_SIGNATURE
-    }
-
-    /// Converts [`StorageSignature::version`] slice into a implicit [`Cow`] if [`StorageSignature::version_len`] is valid
-    pub fn to_version_string(&self) -> Option<Cow<'a, str>> {
-        self.version_len.is_zero().not().then(|| {
-            // Strip null-terminator if any
-            self.version
-                .strip_suffix(&[0u8])
-                .map(String::from_utf8_lossy)
-                .unwrap_or_else(|| String::from_utf8_lossy(&self.version))
-        })
     }
 }
 
@@ -517,7 +500,7 @@ impl FusedIterator for ClrSectionIterator<'_> {}
 
 #[cfg(test)]
 mod tests {
-    use super::{ClrSectionIterator, StorageHeader, StorageStream};
+    use super::*;
 
     /// A raw representation of bytes that contains 5 sections.
     const CLR_SECTIONS_VALID: &[u8] = &[

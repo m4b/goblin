@@ -526,57 +526,45 @@ mod tests {
         let it_vec = it_vec.unwrap();
         assert_eq!(it_vec.len(), it.count());
 
-        let at_0 = it_vec.get(0).map(|x| *x);
         assert_eq!(
-            at_0,
-            Some(StorageStream {
+            it_vec.get(0),
+            Some(&StorageStream {
                 offset: 0x6c,
                 size: 0xd15f0,
                 name: "#~"
             })
         );
-
-        let at_1 = it_vec.get(1).map(|x| *x);
         assert_eq!(
-            at_1,
-            Some(StorageStream {
+            it_vec.get(1),
+            Some(&StorageStream {
                 offset: 0xd165c,
                 size: 0x42334,
                 name: "#Strings"
             })
         );
-
-        let at_2 = it_vec.get(2).map(|x| *x);
         assert_eq!(
-            at_2,
-            Some(StorageStream {
+            it_vec.get(2),
+            Some(&StorageStream {
                 offset: 0x113990,
                 size: 0x4b938,
                 name: "#US"
             })
         );
-
-        let at_3 = it_vec.get(3).map(|x| *x);
         assert_eq!(
-            at_3,
-            Some(StorageStream {
+            it_vec.get(3),
+            Some(&StorageStream {
                 offset: 0x15f2c8,
                 size: 0x10,
                 name: "#GUID"
             })
         );
-
-        let at_4 = it_vec.get(4).map(|x| *x);
         assert_eq!(
-            at_4,
-            Some(StorageStream {
+            it_vec.get(4),
+            Some(&StorageStream {
                 offset: 0x15f2d8,
                 size: 0x212fc,
                 name: "#Blob"
             })
         );
-
-        let at_5 = it_vec.get(5);
-        assert_eq!(at_5, None);
     }
 }

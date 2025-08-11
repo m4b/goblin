@@ -138,6 +138,7 @@ impl<'a> ClrData<'a> {
         ClrSectionIterator {
             storage_header: self.storage_header,
             data: &self.metadata_data,
+            offset: 0,
             index_cursor: 0,
         }
     }
@@ -453,6 +454,8 @@ pub struct ClrSectionIterator<'a> {
     storage_header: StorageHeader,
     /// The raw data that scoped to the appropriate offset at the end of [`StorageHeader`]
     data: &'a [u8],
+    /// Current internal offset
+    offset: usize,
     /// Internal counter since there are no way to know the size of [`ClrSectionIterator::data`] at the ctor.
     index_cursor: usize,
 }
@@ -473,11 +476,9 @@ impl<'a> Iterator for ClrSectionIterator<'a> {
             return None;
         }
 
-        let mut offset = 0;
-        Some(match StorageStream::parse(self.data, &mut offset) {
+        Some(match StorageStream::parse(self.data, &mut self.offset) {
             Ok(stream) => {
-                debug!("Parsed next CLR section: ({:#x}) {:?}", offset, stream);
-                self.data = &self.data[offset..];
+                debug!("Parsed next CLR section: ({:#x}) {:?}", self.offset, stream);
                 self.index_cursor += 1;
                 Ok(stream)
             }
@@ -522,6 +523,7 @@ mod tests {
         let it = ClrSectionIterator {
             storage_header,
             data: &CLR_SECTIONS_VALID,
+            offset: 0,
             index_cursor: 0,
         };
         let it_vec = it.collect::<Result<Vec<_>, _>>();

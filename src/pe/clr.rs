@@ -150,7 +150,7 @@ impl<'a> ClrData<'a> {
             .sections()
             .collect::<Result<Vec<_>, _>>()?
             .iter()
-            .find(|x| x.name == b"#GUID\0")
+            .find(|x| x.name == "#GUID")
             .map(|x| {
                 if x.offset as usize - self.offset_of_metadata + x.size as usize
                     > self.metadata_data.len()
@@ -396,16 +396,7 @@ impl<'a> StorageSignature<'a> {
         let minor_version = bytes.gread_with::<u16>(offset, scroll::LE)?;
         let extra_data = bytes.gread_with::<u32>(offset, scroll::LE)?;
         let version_len = bytes.gread_with::<u32>(offset, scroll::LE)?;
-        if *offset + version_len as usize > bytes.len() {
-            return Err(error::Error::Malformed(format!(
-                "StorageSignature version offset ({:#x}) and len ({:#x}) exceeds bytes slice ({:#x})",
-                *offset,
-                version_len,
-                bytes.len()
-            )));
-        }
-        let version = &bytes[*offset..*offset + version_len as usize];
-        *offset += version_len as usize;
+        let version = bytes.pread_with::<&[u8]>(*offset, version_len as usize)?;
         Ok(Self {
             signature,
             major_version,
@@ -435,7 +426,7 @@ impl<'a> StorageSignature<'a> {
 
 /// Represents the header structure for a storage section in .NET metadata.
 /// This structure contains information about the storage's format and the number of streams.
-#[derive(PartialEq, Copy, Clone, Default, Pread, Pwrite, SizeWith)]
+#[derive(Debug, PartialEq, Copy, Clone, Default, Pread, Pwrite, SizeWith)]
 pub struct StorageHeader {
     /// Indicates the flags for this storage header, defining specific attributes or settings.
     pub flags: u8,
@@ -445,19 +436,9 @@ pub struct StorageHeader {
     pub streams: u16,
 }
 
-impl fmt::Debug for StorageHeader {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("StorageHeader")
-            .field("flags", &format_args!("{:#x}", &self.flags))
-            .field("reserved", &format_args!("{:#x}", &self.reserved))
-            .field("streams", &self.streams)
-            .finish()
-    }
-}
-
 /// Represents an individual stream within the .NET storage section, which may contain
 /// metadata or other data specific to the .NET assembly structure.
-#[derive(PartialEq, Copy, Clone, Default)]
+#[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub struct StorageStream<'a> {
     /// Indicates the offset, in bytes, from the beginning of the file to this stream.
     pub offset: u32,
@@ -465,50 +446,20 @@ pub struct StorageStream<'a> {
     pub size: u32,
     /// Indicates the name of the stream as a null-terminated ANSI string.
     /// This field can hold up to 32-bytes long, including the null-terminator.
-    pub name: &'a [u8],
-}
-
-impl fmt::Debug for StorageStream<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("StorageStream")
-            .field("offset", &format_args!("{:#x}", &self.offset))
-            .field("size", &format_args!("{:#x}", &self.size))
-            .field("name", &self.to_name_string())
-            .field("name_slice", &format_args!("{:02x?}", self.name))
-            .finish()
-    }
+    pub name: &'a str,
 }
 
 impl<'a> StorageStream<'a> {
     pub fn parse(bytes: &'a [u8], offset: &mut usize) -> error::Result<Self> {
         let offset_ = bytes.gread_with::<u32>(offset, scroll::LE)?;
         let size = bytes.gread_with::<u32>(offset, scroll::LE)?;
-        let name_size =
-            &bytes[*offset..].iter().take_while(|x| *x != &0).count() * core::mem::size_of::<u8>();
-        if *offset + name_size as usize + core::mem::size_of::<u8>() > bytes.len() {
-            return Err(error::Error::Malformed(format!(
-                "StorageStream name offset ({:#x}) and size ({:#x}) exceeds bytes slice ({:#x})",
-                *offset,
-                name_size,
-                bytes.len()
-            )));
-        }
-        let name = &bytes[*offset..*offset + name_size + core::mem::size_of::<u8>()];
-        *offset += utils::align_up(name.len(), core::mem::size_of::<u32>());
+        let name = bytes.gread::<&str>(offset)?;
+        *offset = utils::align_up(*offset, core::mem::size_of::<u32>());
         Ok(Self {
             offset: offset_,
             size,
             name,
         })
-    }
-
-    /// Converts [`StorageStream::name`] slice into a implicit [`Cow`]
-    pub fn to_name_string(&self) -> Cow<'a, str> {
-        // Strip null-terminator if any
-        self.name
-            .strip_suffix(&[0u8])
-            .map(String::from_utf8_lossy)
-            .unwrap_or_else(|| String::from_utf8_lossy(&self.name))
     }
 }
 
@@ -601,10 +552,10 @@ mod tests {
             Some(StorageStream {
                 offset: 0x6c,
                 size: 0xd15f0,
-                name: b"#~\0"
+                name: "#~"
             })
         );
-        assert_eq!(at_0.unwrap().to_name_string(), "#~");
+        assert_eq!(at_0.unwrap().name, "#~");
 
         let at_1 = it_vec.get(1).map(|x| *x);
         assert_eq!(
@@ -612,10 +563,10 @@ mod tests {
             Some(StorageStream {
                 offset: 0xd165c,
                 size: 0x42334,
-                name: b"#Strings\0"
+                name: "#Strings"
             })
         );
-        assert_eq!(at_1.unwrap().to_name_string(), "#Strings");
+        assert_eq!(at_1.unwrap().name, "#Strings");
 
         let at_2 = it_vec.get(2).map(|x| *x);
         assert_eq!(
@@ -623,10 +574,10 @@ mod tests {
             Some(StorageStream {
                 offset: 0x113990,
                 size: 0x4b938,
-                name: b"#US\0"
+                name: "#US"
             })
         );
-        assert_eq!(at_2.unwrap().to_name_string(), "#US");
+        assert_eq!(at_2.unwrap().name, "#US");
 
         let at_3 = it_vec.get(3).map(|x| *x);
         assert_eq!(
@@ -634,10 +585,10 @@ mod tests {
             Some(StorageStream {
                 offset: 0x15f2c8,
                 size: 0x10,
-                name: b"#GUID\0"
+                name: "#GUID"
             })
         );
-        assert_eq!(at_3.unwrap().to_name_string(), "#GUID");
+        assert_eq!(at_3.unwrap().name, "#GUID");
 
         let at_4 = it_vec.get(4).map(|x| *x);
         assert_eq!(
@@ -645,10 +596,10 @@ mod tests {
             Some(StorageStream {
                 offset: 0x15f2d8,
                 size: 0x212fc,
-                name: b"#Blob\0"
+                name: "#Blob"
             })
         );
-        assert_eq!(at_4.unwrap().to_name_string(), "#Blob");
+        assert_eq!(at_4.unwrap().name, "#Blob");
 
         let at_5 = it_vec.get(5);
         assert_eq!(at_5, None);

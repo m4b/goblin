@@ -34,18 +34,13 @@ pub(crate) struct Utf16String<'a>(&'a [u8]);
 
 impl<'a> Utf16String<'a> {
     /// Converts underlying bytes into an owned [String].
-    pub fn to_string(&self) -> Option<String> {
+    pub(crate) fn to_string(&self) -> Option<String> {
         to_utf16_string(self.0)
     }
 
     /// Returns the underlying bytes length. This includes null terminator.
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.0.len()
-    }
-
-    /// Returns the underlying bytes.
-    pub fn bytes(&self) -> &'a [u8] {
-        self.0
     }
 }
 
@@ -190,20 +185,13 @@ impl<'a> ImageResourceDirectory {
     ) -> error::Result<ResourceEntryIterator<'a>> {
         let bytes = bytes.pread_with::<&[u8]>(offset, self.entries_size())?;
 
-        Ok(ResourceEntryIterator {
-            num_resources: self.count() as usize,
-            data: bytes,
-        })
+        Ok(ResourceEntryIterator { data: bytes })
     }
 }
 
 /// Iterator over [`ResourceData`]
 #[derive(Debug, Copy, Clone)]
 pub struct ResourceEntryIterator<'a> {
-    /// Total number of ID entries and named entries
-    ///
-    /// Must be equals to [`ImageResourceDirectory::number_of_named_entries`] + [`ImageResourceDirectory::number_of_id_entries`]
-    num_resources: usize,
     /// Raw data of resource direcrory without [`ImageResourceDirectory`] and scoped to [`RESOURCE_ENTRY_SIZE`] * [`Self::num_resources`]
     data: &'a [u8],
 }
@@ -474,7 +462,6 @@ impl<'a> ResourceData<'a> {
                 ))
             })?;
 
-        let count = image_resource_directory.count() as usize;
         let offset = core::mem::size_of::<ImageResourceDirectory>();
         let size = image_resource_directory.entries_size();
         if offset > data.len() {
@@ -486,7 +473,6 @@ impl<'a> ResourceData<'a> {
             error::Error::Malformed(format!("Resource entry offset ({offset:#x}) out of bounds"))
         })?;
         let iterator = ResourceEntryIterator {
-            num_resources: count,
             data: iterator_data,
         };
         let version_info =
@@ -519,7 +505,6 @@ impl<'a> ResourceData<'a> {
         let size = self.image_resource_directory.entries_size();
         // Safety: Panic-free is guaranteed here by Self::parse_with_opts
         ResourceEntryIterator {
-            num_resources: self.count() as usize,
             data: &self.data[offset..offset + size],
         }
     }

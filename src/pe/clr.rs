@@ -1,10 +1,5 @@
-use alloc::borrow::Cow;
-use alloc::string::String;
-use alloc::vec::Vec;
 use core::fmt;
 use core::iter::FusedIterator;
-use core::ops::Not;
-use log::debug;
 use scroll::{Pread, Pwrite, SizeWith};
 
 use crate::error;
@@ -12,8 +7,6 @@ use crate::pe::data_directories;
 use crate::pe::options;
 use crate::pe::section_table;
 use crate::pe::utils;
-
-use super::import::Bitfield;
 
 /// [`ClrData::signature`]: Indicates a valid signature gathered from first 4-bytes of [`Cor20Header::metadata`] (`'BSJB'`)
 pub const DOTNET_SIGNATURE: u32 = 0x424A5342;
@@ -147,12 +140,9 @@ impl<'a> ClrData<'a> {
     ///
     /// If this is [`None`] and the [`crate::pe::debug::ReproInfo`] presents, you should use that instead.
     pub fn mvid(&self) -> error::Result<Option<&'a [u8]>> {
-        Ok(self
-            .sections()
-            .collect::<Result<Vec<_>, _>>()?
-            .iter()
-            .find(|x| x.name == "#GUID")
-            .map(|x| {
+        for stream in self.sections() {
+            let x = stream?;
+            if x.name == "#GUID" {
                 let offset = (x.offset as usize)
                     .checked_sub(self.offset_of_metadata)
                     .ok_or_else(|| {
@@ -161,11 +151,14 @@ impl<'a> ClrData<'a> {
                             x.offset, self.offset_of_metadata
                         ))
                     })?;
-                self.metadata_data
+                return self
+                    .metadata_data
                     .pread_with::<&[u8]>(offset, x.size as usize)
                     .map_err(Into::<error::Error>::into)
-            })
-            .transpose()?)
+                    .map(Some);
+            }
+        }
+        Ok(None)
     }
 }
 

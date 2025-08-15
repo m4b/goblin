@@ -54,6 +54,7 @@ use crate::pe::section_table;
 use crate::pe::utils;
 
 /// **N**o handlers.
+#[allow(unused)]
 const UNW_FLAG_NHANDLER: u8 = 0x00;
 /// The function has an exception handler that should be called when looking for functions that need
 /// to examine exceptions.
@@ -1140,7 +1141,7 @@ mod tests {
     const UNWIND_INFO_C_SCOPE_TABLE: &[u8] = &[
         // UNWIND_INFO_HDR
         0x09, 0x0F, 0x06, 0x00,
-    
+
         // UNWIND_CODEs
         0x0F, 0x64,             // UWOP_SAVE_NONVOL (Offset=6, Reg=0x0F)
         0x09, 0x00,
@@ -1148,13 +1149,13 @@ mod tests {
         0x08, 0x00,
         0x0F, 0x52,             // UWOP_ALLOC_SMALL (Size = (2 * 8) + 8 = 24 bytes)
         0x0B, 0x70,             // UWOP_PUSH_NONVOL (Reg=0x0B)
-    
+
         // Exception handler RVA
         0xC0, 0x1F, 0x00, 0x00, // __C_specific_handler
-    
+
         // Scope count
         0x02, 0x00, 0x00, 0x00, // Scope table count = 2
-    
+
         // First C_SCOPE_TABLE entry
         0x01, 0x15, 0x00, 0x00, // BeginAddress   = 0x00001501
         0x06, 0x16, 0x00, 0x00, // EndAddress     = 0x00001606
@@ -1172,7 +1173,7 @@ mod tests {
     const UNWIND_INFO_C_SCOPE_TABLE_INVALID: &[u8] = &[
         // UNWIND_INFO_HDR
         0x09, 0x0F, 0x06, 0x00,
-    
+
         // UNWIND_CODEs
         0x0F, 0x64,             // UWOP_SAVE_NONVOL (Offset=6, Reg=0x0F)
         0x09, 0x00,
@@ -1180,13 +1181,13 @@ mod tests {
         0x08, 0x00,
         0x0F, 0x52,             // UWOP_ALLOC_SMALL (Size = (2 * 8) + 8 = 24 bytes)
         0x0B, 0x70,             // UWOP_PUSH_NONVOL (Reg=0x0B)
-    
+
         // Exception handler RVA
         0xC0, 0x1F, 0x00, 0x00, // __C_specific_handler
-    
+
         // Scope count
         0x02, 0x00, 0x00, 0x00, // Scope table count = 2
-    
+
         // First C_SCOPE_TABLE entry
         0x01, 0x15, 0x00, 0x00, // BeginAddress   = 0x00001501
         0x06, 0x16, 0x00, 0x00, // EndAddress     = 0x00001606

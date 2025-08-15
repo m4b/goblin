@@ -9,10 +9,12 @@ use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
 use log::warn;
+use resource::ResourceData;
 
 pub mod authenticode;
 pub mod certificate_table;
 pub mod characteristic;
+pub mod clr;
 pub mod data_directories;
 pub mod debug;
 pub mod dll_characteristic;
@@ -24,6 +26,7 @@ pub mod load_config;
 pub mod optional_header;
 pub mod options;
 pub mod relocation;
+pub mod resource;
 pub mod section_table;
 pub mod subsystem;
 pub mod symbol;
@@ -84,6 +87,10 @@ pub struct PE<'a> {
     pub load_config_data: Option<load_config::LoadConfigData>,
     /// Certificates present, if any, described by the Certificate Table
     pub certificates: certificate_table::CertificateDirectoryTable<'a>,
+    /// Resource information if any
+    pub resource_data: Option<ResourceData<'a>>,
+    /// CLR managed data if present
+    pub clr_data: Option<clr::ClrData<'a>>,
 }
 
 impl<'a> PE<'a> {
@@ -120,6 +127,8 @@ impl<'a> PE<'a> {
         let mut relocation_data = None;
         let mut load_config_data = None;
         let mut certificates = Default::default();
+        let mut resource_data = Default::default();
+        let mut clr_data = Default::default();
         let mut is_64 = false;
         if let Some(optional_header) = header.optional_header {
             // Sections we are assembling through the parsing, eventually, it will be passed
@@ -291,6 +300,18 @@ impl<'a> PE<'a> {
                 )?);
             }
 
+            if let Some(com_descriptor) = optional_header.data_directories.get_clr_runtime_header()
+            {
+                let data = clr::ClrData::parse_with_opts(
+                    bytes,
+                    &com_descriptor,
+                    &sections,
+                    file_alignment,
+                    opts,
+                )?;
+                clr_data = Some(data);
+            }
+
             // Parse attribute certificates unless opted out of
             let certificate_table_size = if opts.parse_attribute_certificates {
                 if let Some(&certificate_table) =
@@ -317,6 +338,18 @@ impl<'a> PE<'a> {
             } else {
                 0
             };
+
+            if let Some(&resource_table) = optional_header.data_directories.get_resource_table() {
+                let data = resource::ResourceData::parse_with_opts(
+                    bytes,
+                    resource_table,
+                    &sections,
+                    file_alignment,
+                    opts,
+                )?;
+                resource_data = Some(data);
+                debug!("resource_data data: {:#?}", data.version_info);
+            }
 
             authenticode_excluded_sections = Some(authenticode::ExcludedSections::new(
                 checksum,
@@ -347,6 +380,8 @@ impl<'a> PE<'a> {
             relocation_data,
             load_config_data,
             certificates,
+            resource_data,
+            clr_data,
         })
     }
 

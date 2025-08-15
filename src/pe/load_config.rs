@@ -360,8 +360,8 @@ impl LoadConfigData {
             "LoadConfig parsing: offset={:#x}, dd.size={:#x}, total_bytes_len={:#x}, remaining_bytes_from_offset={:#x}",
             offset, dd.size, bytes.len(), bytes.len().saturating_sub(offset)
         );
-        let bytes = bytes[offset..]
-            .pread_with::<&[u8]>(0, dd.size as usize)
+        let bytes = bytes
+            .pread_with::<&[u8]>(offset, dd.size as usize)
             .map_err(|_| {
                 error::Error::Malformed(format!(
                     "load config offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",

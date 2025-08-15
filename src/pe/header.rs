@@ -461,16 +461,34 @@ impl<'a> DosStub<'a> {
     /// The DOS stub is a small program that prints the message "This program cannot be run in DOS mode" and exits; and
     /// is not really read for the PECOFF file format. It's a relic from the MS-DOS era.
     pub fn parse(bytes: &'a [u8], pe_pointer: u32) -> error::Result<Self> {
+        Self::parse_with_opts(bytes, pe_pointer, &crate::pe::options::ParseOptions::default())
+    }
+
+    /// Parse the DOS stub with parsing options.
+    ///
+    /// The DOS stub is a small program that prints the message "This program cannot be run in DOS mode" and exits; and
+    /// is not really read for the PECOFF file format. It's a relic from the MS-DOS era.
+    ///
+    /// In permissive mode, this can handle packed binaries where the PE pointer is before the DOS stub start.
+    pub fn parse_with_opts(bytes: &'a [u8], pe_pointer: u32, opts: &crate::pe::options::ParseOptions) -> error::Result<Self> {
         let start_offset = DOS_STUB_OFFSET as usize;
         let end_offset = pe_pointer as usize;
 
         // Check end_offset is not greater than start_offset
         // end_offset == start_offset may mean there is no dos stub
         if end_offset < start_offset {
-            return Err(error::Error::Malformed(format!(
-                "PE pointer ({:#x}) cannot be before the DOS stub start ({:#x})",
-                pe_pointer, start_offset
-            )));
+            if matches!(opts.parse_mode, crate::pe::options::ParseMode::Permissive) {
+                // In permissive mode, handle packed binaries where PE pointer is before DOS stub
+                // Return an empty DOS stub
+                return Ok(Self {
+                    data: &[],
+                });
+            } else {
+                return Err(error::Error::Malformed(format!(
+                    "PE pointer ({:#x}) cannot be before the DOS stub start ({:#x})",
+                    pe_pointer, start_offset
+                )));
+            }
         }
 
         if bytes.len() < end_offset {
@@ -880,16 +898,15 @@ impl<'a> Header<'a> {
         dos_header: DosHeader,
         dos_stub: DosStub<'a>,
         parse_rich_header: bool,
+        opts: &crate::pe::options::ParseOptions,
     ) -> error::Result<Self> {
-        let mut offset = dos_header.pe_pointer as usize;
-
         let rich_header = if parse_rich_header {
-            RichHeader::parse(&bytes)?
+            RichHeader::parse_with_opts(&bytes, opts)?
         } else {
             None
         };
-
-        let signature = bytes.gread_with(&mut offset, scroll::LE).map_err(|_| {
+        let mut offset = dos_header.pe_pointer as usize;
+        let signature = bytes.gread_with::<u32>(&mut offset, scroll::LE).map_err(|_| {
             error::Error::Malformed(format!("cannot parse PE signature (offset {:#x})", offset))
         })?;
         let coff_header = CoffHeader::parse(&bytes, &mut offset)?;
@@ -909,18 +926,23 @@ impl<'a> Header<'a> {
         })
     }
 
-    /// Parses PE header from the given bytes; this will fail if the DosHeader or DosStub is malformed or missing in some way
+    /// Parse a PE header from the underlying bytes
     pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
-        let dos_header = DosHeader::parse(&bytes)?;
-        let dos_stub = DosStub::parse(bytes, dos_header.pe_pointer)?;
-
-        Header::parse_impl(bytes, dos_header, dos_stub, true)
+        Self::parse_with_opts(bytes, &crate::pe::options::ParseOptions::default())
     }
 
-    /// Parses PE header from the given bytes, a default DosHeader and DosStub are generated, and any malformed header or stub is ignored
+    /// Parse a PE header from the underlying bytes with parsing options
+    pub fn parse_with_opts(bytes: &'a [u8], opts: &crate::pe::options::ParseOptions) -> error::Result<Self> {
+        let dos_header = DosHeader::parse(&bytes)?;
+        let dos_stub = DosStub::parse_with_opts(bytes, dos_header.pe_pointer, opts)?;
+
+        Header::parse_impl(bytes, dos_header, dos_stub, true, opts)
+    }
+
+    /// Parse a PE header from the underlying bytes, without the DOS header and DOS stub
     pub fn parse_without_dos(bytes: &'a [u8]) -> error::Result<Self> {
         let dos_header = DosHeader::default();
-        Header::parse_impl(bytes, dos_header, DosStub::default(), false)
+        Header::parse_impl(bytes, dos_header, DosStub::default(), false, &crate::pe::options::ParseOptions::default())
     }
 }
 
@@ -1051,13 +1073,17 @@ impl<'a> RichHeader<'a> {
     /// - The upper 16 bits of the tool ID describe the tool type,
     /// - while the lower 16 bits specify the tool’s build version.
     pub fn parse(bytes: &'a [u8]) -> error::Result<Option<Self>> {
+        Self::parse_with_opts(bytes, &crate::pe::options::ParseOptions::default())
+    }
+
+    pub fn parse_with_opts(bytes: &'a [u8], opts: &crate::pe::options::ParseOptions) -> error::Result<Option<Self>> {
         // Parse the DOS header; some fields are required to locate the Rich header.
         let dos_header = DosHeader::parse(bytes)?;
         let dos_header_end_offset = PE_POINTER_OFFSET as usize;
         let pe_header_start_offset = dos_header.pe_pointer as usize;
 
         // The Rich header is not present in all PE files.
-        if (pe_header_start_offset - dos_header_end_offset) < 8 {
+        if pe_header_start_offset <= dos_header_end_offset || (pe_header_start_offset - dos_header_end_offset) < 8 {
             return Ok(None);
         }
 
@@ -1065,10 +1091,16 @@ impl<'a> RichHeader<'a> {
         let scan_start = dos_header_end_offset + 4;
         let scan_end = pe_header_start_offset;
         if scan_start > scan_end {
-            return Err(error::Error::Malformed(format!(
-                "Rich header scan start ({:#X}) is greater than scan end ({:#X})",
-                scan_start, scan_end
-            )));
+            if matches!(opts.parse_mode, crate::pe::options::ParseMode::Permissive) {
+                // In permissive mode, packed binaries may have PE pointer before DOS header end
+                // Return None to indicate no Rich header present
+                return Ok(None);
+            } else {
+                return Err(error::Error::Malformed(format!(
+                    "Rich header scan start ({:#X}) is greater than scan end ({:#X})",
+                    scan_start, scan_end
+                )));
+            }
         }
         let scan_stub = &bytes[scan_start..scan_end];
 

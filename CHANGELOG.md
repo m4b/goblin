@@ -7,12 +7,20 @@ Goblin is now 0.10, which means we will try our best to ease breaking changes. T
 
 ## [0.10.1]  - Unreleased
 ## Added
+pe: Add parser for `C_SCOPE_TABLE`, thanks @kkent030315: https://github.com/m4b/goblin/pull/477
+pe: Add resource parser, thanks @kkent030315: https://github.com/m4b/goblin/pull/431
+pe: Add `parse_tls_data` option, thanks @ideeockus: https://github.com/m4b/goblin/pull/457
 pe: Add load config parser, thanks @kkent030315: https://github.com/m4b/goblin/pull/464
 elf: added `type_to_str` support for coredump constants, thanks @gunbux: https://github.com/m4b/goblin/pull/475
+elf: added PowerPC64 relocations, thanks @Gelbpunkt: https://github.com/m4b/goblin/pull/484
 ## Fixed
+pe: fix load config parser out of bounds, thanks @kkent030315 and Robel Campbell: https://github.com/m4b/goblin/pull/483
+pe: remove unwind info alignment assertion, thanks @kkent030315: https://github.com/m4b/goblin/pull/480
+pe: fix base relocation parser panic, thanks @kkent030315: https://github.com/m4b/goblin/pull/465
 pe: Fix some offsets computation when using scroll, thanks @DreydenGys: https://github.com/m4b/goblin/pull/471
 pe: cannot read cb size, thanks chf0x: https://github.com/m4b/goblin/pull/472
 pe: fix tls raw data parser, thanks @jorgeaduran and @kkent030315: https://github.com/m4b/goblin/pull/473
+build: fix no-std build errors, thanks @hannahfluch: https://github.com/m4b/goblin/pull/478
 
 ## [0.10.0]  - 2025-5-25
 ### Breaking

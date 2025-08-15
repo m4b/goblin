@@ -141,7 +141,9 @@ In lexicographic order:
 - [@ExPixel]
 - [@flanfly]
 - [@glandium]
+- [@Gelbpunkt]
 - [@gunbux]
+- [@hannahfluch]
 - [@h33p]
 - [@ibabushkin]
 - [@ideeockus]
@@ -209,6 +211,7 @@ In lexicographic order:
 - [@woodruffw]
 - [@wyxloading]
 - [@xcoldhandsx]
+- [@x0rb3l]
 - [@x64k]
 
 <!-- Contributors -->
@@ -233,7 +236,9 @@ In lexicographic order:
 [@ExPixel]: https://github.com/ExPixel
 [@flanfly]: https://github.com/flanfly
 [@glandium]: https://github.com/glandium
+[@Gelbpunkt]: https://github.com/Gelbpunkt
 [@gunbux]: https://github.com/gunbux]
+[@hannahfluch]: https://github.com/hannahfluch
 [@h33p]: https://github.com/h33p
 [@ibabushkin]: https://github.com/ibabushkin
 [@ideeockus]: https://github.com/ideeockus
@@ -303,6 +308,7 @@ In lexicographic order:
 [@woodruffw]: https://github.com/woodruffw
 [@wyxloading]: https://github.com/wyxloading
 [@xcoldhandsx]: https://github.com/xcoldhandsx
+[@x0rb3l]: https://github.com/x0rb3l
 [@x64k]: https://github.com/x64k
 
 ## Contributing

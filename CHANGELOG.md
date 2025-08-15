@@ -5,8 +5,9 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.10, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
-## [0.10.1]  - Unreleased
+## [0.10.1]
 ## Added
+pe: Add .NET CLR parser, thanks @kkent030315: https://github.com/m4b/goblin/pull/432
 pe: Add parser for `C_SCOPE_TABLE`, thanks @kkent030315: https://github.com/m4b/goblin/pull/477
 pe: Add resource parser, thanks @kkent030315: https://github.com/m4b/goblin/pull/431
 pe: Add `parse_tls_data` option, thanks @ideeockus: https://github.com/m4b/goblin/pull/457

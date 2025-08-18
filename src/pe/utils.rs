@@ -162,14 +162,18 @@ pub fn safe_try_name<'a>(
                     log::warn!(
                         "Name RVA {:#x} maps to offset {:#x} beyond file bounds (file size: {:#x}). \
                         This is common in packed binaries.",
-                        rva, offset, bytes.len()
+                        rva,
+                        offset,
+                        bytes.len()
                     );
                     Ok(None)
                 } else {
                     Err(error::Error::Malformed(format!(
                         "Name RVA {:#x} maps to offset {:#x} beyond file bounds (file size: {:#x}). \
                         This may indicate a packed binary.",
-                        rva, offset, bytes.len()
+                        rva,
+                        offset,
+                        bytes.len()
                     )))
                 }
             } else {
@@ -180,7 +184,9 @@ pub fn safe_try_name<'a>(
                         log::warn!(
                             "Failed to read name at offset {:#x} (RVA {:#x}): {}. \
                             This may indicate a packed binary.",
-                            offset, rva, e
+                            offset,
+                            rva,
+                            e
                         );
                         Ok(None)
                     }
@@ -188,7 +194,7 @@ pub fn safe_try_name<'a>(
                         "Failed to read name at offset {:#x} (RVA {:#x}): {}. \
                         This may indicate a packed binary.",
                         offset, rva, e
-                    )))
+                    ))),
                 }
             }
         }

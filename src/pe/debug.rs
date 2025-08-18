@@ -174,15 +174,16 @@ impl<'a> DebugData<'a> {
         opts: &options::ParseOptions,
         rva_offset: u32,
     ) -> error::Result<Self> {
-        let offset = match utils::find_offset(dd.virtual_address as usize, sections, file_alignment, opts) {
-            Some(offset) => offset,
-            None => {
-                return Err(error::Error::Malformed(format!(
-                    "Cannot map ImageDebugDirectory rva {:#x} into offset",
-                    dd.virtual_address
-                )));
-            }
-        };
+        let offset =
+            match utils::find_offset(dd.virtual_address as usize, sections, file_alignment, opts) {
+                Some(offset) => offset,
+                None => {
+                    return Err(error::Error::Malformed(format!(
+                        "Cannot map ImageDebugDirectory rva {:#x} into offset",
+                        dd.virtual_address
+                    )));
+                }
+            };
 
         // Ensure that the offset and size do not exceed the length of the bytes slice
         let available_size = if offset + dd.size as usize > bytes.len() {
@@ -209,7 +210,7 @@ impl<'a> DebugData<'a> {
         } else {
             dd.size as usize
         };
-        
+
         let data = if available_size > 0 {
             &bytes[offset..offset + available_size]
         } else {

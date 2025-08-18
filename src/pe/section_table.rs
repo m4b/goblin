@@ -60,7 +60,12 @@ impl SectionTable {
         offset: &mut usize,
         string_table_offset: usize,
     ) -> error::Result<Self> {
-        Self::parse_with_opts(bytes, offset, string_table_offset, &crate::pe::options::ParseOptions::default())
+        Self::parse_with_opts(
+            bytes,
+            offset,
+            string_table_offset,
+            &crate::pe::options::ParseOptions::default(),
+        )
     }
 
     pub fn parse_with_opts(
@@ -85,23 +90,10 @@ impl SectionTable {
         table.characteristics = bytes.gread_with(offset, scroll::LE)?;
 
         if let Some(idx) = table.name_offset_with_opts(opts)? {
-            match bytes.pread::<&str>(string_table_offset + idx) {
-                Ok(name) => {
-                    table.real_name = Some(String::from(name));
-                }
-                Err(e) => {
-                    if matches!(opts.parse_mode, crate::pe::options::ParseMode::Permissive) {
-                        log::warn!(
-                            "Failed to read section name from string table at offset {:#x}: {}. \
-                            This may indicate a packed binary. Skipping real name.",
-                            string_table_offset + idx, e
-                        );
-                        table.real_name = None;
-                    } else {
-                        return Err(e.into());
-                    }
-                }
-            }
+            table.real_name = bytes
+                .pread::<&str>(string_table_offset + idx)
+                .ok()
+                .map(String::from);
         }
         Ok(table)
     }
@@ -136,7 +128,10 @@ impl SectionTable {
         self.name_offset_with_opts(&crate::pe::options::ParseOptions::default())
     }
 
-    pub fn name_offset_with_opts(&self, opts: &crate::pe::options::ParseOptions) -> error::Result<Option<usize>> {
+    pub fn name_offset_with_opts(
+        &self,
+        opts: &crate::pe::options::ParseOptions,
+    ) -> error::Result<Option<usize>> {
         // Based on https://github.com/llvm-mirror/llvm/blob/af7b1832a03ab6486c42a40d21695b2c03b2d8a3/lib/Object/COFFObjectFile.cpp#L1054
         if self.name[0] == b'/' {
             let idx: usize = if self.name[1] == b'/' {
@@ -148,7 +143,7 @@ impl SectionTable {
                             return Ok(None);
                         } else {
                             return Err(crate::error::Error::Malformed(
-                                "Invalid UTF-8 in section name".to_string()
+                                "Invalid UTF-8 in section name".to_string(),
                             ));
                         }
                     }
@@ -164,11 +159,13 @@ impl SectionTable {
                     Ok(s) => s,
                     Err(_) => {
                         if matches!(opts.parse_mode, crate::pe::options::ParseMode::Permissive) {
-                            log::warn!("Invalid UTF-8 in section name, skipping name offset parsing");
+                            log::warn!(
+                                "Invalid UTF-8 in section name, skipping name offset parsing"
+                            );
                             return Ok(None);
                         } else {
                             return Err(crate::error::Error::Malformed(
-                                "Invalid UTF-8 in section name".to_string()
+                                "Invalid UTF-8 in section name".to_string(),
                             ));
                         }
                     }

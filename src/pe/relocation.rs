@@ -8,8 +8,6 @@ use crate::pe::options;
 use crate::pe::section_table;
 use crate::pe::utils;
 
-
-
 /// Size of a single COFF relocation.
 pub const COFF_RELOCATION_SIZE: usize = 10;
 
@@ -341,15 +339,16 @@ impl<'a> RelocationData<'a> {
         file_alignment: u32,
         opts: &options::ParseOptions,
     ) -> error::Result<Self> {
-        let offset = match utils::find_offset(dd.virtual_address as usize, sections, file_alignment, opts) {
-            Some(offset) => offset,
-            None => {
-                return Err(error::Error::Malformed(format!(
-                    "Cannot map base reloc rva {:#x} into offset",
-                    dd.virtual_address
-                )));
-            }
-        };
+        let offset =
+            match utils::find_offset(dd.virtual_address as usize, sections, file_alignment, opts) {
+                Some(offset) => offset,
+                None => {
+                    return Err(error::Error::Malformed(format!(
+                        "Cannot map base reloc rva {:#x} into offset",
+                        dd.virtual_address
+                    )));
+                }
+            };
 
         let available_size = if offset + (dd.size as usize) <= bytes.len() {
             dd.size as usize
@@ -365,7 +364,8 @@ impl<'a> RelocationData<'a> {
         if offset >= bytes.len() {
             return Err(error::Error::Malformed(format!(
                 "Relocation offset {:#x} is beyond file bounds (file size: {:#x})",
-                offset, bytes.len()
+                offset,
+                bytes.len()
             )));
         }
 

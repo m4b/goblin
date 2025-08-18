@@ -823,8 +823,12 @@ impl CoffHeader {
         let string_table_offset = self.pointer_to_symbol_table as usize
             + symbol::SymbolTable::size(self.number_of_symbol_table as usize);
         for i in 0..nsections {
-            let section =
-                section_table::SectionTable::parse_with_opts(bytes, offset, string_table_offset as usize, opts)?;
+            let section = section_table::SectionTable::parse_with_opts(
+                bytes,
+                offset,
+                string_table_offset as usize,
+                opts,
+            )?;
             debug!("({}) {:#?}", i, section);
             sections.push(section);
         }
@@ -901,9 +905,11 @@ impl<'a> Header<'a> {
             None
         };
         let mut offset = dos_header.pe_pointer as usize;
-        let signature = bytes.gread_with::<u32>(&mut offset, scroll::LE).map_err(|_| {
-            error::Error::Malformed(format!("cannot parse PE signature (offset {:#x})", offset))
-        })?;
+        let signature = bytes
+            .gread_with::<u32>(&mut offset, scroll::LE)
+            .map_err(|_| {
+                error::Error::Malformed(format!("cannot parse PE signature (offset {:#x})", offset))
+            })?;
         let coff_header = CoffHeader::parse(&bytes, &mut offset)?;
         let optional_header = if coff_header.size_of_optional_header > 0 {
             Some(bytes.pread::<optional_header::OptionalHeader>(offset)?)
@@ -927,10 +933,13 @@ impl<'a> Header<'a> {
     }
 
     /// Parse a PE header from the underlying bytes with parsing options
-    pub fn parse_with_opts(bytes: &'a [u8], opts: &crate::pe::options::ParseOptions) -> error::Result<Self> {
+    pub fn parse_with_opts(
+        bytes: &'a [u8],
+        opts: &crate::pe::options::ParseOptions,
+    ) -> error::Result<Self> {
         let dos_header = DosHeader::parse(&bytes)?;
-        let dos_stub = DosStub::parse(bytes, dos_header.pe_pointer)
-            .or_else(|e| match opts.parse_mode {
+        let dos_stub =
+            DosStub::parse(bytes, dos_header.pe_pointer).or_else(|e| match opts.parse_mode {
                 crate::pe::options::ParseMode::Permissive => {
                     log::warn!("DOS stub parse failed in permissive mode: {:?}", e);
                     Ok(DosStub::default())
@@ -944,7 +953,13 @@ impl<'a> Header<'a> {
     /// Parse a PE header from the underlying bytes, without the DOS header and DOS stub
     pub fn parse_without_dos(bytes: &'a [u8]) -> error::Result<Self> {
         let dos_header = DosHeader::default();
-        Header::parse_impl(bytes, dos_header, DosStub::default(), false, &crate::pe::options::ParseOptions::default())
+        Header::parse_impl(
+            bytes,
+            dos_header,
+            DosStub::default(),
+            false,
+            &crate::pe::options::ParseOptions::default(),
+        )
     }
 }
 
@@ -1078,14 +1093,19 @@ impl<'a> RichHeader<'a> {
         Self::parse_with_opts(bytes, &crate::pe::options::ParseOptions::default())
     }
 
-    pub fn parse_with_opts(bytes: &'a [u8], opts: &crate::pe::options::ParseOptions) -> error::Result<Option<Self>> {
+    pub fn parse_with_opts(
+        bytes: &'a [u8],
+        opts: &crate::pe::options::ParseOptions,
+    ) -> error::Result<Option<Self>> {
         // Parse the DOS header; some fields are required to locate the Rich header.
         let dos_header = DosHeader::parse(bytes)?;
         let dos_header_end_offset = PE_POINTER_OFFSET as usize;
         let pe_header_start_offset = dos_header.pe_pointer as usize;
 
         // The Rich header is not present in all PE files.
-        if pe_header_start_offset <= dos_header_end_offset || (pe_header_start_offset - dos_header_end_offset) < 8 {
+        if pe_header_start_offset <= dos_header_end_offset
+            || (pe_header_start_offset - dos_header_end_offset) < 8
+        {
             return Ok(None);
         }
 

@@ -322,18 +322,18 @@ if_sylvan! {
             if let Some(shdr) = section_headers.iter().rfind(|shdr| shdr.sh_type as u32 == section_header::SHT_SYMTAB) {
                 let size = shdr.sh_entsize;
                 let mut count = if size == 0 { 0 } else { shdr.sh_size / size };
-                
+
                 // In permissive mode, add bounds checking for corrupted section headers
                 if permissive {
                     // Limit count to maximum value that usize can handle
                     let max_safe_count = usize::MAX as u64;
-                    
+
                     if count > max_safe_count {
                         log::warn!("Symbol table count ({}) from section header exceeds maximum possible value, truncating to ({})", count, max_safe_count);
                         count = max_safe_count;
                     }
                 }
-                
+
                 syms = Symtab::parse_with_opts(bytes, shdr.sh_offset as usize, count as usize, ctx, permissive)?;
                 strtab = get_strtab(&section_headers, shdr.sh_link as usize)?;
             }
@@ -402,7 +402,7 @@ if_sylvan! {
                 } else {
                     RelocSection::parse(bytes, dyn_info.rela, dyn_info.relasz, true, ctx)?
                 };
-                
+
                 dynrels = if permissive {
                     RelocSection::parse(bytes, dyn_info.rel, dyn_info.relsz, false, ctx).unwrap_or_else(|e| {
                         log::warn!("Failed to parse dynamic REL relocations: {}, continuing with empty section", e);
@@ -411,7 +411,7 @@ if_sylvan! {
                 } else {
                     RelocSection::parse(bytes, dyn_info.rel, dyn_info.relsz, false, ctx)?
                 };
-                
+
                 let is_rela = dyn_info.pltrel as u64 == dynamic::DT_RELA;
                 pltrelocs = if permissive {
                     RelocSection::parse(bytes, dyn_info.jmprel, dyn_info.pltrelsz, is_rela, ctx).unwrap_or_else(|e| {
@@ -462,7 +462,7 @@ if_sylvan! {
                         match RelocSection::parse(bytes, section.sh_offset as usize, section.sh_size as usize, is_rela, ctx) {
                             Ok(sh_relocs) => shdr_relocs.push((idx, sh_relocs)),
                             Err(e) => {
-                                log::warn!("Failed to parse section relocation {} ({}): {}, skipping", 
+                                log::warn!("Failed to parse section relocation {} ({}): {}, skipping",
                                           idx, if is_rela { "RELA" } else { "REL" }, e);
                             }
                         }
@@ -481,7 +481,7 @@ if_sylvan! {
             } else {
                 symver::VersymSection::parse(bytes, &section_headers, ctx)?
             };
-            
+
             let verdef = if permissive {
                 symver::VerdefSection::parse(bytes, &section_headers, ctx).unwrap_or_else(|e| {
                     log::warn!("Failed to parse version definition section: {}, continuing with empty section", e);
@@ -490,7 +490,7 @@ if_sylvan! {
             } else {
                 symver::VerdefSection::parse(bytes, &section_headers, ctx)?
             };
-            
+
             let verneed = if permissive {
                 symver::VerneedSection::parse(bytes, &section_headers, ctx).unwrap_or_else(|e| {
                     log::warn!("Failed to parse version need section: {}, continuing with empty section", e);

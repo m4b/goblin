@@ -347,7 +347,10 @@ impl LoadConfigData {
 
         log::debug!(
             "LoadConfig parsing: offset={:#x}, dd.size={:#x}, total_bytes_len={:#x}, remaining_bytes_from_offset={:#x}",
-            offset, dd.size, bytes.len(), bytes.len().saturating_sub(offset)
+            offset,
+            dd.size,
+            bytes.len(),
+            bytes.len().saturating_sub(offset)
         );
         let bytes = bytes
             .pread_with::<&[u8]>(offset, dd.size as usize)
@@ -359,7 +362,10 @@ impl LoadConfigData {
                     bytes.len()
                 ))
             })?;
-        log::debug!("LoadConfig bytes slice created successfully, length={}", bytes.len());
+        log::debug!(
+            "LoadConfig bytes slice created successfully, length={}",
+            bytes.len()
+        );
 
         let ctx = Ctx::new(
             if is_64 {

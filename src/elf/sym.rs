@@ -529,7 +529,7 @@ if_alloc! {
                               offset, bytes.len());
                     return Ok(Symtab { bytes: &[], count: 0, ctx, start: offset, end: offset });
                 }
-                
+
                 // Limit count to maximum value that usize can handle
                 if count > usize::MAX {
                     log::warn!("Symbol count ({}) exceeds maximum possible value, truncating to ({})", count, usize::MAX);
@@ -542,12 +542,12 @@ if_alloc! {
                 .ok_or_else(|| crate::error::Error::Malformed(
                     format!("Too many ELF symbols (offset {:#x}, count {})", offset, actual_count)
                 ))?;
-        
+
             if permissive {
                 // Check if the requested size extends beyond the file
                 let available_bytes = bytes.len().saturating_sub(offset);
                 if requested_size > available_bytes {
-                    log::warn!("Symbol table extends beyond file boundary (requested: {}, available: {}), truncating", 
+                    log::warn!("Symbol table extends beyond file boundary (requested: {}, available: {}), truncating",
                               requested_size, available_bytes);
                     requested_size = available_bytes;
                     // Recalculate count based on available bytes
@@ -556,13 +556,13 @@ if_alloc! {
                     log::warn!("Adjusted symbol count from {} to {}", count, actual_count);
                 }
             }
-        
+
             let symbol_bytes = if permissive {
                 // Use safer parsing in permissive mode
                 match bytes.pread_with(offset, requested_size) {
                     Ok(data) => data,
                     Err(e) => {
-                        log::warn!("Failed to read symbol table data (offset: {}, size: {}): {}, returning empty symbol table", 
+                        log::warn!("Failed to read symbol table data (offset: {}, size: {}): {}, returning empty symbol table",
                                   offset, requested_size, e);
                         return Ok(Symtab { bytes: &[], count: 0, ctx, start: offset, end: offset });
                     }
@@ -570,7 +570,7 @@ if_alloc! {
             } else {
                 bytes.pread_with(offset, requested_size)?
             };
-            
+
             Ok(Symtab { bytes: symbol_bytes, count: actual_count, ctx, start: offset, end: offset + requested_size })
         }
 

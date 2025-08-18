@@ -27,13 +27,22 @@ fn get_str(offset: usize, bytes: &[u8], delim: ctx::StrCtx) -> scroll::Result<&s
 
 #[inline(always)]
 #[cfg(feature = "alloc")]
-fn get_str_with_opts(offset: usize, bytes: &[u8], delim: ctx::StrCtx, permissive: bool) -> scroll::Result<&str> {
+fn get_str_with_opts(
+    offset: usize,
+    bytes: &[u8],
+    delim: ctx::StrCtx,
+    permissive: bool,
+) -> scroll::Result<&str> {
     match bytes.pread_with::<&str>(offset, delim) {
         Ok(s) => Ok(s),
         Err(e) => {
             if permissive {
                 #[cfg(feature = "alloc")]
-                log::warn!("Invalid UTF-8 in string table at offset {}: {}, using empty string", offset, e);
+                log::warn!(
+                    "Invalid UTF-8 in string table at offset {}: {}, using empty string",
+                    offset,
+                    e
+                );
                 Ok("")
             } else {
                 Err(e)
@@ -93,15 +102,24 @@ impl<'a> Strtab<'a> {
     ///
     /// Errors if bytes are invalid UTF-8.
     /// Requires `feature = "alloc"`
-    pub fn parse_with_opts(bytes: &'a [u8], offset: usize, len: usize, delim: u8, permissive: bool) -> error::Result<Self> {
+    pub fn parse_with_opts(
+        bytes: &'a [u8],
+        offset: usize,
+        len: usize,
+        delim: u8,
+        permissive: bool,
+    ) -> error::Result<Self> {
         let (end, overflow) = offset.overflowing_add(len);
 
         let mut result = if permissive {
             // Handle completely invalid offset
             if offset >= bytes.len() {
                 #[cfg(feature = "alloc")]
-                log::warn!("String table offset ({}) is beyond file boundary ({}), returning empty string table",
-                          offset, bytes.len());
+                log::warn!(
+                    "String table offset ({}) is beyond file boundary ({}), returning empty string table",
+                    offset,
+                    bytes.len()
+                );
                 return Ok(Self {
                     delim: ctx::StrCtx::Delimiter(delim),
                     bytes: &[],
@@ -112,8 +130,12 @@ impl<'a> Strtab<'a> {
 
             let actual_len = if overflow || end > bytes.len() {
                 #[cfg(feature = "alloc")]
-                log::warn!("String table extends beyond file boundary (requested size: {}, offset: {}, available: {}), truncating",
-                          len, offset, bytes.len());
+                log::warn!(
+                    "String table extends beyond file boundary (requested size: {}, offset: {}, available: {}), truncating",
+                    len,
+                    offset,
+                    bytes.len()
+                );
                 bytes.len() - offset
             } else {
                 len

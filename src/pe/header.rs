@@ -461,34 +461,16 @@ impl<'a> DosStub<'a> {
     /// The DOS stub is a small program that prints the message "This program cannot be run in DOS mode" and exits; and
     /// is not really read for the PECOFF file format. It's a relic from the MS-DOS era.
     pub fn parse(bytes: &'a [u8], pe_pointer: u32) -> error::Result<Self> {
-        Self::parse_with_opts(bytes, pe_pointer, &crate::pe::options::ParseOptions::default())
-    }
-
-    /// Parse the DOS stub with parsing options.
-    ///
-    /// The DOS stub is a small program that prints the message "This program cannot be run in DOS mode" and exits; and
-    /// is not really read for the PECOFF file format. It's a relic from the MS-DOS era.
-    ///
-    /// In permissive mode, this can handle packed binaries where the PE pointer is before the DOS stub start.
-    pub fn parse_with_opts(bytes: &'a [u8], pe_pointer: u32, opts: &crate::pe::options::ParseOptions) -> error::Result<Self> {
         let start_offset = DOS_STUB_OFFSET as usize;
         let end_offset = pe_pointer as usize;
 
         // Check end_offset is not greater than start_offset
         // end_offset == start_offset may mean there is no dos stub
         if end_offset < start_offset {
-            if matches!(opts.parse_mode, crate::pe::options::ParseMode::Permissive) {
-                // In permissive mode, handle packed binaries where PE pointer is before DOS stub
-                // Return an empty DOS stub
-                return Ok(Self {
-                    data: &[],
-                });
-            } else {
-                return Err(error::Error::Malformed(format!(
-                    "PE pointer ({:#x}) cannot be before the DOS stub start ({:#x})",
-                    pe_pointer, start_offset
-                )));
-            }
+            return Err(error::Error::Malformed(format!(
+                "PE pointer ({:#x}) cannot be before the DOS stub start ({:#x})",
+                pe_pointer, start_offset
+            )));
         }
 
         if bytes.len() < end_offset {
@@ -816,6 +798,19 @@ impl CoffHeader {
         bytes: &[u8],
         offset: &mut usize,
     ) -> error::Result<Vec<section_table::SectionTable>> {
+        self.sections_with_opts(bytes, offset, &crate::pe::options::ParseOptions::default())
+    }
+
+    /// Parse the COFF section headers with parsing options.
+    ///
+    /// For COFF, these immediately follow the COFF header. For PE, these immediately follow the
+    /// optional header.
+    pub fn sections_with_opts(
+        &self,
+        bytes: &[u8],
+        offset: &mut usize,
+        opts: &crate::pe::options::ParseOptions,
+    ) -> error::Result<Vec<section_table::SectionTable>> {
         let nsections = self.number_of_sections as usize;
 
         // a section table is at least 40 bytes
@@ -829,7 +824,7 @@ impl CoffHeader {
             + symbol::SymbolTable::size(self.number_of_symbol_table as usize);
         for i in 0..nsections {
             let section =
-                section_table::SectionTable::parse(bytes, offset, string_table_offset as usize)?;
+                section_table::SectionTable::parse_with_opts(bytes, offset, string_table_offset as usize, opts)?;
             debug!("({}) {:#?}", i, section);
             sections.push(section);
         }
@@ -934,7 +929,14 @@ impl<'a> Header<'a> {
     /// Parse a PE header from the underlying bytes with parsing options
     pub fn parse_with_opts(bytes: &'a [u8], opts: &crate::pe::options::ParseOptions) -> error::Result<Self> {
         let dos_header = DosHeader::parse(&bytes)?;
-        let dos_stub = DosStub::parse_with_opts(bytes, dos_header.pe_pointer, opts)?;
+        let dos_stub = DosStub::parse(bytes, dos_header.pe_pointer)
+            .or_else(|e| match opts.parse_mode {
+                crate::pe::options::ParseMode::Permissive => {
+                    log::warn!("DOS stub parse failed in permissive mode: {:?}", e);
+                    Ok(DosStub::default())
+                }
+                _ => Err(e),
+            })?;
 
         Header::parse_impl(bytes, dos_header, dos_stub, true, opts)
     }

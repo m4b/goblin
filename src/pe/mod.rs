@@ -111,7 +111,7 @@ impl<'a> PE<'a> {
         let offset =
             &mut (optional_header_offset + header.coff_header.size_of_optional_header as usize);
 
-        let sections = header.coff_header.sections(bytes, offset)?;
+        let sections = header.coff_header.sections_with_opts(bytes, offset, opts)?;
         let is_lib = characteristic::is_dll(header.coff_header.characteristics);
         let mut entry = 0;
         let mut image_base = 0;
@@ -228,17 +228,23 @@ impl<'a> PE<'a> {
             }
             debug!("imports: {:#?}", imports);
             if let Some(&debug_table) = optional_header.data_directories.get_debug_table() {
-                debug_data = Some(debug::DebugData::parse_with_opts(
+                debug_data = debug::DebugData::parse_with_opts(
                     bytes,
                     debug_table,
                     &sections,
                     file_alignment,
                     opts,
-                )?);
+                )
+                .map(Some) // Ok(data) -> Ok(Some(data))
+                .or_else(|e| {
+                    matches!(opts.parse_mode, options::ParseMode::Permissive)
+                        .then_some(None) // Permissive=true -> Some(None)
+                        .ok_or(e) // Some(None) -> Ok(None), None -> Err(e)
+                })?;
             }
 
             if let Some(tls_table) = optional_header.data_directories.get_tls_table() {
-                match tls::TlsData::parse_with_opts(
+                tls_data = tls::TlsData::parse_with_opts(
                     bytes,
                     image_base,
                     tls_table,
@@ -246,16 +252,13 @@ impl<'a> PE<'a> {
                     file_alignment,
                     opts,
                     is_64,
-                ) {
-                    Ok(data) => {
-                        tls_data = data;
-                        debug!("tls data: {:#?}", tls_data);
-                    }
-                    Err(err) => {
-                        debug!("Failed to parse TLS data: {:?}", err);
-                    }
-
-                }
+                ) // Result<Option<T>>
+                .or_else(|e| {
+                    matches!(opts.parse_mode, options::ParseMode::Permissive)
+                        .then_some(None) // Permissive=true -> Some(None)
+                        .ok_or(e) // Some(None) -> Ok(None), None -> Err(e)
+                })?;
+                debug!("tls data: {:#?}", tls_data);
             }
 
             if header.coff_header.machine == header::COFF_MACHINE_X86_64 {
@@ -264,52 +267,75 @@ impl<'a> PE<'a> {
                 if let Some(&exception_table) =
                     optional_header.data_directories.get_exception_table()
                 {
-                    exception_data = Some(exception::ExceptionData::parse_with_opts(
+                    exception_data = exception::ExceptionData::parse_with_opts(
                         bytes,
                         exception_table,
                         &sections,
                         file_alignment,
                         opts,
-                    )?);
+                    )
+                    .map(Some) // Ok(data) -> Ok(Some(data))
+                    .or_else(|e| {
+                        matches!(opts.parse_mode, options::ParseMode::Permissive)
+                            .then_some(None) // Permissive=true -> Some(None)
+                            .ok_or(e) // Some(None) -> Ok(None), None -> Err(e)
+                    })?;
                 }
             }
 
             if let Some(&baserelocs_dir) =
                 optional_header.data_directories.get_base_relocation_table()
             {
-                relocation_data = Some(relocation::RelocationData::parse_with_opts(
+                relocation_data = relocation::RelocationData::parse_with_opts(
                     bytes,
                     baserelocs_dir,
                     &sections,
                     file_alignment,
                     opts,
-                )?);
+                )
+                .map(Some) // Ok(data) -> Ok(Some(data))
+                .or_else(|e| {
+                    matches!(opts.parse_mode, options::ParseMode::Permissive)
+                        .then_some(None) // Permissive=true -> Some(None)
+                        .ok_or(e) // Some(None) -> Ok(None), None -> Err(e)
+                })?;
             }
 
             if let Some(&load_config_dir) = optional_header.data_directories.get_load_config_table()
             {
                 debug!("LoadConfig directory found: virtual_address={:#x}, size={:#x}",
                        load_config_dir.virtual_address, load_config_dir.size);
-                load_config_data = Some(load_config::LoadConfigData::parse_with_opts(
+                load_config_data = load_config::LoadConfigData::parse_with_opts(
                     bytes,
                     load_config_dir,
                     &sections,
                     file_alignment,
                     opts,
                     is_64,
-                )?);
+                )
+                .map(Some) // Ok(data) -> Ok(Some(data))
+                .or_else(|e| {
+                    matches!(opts.parse_mode, options::ParseMode::Permissive)
+                        .then_some(None) // Permissive=true -> Some(None)
+                        .ok_or(e) // Some(None) -> Ok(None), None -> Err(e)
+                })?;
             }
 
             if let Some(com_descriptor) = optional_header.data_directories.get_clr_runtime_header()
             {
-                let data = clr::ClrData::parse_with_opts(
+                clr_data = clr::ClrData::parse_with_opts(
                     bytes,
                     &com_descriptor,
                     &sections,
                     file_alignment,
                     opts,
-                )?;
-                clr_data = Some(data);
+                )
+                .map(Some) // Ok(data) -> Ok(Some(data))
+                .or_else(|e| {
+                    matches!(opts.parse_mode, options::ParseMode::Permissive)
+                        .then_some(None) // Permissive=true -> Some(None)
+                        .ok_or(e) // Some(None) -> Ok(None), None -> Err(e)
+                })?;
             }
 
             // Parse attribute certificates unless opted out of

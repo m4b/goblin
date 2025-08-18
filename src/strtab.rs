@@ -26,12 +26,16 @@ fn get_str(offset: usize, bytes: &[u8], delim: ctx::StrCtx) -> scroll::Result<&s
 }
 
 #[inline(always)]
-fn get_str_permissive(offset: usize, bytes: &[u8], delim: ctx::StrCtx) -> &str {
+fn get_str_with_opts(offset: usize, bytes: &[u8], delim: ctx::StrCtx, permissive: bool) -> scroll::Result<&str> {
     match bytes.pread_with::<&str>(offset, delim) {
-        Ok(s) => s,
-        Err(_) => {
-            // If UTF-8 parsing fails skip the string
-            ""
+        Ok(s) => Ok(s),
+        Err(e) => {
+            if permissive {
+                log::warn!("Invalid UTF-8 in string table at offset {}: {}, using empty string", offset, e);
+                Ok("")
+            } else {
+                Err(e)
+            }
         }
     }
 }
@@ -126,13 +130,9 @@ impl<'a> Strtab<'a> {
 
         let mut i = 0;
         while i < result.bytes.len() {
-            let string = if permissive {
-                get_str_permissive(i, result.bytes, result.delim)
-            } else {
-                match get_str(i, result.bytes, result.delim) {
-                    Ok(s) => s,
-                    Err(e) => return Err(e.into()),
-                }
+            let string = match get_str_with_opts(i, result.bytes, result.delim, permissive) {
+                Ok(s) => s,
+                Err(e) => return Err(e.into()),
             };
             result.strings.push((i, string));
             i += string.len() + 1;

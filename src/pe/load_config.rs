@@ -339,21 +339,10 @@ impl LoadConfigData {
                 })?;
         // Check if the data directory size is sufficient for at least the cb size field (4 bytes)
         if dd.size < 4 {
-            if matches!(opts.parse_mode, options::ParseMode::Permissive) {
-                log::warn!(
-                    "LoadConfig data directory has insufficient size {:#x} (minimum 4 bytes required). \
-                    This is common in packed binaries. Using default LoadConfig data.",
-                    dd.size
-                );
-                // Return a minimal LoadConfigDirectory with default values
-                let directory = LoadConfigDirectory::default();
-                return Ok(Self { directory });
-            } else {
-                return Err(error::Error::Malformed(format!(
-                    "LoadConfig data directory has insufficient size {:#x} (minimum 4 bytes required)",
-                    dd.size
-                )));
-            }
+            return Err(error::Error::Malformed(format!(
+                "LoadConfig data directory has insufficient size {:#x} (minimum 4 bytes required)",
+                dd.size
+            )));
         }
 
         log::debug!(

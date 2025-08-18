@@ -60,6 +60,15 @@ impl SectionTable {
         offset: &mut usize,
         string_table_offset: usize,
     ) -> error::Result<Self> {
+        Self::parse_with_opts(bytes, offset, string_table_offset, &crate::pe::options::ParseOptions::default())
+    }
+
+    pub fn parse_with_opts(
+        bytes: &[u8],
+        offset: &mut usize,
+        string_table_offset: usize,
+        opts: &crate::pe::options::ParseOptions,
+    ) -> error::Result<Self> {
         let mut table = SectionTable::default();
         let mut name = [0u8; 8];
         name.copy_from_slice(bytes.gread_with(offset, 8)?);
@@ -75,11 +84,24 @@ impl SectionTable {
         table.number_of_linenumbers = bytes.gread_with(offset, scroll::LE)?;
         table.characteristics = bytes.gread_with(offset, scroll::LE)?;
 
-        if let Some(idx) = table.name_offset()? {
-            table.real_name = bytes
-                .pread::<&str>(string_table_offset + idx)
-                .ok()
-                .map(String::from);
+        if let Some(idx) = table.name_offset_with_opts(opts)? {
+            match bytes.pread::<&str>(string_table_offset + idx) {
+                Ok(name) => {
+                    table.real_name = Some(String::from(name));
+                }
+                Err(e) => {
+                    if matches!(opts.parse_mode, crate::pe::options::ParseMode::Permissive) {
+                        log::warn!(
+                            "Failed to read section name from string table at offset {:#x}: {}. \
+                            This may indicate a packed binary. Skipping real name.",
+                            string_table_offset + idx, e
+                        );
+                        table.real_name = None;
+                    } else {
+                        return Err(e.into());
+                    }
+                }
+            }
         }
         Ok(table)
     }
@@ -111,14 +133,24 @@ impl SectionTable {
     }
 
     pub fn name_offset(&self) -> error::Result<Option<usize>> {
+        self.name_offset_with_opts(&crate::pe::options::ParseOptions::default())
+    }
+
+    pub fn name_offset_with_opts(&self, opts: &crate::pe::options::ParseOptions) -> error::Result<Option<usize>> {
         // Based on https://github.com/llvm-mirror/llvm/blob/af7b1832a03ab6486c42a40d21695b2c03b2d8a3/lib/Object/COFFObjectFile.cpp#L1054
         if self.name[0] == b'/' {
             let idx: usize = if self.name[1] == b'/' {
                 let b64idx = match self.name.pread::<&str>(2) {
                     Ok(s) => s,
                     Err(_) => {
-                        log::warn!("Invalid UTF-8 in section name, skipping base64 decoding");
-                        return Ok(None);
+                        if matches!(opts.parse_mode, crate::pe::options::ParseMode::Permissive) {
+                            log::warn!("Invalid UTF-8 in section name, skipping base64 decoding");
+                            return Ok(None);
+                        } else {
+                            return Err(crate::error::Error::Malformed(
+                                "Invalid UTF-8 in section name".to_string()
+                            ));
+                        }
                     }
                 };
                 base64_decode_string_entry(b64idx).map_err(|_| {
@@ -131,8 +163,14 @@ impl SectionTable {
                 let name = match self.name.pread::<&str>(1) {
                     Ok(s) => s,
                     Err(_) => {
-                        log::warn!("Invalid UTF-8 in section name, skipping name offset parsing");
-                        return Ok(None);
+                        if matches!(opts.parse_mode, crate::pe::options::ParseMode::Permissive) {
+                            log::warn!("Invalid UTF-8 in section name, skipping name offset parsing");
+                            return Ok(None);
+                        } else {
+                            return Err(crate::error::Error::Malformed(
+                                "Invalid UTF-8 in section name".to_string()
+                            ));
+                        }
                     }
                 };
                 name.parse().map_err(|err| {

@@ -310,7 +310,7 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
     ) -> error::Result<SyntheticImportDirectoryEntry<'a>> {
         const LE: scroll::Endian = scroll::LE;
         let name_rva = import_directory_entry.name_rva;
-        let name = utils::safe_try_name(bytes, name_rva as usize, sections, file_alignment, opts)?;
+        let name = utils::safe_try_name(bytes, name_rva as usize, sections, file_alignment, opts)?.unwrap_or("");
         let import_lookup_table = {
             let import_lookup_table_rva = import_directory_entry.import_lookup_table_rva;
             let import_address_table_rva = import_directory_entry.import_address_table_rva;

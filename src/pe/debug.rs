@@ -177,29 +177,10 @@ impl<'a> DebugData<'a> {
         let offset = match utils::find_offset(dd.virtual_address as usize, sections, file_alignment, opts) {
             Some(offset) => offset,
             None => {
-                if matches!(opts.parse_mode, options::ParseMode::Permissive) {
-                    log::warn!(
-                        "Cannot map ImageDebugDirectory rva {:#x} into offset. \
-                        This is common in packed binaries. Using empty debug data.",
-                        dd.virtual_address
-                    );
-                    return Ok(Self {
-                        data: &[],
-                        rva_offset,
-                        codeview_pdb70_debug_info: None,
-                        codeview_pdb20_debug_info: None,
-                        vcfeature_info: None,
-                        ex_dll_characteristics_info: None,
-                        repro_info: None,
-                        pogo_info: None,
-                    });
-                } else {
-                    return Err(error::Error::Malformed(format!(
-                        "Cannot map ImageDebugDirectory rva {:#x} into offset. \
-                        This may indicate a packed binary.",
-                        dd.virtual_address
-                    )));
-                }
+                return Err(error::Error::Malformed(format!(
+                    "Cannot map ImageDebugDirectory rva {:#x} into offset",
+                    dd.virtual_address
+                )));
             }
         };
 

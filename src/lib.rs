@@ -377,8 +377,8 @@ pub mod archive;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     if_everything! {
+        use super::take_hint_bytes;
         #[test]
         fn take_hint_bytes_long_enough() {
             let bytes_array = [1; 32];

@@ -421,6 +421,7 @@ impl<'a> Export<'a> {
 mod tests {
     use self::data_directories::*;
     use super::*;
+    use core::mem;
 
     static CORKAMI_POCS_PE_EXPORTSDATA_EXE: [u8; 0x400] = [
         0x4d, 0x5a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -497,7 +498,7 @@ mod tests {
     #[test]
     fn size_export_directory_table() {
         assert_eq!(
-            ::std::mem::size_of::<ExportDirectoryTable>(),
+            mem::size_of::<ExportDirectoryTable>(),
             SIZEOF_EXPORT_DIRECTORY_TABLE
         );
     }

@@ -35,6 +35,7 @@ impl Default for ParseOptions {
 }
 
 impl ParseOptions {
+    #[cfg(feature = "te")]
     pub(crate) fn te() -> Self {
         Self {
             resolve_rva: false,

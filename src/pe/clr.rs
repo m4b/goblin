@@ -490,6 +490,7 @@ impl FusedIterator for ClrSectionIterator<'_> {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec::Vec;
 
     /// A raw representation of bytes that contains 5 sections.
     const CLR_SECTIONS_VALID: &[u8] = &[

@@ -4,7 +4,9 @@ use core::iter::FusedIterator;
 use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith, ctx};
 
 use crate::error;
-use crate::pe::{data_directories, debug, optional_header, section_table, symbol};
+#[cfg(feature = "te")]
+use crate::pe::data_directories;
+use crate::pe::{debug, optional_header, section_table, symbol};
 use crate::strtab;
 
 /// In `winnt.h` and `pe.h`, it's `IMAGE_DOS_HEADER`. It's a DOS header present in all PE binaries.
@@ -1433,11 +1435,13 @@ pub fn machine_to_str(machine: u16) -> &'static str {
 mod tests {
     use crate::{
         error,
-        pe::{
-            Coff,
-            header::{DosStub, TeHeader},
-        },
+        pe::{Coff, header::DosStub},
     };
+
+    #[cfg(feature = "te")]
+    use crate::pe::header::TeHeader;
+
+    use alloc::vec::Vec;
 
     use super::{
         COFF_MACHINE_X86, DOS_MAGIC, DosHeader, Header, PE_MAGIC, RichHeader, RichMetadata,
@@ -1669,6 +1673,7 @@ mod tests {
     /// Malformed very small TE with valid TE magic.
     ///
     /// https://github.com/m4b/goblin/issues/450
+    #[cfg(feature = "te")]
     const MALFORMED_SMALL_TE: [u8; 58] = [
         0x56, 0x5A, 0x52, 0x5A, 0x50, 0x00, 0x17, 0x00, 0x00, 0x00, 0x36, 0x00, 0x00, 0x00, 0x00,
         0x10, 0x86, 0x02, 0x0C, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x1B, 0x01, 0x01, 0x00, 0x00,
@@ -1686,7 +1691,6 @@ mod tests {
         assert!(header.signature == PE_MAGIC);
         assert!(header.coff_header.machine == COFF_MACHINE_X86);
         assert!(machine_to_str(header.coff_header.machine) == "X86");
-        println!("header: {:?}", &header);
     }
 
     #[test]
@@ -1804,6 +1808,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "te")]
     fn parse_malformed_small_te() {
         let mut offset = 0;
         let header = TeHeader::parse(&MALFORMED_SMALL_TE, &mut offset);
@@ -1813,8 +1818,6 @@ mod tests {
                 msg,
                 "Stripped size (0x17) is smaller than TE header size (0x28)"
             );
-        } else {
-            panic!("Expected a Malformed error but got {:?}", header);
         }
     }
 

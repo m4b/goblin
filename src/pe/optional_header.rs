@@ -635,35 +635,30 @@ impl ctx::TryIntoCtx<scroll::Endian> for OptionalHeader {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use core::mem;
     use scroll::{Pread, Pwrite};
 
     #[test]
     fn sizeof_standards32() {
         assert_eq!(
-            ::std::mem::size_of::<StandardFields32>(),
+            mem::size_of::<StandardFields32>(),
             SIZEOF_STANDARD_FIELDS_32
         );
     }
     #[test]
     fn sizeof_windows32() {
-        assert_eq!(
-            ::std::mem::size_of::<WindowsFields32>(),
-            SIZEOF_WINDOWS_FIELDS_32
-        );
+        assert_eq!(mem::size_of::<WindowsFields32>(), SIZEOF_WINDOWS_FIELDS_32);
     }
     #[test]
     fn sizeof_standards64() {
         assert_eq!(
-            ::std::mem::size_of::<StandardFields64>(),
+            mem::size_of::<StandardFields64>(),
             SIZEOF_STANDARD_FIELDS_64
         );
     }
     #[test]
     fn sizeof_windows64() {
-        assert_eq!(
-            ::std::mem::size_of::<WindowsFields64>(),
-            SIZEOF_WINDOWS_FIELDS_64
-        );
+        assert_eq!(mem::size_of::<WindowsFields64>(), SIZEOF_WINDOWS_FIELDS_64);
     }
 
     // Taken from `C:\Windows\System32\calc.exe`

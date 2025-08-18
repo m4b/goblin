@@ -1,7 +1,7 @@
 use crate::error::{self, Error};
 use crate::pe::relocation;
 use alloc::borrow::Cow;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use scroll::{Pread, Pwrite, ctx};
 

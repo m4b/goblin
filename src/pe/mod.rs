@@ -697,6 +697,8 @@ impl<'a> Coff<'a> {
 mod tests {
     use super::Coff;
     use super::PE;
+    use alloc::borrow::ToOwned;
+    use alloc::vec::Vec;
 
     static INVALID_DOS_SIGNATURE: [u8; 512] = [
         0x3D, 0x5A, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00,

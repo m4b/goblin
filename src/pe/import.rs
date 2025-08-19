@@ -90,6 +90,7 @@ impl<'a> HintNameTableEntry<'a> {
         let offset = &mut offset;
 
         if *offset + 2 > bytes.len() {
+            // + 2 = sizeof(u16) = hint
             return Err(error::Error::Malformed(format!(
                 "HintNameTableEntry hint at offset {:#x} extends beyond file bounds (file size: {:#x}). \
                 This may indicate a packed binary.",
@@ -100,7 +101,7 @@ impl<'a> HintNameTableEntry<'a> {
 
         let hint = bytes.gread_with(offset, scroll::LE)?;
 
-        if *offset >= bytes.len() {
+        if *offset > bytes.len() {
             return Err(error::Error::Malformed(format!(
                 "HintNameTableEntry name at offset {:#x} is beyond file bounds (file size: {:#x}). \
                 This may indicate a packed binary.",

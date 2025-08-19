@@ -337,13 +337,6 @@ impl LoadConfigData {
                         dd.virtual_address
                     ))
                 })?;
-        // Check if the data directory size is sufficient for at least the cb size field (4 bytes)
-        if dd.size < 4 {
-            return Err(error::Error::Malformed(format!(
-                "LoadConfig data directory has insufficient size {:#x} (minimum 4 bytes required)",
-                dd.size
-            )));
-        }
 
         log::debug!(
             "LoadConfig parsing: offset={:#x}, dd.size={:#x}, total_bytes_len={:#x}, remaining_bytes_from_offset={:#x}",

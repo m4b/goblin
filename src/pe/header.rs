@@ -1818,6 +1818,8 @@ mod tests {
                 msg,
                 "Stripped size (0x17) is smaller than TE header size (0x28)"
             );
+        } else {
+            panic!("Expected a Malformed error but got {:?}", header);
         }
     }
 

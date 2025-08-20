@@ -18,6 +18,7 @@ pub mod clr;
 pub mod data_directories;
 pub mod debug;
 pub mod dll_characteristic;
+pub mod dynreloc;
 pub mod exception;
 pub mod export;
 pub mod header;

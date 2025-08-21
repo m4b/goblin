@@ -685,12 +685,6 @@ impl SwitchableBranchDynReloc {
         format!("x{}", self.register_number())
     }
 
-    /// Returns true if this is a valid general-purpose register number
-    pub fn is_valid_gp_register(&self) -> bool {
-        // All 16 values (0-15) are valid for general-purpose registers
-        true
-    }
-
     /// Returns the raw u16 value
     pub fn raw_value(&self) -> u16 {
         self.0

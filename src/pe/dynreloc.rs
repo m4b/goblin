@@ -1,4 +1,5 @@
 use core::fmt;
+use core::iter::FusedIterator;
 
 use alloc::string::String;
 use scroll::Pread;
@@ -900,6 +901,8 @@ impl<'a> Iterator for DynRelocEntryIterator<'a> {
     }
 }
 
+impl FusedIterator for DynRelocEntryIterator<'_> {}
+
 /// A dynamic relocation block containing multiple relocation entries.
 #[derive(Debug, Copy, Clone)]
 pub struct DynRelocBlock<'a> {
@@ -987,6 +990,8 @@ impl<'a> Iterator for DynRelocBlockIterator<'a> {
         )
     }
 }
+
+impl FusedIterator for DynRelocBlockIterator<'_> {}
 
 /// Iterator over individual dynamic relocations within a relocation block.
 #[derive(Debug, Copy, Clone)]
@@ -1093,6 +1098,8 @@ impl Iterator for DynRelocRelocationIterator<'_> {
         Some(Ok(reloc))
     }
 }
+
+impl FusedIterator for DynRelocRelocationIterator<'_> {}
 
 #[cfg(test)]
 mod tests {

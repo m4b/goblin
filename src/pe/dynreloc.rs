@@ -1,5 +1,6 @@
 use core::fmt;
 
+use alloc::string::String;
 use scroll::Pread;
 use scroll::ctx;
 
@@ -603,8 +604,8 @@ impl Into<RelocationWord> for IndirectControlTransferDynReloc {
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Default)]
 pub struct SwitchableBranchDynReloc(u16);
 
-impl std::fmt::Debug for SwitchableBranchDynReloc {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for SwitchableBranchDynReloc {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("SwitchableBranchDynReloc")
             .field(
                 "page_relative_offset",

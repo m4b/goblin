@@ -371,9 +371,10 @@ impl LoadConfigData {
         if let (Some(offset), Some(sidx)) = (
             self.directory.dynamic_value_reloc_table_offset,
             self.directory.dynamic_value_reloc_table_section,
-        ) && offset != 0
-            && sidx != 0
-        {
+        ) {
+            if offset == 0 || sidx == 0 {
+                return None;
+            }
             let section = sections.get(sidx as usize - 1)?;
             if section.pointer_to_raw_data == 0 || section.pointer_to_raw_data < offset {
                 return None;

@@ -377,7 +377,7 @@ impl LoadConfigData {
             let Some(section) = sections.get(sidx as usize - 1) else {
                 return None;
             };
-            if section.pointer_to_raw_data == 0 {
+            if section.pointer_to_raw_data == 0 || section.pointer_to_raw_data < offset {
                 return None;
             }
 

@@ -389,7 +389,7 @@ impl ResourceEntry {
     where
         P: Fn(&Self) -> bool,
     {
-        const MAX_RECURSION_DEPTH: usize = 10; // PE resource directories typically have 3-4 levels (Type → Name/ID → Language → Data)
+        const MAX_RECURSION_DEPTH: usize = 10; 
         self.recursive_next_depth_with_limit(bytes, predicate, MAX_RECURSION_DEPTH)
     }
 

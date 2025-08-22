@@ -49,7 +49,10 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Utf16String<'a> {
     fn try_from_ctx(bytes: &'a [u8], _ctx: scroll::Endian) -> error::Result<(Self, usize)> {
         let len = bytes
             .chunks(2)
-            .take_while(|x| u16::from_le_bytes([x[0], x[1]]) != 0u16)
+            .take_while(|x| {
+                // Ensure chunk has at least 2 bytes before accessing x[1]
+                x.len() >= 2 && u16::from_le_bytes([x[0], x[1]]) != 0u16
+            })
             .count()
             * SIZE_OF_WCHAR;
         if len > bytes.len() {
@@ -169,7 +172,7 @@ impl<'a> ImageResourceDirectory {
     /// Returns the sum of [`ImageResourceDirectory::number_of_id_entries`] and [`ImageResourceDirectory::number_of_named_entries`]
     /// from the [`ImageResourceDirectory`].
     pub fn count(&self) -> u16 {
-        self.number_of_id_entries + self.number_of_named_entries
+        self.number_of_id_entries.saturating_add(self.number_of_named_entries)
     }
 
     /// Returns the total size of entries in bytes
@@ -386,11 +389,31 @@ impl ResourceEntry {
     where
         P: Fn(&Self) -> bool,
     {
+        const MAX_RECURSION_DEPTH: usize = 10; // PE resource directories typically have 3-4 levels (Type → Name/ID → Language → Data)
+        self.recursive_next_depth_with_limit(bytes, predicate, MAX_RECURSION_DEPTH)
+    }
+
+    /// Internal implementation with recursion depth limit
+    fn recursive_next_depth_with_limit<'a, P>(
+        &self,
+        bytes: &'a [u8],
+        predicate: P,
+        remaining_depth: usize,
+    ) -> error::Result<Option<ResourceEntry>>
+    where
+        P: Fn(&Self) -> bool,
+    {
+        if remaining_depth == 0 {
+            return Err(error::Error::Malformed(
+                "Maximum recursion depth exceeded in resource directory parsing".to_string(),
+            ));
+        }
+
         if let Some(next) = self.next_depth(bytes)? {
             if !predicate(&next) {
                 Ok(Some(next))
             } else {
-                next.recursive_next_depth(bytes, predicate)
+                next.recursive_next_depth_with_limit(bytes, predicate, remaining_depth - 1)
             }
         } else {
             Ok(Some(*self))

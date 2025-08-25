@@ -1118,7 +1118,7 @@ impl<'a> RichHeader<'a> {
             .or_permissive_and_value(
                 opts.parse_mode.is_permissive(),
                 "Packed binaries may have PE pointer before DOS header end",
-                None
+                None,
             );
         }
         let scan_stub = &bytes[scan_start..scan_end];

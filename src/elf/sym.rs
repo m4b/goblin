@@ -521,7 +521,7 @@ if_alloc! {
         /// Parse a table of `count` ELF symbols from `offset` with options.
         pub(crate) fn parse_with_opts(bytes: &'a [u8], offset: usize, count: usize, ctx: Ctx, opts: &crate::options::ParseOptions) -> Result<Symtab<'a>> {
             use crate::error::Permissive;
-            
+
             // Validate offset is within bounds
             if offset >= bytes.len() {
                 return Err(crate::error::Error::Malformed(
@@ -558,9 +558,9 @@ if_alloc! {
             if requested_size > available_bytes {
                 let sym_size = Sym::size_with(&ctx);
                 let adjusted_count = if sym_size > 0 { available_bytes / sym_size } else { 0 };
-                
+
                 let (new_size, new_count) = Err(crate::error::Error::Malformed(
-                    format!("Symbol table extends beyond file boundary (requested: {}, available: {})", 
+                    format!("Symbol table extends beyond file boundary (requested: {}, available: {})",
                             requested_size, available_bytes)
                 ))
                 .or_permissive_and_then(
@@ -569,7 +569,7 @@ if_alloc! {
                              requested_size, available_bytes, actual_count, adjusted_count),
                     || (available_bytes, adjusted_count)
                 )?;
-                
+
                 requested_size = new_size;
                 actual_count = new_count;
             }

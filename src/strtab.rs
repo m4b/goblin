@@ -104,7 +104,7 @@ impl<'a> Strtab<'a> {
         opts: &crate::options::ParseOptions,
     ) -> error::Result<Self> {
         use crate::error::Permissive;
-        
+
         let (end, overflow) = offset.overflowing_add(len);
 
         // Handle completely invalid offset
@@ -122,18 +122,17 @@ impl<'a> Strtab<'a> {
                     delim: ctx::StrCtx::Delimiter(delim),
                     bytes: &[],
                     strings: Vec::new(),
-                }
+                },
             );
             #[cfg(not(feature = "alloc"))]
-            return Err(scroll::Error::BadOffset(offset).into())
-                .or_permissive_and_value(
-                    opts.is_permissive(),
-                    "String table offset is beyond file boundary",
-                    Self {
-                        delim: ctx::StrCtx::Delimiter(delim),
-                        bytes: &[],
-                    }
-                );
+            return Err(scroll::Error::BadOffset(offset).into()).or_permissive_and_value(
+                opts.is_permissive(),
+                "String table offset is beyond file boundary",
+                Self {
+                    delim: ctx::StrCtx::Delimiter(delim),
+                    bytes: &[],
+                },
+            );
         }
 
         // Check for overflow or out of bounds
@@ -148,11 +147,11 @@ impl<'a> Strtab<'a> {
             )));
             #[cfg(not(feature = "alloc"))]
             let err = Err(scroll::Error::BadOffset(offset).into());
-            
+
             err.or_permissive_and_then(
                 opts.is_permissive(),
                 "String table extends beyond file boundary, truncating",
-                || bytes.len() - offset
+                || bytes.len() - offset,
             )?
         } else {
             len

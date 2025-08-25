@@ -415,7 +415,7 @@ if_sylvan! {
                             &format!("Failed to parse section relocation {} ({}), skipping", idx, if is_rela { "RELA" } else { "REL" }),
                             None
                         )?;
-                    
+
                     if let Some(sh_relocs) = sh_relocs_opt {
                         shdr_relocs.push((idx, sh_relocs));
                     }

@@ -111,12 +111,11 @@ impl<'a> HintNameTableEntry<'a> {
 
         use crate::error::Permissive;
 
-        let name = bytes.pread::<&'a str>(*offset)
-            .or_permissive_and_value(
-                opts.parse_mode.is_permissive(),
-                &format!("Invalid UTF-8 in import name at offset {:#x}", offset),
-                ""
-            )?;
+        let name = bytes.pread::<&'a str>(*offset).or_permissive_and_value(
+            opts.parse_mode.is_permissive(),
+            &format!("Invalid UTF-8 in import name at offset {:#x}", offset),
+            "",
+        )?;
 
         Ok(HintNameTableEntry { hint, name })
     }
@@ -157,7 +156,7 @@ impl<'a> SyntheticImportLookupTableEntry<'a> {
         let offset = &mut offset;
         let mut table = Vec::new();
         use crate::error::Permissive;
-        
+
         loop {
             if *offset + T::size_of() > bytes.len() {
                 Err(error::Error::Malformed(format!(
@@ -209,7 +208,8 @@ impl<'a> SyntheticImportLookupTableEntry<'a> {
                                         Err(e) => return Err(e),
                                     }
                                 }
-                                match HintNameTableEntry::parse_with_opts(bytes, entry_offset, opts) {
+                                match HintNameTableEntry::parse_with_opts(bytes, entry_offset, opts)
+                                {
                                     Ok(entry) => entry,
                                     Err(e) => {
                                         if opts.parse_mode.is_permissive() {
@@ -445,7 +445,7 @@ impl<'a> ImportData<'a> {
             import_directory_table_rva
         );
         use crate::error::Permissive;
-        
+
         let offset = &mut utils::find_offset(
             import_directory_table_rva,
             sections,
@@ -507,12 +507,11 @@ impl<'a> ImportData<'a> {
                         import_data.push(entry);
                     }
                     Err(err) => {
-                        match Err::<(), _>(err)
-                            .or_permissive_and_value(
-                                opts.parse_mode.is_permissive(),
-                                "Failed to parse import data",
-                                ()
-                            ) {
+                        match Err::<(), _>(err).or_permissive_and_value(
+                            opts.parse_mode.is_permissive(),
+                            "Failed to parse import data",
+                            (),
+                        ) {
                             Ok(_) => continue,
                             Err(e) => return Err(e),
                         }

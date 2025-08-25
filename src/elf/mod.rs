@@ -315,7 +315,7 @@ if_sylvan! {
 
                 // Check for extremely large counts that exceed usize capacity
                 let count = if initial_count > usize::MAX as u64 {
-                    use crate::error::Permissive;
+
                     Err(crate::error::Error::Malformed(
                         format!("Symbol table count ({}) from section header exceeds maximum possible value", initial_count)
                     ))
@@ -406,7 +406,7 @@ if_sylvan! {
             for (idx, section) in section_headers.iter().enumerate() {
                 let is_rela = section.sh_type == section_header::SHT_RELA;
                 if is_rela || section.sh_type == section_header::SHT_REL {
-                    use crate::error::Permissive;
+
                     section.check_size_with_opts(bytes.len(), permissive)?;
                     let sh_relocs_opt = RelocSection::parse(bytes, section.sh_offset as usize, section.sh_size as usize, is_rela, ctx)
                         .map(Some)

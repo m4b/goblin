@@ -103,8 +103,6 @@ impl<'a> Strtab<'a> {
         delim: u8,
         opts: &crate::options::ParseOptions,
     ) -> error::Result<Self> {
-        use crate::error::Permissive;
-
         let (end, overflow) = offset.overflowing_add(len);
 
         // Handle completely invalid offset

@@ -1109,7 +1109,6 @@ impl<'a> RichHeader<'a> {
         let scan_start = dos_header_end_offset + 4;
         let scan_end = pe_header_start_offset;
         if scan_start > scan_end {
-            use crate::error::Permissive;
             return Err(error::Error::Malformed(format!(
                 "Rich header scan start ({:#X}) is greater than scan end ({:#X})",
                 scan_start, scan_end

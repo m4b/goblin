@@ -329,7 +329,7 @@ pub mod sym64 {
 
 use crate::container::{Container, Ctx};
 #[cfg(feature = "alloc")]
-use crate::error::Result;
+use crate::error::{Permissive, Result};
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::fmt;
@@ -520,7 +520,6 @@ if_alloc! {
 
         /// Parse a table of `count` ELF symbols from `offset` with options.
         pub(crate) fn parse_with_opts(bytes: &'a [u8], offset: usize, count: usize, ctx: Ctx, opts: &crate::options::ParseOptions) -> Result<Symtab<'a>> {
-            use crate::error::Permissive;
 
             // Validate offset is within bounds
             if offset >= bytes.len() {

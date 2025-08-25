@@ -370,7 +370,7 @@ pub mod section_header64 {
 ///////////////////////////////
 
 if_alloc! {
-    use crate::error;
+    use crate::error::{self, Permissive};
     use core::fmt;
     use core::result;
     use core::ops::Range;
@@ -488,25 +488,15 @@ if_alloc! {
             if overflow || end > size as u64 {
                 let message = format!("Section {} size ({}) + offset ({}) is out of bounds. Overflowed: {}",
                     self.sh_name, self.sh_offset, self.sh_size, overflow);
-                if permissive {
-                    log::warn!("Malformed section header (permissive mode): {}", message);
-                    // Continue instead of failing - this allows parsing of corrupted ELF files
-                    return Ok(());
-                } else {
-                    return Err(error::Error::Malformed(message));
-                }
+                return Err(error::Error::Malformed(message))
+                    .or_permissive_and_value(permissive, "Malformed section header", ());
             }
             let (_, overflow) = self.sh_addr.overflowing_add(self.sh_size);
             if overflow {
                 let message = format!("Section {} size ({}) + addr ({}) is out of bounds. Overflowed: {}",
                     self.sh_name, self.sh_addr, self.sh_size, overflow);
-                if permissive {
-                    log::warn!("Malformed section header (permissive mode): {}", message);
-                    // Continue instead of failing - this allows parsing of corrupted ELF files
-                    return Ok(());
-                } else {
-                    return Err(error::Error::Malformed(message));
-                }
+                return Err(error::Error::Malformed(message))
+                    .or_permissive_and_value(permissive, "Malformed section header", ());
             }
             Ok(())
         }

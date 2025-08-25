@@ -311,18 +311,22 @@ if_sylvan! {
             let mut strtab = Strtab::default();
             if let Some(shdr) = section_headers.iter().rfind(|shdr| shdr.sh_type as u32 == section_header::SHT_SYMTAB) {
                 let size = shdr.sh_entsize;
-                let mut count = if size == 0 { 0 } else { shdr.sh_size / size };
+                let initial_count = if size == 0 { 0 } else { shdr.sh_size / size };
 
-                // In permissive mode, add bounds checking for corrupted section headers
-                if permissive {
-                    // Limit count to maximum value that usize can handle
-                    let max_safe_count = usize::MAX as u64;
-
-                    if count > max_safe_count {
-                        log::warn!("Symbol table count ({}) from section header exceeds maximum possible value, truncating to ({})", count, max_safe_count);
-                        count = max_safe_count;
-                    }
-                }
+                // Check for extremely large counts that exceed usize capacity
+                let count = if initial_count > usize::MAX as u64 {
+                    use crate::error::Permissive;
+                    Err(crate::error::Error::Malformed(
+                        format!("Symbol table count ({}) from section header exceeds maximum possible value", initial_count)
+                    ))
+                    .or_permissive_and_then(
+                        permissive,
+                        &format!("Symbol table count ({}) exceeds maximum possible value, truncating to {}", initial_count, usize::MAX),
+                        || usize::MAX as u64
+                    )?
+                } else {
+                    initial_count
+                };
 
                 syms = Symtab::parse_with_opts(bytes, shdr.sh_offset as usize, count as usize, ctx, opts)?;
                 strtab = get_strtab(&section_headers, shdr.sh_link as usize)?;
@@ -402,17 +406,17 @@ if_sylvan! {
             for (idx, section) in section_headers.iter().enumerate() {
                 let is_rela = section.sh_type == section_header::SHT_RELA;
                 if is_rela || section.sh_type == section_header::SHT_REL {
+                    use crate::error::Permissive;
                     section.check_size_with_opts(bytes.len(), permissive)?;
-                    if permissive {
-                        match RelocSection::parse(bytes, section.sh_offset as usize, section.sh_size as usize, is_rela, ctx) {
-                            Ok(sh_relocs) => shdr_relocs.push((idx, sh_relocs)),
-                            Err(e) => {
-                                log::warn!("Failed to parse section relocation {} ({}): {}, skipping",
-                                          idx, if is_rela { "RELA" } else { "REL" }, e);
-                            }
-                        }
-                    } else {
-                        let sh_relocs = RelocSection::parse(bytes, section.sh_offset as usize, section.sh_size as usize, is_rela, ctx)?;
+                    let sh_relocs_opt = RelocSection::parse(bytes, section.sh_offset as usize, section.sh_size as usize, is_rela, ctx)
+                        .map(Some)
+                        .or_permissive_and_value(
+                            permissive,
+                            &format!("Failed to parse section relocation {} ({}), skipping", idx, if is_rela { "RELA" } else { "REL" }),
+                            None
+                        )?;
+                    
+                    if let Some(sh_relocs) = sh_relocs_opt {
                         shdr_relocs.push((idx, sh_relocs));
                     }
                 }

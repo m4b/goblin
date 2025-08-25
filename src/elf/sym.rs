@@ -520,22 +520,32 @@ if_alloc! {
 
         /// Parse a table of `count` ELF symbols from `offset` with options.
         pub(crate) fn parse_with_opts(bytes: &'a [u8], offset: usize, count: usize, ctx: Ctx, opts: &crate::options::ParseOptions) -> Result<Symtab<'a>> {
-            // In permissive mode, add additional bounds checking for extremely large counts
-            let mut actual_count = count;
-            if opts.is_permissive() {
-                // Check if offset is beyond file boundary
-                if offset >= bytes.len() {
-                    log::warn!("Symbol table offset ({}) is beyond file boundary ({}), returning empty symbol table",
-                              offset, bytes.len());
-                    return Ok(Symtab { bytes: &[], count: 0, ctx, start: offset, end: offset });
-                }
-
-                // Limit count to maximum value that usize can handle
-                if count > usize::MAX {
-                    log::warn!("Symbol count ({}) exceeds maximum possible value, truncating to ({})", count, usize::MAX);
-                    actual_count = usize::MAX;
-                }
+            use crate::error::Permissive;
+            
+            // Validate offset is within bounds
+            if offset >= bytes.len() {
+                return Err(crate::error::Error::Malformed(
+                    format!("Symbol table offset ({}) is beyond file boundary ({})", offset, bytes.len())
+                )).or_permissive_and_value(
+                    opts.is_permissive(),
+                    "Symbol table offset is beyond file boundary, returning empty symbol table",
+                    Symtab { bytes: &[], count: 0, ctx, start: offset, end: offset }
+                );
             }
+
+            // Check for extremely large counts
+            let mut actual_count = if count > usize::MAX {
+                Err(crate::error::Error::Malformed(
+                    format!("Symbol count ({}) exceeds maximum possible value", count)
+                ))
+                .or_permissive_and_then(
+                    opts.is_permissive(),
+                    &format!("Symbol count ({}) exceeds maximum possible value, truncating to {}", count, usize::MAX),
+                    || usize::MAX
+                )?
+            } else {
+                count
+            };
 
             let mut requested_size = actual_count
                 .checked_mul(Sym::size_with(&ctx))
@@ -543,35 +553,41 @@ if_alloc! {
                     format!("Too many ELF symbols (offset {:#x}, count {})", offset, actual_count)
                 ))?;
 
-            if opts.is_permissive() {
-                // Check if the requested size extends beyond the file
-                let available_bytes = bytes.len().saturating_sub(offset);
-                if requested_size > available_bytes {
-                    log::warn!("Symbol table extends beyond file boundary (requested: {}, available: {}), truncating",
-                              requested_size, available_bytes);
-                    requested_size = available_bytes;
-                    // Recalculate count based on available bytes
-                    let sym_size = Sym::size_with(&ctx);
-                    actual_count = if sym_size > 0 { requested_size / sym_size } else { 0 };
-                    log::warn!("Adjusted symbol count from {} to {}", count, actual_count);
-                }
+            // Check if the requested size extends beyond the file
+            let available_bytes = bytes.len().saturating_sub(offset);
+            if requested_size > available_bytes {
+                let sym_size = Sym::size_with(&ctx);
+                let adjusted_count = if sym_size > 0 { available_bytes / sym_size } else { 0 };
+                
+                let (new_size, new_count) = Err(crate::error::Error::Malformed(
+                    format!("Symbol table extends beyond file boundary (requested: {}, available: {})", 
+                            requested_size, available_bytes)
+                ))
+                .or_permissive_and_then(
+                    opts.is_permissive(),
+                    &format!("Symbol table extends beyond file boundary, truncating from {} to {} bytes (count {} to {})",
+                             requested_size, available_bytes, actual_count, adjusted_count),
+                    || (available_bytes, adjusted_count)
+                )?;
+                
+                requested_size = new_size;
+                actual_count = new_count;
             }
 
-            let symbol_bytes = if opts.is_permissive() {
-                // Use safer parsing in permissive mode
-                match bytes.pread_with(offset, requested_size) {
-                    Ok(data) => data,
-                    Err(e) => {
-                        log::warn!("Failed to read symbol table data (offset: {}, size: {}): {}, returning empty symbol table",
-                                  offset, requested_size, e);
-                        return Ok(Symtab { bytes: &[], count: 0, ctx, start: offset, end: offset });
-                    }
-                }
-            } else {
-                bytes.pread_with(offset, requested_size)?
-            };
-
-            Ok(Symtab { bytes: symbol_bytes, count: actual_count, ctx, start: offset, end: offset + requested_size })
+            bytes.pread_with(offset, requested_size)
+                .map_err(Into::into)
+                .map(|symbol_bytes| Symtab {
+                    bytes: symbol_bytes,
+                    count: actual_count,
+                    ctx,
+                    start: offset,
+                    end: offset + requested_size
+                })
+                .or_permissive_and_value(
+                    opts.is_permissive(),
+                    &format!("Failed to read symbol table data (offset: {}, size: {})", offset, requested_size),
+                    Symtab { bytes: &[], count: 0, ctx, start: offset, end: offset }
+                )
         }
 
         /// Try to parse a single symbol from the binary, at `index`.

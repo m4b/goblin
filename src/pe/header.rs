@@ -1110,16 +1110,16 @@ impl<'a> RichHeader<'a> {
         let scan_start = dos_header_end_offset + 4;
         let scan_end = pe_header_start_offset;
         if scan_start > scan_end {
-            if opts.parse_mode.is_permissive() {
-                // In permissive mode, packed binaries may have PE pointer before DOS header end
-                // Return None to indicate no Rich header present
-                return Ok(None);
-            } else {
-                return Err(error::Error::Malformed(format!(
-                    "Rich header scan start ({:#X}) is greater than scan end ({:#X})",
-                    scan_start, scan_end
-                )));
-            }
+            use crate::error::Permissive;
+            return Err(error::Error::Malformed(format!(
+                "Rich header scan start ({:#X}) is greater than scan end ({:#X})",
+                scan_start, scan_end
+            )))
+            .or_permissive_and_value(
+                opts.parse_mode.is_permissive(),
+                "Packed binaries may have PE pointer before DOS header end",
+                None
+            );
         }
         let scan_stub = &bytes[scan_start..scan_end];
 

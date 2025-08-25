@@ -186,28 +186,29 @@ impl<'a> DebugData<'a> {
                 }
             };
 
+        use crate::error::Permissive;
+        
         // Ensure that the offset and size do not exceed the length of the bytes slice
         let available_size = if offset + dd.size as usize > bytes.len() {
             let remaining_bytes = bytes.len().saturating_sub(offset);
-            if opts.parse_mode.is_permissive() {
-                log::warn!(
-                    "ImageDebugDirectory offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}. \
+            Err(error::Error::Malformed(format!(
+                "ImageDebugDirectory offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}. \
+                This may indicate a packed binary.",
+                offset,
+                dd.size,
+                bytes.len()
+            )))
+            .or_permissive_and_value(
+                opts.parse_mode.is_permissive(),
+                &format!(
+                    "ImageDebugDirectory offset {:#x} and size {:#x} exceeds bounds. \
                     Truncating to {:#x} bytes. This is common in packed binaries.",
                     offset,
                     dd.size,
-                    bytes.len(),
                     remaining_bytes
-                );
+                ),
                 remaining_bytes
-            } else {
-                return Err(error::Error::Malformed(format!(
-                    "ImageDebugDirectory offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}. \
-                    This may indicate a packed binary.",
-                    offset,
-                    dd.size,
-                    bytes.len()
-                )));
-            }
+            )?
         } else {
             dd.size as usize
         };

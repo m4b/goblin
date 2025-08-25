@@ -103,54 +103,62 @@ impl<'a> Strtab<'a> {
         delim: u8,
         opts: &crate::options::ParseOptions,
     ) -> error::Result<Self> {
+        use crate::error::Permissive;
+        
         let (end, overflow) = offset.overflowing_add(len);
 
-        let mut result = if opts.is_permissive() {
-            // Handle completely invalid offset
-            if offset >= bytes.len() {
-                #[cfg(feature = "alloc")]
-                log::warn!(
-                    "String table offset ({}) is beyond file boundary ({}), returning empty string table",
-                    offset,
-                    bytes.len()
-                );
-                return Ok(Self {
+        // Handle completely invalid offset
+        if offset >= bytes.len() {
+            #[cfg(feature = "alloc")]
+            return Err(error::Error::Malformed(format!(
+                "String table offset ({}) is beyond file boundary ({})",
+                offset,
+                bytes.len()
+            )))
+            .or_permissive_and_value(
+                opts.is_permissive(),
+                "String table offset is beyond file boundary, returning empty string table",
+                Self {
                     delim: ctx::StrCtx::Delimiter(delim),
                     bytes: &[],
-                    #[cfg(feature = "alloc")]
                     strings: Vec::new(),
-                });
-            }
-
-            let actual_len = if overflow || end > bytes.len() {
-                #[cfg(feature = "alloc")]
-                log::warn!(
-                    "String table extends beyond file boundary (requested size: {}, offset: {}, available: {}), truncating",
-                    len,
-                    offset,
-                    bytes.len()
+                }
+            );
+            #[cfg(not(feature = "alloc"))]
+            return Err(scroll::Error::BadOffset(offset).into())
+                .or_permissive_and_value(
+                    opts.is_permissive(),
+                    "String table offset is beyond file boundary",
+                    Self {
+                        delim: ctx::StrCtx::Delimiter(delim),
+                        bytes: &[],
+                    }
                 );
-                bytes.len() - offset
-            } else {
-                len
-            };
-            Self::from_slice_unparsed(bytes, offset, actual_len, delim)
+        }
+
+        // Check for overflow or out of bounds
+        let actual_len = if overflow || end > bytes.len() {
+            #[cfg(feature = "alloc")]
+            let err = Err(error::Error::Malformed(format!(
+                "Strtable size ({}) + offset ({}) is out of bounds for {} #bytes. Overflowed: {}",
+                len,
+                offset,
+                bytes.len(),
+                overflow
+            )));
+            #[cfg(not(feature = "alloc"))]
+            let err = Err(scroll::Error::BadOffset(offset).into());
+            
+            err.or_permissive_and_then(
+                opts.is_permissive(),
+                "String table extends beyond file boundary, truncating",
+                || bytes.len() - offset
+            )?
         } else {
-            // Original strict behavior
-            if overflow || end > bytes.len() {
-                #[cfg(feature = "alloc")]
-                return Err(error::Error::Malformed(format!(
-                    "Strtable size ({}) + offset ({}) is out of bounds for {} #bytes. Overflowed: {}",
-                    len,
-                    offset,
-                    bytes.len(),
-                    overflow
-                )));
-                #[cfg(not(feature = "alloc"))]
-                return Err(scroll::Error::BadOffset(offset).into());
-            }
-            Self::from_slice_unparsed(bytes, offset, len, delim)
+            len
         };
+
+        let mut result = Self::from_slice_unparsed(bytes, offset, actual_len, delim);
 
         let mut i = 0;
         while i < result.bytes.len() {

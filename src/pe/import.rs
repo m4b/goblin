@@ -109,20 +109,14 @@ impl<'a> HintNameTableEntry<'a> {
             )));
         }
 
-        let name = match bytes.pread::<&'a str>(*offset) {
-            Ok(s) => s,
-            Err(e) => {
-                if opts.parse_mode.is_permissive() {
-                    log::warn!(
-                        "Invalid UTF-8 in import name at offset {:#x}, using empty string",
-                        offset
-                    );
-                    ""
-                } else {
-                    return Err(e.into());
-                }
-            }
-        };
+        use crate::error::Permissive;
+
+        let name = bytes.pread::<&'a str>(*offset)
+            .or_permissive_and_value(
+                opts.parse_mode.is_permissive(),
+                &format!("Invalid UTF-8 in import name at offset {:#x}", offset),
+                ""
+            )?;
 
         Ok(HintNameTableEntry { hint, name })
     }
@@ -162,24 +156,22 @@ impl<'a> SyntheticImportLookupTableEntry<'a> {
         let le = scroll::LE;
         let offset = &mut offset;
         let mut table = Vec::new();
+        use crate::error::Permissive;
+        
         loop {
             if *offset + T::size_of() > bytes.len() {
-                if opts.parse_mode.is_permissive() {
-                    warn!(
-                        "Import lookup table entry at offset {:#x} would read beyond file bounds (file size: {:#x}). \
-                        This is common in packed binaries.",
-                        offset,
-                        bytes.len()
-                    );
-                    break;
-                } else {
-                    return Err(error::Error::Malformed(format!(
-                        "Import lookup table entry at offset {:#x} extends beyond file bounds (file size: {:#x}). \
-                        This may indicate a packed binary.",
-                        offset,
-                        bytes.len()
-                    )));
-                }
+                Err(error::Error::Malformed(format!(
+                    "Import lookup table entry at offset {:#x} extends beyond file bounds (file size: {:#x}). \
+                    This may indicate a packed binary.",
+                    offset,
+                    bytes.len()
+                )))
+                .or_permissive_and_value(
+                    opts.parse_mode.is_permissive(),
+                    &format!("Import lookup table entry at offset {:#x} would read beyond file bounds. This is common in packed binaries.", offset),
+                    ()
+                )?;
+                break;
             }
 
             let bitfield: T = bytes.gread_with(offset, le)?;
@@ -204,44 +196,45 @@ impl<'a> SyntheticImportLookupTableEntry<'a> {
                                 debug!("offset {:#x}", entry_offset);
                                 if entry_offset + 2 > bytes.len() {
                                     // 2 bytes minimum for hint
-                                    if opts.parse_mode.is_permissive() {
-                                        warn!(
-                                            "HintNameTableEntry at offset {:#x} (RVA {:#x}) would read beyond file bounds. \
-                                            This is common in packed binaries. Skipping entry.",
-                                            entry_offset, rva
-                                        );
-                                        continue;
-                                    } else {
-                                        return Err(error::Error::Malformed(format!(
-                                            "HintNameTableEntry at offset {:#x} (RVA {:#x}) extends beyond file bounds. \
-                                            This may indicate a packed binary.",
-                                            entry_offset, rva
-                                        )));
+                                    match Err(error::Error::Malformed(format!(
+                                        "HintNameTableEntry at offset {:#x} (RVA {:#x}) would read beyond file bounds",
+                                        entry_offset, rva
+                                    )))
+                                    .or_permissive_and_value(
+                                        opts.parse_mode.is_permissive(),
+                                        &format!("HintNameTableEntry at offset {:#x} would read beyond file bounds", entry_offset),
+                                        ()
+                                    ) {
+                                        Ok(_) => continue,
+                                        Err(e) => return Err(e),
                                     }
                                 }
-                                match HintNameTableEntry::parse_with_opts(bytes, entry_offset, opts)
-                                {
+                                match HintNameTableEntry::parse_with_opts(bytes, entry_offset, opts) {
                                     Ok(entry) => entry,
-                                    Err(e) if opts.parse_mode.is_permissive() => {
-                                        warn!(
-                                            "Failed to parse HintNameTableEntry at offset {:#x} (RVA {:#x}): {}. \
-                                            This may indicate a packed binary. Skipping entry.",
-                                            entry_offset, rva, e
-                                        );
-                                        continue;
+                                    Err(e) => {
+                                        if opts.parse_mode.is_permissive() {
+                                            warn!(
+                                                "Failed to parse HintNameTableEntry at offset {:#x} (RVA {:#x}): {}. \
+                                                This may indicate a packed binary. Skipping entry.",
+                                                entry_offset, rva, e
+                                            );
+                                            continue;
+                                        } else {
+                                            return Err(e);
+                                        }
                                     }
-                                    Err(e) => return Err(e),
                                 }
                             } else {
-                                if opts.parse_mode.is_permissive() {
-                                    warn!(
-                                        "Entry {} has bad RVA: {:#x}. This is common in packed binaries. Skipping entry.",
-                                        table.len(),
-                                        rva
-                                    );
-                                } else {
-                                    warn!("Entry {} has bad RVA: {:#x}", table.len(), rva);
-                                }
+                                warn!(
+                                    "Entry {} has bad RVA: {:#x}{}. Skipping entry.",
+                                    table.len(),
+                                    rva,
+                                    if opts.parse_mode.is_permissive() {
+                                        ". This is common in packed binaries"
+                                    } else {
+                                        ""
+                                    }
+                                );
                                 continue;
                             }
                         };
@@ -451,31 +444,29 @@ impl<'a> ImportData<'a> {
             "import_directory_table_rva {:#x}",
             import_directory_table_rva
         );
-        let offset = &mut match utils::find_offset(
+        use crate::error::Permissive;
+        
+        let offset = &mut utils::find_offset(
             import_directory_table_rva,
             sections,
             file_alignment,
             opts,
-        ) {
-            Some(offset) => offset,
-            None => {
-                if opts.parse_mode.is_permissive() {
-                    warn!(
-                        "Cannot map import_directory_table_rva {:#x} into offset. \
-                        This is common in packed binaries. Returning empty import data.",
-                        import_directory_table_rva
-                    );
-                    return Ok(ImportData {
-                        import_data: Vec::new(),
-                    });
-                } else {
-                    return Err(error::Error::Malformed(format!(
-                        "Cannot create ImportData; cannot map import_directory_table_rva {:#x} into offset",
-                        import_directory_table_rva
-                    )));
-                }
-            }
-        };
+        )
+        .ok_or_else(|| error::Error::Malformed(format!(
+            "Cannot map import_directory_table_rva {:#x} into offset",
+            import_directory_table_rva
+        )))
+        .or_permissive_and_then(
+            opts.parse_mode.is_permissive(),
+            &format!("Cannot map import_directory_table_rva {:#x} into offset. This is common in packed binaries.", import_directory_table_rva),
+            || 0
+        )?;
+
+        if *offset == 0 && opts.parse_mode.is_permissive() {
+            return Ok(ImportData {
+                import_data: Vec::new(),
+            });
+        }
 
         debug!("import data offset {:#x}", offset);
         let mut import_data = Vec::new();
@@ -483,22 +474,18 @@ impl<'a> ImportData<'a> {
             // Check bounds before reading to handle packed binaries where sections
             // may point to addresses beyond the file size
             if *offset + SIZEOF_IMPORT_DIRECTORY_ENTRY > bytes.len() {
-                if opts.parse_mode.is_permissive() {
-                    warn!(
-                        "Import directory entry at offset {:#x} would read beyond file bounds (file size: {:#x}). \
-                        This is common in packed binaries.",
-                        offset,
-                        bytes.len()
-                    );
-                    break;
-                } else {
-                    return Err(error::Error::Malformed(format!(
-                        "Import directory entry at offset {:#x} extends beyond file bounds (file size: {:#x}). \
-                        This may indicate a packed binary.",
-                        offset,
-                        bytes.len()
-                    )));
-                }
+                Err(error::Error::Malformed(format!(
+                    "Import directory entry at offset {:#x} extends beyond file bounds (file size: {:#x}). \
+                    This may indicate a packed binary.",
+                    offset,
+                    bytes.len()
+                )))
+                .or_permissive_and_value(
+                    opts.parse_mode.is_permissive(),
+                    &format!("Import directory entry at offset {:#x} would read beyond file bounds. This is common in packed binaries.", offset),
+                    ()
+                )?;
+                break;
             }
 
             let import_directory_entry: ImportDirectoryEntry =
@@ -519,12 +506,16 @@ impl<'a> ImportData<'a> {
                         debug!("entry {entry:#?}");
                         import_data.push(entry);
                     }
-                    Err(err) if opts.parse_mode.is_permissive() => {
-                        warn!("Failed to parse import data: {err:?}");
-                        continue;
-                    }
                     Err(err) => {
-                        return Err(err);
+                        match Err::<(), _>(err)
+                            .or_permissive_and_value(
+                                opts.parse_mode.is_permissive(),
+                                "Failed to parse import data",
+                                ()
+                            ) {
+                            Ok(_) => continue,
+                            Err(e) => return Err(e),
+                        }
                     }
                 }
             }

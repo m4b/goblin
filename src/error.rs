@@ -77,6 +77,26 @@ pub(crate) trait Permissive<T, E> {
         permissive: bool,
         context: &str,
     ) -> core::result::Result<T, E>;
+
+    /// Use a specific value in permissive mode instead of default
+    #[allow(unused)]
+    fn or_permissive_and_value(
+        self,
+        permissive: bool,
+        context: &str,
+        value: T,
+    ) -> core::result::Result<T, E>;
+
+    /// Use a closure to construct the value in permissive mode
+    #[allow(unused)]
+    fn or_permissive_and_then<F>(
+        self,
+        permissive: bool,
+        context: &str,
+        f: F,
+    ) -> core::result::Result<T, E>
+    where
+        F: FnOnce() -> T;
 }
 
 impl<T: Default, E: core::fmt::Display> Permissive<T, E> for core::result::Result<T, E> {
@@ -91,6 +111,45 @@ impl<T: Default, E: core::fmt::Display> Permissive<T, E> for core::result::Resul
                 #[cfg(feature = "log")]
                 log::warn!("{context}: {e}, continuing with empty/default value");
                 Ok(T::default())
+            } else {
+                Err(e)
+            }
+        })
+    }
+
+    #[allow(unused)]
+    fn or_permissive_and_value(
+        self,
+        permissive: bool,
+        context: &str,
+        value: T,
+    ) -> core::result::Result<T, E> {
+        self.or_else(|e| {
+            if permissive {
+                #[cfg(feature = "log")]
+                log::warn!("{context}: {e}, continuing with provided value");
+                Ok(value)
+            } else {
+                Err(e)
+            }
+        })
+    }
+
+    #[allow(unused)]
+    fn or_permissive_and_then<F>(
+        self,
+        permissive: bool,
+        context: &str,
+        f: F,
+    ) -> core::result::Result<T, E>
+    where
+        F: FnOnce() -> T,
+    {
+        self.or_else(|e| {
+            if permissive {
+                #[cfg(feature = "log")]
+                log::warn!("{context}: {e}, continuing with computed value");
+                Ok(f())
             } else {
                 Err(e)
             }

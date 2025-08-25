@@ -1,3 +1,5 @@
+pub use crate::options::ParseMode;
+
 /// Parsing Options structure for the PE parser
 #[non_exhaustive]
 #[derive(Debug, Copy, Clone)]
@@ -14,20 +16,7 @@ pub struct ParseOptions {
     pub parse_mode: ParseMode,
 }
 
-#[derive(Debug, Copy, Clone)]
-pub enum ParseMode {
-    /// Always end with error on incorrect data
-    Strict,
-    /// Incorrect data will not cause to end with error if possible
-    Permissive,
-}
 
-impl ParseMode {
-    /// Check if this is permissive mode
-    pub fn is_permissive(&self) -> bool {
-        matches!(self, ParseMode::Permissive)
-    }
-}
 
 impl Default for ParseOptions {
     /// Returns a parse options structure with default values

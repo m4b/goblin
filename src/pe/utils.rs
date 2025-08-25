@@ -1,4 +1,4 @@
-use crate::error;
+use crate::error::{self, Permissive};
 use alloc::string::ToString;
 use alloc::vec::Vec;
 use scroll::Pread;
@@ -158,61 +158,43 @@ pub fn safe_try_name<'a>(
     match find_offset(rva, sections, file_alignment, opts) {
         Some(offset) => {
             if offset >= bytes.len() {
-                if opts.parse_mode.is_permissive() {
-                    log::warn!(
-                        "Name RVA {:#x} maps to offset {:#x} beyond file bounds (file size: {:#x}). \
-                        This is common in packed binaries.",
-                        rva,
-                        offset,
-                        bytes.len()
-                    );
-                    Ok(None)
-                } else {
-                    Err(error::Error::Malformed(format!(
-                        "Name RVA {:#x} maps to offset {:#x} beyond file bounds (file size: {:#x}). \
-                        This may indicate a packed binary.",
-                        rva,
-                        offset,
-                        bytes.len()
-                    )))
-                }
+                Err(error::Error::Malformed(format!(
+                    "Name RVA {:#x} maps to offset {:#x} beyond file bounds (file size: {:#x}). \
+                    This may indicate a packed binary.",
+                    rva,
+                    offset,
+                    bytes.len()
+                )))
+                .or_permissive_and_default(
+                    opts.parse_mode.is_permissive(),
+                    &format!("Name RVA {:#x} maps to offset {:#x} beyond file bounds (file size: {:#x}). This is common in packed binaries.", rva, offset, bytes.len())
+                )
             } else {
                 // Try to read the string, but handle potential scroll errors gracefully
                 match bytes.pread::<&str>(offset) {
                     Ok(name) => Ok(Some(name)),
-                    Err(e) if opts.parse_mode.is_permissive() => {
-                        log::warn!(
-                            "Failed to read name at offset {:#x} (RVA {:#x}): {}. \
-                            This may indicate a packed binary.",
-                            offset,
-                            rva,
-                            e
-                        );
-                        Ok(None)
-                    }
                     Err(e) => Err(error::Error::Malformed(format!(
                         "Failed to read name at offset {:#x} (RVA {:#x}): {}. \
                         This may indicate a packed binary.",
                         offset, rva, e
-                    ))),
+                    )))
+                    .or_permissive_and_default(
+                        opts.parse_mode.is_permissive(),
+                        &format!("Failed to read name at offset {:#x} (RVA {:#x}): {}. This may indicate a packed binary.", offset, rva, e)
+                    ),
                 }
             }
         }
         None => {
-            if opts.parse_mode.is_permissive() {
-                log::warn!(
-                    "Cannot find name from RVA {:#x} in sections. \
-                    This is common in packed binaries.",
-                    rva
-                );
-                Ok(None)
-            } else {
-                Err(error::Error::Malformed(format!(
-                    "Cannot find name from rva {:#x} in sections: {:?}. \
-                    This may indicate a packed binary.",
-                    rva, sections
-                )))
-            }
+            Err(error::Error::Malformed(format!(
+                "Cannot find name from rva {:#x} in sections: {:?}. \
+                This may be a packed binary or malformed sections.",
+                rva, sections
+            )))
+            .or_permissive_and_default(
+                opts.parse_mode.is_permissive(),
+                &format!("Cannot find name from RVA {:#x} in sections. This is common in packed binaries.", rva)
+            )
         }
     }
 }

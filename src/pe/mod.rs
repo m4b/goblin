@@ -254,7 +254,7 @@ impl<'a> PE<'a> {
                     is_64,
                 ) // Result<Option<T>>
                 .or_else(|e| {
-                    matches!(opts.parse_mode, options::ParseMode::Permissive)
+                    opts.parse_mode.is_permissive()
                         .then_some(None) // Permissive=true -> Some(None)
                         .ok_or(e) // Some(None) -> Ok(None), None -> Err(e)
                 })?;

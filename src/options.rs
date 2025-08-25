@@ -4,6 +4,7 @@
 //! different binary formats (ELF, PE, Mach-O, etc.).
 
 /// Binary parsing mode
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ParseMode {
     /// Standard parsing mode - fails on malformed data

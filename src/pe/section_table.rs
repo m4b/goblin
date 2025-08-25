@@ -1,4 +1,4 @@
-use crate::error::{self, Error};
+use crate::error::{self, Error, Permissive};
 use crate::pe::relocation;
 use alloc::borrow::Cow;
 use alloc::string::{String, ToString};
@@ -138,14 +138,10 @@ impl SectionTable {
                 let b64idx = match self.name.pread::<&str>(2) {
                     Ok(s) => s,
                     Err(_) => {
-                        if opts.parse_mode.is_permissive() {
-                            log::warn!("Invalid UTF-8 in section name, skipping base64 decoding");
-                            return Ok(None);
-                        } else {
-                            return Err(crate::error::Error::Malformed(
-                                "Invalid UTF-8 in section name".to_string(),
-                            ));
-                        }
+                        return Err(crate::error::Error::Malformed(
+                            "Invalid UTF-8 in section name".to_string(),
+                        ))
+                        .or_permissive_and_default(opts.parse_mode.is_permissive(), "Invalid UTF-8 in section name, skipping base64 decoding");
                     }
                 };
                 base64_decode_string_entry(b64idx).map_err(|_| {
@@ -158,16 +154,10 @@ impl SectionTable {
                 let name = match self.name.pread::<&str>(1) {
                     Ok(s) => s,
                     Err(_) => {
-                        if opts.parse_mode.is_permissive() {
-                            log::warn!(
-                                "Invalid UTF-8 in section name, skipping name offset parsing"
-                            );
-                            return Ok(None);
-                        } else {
-                            return Err(crate::error::Error::Malformed(
-                                "Invalid UTF-8 in section name".to_string(),
-                            ));
-                        }
+                        return Err(crate::error::Error::Malformed(
+                            "Invalid UTF-8 in section name".to_string(),
+                        ))
+                        .or_permissive_and_default(opts.parse_mode.is_permissive(), "Invalid UTF-8 in section name, skipping name offset parsing");
                     }
                 };
                 name.parse().map_err(|err| {

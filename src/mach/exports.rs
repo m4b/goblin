@@ -343,7 +343,6 @@ mod tests {
         println!("trie: {:#?}", &trie);
         let exports = trie.exports(&libs).unwrap();
         println!("len: {} exports: {:#?}", exports.len(), &exports);
-
         assert_eq!(exports.len() as usize, 3usize)
     }
 
@@ -366,7 +365,6 @@ mod tests {
         println!("trie: {:#?}", &trie);
         let exports = trie.exports(&libs).unwrap();
         println!("len: {} exports: {:#?}", exports.len(), &exports);
-
         assert_eq!(exports.len() as usize, 3usize);
     }
 

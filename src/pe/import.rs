@@ -2,7 +2,7 @@ use alloc::borrow::Cow;
 use alloc::vec::Vec;
 use core::fmt::{Debug, LowerHex};
 
-use crate::error;
+use crate::error::{self, Permissive};
 use scroll::ctx::TryFromCtx;
 use scroll::{Pread, Pwrite, SizeWith};
 
@@ -109,8 +109,6 @@ impl<'a> HintNameTableEntry<'a> {
             )));
         }
 
-        use crate::error::Permissive;
-
         let name = bytes.pread::<&'a str>(*offset).or_permissive_and_value(
             opts.parse_mode.is_permissive(),
             &format!("Invalid UTF-8 in import name at offset {:#x}", offset),
@@ -155,7 +153,6 @@ impl<'a> SyntheticImportLookupTableEntry<'a> {
         let le = scroll::LE;
         let offset = &mut offset;
         let mut table = Vec::new();
-        use crate::error::Permissive;
 
         loop {
             if *offset + T::size_of() > bytes.len() {
@@ -440,7 +437,6 @@ impl<'a> ImportData<'a> {
             "import_directory_table_rva {:#x}",
             import_directory_table_rva
         );
-        use crate::error::Permissive;
 
         let offset = &mut utils::find_offset(
             import_directory_table_rva,

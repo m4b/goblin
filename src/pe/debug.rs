@@ -186,8 +186,6 @@ impl<'a> DebugData<'a> {
                 }
             };
 
-        use crate::error::Permissive;
-
         // Ensure that the offset and size do not exceed the length of the bytes slice
         let available_size = if offset + dd.size as usize > bytes.len() {
             let remaining_bytes = bytes.len().saturating_sub(offset);

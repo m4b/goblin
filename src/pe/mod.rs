@@ -692,9 +692,8 @@ impl<'a> Coff<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::Coff;
-    use super::PE;
-    use alloc::vec::Vec;
+    use super::*;
+    use crate::pe::options::{ParseMode, ParseOptions};
 
     static INVALID_DOS_SIGNATURE: [u8; 512] = [
         0x3D, 0x5A, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00,
@@ -885,8 +884,6 @@ mod tests {
 
     #[test]
     fn test_packed_binary_permissive_parsing() {
-        use crate::pe::options::{ParseMode, ParseOptions};
-
         // Create a minimal PE with a PE pointer that's before the DOS stub offset
         // This simulates a packed binary scenario
         let mut packed_pe = vec![0u8; 0x100];

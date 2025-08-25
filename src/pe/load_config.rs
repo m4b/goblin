@@ -3,7 +3,6 @@ use scroll::{Pread, Pwrite, SizeWith};
 
 use crate::container::{Container, Ctx};
 use crate::error;
-
 use crate::pe::data_directories;
 use crate::pe::options;
 use crate::pe::section_table;

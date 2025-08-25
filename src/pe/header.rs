@@ -3,8 +3,7 @@ use core::iter::FusedIterator;
 
 use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith, ctx};
 
-use crate::error;
-use crate::error::Permissive;
+use crate::error::{self, Permissive};
 #[cfg(feature = "te")]
 use crate::pe::data_directories;
 use crate::pe::{debug, optional_header, section_table, symbol};
@@ -1428,20 +1427,8 @@ pub fn machine_to_str(machine: u16) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        error,
-        pe::{
-            Coff,
-            header::{DosStub, TeHeader},
-        },
-    };
-
-    use alloc::vec::Vec;
-
-    use super::{
-        COFF_MACHINE_X86, DOS_MAGIC, DosHeader, Header, PE_MAGIC, RichHeader, RichMetadata,
-        machine_to_str,
-    };
+    use super::*;
+    use crate::{error, pe::Coff};
 
     const CRSS_HEADER: [u8; 688] = [
         0x4d, 0x5a, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00,

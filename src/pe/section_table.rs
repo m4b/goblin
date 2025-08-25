@@ -138,7 +138,7 @@ impl SectionTable {
                 let b64idx = match self.name.pread::<&str>(2) {
                     Ok(s) => s,
                     Err(_) => {
-                        if matches!(opts.parse_mode, crate::pe::options::ParseMode::Permissive) {
+                        if opts.parse_mode.is_permissive() {
                             log::warn!("Invalid UTF-8 in section name, skipping base64 decoding");
                             return Ok(None);
                         } else {
@@ -158,7 +158,7 @@ impl SectionTable {
                 let name = match self.name.pread::<&str>(1) {
                     Ok(s) => s,
                     Err(_) => {
-                        if matches!(opts.parse_mode, crate::pe::options::ParseMode::Permissive) {
+                        if opts.parse_mode.is_permissive() {
                             log::warn!(
                                 "Invalid UTF-8 in section name, skipping name offset parsing"
                             );

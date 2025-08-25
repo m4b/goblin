@@ -7,6 +7,7 @@ use core::str;
 use scroll::{Pread, ctx};
 if_alloc! {
     use crate::error;
+    use crate::error::Permissive;
     use alloc::vec::Vec;
 }
 
@@ -33,22 +34,8 @@ fn get_str_with_opts(
     delim: ctx::StrCtx,
     permissive: bool,
 ) -> scroll::Result<&str> {
-    match bytes.pread_with::<&str>(offset, delim) {
-        Ok(s) => Ok(s),
-        Err(e) => {
-            if permissive {
-                #[cfg(feature = "alloc")]
-                log::warn!(
-                    "Invalid UTF-8 in string table at offset {}: {}, using empty string",
-                    offset,
-                    e
-                );
-                Ok("")
-            } else {
-                Err(e)
-            }
-        }
-    }
+    bytes.pread_with::<&str>(offset, delim)
+        .or_permissive_and_default(permissive, "Invalid UTF-8 in string table")
 }
 
 impl<'a> Strtab<'a> {
@@ -93,7 +80,13 @@ impl<'a> Strtab<'a> {
     /// Errors if bytes are invalid UTF-8.
     /// Requires `feature = "alloc"`
     pub fn parse(bytes: &'a [u8], offset: usize, len: usize, delim: u8) -> error::Result<Self> {
-        Self::parse_with_opts(bytes, offset, len, delim, false)
+        Self::parse_with_opts(
+            bytes,
+            offset,
+            len,
+            delim,
+            &crate::options::ParseOptions::default(),
+        )
     }
 
     #[cfg(feature = "alloc")]
@@ -102,16 +95,16 @@ impl<'a> Strtab<'a> {
     ///
     /// Errors if bytes are invalid UTF-8.
     /// Requires `feature = "alloc"`
-    pub fn parse_with_opts(
+    pub(crate) fn parse_with_opts(
         bytes: &'a [u8],
         offset: usize,
         len: usize,
         delim: u8,
-        permissive: bool,
+        opts: &crate::options::ParseOptions,
     ) -> error::Result<Self> {
         let (end, overflow) = offset.overflowing_add(len);
 
-        let mut result = if permissive {
+        let mut result = if opts.is_permissive() {
             // Handle completely invalid offset
             if offset >= bytes.len() {
                 #[cfg(feature = "alloc")]
@@ -160,7 +153,7 @@ impl<'a> Strtab<'a> {
 
         let mut i = 0;
         while i < result.bytes.len() {
-            let string = get_str_with_opts(i, result.bytes, result.delim, permissive)?;
+            let string = get_str_with_opts(i, result.bytes, result.delim, opts.is_permissive())?;
             result.strings.push((i, string));
             i += string.len() + 1;
         }

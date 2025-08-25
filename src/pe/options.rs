@@ -22,6 +22,13 @@ pub enum ParseMode {
     Permissive,
 }
 
+impl ParseMode {
+    /// Check if this is permissive mode
+    pub fn is_permissive(&self) -> bool {
+        matches!(self, ParseMode::Permissive)
+    }
+}
+
 impl Default for ParseOptions {
     /// Returns a parse options structure with default values
     fn default() -> Self {

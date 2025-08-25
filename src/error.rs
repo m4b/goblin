@@ -68,3 +68,32 @@ impl fmt::Display for Error {
 
 /// An impish result
 pub type Result<T> = result::Result<T, Error>;
+
+/// A helper trait for checking the permissive flag and using default
+/// otherwise
+pub(crate) trait Permissive<T, E> {
+    fn or_permissive_and_default(
+        self,
+        permissive: bool,
+        context: &str,
+    ) -> core::result::Result<T, E>;
+}
+
+impl<T: Default, E: core::fmt::Display> Permissive<T, E> for core::result::Result<T, E> {
+    #[allow(unused)]
+    fn or_permissive_and_default(
+        self,
+        permissive: bool,
+        context: &str,
+    ) -> core::result::Result<T, E> {
+        self.or_else(|e| {
+            if permissive {
+                #[cfg(feature = "log")]
+                log::warn!("{context}: {e}, continuing with empty/default value");
+                Ok(T::default())
+            } else {
+                Err(e)
+            }
+        })
+    }
+}

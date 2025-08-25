@@ -515,14 +515,14 @@ if_alloc! {
     impl<'a> Symtab<'a> {
         /// Parse a table of `count` ELF symbols from `offset`.
         pub fn parse(bytes: &'a [u8], offset: usize, count: usize, ctx: Ctx) -> Result<Symtab<'a>> {
-            Self::parse_with_opts(bytes, offset, count, ctx, false)
+            Self::parse_with_opts(bytes, offset, count, ctx, &crate::options::ParseOptions::default())
         }
 
         /// Parse a table of `count` ELF symbols from `offset` with options.
-        pub fn parse_with_opts(bytes: &'a [u8], offset: usize, count: usize, ctx: Ctx, permissive: bool) -> Result<Symtab<'a>> {
+        pub(crate) fn parse_with_opts(bytes: &'a [u8], offset: usize, count: usize, ctx: Ctx, opts: &crate::options::ParseOptions) -> Result<Symtab<'a>> {
             // In permissive mode, add additional bounds checking for extremely large counts
             let mut actual_count = count;
-            if permissive {
+            if opts.is_permissive() {
                 // Check if offset is beyond file boundary
                 if offset >= bytes.len() {
                     log::warn!("Symbol table offset ({}) is beyond file boundary ({}), returning empty symbol table",
@@ -543,7 +543,7 @@ if_alloc! {
                     format!("Too many ELF symbols (offset {:#x}, count {})", offset, actual_count)
                 ))?;
 
-            if permissive {
+            if opts.is_permissive() {
                 // Check if the requested size extends beyond the file
                 let available_bytes = bytes.len().saturating_sub(offset);
                 if requested_size > available_bytes {
@@ -557,7 +557,7 @@ if_alloc! {
                 }
             }
 
-            let symbol_bytes = if permissive {
+            let symbol_bytes = if opts.is_permissive() {
                 // Use safer parsing in permissive mode
                 match bytes.pread_with(offset, requested_size) {
                     Ok(data) => data,

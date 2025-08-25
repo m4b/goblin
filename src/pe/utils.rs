@@ -158,7 +158,7 @@ pub fn safe_try_name<'a>(
     match find_offset(rva, sections, file_alignment, opts) {
         Some(offset) => {
             if offset >= bytes.len() {
-                if matches!(opts.parse_mode, options::ParseMode::Permissive) {
+                if opts.parse_mode.is_permissive() {
                     log::warn!(
                         "Name RVA {:#x} maps to offset {:#x} beyond file bounds (file size: {:#x}). \
                         This is common in packed binaries.",
@@ -180,7 +180,7 @@ pub fn safe_try_name<'a>(
                 // Try to read the string, but handle potential scroll errors gracefully
                 match bytes.pread::<&str>(offset) {
                     Ok(name) => Ok(Some(name)),
-                    Err(e) if matches!(opts.parse_mode, options::ParseMode::Permissive) => {
+                    Err(e) if opts.parse_mode.is_permissive() => {
                         log::warn!(
                             "Failed to read name at offset {:#x} (RVA {:#x}): {}. \
                             This may indicate a packed binary.",
@@ -199,7 +199,7 @@ pub fn safe_try_name<'a>(
             }
         }
         None => {
-            if matches!(opts.parse_mode, options::ParseMode::Permissive) {
+            if opts.parse_mode.is_permissive() {
                 log::warn!(
                     "Cannot find name from RVA {:#x} in sections. \
                     This is common in packed binaries.",

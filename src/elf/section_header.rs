@@ -480,7 +480,7 @@ if_alloc! {
             self.check_size_with_opts(size, false)
         }
 
-        pub fn check_size_with_opts(&self, size: usize, permissive: bool) -> error::Result<()> {
+        pub(crate) fn check_size_with_opts(&self, size: usize, permissive: bool) -> error::Result<()> {
             if self.sh_type == SHT_NOBITS || self.sh_size == 0 {
                 return Ok(());
             }

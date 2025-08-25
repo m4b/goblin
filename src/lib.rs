@@ -113,6 +113,8 @@ pub mod error;
 
 pub mod strtab;
 
+pub mod options;
+
 /// Binary container size information and byte-order context
 pub mod container {
     pub use scroll::Endian;

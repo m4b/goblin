@@ -11,7 +11,6 @@ use crate::pe::options;
 use crate::pe::section_table;
 use crate::pe::utils;
 
-use crate::pe::options::ParseMode;
 use log::{debug, warn};
 
 pub const IMPORT_BY_ORDINAL_32: u32 = 0x8000_0000;
@@ -113,7 +112,7 @@ impl<'a> HintNameTableEntry<'a> {
         let name = match bytes.pread::<&'a str>(*offset) {
             Ok(s) => s,
             Err(e) => {
-                if matches!(opts.parse_mode, crate::pe::options::ParseMode::Permissive) {
+                if opts.parse_mode.is_permissive() {
                     log::warn!(
                         "Invalid UTF-8 in import name at offset {:#x}, using empty string",
                         offset
@@ -165,7 +164,7 @@ impl<'a> SyntheticImportLookupTableEntry<'a> {
         let mut table = Vec::new();
         loop {
             if *offset + T::size_of() > bytes.len() {
-                if matches!(opts.parse_mode, ParseMode::Permissive) {
+                if opts.parse_mode.is_permissive() {
                     warn!(
                         "Import lookup table entry at offset {:#x} would read beyond file bounds (file size: {:#x}). \
                         This is common in packed binaries.",
@@ -205,7 +204,7 @@ impl<'a> SyntheticImportLookupTableEntry<'a> {
                                 debug!("offset {:#x}", entry_offset);
                                 if entry_offset + 2 > bytes.len() {
                                     // 2 bytes minimum for hint
-                                    if matches!(opts.parse_mode, ParseMode::Permissive) {
+                                    if opts.parse_mode.is_permissive() {
                                         warn!(
                                             "HintNameTableEntry at offset {:#x} (RVA {:#x}) would read beyond file bounds. \
                                             This is common in packed binaries. Skipping entry.",
@@ -223,7 +222,7 @@ impl<'a> SyntheticImportLookupTableEntry<'a> {
                                 match HintNameTableEntry::parse_with_opts(bytes, entry_offset, opts)
                                 {
                                     Ok(entry) => entry,
-                                    Err(e) if matches!(opts.parse_mode, ParseMode::Permissive) => {
+                                    Err(e) if opts.parse_mode.is_permissive() => {
                                         warn!(
                                             "Failed to parse HintNameTableEntry at offset {:#x} (RVA {:#x}): {}. \
                                             This may indicate a packed binary. Skipping entry.",
@@ -234,7 +233,7 @@ impl<'a> SyntheticImportLookupTableEntry<'a> {
                                     Err(e) => return Err(e),
                                 }
                             } else {
-                                if matches!(opts.parse_mode, ParseMode::Permissive) {
+                                if opts.parse_mode.is_permissive() {
                                     warn!(
                                         "Entry {} has bad RVA: {:#x}. This is common in packed binaries. Skipping entry.",
                                         table.len(),
@@ -460,7 +459,7 @@ impl<'a> ImportData<'a> {
         ) {
             Some(offset) => offset,
             None => {
-                if matches!(opts.parse_mode, ParseMode::Permissive) {
+                if opts.parse_mode.is_permissive() {
                     warn!(
                         "Cannot map import_directory_table_rva {:#x} into offset. \
                         This is common in packed binaries. Returning empty import data.",
@@ -484,7 +483,7 @@ impl<'a> ImportData<'a> {
             // Check bounds before reading to handle packed binaries where sections
             // may point to addresses beyond the file size
             if *offset + SIZEOF_IMPORT_DIRECTORY_ENTRY > bytes.len() {
-                if matches!(opts.parse_mode, ParseMode::Permissive) {
+                if opts.parse_mode.is_permissive() {
                     warn!(
                         "Import directory entry at offset {:#x} would read beyond file bounds (file size: {:#x}). \
                         This is common in packed binaries.",
@@ -520,7 +519,7 @@ impl<'a> ImportData<'a> {
                         debug!("entry {entry:#?}");
                         import_data.push(entry);
                     }
-                    Err(err) if matches!(opts.parse_mode, ParseMode::Permissive) => {
+                    Err(err) if opts.parse_mode.is_permissive() => {
                         warn!("Failed to parse import data: {err:?}");
                         continue;
                     }

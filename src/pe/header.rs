@@ -4,6 +4,7 @@ use core::iter::FusedIterator;
 use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith, ctx};
 
 use crate::error;
+use crate::error::Permissive;
 #[cfg(feature = "te")]
 use crate::pe::data_directories;
 use crate::pe::{debug, optional_header, section_table, symbol};
@@ -940,14 +941,8 @@ impl<'a> Header<'a> {
         opts: &crate::pe::options::ParseOptions,
     ) -> error::Result<Self> {
         let dos_header = DosHeader::parse(&bytes)?;
-        let dos_stub =
-            DosStub::parse(bytes, dos_header.pe_pointer).or_else(|e| match opts.parse_mode {
-                crate::pe::options::ParseMode::Permissive => {
-                    log::warn!("DOS stub parse failed in permissive mode: {:?}", e);
-                    Ok(DosStub::default())
-                }
-                _ => Err(e),
-            })?;
+        let dos_stub = DosStub::parse(bytes, dos_header.pe_pointer)
+            .or_permissive_and_default(opts.parse_mode.is_permissive(), "DOS stub parse failed")?;
 
         Header::parse_impl(bytes, dos_header, dos_stub, true, opts)
     }
@@ -1115,7 +1110,7 @@ impl<'a> RichHeader<'a> {
         let scan_start = dos_header_end_offset + 4;
         let scan_end = pe_header_start_offset;
         if scan_start > scan_end {
-            if matches!(opts.parse_mode, crate::pe::options::ParseMode::Permissive) {
+            if opts.parse_mode.is_permissive() {
                 // In permissive mode, packed binaries may have PE pointer before DOS header end
                 // Return None to indicate no Rich header present
                 return Ok(None);

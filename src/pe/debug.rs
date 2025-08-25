@@ -1,6 +1,7 @@
 use core::iter::FusedIterator;
 
 use crate::error;
+
 use log::debug;
 use scroll::{Pread, Pwrite, SizeWith};
 
@@ -181,14 +182,14 @@ impl<'a> DebugData<'a> {
                     return Err(error::Error::Malformed(format!(
                         "Cannot map ImageDebugDirectory rva {:#x} into offset",
                         dd.virtual_address
-                    )));
+                    )))?;
                 }
             };
 
         // Ensure that the offset and size do not exceed the length of the bytes slice
         let available_size = if offset + dd.size as usize > bytes.len() {
             let remaining_bytes = bytes.len().saturating_sub(offset);
-            if matches!(opts.parse_mode, options::ParseMode::Permissive) {
+            if opts.parse_mode.is_permissive() {
                 log::warn!(
                     "ImageDebugDirectory offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}. \
                     Truncating to {:#x} bytes. This is common in packed binaries.",
@@ -212,7 +213,7 @@ impl<'a> DebugData<'a> {
         };
 
         let data = if available_size > 0 {
-            &bytes[offset..offset + available_size]
+            bytes.pread_with::<&[u8]>(offset, available_size)?
         } else {
             &[]
         };
@@ -390,7 +391,7 @@ impl<'a> CodeviewPDB70DebugInfo<'a> {
         let filename_length = idd.size_of_data as isize - 24;
         if filename_length < 0 {
             // the record is too short to be plausible
-            if matches!(opts.parse_mode, options::ParseMode::Permissive) {
+            if opts.parse_mode.is_permissive() {
                 log::warn!(
                     "ImageDebugDirectory size of data seems wrong: {}, but continuing in permissive mode",
                     idd.size_of_data
@@ -509,7 +510,7 @@ impl<'a> CodeviewPDB20DebugInfo<'a> {
         let filename_length = idd.size_of_data as isize - 16;
         if filename_length < 0 {
             // the record is too short to be plausible
-            if matches!(opts.parse_mode, options::ParseMode::Permissive) {
+            if opts.parse_mode.is_permissive() {
                 log::warn!(
                     "ImageDebugDirectory size of data seems wrong: {}, but continuing in permissive mode",
                     idd.size_of_data

@@ -35,6 +35,7 @@ pub mod utils;
 
 use crate::container;
 use crate::error;
+use crate::error::Permissive;
 use crate::pe::utils::pad;
 use crate::strtab;
 use options::ParseMode;
@@ -235,12 +236,11 @@ impl<'a> PE<'a> {
                     file_alignment,
                     opts,
                 )
-                .map(Some) // Ok(data) -> Ok(Some(data))
-                .or_else(|e| {
-                    matches!(opts.parse_mode, options::ParseMode::Permissive)
-                        .then_some(None) // Permissive=true -> Some(None)
-                        .ok_or(e) // Some(None) -> Ok(None), None -> Err(e)
-                })?;
+                .map(Some)
+                .or_permissive_and_default(
+                    opts.parse_mode.is_permissive(),
+                    "Failed to parse resource data",
+                )?;
             }
 
             if let Some(tls_table) = optional_header.data_directories.get_tls_table() {
@@ -274,12 +274,11 @@ impl<'a> PE<'a> {
                         file_alignment,
                         opts,
                     )
-                    .map(Some) // Ok(data) -> Ok(Some(data))
-                    .or_else(|e| {
-                        matches!(opts.parse_mode, options::ParseMode::Permissive)
-                            .then_some(None) // Permissive=true -> Some(None)
-                            .ok_or(e) // Some(None) -> Ok(None), None -> Err(e)
-                    })?;
+                    .map(Some)
+                    .or_permissive_and_default(
+                        opts.parse_mode.is_permissive(),
+                        "Failed to parse security data",
+                    )?;
                 }
             }
 
@@ -293,12 +292,11 @@ impl<'a> PE<'a> {
                     file_alignment,
                     opts,
                 )
-                .map(Some) // Ok(data) -> Ok(Some(data))
-                .or_else(|e| {
-                    matches!(opts.parse_mode, options::ParseMode::Permissive)
-                        .then_some(None) // Permissive=true -> Some(None)
-                        .ok_or(e) // Some(None) -> Ok(None), None -> Err(e)
-                })?;
+                .map(Some)
+                .or_permissive_and_default(
+                    opts.parse_mode.is_permissive(),
+                    "Failed to parse base relocation data",
+                )?;
             }
 
             if let Some(&load_config_dir) = optional_header.data_directories.get_load_config_table()
@@ -315,12 +313,11 @@ impl<'a> PE<'a> {
                     opts,
                     is_64,
                 )
-                .map(Some) // Ok(data) -> Ok(Some(data))
-                .or_else(|e| {
-                    matches!(opts.parse_mode, options::ParseMode::Permissive)
-                        .then_some(None) // Permissive=true -> Some(None)
-                        .ok_or(e) // Some(None) -> Ok(None), None -> Err(e)
-                })?;
+                .map(Some)
+                .or_permissive_and_default(
+                    opts.parse_mode.is_permissive(),
+                    "Failed to parse load config data",
+                )?;
             }
 
             if let Some(com_descriptor) = optional_header.data_directories.get_clr_runtime_header()
@@ -332,12 +329,11 @@ impl<'a> PE<'a> {
                     file_alignment,
                     opts,
                 )
-                .map(Some) // Ok(data) -> Ok(Some(data))
-                .or_else(|e| {
-                    matches!(opts.parse_mode, options::ParseMode::Permissive)
-                        .then_some(None) // Permissive=true -> Some(None)
-                        .ok_or(e) // Some(None) -> Ok(None), None -> Err(e)
-                })?;
+                .map(Some)
+                .or_permissive_and_default(
+                    opts.parse_mode.is_permissive(),
+                    "Failed to parse CLR runtime data",
+                )?;
             }
 
             // Parse attribute certificates unless opted out of

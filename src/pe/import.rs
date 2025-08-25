@@ -195,35 +195,31 @@ impl<'a> SyntheticImportLookupTableEntry<'a> {
                                 debug!("offset {:#x}", entry_offset);
                                 if entry_offset + 2 > bytes.len() {
                                     // 2 bytes minimum for hint
-                                    match Err(error::Error::Malformed(format!(
+                                    Err(error::Error::Malformed(format!(
                                         "HintNameTableEntry at offset {:#x} (RVA {:#x}) would read beyond file bounds",
                                         entry_offset, rva
                                     )))
-                                    .or_permissive_and_value(
+                                    .or_permissive_and_then(
                                         opts.parse_mode.is_permissive(),
                                         &format!("HintNameTableEntry at offset {:#x} would read beyond file bounds", entry_offset),
-                                        ()
-                                    ) {
-                                        Ok(_) => continue,
-                                        Err(e) => return Err(e),
-                                    }
+                                        || ()
+                                    )?;
+                                    continue;
                                 }
-                                match HintNameTableEntry::parse_with_opts(bytes, entry_offset, opts)
-                                {
-                                    Ok(entry) => entry,
-                                    Err(e) => {
-                                        if opts.parse_mode.is_permissive() {
-                                            warn!(
-                                                "Failed to parse HintNameTableEntry at offset {:#x} (RVA {:#x}): {}. \
-                                                This may indicate a packed binary. Skipping entry.",
-                                                entry_offset, rva, e
-                                            );
-                                            continue;
-                                        } else {
-                                            return Err(e);
-                                        }
-                                    }
-                                }
+                                let entry_opt = HintNameTableEntry::parse_with_opts(bytes, entry_offset, opts)
+                                    .map(Some)
+                                    .or_permissive_and_value(
+                                        opts.parse_mode.is_permissive(),
+                                        &format!("Failed to parse HintNameTableEntry at offset {:#x}. This may indicate a packed binary. Skipping entry.", entry_offset),
+                                        None
+                                    )?;
+
+                                let entry = match entry_opt {
+                                    Some(entry) => entry,
+                                    None => continue, // Skip in permissive mode
+                                };
+
+                                entry
                             } else {
                                 warn!(
                                     "Entry {} has bad RVA: {:#x}{}. Skipping entry.",

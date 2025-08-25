@@ -185,17 +185,18 @@ pub fn safe_try_name<'a>(
                 }
             }
         }
-        None => {
-            Err(error::Error::Malformed(format!(
-                "Cannot find name from rva {:#x} in sections: {:?}. \
+        None => Err(error::Error::Malformed(format!(
+            "Cannot find name from rva {:#x} in sections: {:?}. \
                 This may be a packed binary or malformed sections.",
-                rva, sections
-            )))
-            .or_permissive_and_default(
-                opts.parse_mode.is_permissive(),
-                &format!("Cannot find name from RVA {:#x} in sections. This is common in packed binaries.", rva)
-            )
-        }
+            rva, sections
+        )))
+        .or_permissive_and_default(
+            opts.parse_mode.is_permissive(),
+            &format!(
+                "Cannot find name from RVA {:#x} in sections. This is common in packed binaries.",
+                rva
+            ),
+        ),
     }
 }
 

@@ -16,8 +16,6 @@ pub struct ParseOptions {
     pub parse_mode: ParseMode,
 }
 
-
-
 impl Default for ParseOptions {
     /// Returns a parse options structure with default values
     fn default() -> Self {

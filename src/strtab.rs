@@ -34,7 +34,8 @@ fn get_str_with_opts(
     delim: ctx::StrCtx,
     permissive: bool,
 ) -> scroll::Result<&str> {
-    bytes.pread_with::<&str>(offset, delim)
+    bytes
+        .pread_with::<&str>(offset, delim)
         .or_permissive_and_default(permissive, "Invalid UTF-8 in string table")
 }
 

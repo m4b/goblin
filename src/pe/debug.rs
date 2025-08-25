@@ -395,7 +395,10 @@ impl<'a> CodeviewPDB70DebugInfo<'a> {
                 "ImageDebugDirectory size of data seems wrong: {:?}",
                 idd.size_of_data
             )))
-            .or_permissive_and_default(opts.parse_mode.is_permissive(), "ImageDebugDirectory size of data seems wrong");
+            .or_permissive_and_default(
+                opts.parse_mode.is_permissive(),
+                "ImageDebugDirectory size of data seems wrong",
+            );
         }
         let filename_length = filename_length as usize;
 
@@ -507,7 +510,10 @@ impl<'a> CodeviewPDB20DebugInfo<'a> {
                 "ImageDebugDirectory size of data seems wrong: {:?}",
                 idd.size_of_data
             )))
-            .or_permissive_and_default(opts.parse_mode.is_permissive(), "ImageDebugDirectory size of data seems wrong");
+            .or_permissive_and_default(
+                opts.parse_mode.is_permissive(),
+                "ImageDebugDirectory size of data seems wrong",
+            );
         }
         let filename_length = filename_length as usize;
 

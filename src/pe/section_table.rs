@@ -141,7 +141,10 @@ impl SectionTable {
                         return Err(crate::error::Error::Malformed(
                             "Invalid UTF-8 in section name".to_string(),
                         ))
-                        .or_permissive_and_default(opts.parse_mode.is_permissive(), "Invalid UTF-8 in section name, skipping base64 decoding");
+                        .or_permissive_and_default(
+                            opts.parse_mode.is_permissive(),
+                            "Invalid UTF-8 in section name, skipping base64 decoding",
+                        );
                     }
                 };
                 base64_decode_string_entry(b64idx).map_err(|_| {
@@ -157,7 +160,10 @@ impl SectionTable {
                         return Err(crate::error::Error::Malformed(
                             "Invalid UTF-8 in section name".to_string(),
                         ))
-                        .or_permissive_and_default(opts.parse_mode.is_permissive(), "Invalid UTF-8 in section name, skipping name offset parsing");
+                        .or_permissive_and_default(
+                            opts.parse_mode.is_permissive(),
+                            "Invalid UTF-8 in section name, skipping name offset parsing",
+                        );
                     }
                 };
                 name.parse().map_err(|err| {

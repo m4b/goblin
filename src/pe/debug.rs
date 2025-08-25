@@ -863,9 +863,6 @@ mod tests {
         IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT, IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT_STRICT_MODE,
         ImageDebugDirectory, POGO_SIGNATURE_SIZE, POGOInfoEntry, ReproInfo, VCFeatureInfo,
     };
-    use alloc::string::{String, ToString};
-    use alloc::vec::Vec;
-    use core::ffi::CStr;
 
     const NO_DEBUG_DIRECTORIES_BIN: &[u8] =
         include_bytes!("../../tests/bins/pe/no_debug_directories.exe.bin");
@@ -875,7 +872,7 @@ mod tests {
         include_bytes!("../../tests/bins/pe/debug_directories-clang_lld.exe.bin");
 
     fn ffi_to_string(bytes: &[u8]) -> String {
-        unsafe { CStr::from_bytes_with_nul_unchecked(bytes) }
+        unsafe { std::ffi::CStr::from_bytes_with_nul_unchecked(bytes) }
             .to_string_lossy()
             .to_string()
     }

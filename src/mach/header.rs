@@ -409,7 +409,7 @@ impl ctx::IntoCtx<container::Ctx> for Header {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use core::mem::size_of;
+    use std::mem::size_of;
 
     #[test]
     fn test_parse_armv7_header() {

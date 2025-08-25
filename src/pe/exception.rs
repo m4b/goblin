@@ -947,12 +947,13 @@ impl<'a> IntoIterator for &'_ ExceptionData<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::vec::Vec;
-    use core::mem;
 
     #[test]
     fn test_size_of_runtime_function() {
-        assert_eq!(mem::size_of::<RuntimeFunction>(), RUNTIME_FUNCTION_SIZE);
+        assert_eq!(
+            std::mem::size_of::<RuntimeFunction>(),
+            RUNTIME_FUNCTION_SIZE
+        );
     }
 
     // Tests disabled until there is a solution for handling binary test data

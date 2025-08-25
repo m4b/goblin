@@ -110,7 +110,7 @@ macro_rules! if_alloc {
 
 #[cfg(feature = "alloc")]
 pub mod error;
-
+pub mod options;
 pub mod strtab;
 
 /// Binary container size information and byte-order context

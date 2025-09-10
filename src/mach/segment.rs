@@ -11,10 +11,10 @@ use core::ops::{Deref, DerefMut};
 use crate::container;
 use crate::error;
 
-use crate::mach::constants::{S_GB_ZEROFILL, S_THREAD_LOCAL_ZEROFILL, S_ZEROFILL, SECTION_TYPE};
+use crate::mach::constants::{SECTION_TYPE, S_GB_ZEROFILL, S_THREAD_LOCAL_ZEROFILL, S_ZEROFILL};
 use crate::mach::load_command::{
-    LC_SEGMENT, LC_SEGMENT_64, SIZEOF_SECTION_32, SIZEOF_SECTION_64, SIZEOF_SEGMENT_COMMAND_32,
-    SIZEOF_SEGMENT_COMMAND_64, Section32, Section64, SegmentCommand32, SegmentCommand64,
+    Section32, Section64, SegmentCommand32, SegmentCommand64, LC_SEGMENT, LC_SEGMENT_64,
+    SIZEOF_SECTION_32, SIZEOF_SECTION_64, SIZEOF_SEGMENT_COMMAND_32, SIZEOF_SEGMENT_COMMAND_64,
 };
 use crate::mach::relocation::RelocationInfo;
 

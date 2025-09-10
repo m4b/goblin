@@ -8,7 +8,7 @@ use scroll::{Pread, Pwrite, SizeWith};
 
 use crate::container::{self, Container};
 use crate::error;
-use crate::mach::constants::cputype::{CPU_SUBTYPE_MASK, CpuSubType, CpuType};
+use crate::mach::constants::cputype::{CpuSubType, CpuType, CPU_SUBTYPE_MASK};
 
 // Constants for the flags field of the mach_header
 /// the object file has no undefined references

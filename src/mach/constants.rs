@@ -256,7 +256,9 @@ pub mod cputype {
     pub const CPU_SUBTYPE_MC68030_ONLY: CpuSubType = 3;
 
     macro_rules! CPU_SUBTYPE_INTEL {
-        ($f:expr, $m:expr) => {{ ($f) + (($m) << 4) }};
+        ($f:expr, $m:expr) => {{
+            ($f) + (($m) << 4)
+        }};
     }
 
     pub const CPU_SUBTYPE_I386_ALL: CpuSubType = CPU_SUBTYPE_INTEL!(3, 0);

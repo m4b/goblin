@@ -172,7 +172,8 @@ impl<'a> ImageResourceDirectory {
     /// Returns the sum of [`ImageResourceDirectory::number_of_id_entries`] and [`ImageResourceDirectory::number_of_named_entries`]
     /// from the [`ImageResourceDirectory`].
     pub fn count(&self) -> u16 {
-        self.number_of_id_entries.saturating_add(self.number_of_named_entries)
+        self.number_of_id_entries
+            .saturating_add(self.number_of_named_entries)
     }
 
     /// Returns the total size of entries in bytes
@@ -389,7 +390,7 @@ impl ResourceEntry {
     where
         P: Fn(&Self) -> bool,
     {
-        const MAX_RECURSION_DEPTH: usize = 10; 
+        const MAX_RECURSION_DEPTH: usize = 10;
         self.recursive_next_depth_with_limit(bytes, predicate, MAX_RECURSION_DEPTH)
     }
 
@@ -1703,9 +1704,7 @@ mod tests {
         assert_eq!(it_vec[4].value_string(), Some("setup".to_string()));
         assert_eq!(
             it_vec[4].value,
-            &[
-                0x73, 0x00, 0x65, 0x00, 0x74, 0x00, 0x75, 0x00, 0x70, 0x00, 0x00, 0x00,
-            ]
+            &[0x73, 0x00, 0x65, 0x00, 0x74, 0x00, 0x75, 0x00, 0x70, 0x00, 0x00, 0x00,]
         );
 
         assert_eq!(it_vec[5].is_binary_data(), true);

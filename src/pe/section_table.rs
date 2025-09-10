@@ -3,7 +3,7 @@ use crate::pe::relocation;
 use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
-use scroll::{Pread, Pwrite, ctx};
+use scroll::{ctx, Pread, Pwrite};
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Clone, Default)]

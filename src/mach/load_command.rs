@@ -3,7 +3,7 @@
 use crate::error;
 use core::convert::TryFrom;
 use core::fmt::{self, Display};
-use scroll::{Endian, ctx};
+use scroll::{ctx, Endian};
 use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith};
 
 ///////////////////////////////////////

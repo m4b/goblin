@@ -2,7 +2,7 @@ use crate::error;
 use crate::strtab;
 use alloc::vec::Vec;
 use core::fmt::{self, Debug};
-use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith, ctx};
+use scroll::{ctx, IOread, IOwrite, Pread, Pwrite, SizeWith};
 
 /// Size of a single symbol in the COFF Symbol Table.
 pub const COFF_SYMBOL_SIZE: usize = 18;

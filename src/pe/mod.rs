@@ -39,7 +39,7 @@ use crate::pe::utils::pad;
 use crate::strtab;
 use options::ParseMode;
 
-use scroll::{Pwrite, ctx};
+use scroll::{ctx, Pwrite};
 
 use log::debug;
 

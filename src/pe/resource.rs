@@ -367,7 +367,7 @@ impl ResourceEntry {
             .then(|| self.offset_to_data_or_directory)
     }
 
-    /// Returns the next depth entry of [`ResourceEntry`] if present
+    /// Returns next depth entry of [`ResourceEntry`] recursively while either `predicate` returns `true` or reach the final depth
     pub fn next_depth<'a>(&self, bytes: &'a [u8]) -> error::Result<Option<ResourceEntry>> {
         let mut offset = self.offset_to_directory() as usize;
 

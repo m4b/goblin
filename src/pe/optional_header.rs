@@ -4,7 +4,7 @@ use crate::{container, error};
 
 use crate::pe::data_directories;
 
-use scroll::{ctx, Endian, Pread, Pwrite, SizeWith, LE};
+use scroll::{Endian, LE, Pread, Pwrite, SizeWith, ctx};
 
 /// Standard 32-bit COFF fields (for `PE32`).
 ///

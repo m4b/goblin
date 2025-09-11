@@ -5,7 +5,7 @@ use core::fmt;
 use log::debug;
 
 use scroll::ctx::SizeWith;
-use scroll::{Pread, BE};
+use scroll::{BE, Pread};
 
 use crate::{archive, container};
 use crate::{error, take_hint_bytes};

@@ -3,7 +3,7 @@
 /// https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#the-attribute-certificate-table-image-only
 /// https://learn.microsoft.com/en-us/windows/win32/api/wintrust/ns-wintrust-win_certificate
 use crate::error;
-use scroll::{ctx, Pread, Pwrite};
+use scroll::{Pread, Pwrite, ctx};
 
 use alloc::string::ToString;
 use alloc::vec::Vec;

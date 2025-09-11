@@ -378,6 +378,7 @@ impl ResourceEntry {
         Ok(entries.first().map(|x| *x))
     }
 
+    /// Returns next depth entry of [`ResourceEntry`] recursively while `predicate` returns `true`, or the final entry when predicate fails
     pub fn recursive_next_depth<'a, P>(
         &self,
         bytes: &'a [u8],

@@ -293,7 +293,6 @@ impl<'a> PE<'a> {
                             }
                         }
                     }
-                    
                 }
             }
 
@@ -323,7 +322,7 @@ impl<'a> PE<'a> {
                     }
                 }
             }
-            
+
             if let Some(&baserelocs_dir) =
                 optional_header.data_directories.get_base_relocation_table()
             {

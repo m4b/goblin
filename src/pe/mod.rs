@@ -110,7 +110,6 @@ impl<'a> PE<'a> {
             + header::SIZEOF_COFF_HEADER;
         let offset =
             &mut (optional_header_offset + header.coff_header.size_of_optional_header as usize);
-
         let sections = header.coff_header.sections(bytes, offset)?;
         let is_lib = characteristic::is_dll(header.coff_header.characteristics);
         let mut entry = 0;
@@ -180,13 +179,24 @@ impl<'a> PE<'a> {
                     opts,
                 ) {
                     debug!("export data {:#?}", ed);
-                    exports = export::Export::parse_with_opts(
+                    match export::Export::parse_with_opts(
                         bytes,
                         &ed,
                         &sections,
                         file_alignment,
                         opts,
-                    )?;
+                    ) {
+                        Ok(data) => {
+                            exports = data;
+                        }
+                        Err(err) => {
+                            if matches!(opts.parse_mode, ParseMode::Permissive) {
+                                warn!("Cannot parse Exports: {:?}", err);
+                            } else {
+                                return Err(err);
+                            }
+                        }
+                    }
                     name = ed.name;
                     debug!("name: {:#?}", name);
                     export_data = Some(ed);
@@ -201,7 +211,7 @@ impl<'a> PE<'a> {
                         &sections,
                         file_alignment,
                         opts,
-                    )?
+                    )
                 } else {
                     import::ImportData::parse_with_opts::<u32>(
                         bytes,
@@ -209,37 +219,60 @@ impl<'a> PE<'a> {
                         &sections,
                         file_alignment,
                         opts,
-                    )?
+                    )
                 };
-                debug!("import data {:#?}", id);
-                if is_64 {
-                    imports = import::Import::parse::<u64>(bytes, &id, &sections)?
-                } else {
-                    imports = import::Import::parse::<u32>(bytes, &id, &sections)?
+
+                match id {
+                    Ok(id) => {
+                        debug!("import data {:#?}", id);
+                        if is_64 {
+                            imports = import::Import::parse::<u64>(bytes, &id, &sections)?
+                        } else {
+                            imports = import::Import::parse::<u32>(bytes, &id, &sections)?
+                        }
+                        libraries = id
+                            .import_data
+                            .iter()
+                            .map(|data| data.name)
+                            .collect::<Vec<&'a str>>();
+                        libraries.sort();
+                        libraries.dedup();
+                        import_data = Some(id);
+                    }
+                    Err(e) => {
+                        if matches!(opts.parse_mode, ParseMode::Permissive) {
+                            warn!("Cannot parse Imports: {:?}", e);
+                        } else {
+                            return Err(e);
+                        }
+                    }
                 }
-                libraries = id
-                    .import_data
-                    .iter()
-                    .map(|data| data.name)
-                    .collect::<Vec<&'a str>>();
-                libraries.sort();
-                libraries.dedup();
-                import_data = Some(id);
             }
             debug!("imports: {:#?}", imports);
             if let Some(&debug_table) = optional_header.data_directories.get_debug_table() {
-                debug_data = Some(debug::DebugData::parse_with_opts(
+                match debug::DebugData::parse_with_opts(
                     bytes,
                     debug_table,
                     &sections,
                     file_alignment,
                     opts,
-                )?);
+                ) {
+                    Ok(data) => {
+                        debug_data = Some(data);
+                    }
+                    Err(err) => {
+                        if matches!(opts.parse_mode, ParseMode::Permissive) {
+                            warn!("Cannot parse DebugTable: {:?}", err);
+                        } else {
+                            return Err(err);
+                        }
+                    }
+                }
             }
 
             if opts.parse_tls_data {
                 if let Some(tls_table) = optional_header.data_directories.get_tls_table() {
-                    tls_data = tls::TlsData::parse_with_opts(
+                    match tls::TlsData::parse_with_opts(
                         bytes,
                         image_base,
                         tls_table,
@@ -247,8 +280,19 @@ impl<'a> PE<'a> {
                         file_alignment,
                         opts,
                         is_64,
-                    )?;
-                    debug!("tls data: {:#?}", tls_data);
+                    ) {
+                        Ok(data) => {
+                            tls_data = data;
+                            debug!("tls data: {:#?}", tls_data);
+                        }
+                        Err(err) => {
+                            if matches!(opts.parse_mode, ParseMode::Permissive) {
+                                warn!("Cannot parse TlsTable: {:?}", err);
+                            } else {
+                                return Err(err);
+                            }
+                        }
+                    }
                 }
             }
 
@@ -258,50 +302,93 @@ impl<'a> PE<'a> {
                 if let Some(&exception_table) =
                     optional_header.data_directories.get_exception_table()
                 {
-                    exception_data = Some(exception::ExceptionData::parse_with_opts(
+                    match exception::ExceptionData::parse_with_opts(
                         bytes,
                         exception_table,
                         &sections,
                         file_alignment,
                         opts,
-                    )?);
+                    ) {
+                        Ok(data) => {
+                            exception_data = Some(data);
+                        }
+                        Err(err) => {
+                            if matches!(opts.parse_mode, ParseMode::Permissive) {
+                                warn!("Cannot parse ExceptionTable: {:?}", err);
+                            } else {
+                                return Err(err);
+                            }
+                        }
+                    }
                 }
             }
 
             if let Some(&baserelocs_dir) =
                 optional_header.data_directories.get_base_relocation_table()
             {
-                relocation_data = Some(relocation::RelocationData::parse_with_opts(
+                match relocation::RelocationData::parse_with_opts(
                     bytes,
                     baserelocs_dir,
                     &sections,
                     file_alignment,
                     opts,
-                )?);
+                ) {
+                    Ok(data) => {
+                        relocation_data = Some(data);
+                    }
+                    Err(err) => {
+                        if matches!(opts.parse_mode, ParseMode::Permissive) {
+                            warn!("Cannot parse BaseRelocationTable: {:?}", err);
+                        } else {
+                            return Err(err);
+                        }
+                    }
+                }
             }
 
             if let Some(&load_config_dir) = optional_header.data_directories.get_load_config_table()
             {
-                load_config_data = Some(load_config::LoadConfigData::parse_with_opts(
+                match load_config::LoadConfigData::parse_with_opts(
                     bytes,
                     load_config_dir,
                     &sections,
                     file_alignment,
                     opts,
                     is_64,
-                )?);
+                ) {
+                    Ok(data) => {
+                        load_config_data = Some(data);
+                    }
+                    Err(err) => {
+                        if matches!(opts.parse_mode, ParseMode::Permissive) {
+                            warn!("Cannot parse LoadConfigTable: {:?}", err);
+                        } else {
+                            return Err(err);
+                        }
+                    }
+                }
             }
 
             if let Some(com_descriptor) = optional_header.data_directories.get_clr_runtime_header()
             {
-                let data = clr::ClrData::parse_with_opts(
+                match clr::ClrData::parse_with_opts(
                     bytes,
                     &com_descriptor,
                     &sections,
                     file_alignment,
                     opts,
-                )?;
-                clr_data = Some(data);
+                ) {
+                    Ok(data) => {
+                        clr_data = Some(data);
+                    }
+                    Err(err) => {
+                        if matches!(opts.parse_mode, ParseMode::Permissive) {
+                            warn!("Cannot parse CLR runtime header: {:?}", err);
+                        } else {
+                            return Err(err);
+                        }
+                    }
+                }
             }
 
             // Parse attribute certificates unless opted out of
@@ -330,17 +417,27 @@ impl<'a> PE<'a> {
             } else {
                 0
             };
-
             if let Some(&resource_table) = optional_header.data_directories.get_resource_table() {
-                let data = resource::ResourceData::parse_with_opts(
+                match resource::ResourceData::parse_with_opts(
                     bytes,
                     resource_table,
                     &sections,
                     file_alignment,
                     opts,
-                )?;
-                resource_data = Some(data);
-                debug!("resource_data data: {:#?}", data.version_info);
+                ) {
+                    Ok(data) => {
+                        resource_data = Some(data);
+                        debug!("resource_data data: {:#?}", data.version_info);
+                    }
+                    Err(err) => {
+                        if matches!(opts.parse_mode, ParseMode::Permissive) {
+                            warn!("Cannot parse ResourceTable: {:?}", err);
+                        } else {
+                            println!("RETURNING ERROR??? ParseMode:{:#?}", opts.parse_mode);
+                            return Err(err);
+                        }
+                    }
+                }
             }
 
             authenticode_excluded_sections = Some(authenticode::ExcludedSections::new(

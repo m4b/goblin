@@ -300,7 +300,7 @@ pub struct LoadConfigCodeIntegrity {
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct LoadConfigData {
     /// Parsed load config directory.
-    directory: LoadConfigDirectory,
+    pub directory: LoadConfigDirectory,
 }
 
 impl LoadConfigData {

@@ -1,4 +1,5 @@
-use crate::error::{self, Error, Permissive};
+use crate::error::{self, Error};
+use crate::options::Permissive;
 use crate::pe::relocation;
 use alloc::borrow::Cow;
 use alloc::string::{String, ToString};
@@ -68,7 +69,7 @@ impl SectionTable {
         )
     }
 
-    pub fn parse_with_opts(
+    pub(crate) fn parse_with_opts(
         bytes: &[u8],
         offset: &mut usize,
         string_table_offset: usize,
@@ -128,7 +129,7 @@ impl SectionTable {
         self.name_offset_with_opts(&crate::pe::options::ParseOptions::default())
     }
 
-    pub fn name_offset_with_opts(
+    pub(crate) fn name_offset_with_opts(
         &self,
         opts: &crate::pe::options::ParseOptions,
     ) -> error::Result<Option<usize>> {

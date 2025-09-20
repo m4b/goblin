@@ -1,7 +1,7 @@
 use core::iter::FusedIterator;
 
 use crate::error;
-use crate::error::Permissive;
+use crate::options::Permissive;
 use log::debug;
 use scroll::{Pread, Pwrite, SizeWith};
 
@@ -198,14 +198,8 @@ impl<'a> DebugData<'a> {
             )))
             .or_permissive_and_value(
                 opts.parse_mode.is_permissive(),
-                &format!(
-                    "ImageDebugDirectory offset {:#x} and size {:#x} exceeds bounds. \
-                    Truncating to {:#x} bytes. This is common in packed binaries.",
-                    offset,
-                    dd.size,
-                    remaining_bytes
-                ),
-                remaining_bytes
+                "ImageDebugDirectory exceeds bounds; truncating",
+                remaining_bytes,
             )?
         } else {
             dd.size as usize

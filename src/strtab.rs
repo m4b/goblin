@@ -7,7 +7,7 @@ use core::str;
 use scroll::{Pread, ctx};
 if_alloc! {
     use crate::error;
-    use crate::error::Permissive;
+    use crate::options::Permissive;
     use alloc::vec::Vec;
 }
 
@@ -114,7 +114,7 @@ impl<'a> Strtab<'a> {
                 bytes.len()
             )))
             .or_permissive_and_value(
-                opts.is_permissive(),
+                opts.parse_mode.is_permissive(),
                 "String table offset is beyond file boundary, returning empty string table",
                 Self {
                     delim: ctx::StrCtx::Delimiter(delim),
@@ -124,7 +124,7 @@ impl<'a> Strtab<'a> {
             );
             #[cfg(not(feature = "alloc"))]
             return Err(scroll::Error::BadOffset(offset).into()).or_permissive_and_value(
-                opts.is_permissive(),
+                opts.parse_mode.is_permissive(),
                 "String table offset is beyond file boundary",
                 Self {
                     delim: ctx::StrCtx::Delimiter(delim),
@@ -147,7 +147,7 @@ impl<'a> Strtab<'a> {
             let err = Err(scroll::Error::BadOffset(offset).into());
 
             err.or_permissive_and_then(
-                opts.is_permissive(),
+                opts.parse_mode.is_permissive(),
                 "String table extends beyond file boundary, truncating",
                 || bytes.len() - offset,
             )?
@@ -159,7 +159,12 @@ impl<'a> Strtab<'a> {
 
         let mut i = 0;
         while i < result.bytes.len() {
-            let string = get_str_with_opts(i, result.bytes, result.delim, opts.is_permissive())?;
+            let string = get_str_with_opts(
+                i,
+                result.bytes,
+                result.delim,
+                opts.parse_mode.is_permissive(),
+            )?;
             result.strings.push((i, string));
             i += string.len() + 1;
         }

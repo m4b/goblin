@@ -370,7 +370,8 @@ pub mod section_header64 {
 ///////////////////////////////
 
 if_alloc! {
-    use crate::error::{self, Permissive};
+    use crate::error::{self};
+    use crate::options::Permissive;
     use core::fmt;
     use core::result;
     use core::ops::Range;

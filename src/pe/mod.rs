@@ -35,7 +35,7 @@ pub mod utils;
 
 use crate::container;
 use crate::error;
-use crate::error::Permissive;
+use crate::options::Permissive;
 use crate::pe::utils::pad;
 use crate::strtab;
 use options::ParseMode;

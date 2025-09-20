@@ -67,7 +67,7 @@ if_sylvan! {
     use scroll::{ctx, Pread, Endian};
     use crate::strtab::Strtab;
     use crate::error;
-    use crate::error::Permissive;
+    use crate::options::{Permissive, ParseOptions};
     use crate::container::{Container, Ctx};
     use alloc::vec::Vec;
     use core::cmp;
@@ -82,7 +82,6 @@ if_sylvan! {
     pub use reloc::Reloc;
     pub use reloc::RelocSection;
     pub use symver::{VersymSection, VerdefSection, VerneedSection};
-    pub use crate::options::{ParseOptions, ParseMode};
 
     pub type ProgramHeaders = Vec<ProgramHeader>;
     pub type SectionHeaders = Vec<SectionHeader>;
@@ -270,7 +269,7 @@ if_sylvan! {
             let header = Self::parse_header(bytes)?;
             let misc = parse_misc(&header)?;
             let ctx = misc.ctx;
-            let permissive = opts.is_permissive();
+            let permissive = opts.parse_mode.is_permissive();
 
             let program_headers = ProgramHeader::parse(bytes, header.e_phoff as usize, header.e_phnum as usize, ctx)?;
 
@@ -317,12 +316,15 @@ if_sylvan! {
                 let count = if initial_count > usize::MAX as u64 {
 
                     Err(crate::error::Error::Malformed(
-                        format!("Symbol table count ({}) from section header exceeds maximum possible value", initial_count)
+                        format!(
+                            "Symbol table count ({}) from section header exceeds maximum possible value",
+                            initial_count
+                        )
                     ))
                     .or_permissive_and_then(
                         permissive,
-                        &format!("Symbol table count ({}) exceeds maximum possible value, truncating to {}", initial_count, usize::MAX),
-                        || usize::MAX as u64
+                        "Symbol table count exceeds maximum; truncating",
+                        || usize::MAX as u64,
                     )?
                 } else {
                     initial_count
@@ -410,10 +412,9 @@ if_sylvan! {
                     section.check_size_with_opts(bytes.len(), permissive)?;
                     let sh_relocs_opt = RelocSection::parse(bytes, section.sh_offset as usize, section.sh_size as usize, is_rela, ctx)
                         .map(Some)
-                        .or_permissive_and_value(
+                        .or_permissive_and_default(
                             permissive,
-                            &format!("Failed to parse section relocation {} ({}), skipping", idx, if is_rela { "RELA" } else { "REL" }),
-                            None
+                            "Failed to parse section relocation; skipping",
                         )?;
 
                     if let Some(sh_relocs) = sh_relocs_opt {

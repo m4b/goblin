@@ -1,4 +1,5 @@
-use crate::error::{self, Permissive};
+use crate::error::{self};
+use crate::options::Permissive;
 use alloc::string::ToString;
 use alloc::vec::Vec;
 use scroll::Pread;
@@ -147,7 +148,7 @@ pub fn try_name<'a>(
 }
 
 /// Safe version of try_name that handles packed binaries gracefully
-pub fn safe_try_name<'a>(
+pub(crate) fn safe_try_name<'a>(
     bytes: &'a [u8],
     rva: usize,
     sections: &[section_table::SectionTable],
@@ -166,7 +167,7 @@ pub fn safe_try_name<'a>(
                 )))
                 .or_permissive_and_default(
                     opts.parse_mode.is_permissive(),
-                    &format!("Name RVA {:#x} maps to offset {:#x} beyond file bounds (file size: {:#x}). This is common in packed binaries.", rva, offset, bytes.len())
+                    "Name RVA maps beyond file bounds; treating as missing",
                 )
             } else {
                 // Try to read the string, but handle potential scroll errors gracefully
@@ -179,7 +180,7 @@ pub fn safe_try_name<'a>(
                     )))
                     .or_permissive_and_default(
                         opts.parse_mode.is_permissive(),
-                        &format!("Failed to read name at offset {:#x} (RVA {:#x}): {}. This may indicate a packed binary.", offset, rva, e)
+                        "Failed to read name; treating as missing",
                     ),
                 }
             }
@@ -191,10 +192,7 @@ pub fn safe_try_name<'a>(
         )))
         .or_permissive_and_default(
             opts.parse_mode.is_permissive(),
-            &format!(
-                "Cannot find name from RVA {:#x} in sections. This is common in packed binaries.",
-                rva
-            ),
+            "Cannot map RVA to name; treating as missing",
         ),
     }
 }

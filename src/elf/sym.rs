@@ -329,7 +329,8 @@ pub mod sym64 {
 
 use crate::container::{Container, Ctx};
 #[cfg(feature = "alloc")]
-use crate::error::{Permissive, Result};
+use crate::error::Result;
+use crate::options::Permissive;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::fmt;
@@ -526,7 +527,7 @@ if_alloc! {
                 return Err(crate::error::Error::Malformed(
                     format!("Symbol table offset ({}) is beyond file boundary ({})", offset, bytes.len())
                 )).or_permissive_and_value(
-                    opts.is_permissive(),
+                    opts.parse_mode.is_permissive(),
                     "Symbol table offset is beyond file boundary, returning empty symbol table",
                     Symtab { bytes: &[], count: 0, ctx, start: offset, end: offset }
                 );
@@ -538,9 +539,9 @@ if_alloc! {
                     format!("Symbol count ({}) exceeds maximum possible value", count)
                 ))
                 .or_permissive_and_then(
-                    opts.is_permissive(),
-                    &format!("Symbol count ({}) exceeds maximum possible value, truncating to {}", count, usize::MAX),
-                    || usize::MAX
+                    opts.parse_mode.is_permissive(),
+                    "Symbol count exceeds maximum; truncating",
+                    || usize::MAX,
                 )?
             } else {
                 count
@@ -558,15 +559,14 @@ if_alloc! {
                 let sym_size = Sym::size_with(&ctx);
                 let adjusted_count = if sym_size > 0 { available_bytes / sym_size } else { 0 };
 
-                let (new_size, new_count) = Err(crate::error::Error::Malformed(
-                    format!("Symbol table extends beyond file boundary (requested: {}, available: {})",
-                            requested_size, available_bytes)
-                ))
+            let (new_size, new_count) = Err(crate::error::Error::Malformed(
+                format!("Symbol table extends beyond file boundary (requested: {}, available: {})",
+                        requested_size, available_bytes)
+            ))
                 .or_permissive_and_then(
-                    opts.is_permissive(),
-                    &format!("Symbol table extends beyond file boundary, truncating from {} to {} bytes (count {} to {})",
-                             requested_size, available_bytes, actual_count, adjusted_count),
-                    || (available_bytes, adjusted_count)
+                    opts.parse_mode.is_permissive(),
+                    "Symbol table extends beyond file; truncating",
+                    || (available_bytes, adjusted_count),
                 )?;
 
                 requested_size = new_size;
@@ -583,9 +583,9 @@ if_alloc! {
                     end: offset + requested_size
                 })
                 .or_permissive_and_value(
-                    opts.is_permissive(),
-                    &format!("Failed to read symbol table data (offset: {}, size: {})", offset, requested_size),
-                    Symtab { bytes: &[], count: 0, ctx, start: offset, end: offset }
+                    opts.parse_mode.is_permissive(),
+                    "Failed to read symbol table data",
+                    Symtab { bytes: &[], count: 0, ctx, start: offset, end: offset },
                 )
         }
 

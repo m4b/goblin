@@ -3,10 +3,9 @@ use core::iter::FusedIterator;
 
 use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith, ctx};
 
-use crate::error::{self, Permissive};
-#[cfg(feature = "te")]
-use crate::pe::data_directories;
-use crate::pe::{debug, optional_header, section_table, symbol};
+use crate::error;
+use crate::options::Permissive;
+use crate::pe::{data_directories, debug, optional_header, section_table, symbol};
 use crate::strtab;
 
 /// In `winnt.h` and `pe.h`, it's `IMAGE_DOS_HEADER`. It's a DOS header present in all PE binaries.
@@ -807,7 +806,7 @@ impl CoffHeader {
     ///
     /// For COFF, these immediately follow the COFF header. For PE, these immediately follow the
     /// optional header.
-    pub fn sections_with_opts(
+    pub(crate) fn sections_with_opts(
         &self,
         bytes: &[u8],
         offset: &mut usize,
@@ -935,7 +934,7 @@ impl<'a> Header<'a> {
     }
 
     /// Parse a PE header from the underlying bytes with parsing options
-    pub fn parse_with_opts(
+    pub(crate) fn parse_with_opts(
         bytes: &'a [u8],
         opts: &crate::pe::options::ParseOptions,
     ) -> error::Result<Self> {

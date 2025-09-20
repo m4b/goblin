@@ -4,7 +4,6 @@
 //! different binary formats (ELF, PE, Mach-O, etc.).
 
 /// Binary parsing mode
-#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ParseMode {
     /// Standard parsing mode - fails on malformed data
@@ -21,18 +20,17 @@ impl Default for ParseMode {
 
 impl ParseMode {
     /// Check if this is permissive mode
-    pub fn is_permissive(&self) -> bool {
+    pub(crate) fn is_permissive(&self) -> bool {
         matches!(self, ParseMode::Permissive)
     }
 
     /// Check if this is strict mode
-    pub fn is_strict(&self) -> bool {
+    pub(crate) fn is_strict(&self) -> bool {
         matches!(self, ParseMode::Strict)
     }
 }
 
 /// Common parsing options
-#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ParseOptions {
     /// The parsing mode to use
@@ -72,14 +70,100 @@ impl ParseOptions {
         self.parse_mode = parse_mode;
         self
     }
+}
 
-    /// Check if permissive mode is enabled
-    pub fn is_permissive(&self) -> bool {
-        self.parse_mode.is_permissive()
+/// Helper trait to ease permissive parsing fallbacks.
+///
+/// When `permissive` is true, errors are downgraded to warnings (if `log` feature is enabled)
+/// and a default or provided value is used instead; otherwise the original error is propagated.
+pub(crate) trait Permissive<T, E> {
+    fn or_permissive_and_default(
+        self,
+        permissive: bool,
+        context: &str,
+    ) -> core::result::Result<T, E>;
+
+    #[allow(unused)]
+    fn or_permissive_and_value(
+        self,
+        permissive: bool,
+        context: &str,
+        value: T,
+    ) -> core::result::Result<T, E>;
+
+    #[allow(unused)]
+    fn or_permissive_and_then<F>(
+        self,
+        permissive: bool,
+        context: &str,
+        f: F,
+    ) -> core::result::Result<T, E>
+    where
+        F: FnOnce() -> T;
+
+    // no lazy-with-ctx variants; use static messages to avoid allocations
+}
+
+impl<T: Default, E: core::fmt::Display> Permissive<T, E> for core::result::Result<T, E> {
+    #[allow(unused)]
+    fn or_permissive_and_default(
+        self,
+        permissive: bool,
+        context: &str,
+    ) -> core::result::Result<T, E> {
+        self.or_else(|e| {
+            if permissive {
+                #[cfg(feature = "log")]
+                log::warn!("{context}: {e}, continuing with empty/default value");
+                Ok(T::default())
+            } else {
+                Err(e)
+            }
+        })
     }
 
-    /// Check if strict mode is enabled
-    pub fn is_strict(&self) -> bool {
-        self.parse_mode.is_strict()
+    #[allow(unused)]
+    fn or_permissive_and_value(
+        self,
+        permissive: bool,
+        context: &str,
+        value: T,
+    ) -> core::result::Result<T, E> {
+        self.or_else(|e| {
+            if permissive {
+                #[cfg(feature = "log")]
+                log::warn!("{context}: {e}, continuing with provided value");
+                Ok(value)
+            } else {
+                Err(e)
+            }
+        })
     }
+
+    // removed: *_with_ctx helpers (prefer static messages)
+
+    #[allow(unused)]
+    fn or_permissive_and_then<F>(
+        self,
+        permissive: bool,
+        context: &str,
+        f: F,
+    ) -> core::result::Result<T, E>
+    where
+        F: FnOnce() -> T,
+    {
+        self.or_else(|e| {
+            if permissive {
+                #[cfg(feature = "log")]
+                log::warn!("{context}: {e}, continuing with computed value");
+                Ok(f())
+            } else {
+                Err(e)
+            }
+        })
+    }
+
+    // removed: *_with_ctx helpers (prefer static messages)
+
+    // removed: *_with_ctx helpers (prefer static messages)
 }

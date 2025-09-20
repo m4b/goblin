@@ -1,14 +1,11 @@
-//! Unified parsing options for binary formats
-//!
-//! This module provides common parsing options that can be used across
-//! different binary formats (ELF, PE, Mach-O, etc.).
+//! Unified parsing options used across ELF/PE/Mach-O.
 
-/// Binary parsing mode
+/// Binary parsing mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ParseMode {
-    /// Standard parsing mode - fails on malformed data
+    /// Fail on malformed data.
     Strict,
-    /// Permissive parsing mode - attempts to recover from malformed data
+    /// Attempt to recover on malformed data.
     Permissive,
 }
 
@@ -19,21 +16,21 @@ impl Default for ParseMode {
 }
 
 impl ParseMode {
-    /// Check if this is permissive mode
+    /// True if permissive.
     pub(crate) fn is_permissive(&self) -> bool {
         matches!(self, ParseMode::Permissive)
     }
 
-    /// Check if this is strict mode
+    /// True if strict.
     pub(crate) fn is_strict(&self) -> bool {
         matches!(self, ParseMode::Strict)
     }
 }
 
-/// Common parsing options
+/// Common parsing options.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ParseOptions {
-    /// The parsing mode to use
+    /// Selected parsing mode.
     pub parse_mode: ParseMode,
 }
 
@@ -46,36 +43,33 @@ impl Default for ParseOptions {
 }
 
 impl ParseOptions {
-    /// Create new ParseOptions with default settings
+    /// Defaults (strict).
     pub fn new() -> Self {
         Default::default()
     }
 
-    /// Create ParseOptions with permissive mode enabled
+    /// Permissive defaults.
     pub fn permissive() -> Self {
         ParseOptions {
             parse_mode: ParseMode::Permissive,
         }
     }
 
-    /// Create ParseOptions with strict mode enabled
+    /// Strict defaults.
     pub fn strict() -> Self {
         ParseOptions {
             parse_mode: ParseMode::Strict,
         }
     }
 
-    /// Set the parse mode
+    /// Set parse mode.
     pub fn with_parse_mode(mut self, parse_mode: ParseMode) -> Self {
         self.parse_mode = parse_mode;
         self
     }
 }
 
-/// Helper trait to ease permissive parsing fallbacks.
-///
-/// When `permissive` is true, errors are downgraded to warnings (if `log` feature is enabled)
-/// and a default or provided value is used instead; otherwise the original error is propagated.
+/// Internal helper trait for permissive fallbacks on `Result<T, E>`.
 pub(crate) trait Permissive<T, E> {
     fn or_permissive_and_default(
         self,
@@ -101,7 +95,7 @@ pub(crate) trait Permissive<T, E> {
     where
         F: FnOnce() -> T;
 
-    // no lazy-with-ctx variants; use static messages to avoid allocations
+    // Note: use static context messages to avoid allocations on success path.
 }
 
 impl<T: Default, E: core::fmt::Display> Permissive<T, E> for core::result::Result<T, E> {
@@ -140,7 +134,7 @@ impl<T: Default, E: core::fmt::Display> Permissive<T, E> for core::result::Resul
         })
     }
 
-    // removed: *_with_ctx helpers (prefer static messages)
+    // No lazy-with-ctx variants (keeps this impl alloc-free).
 
     #[allow(unused)]
     fn or_permissive_and_then<F>(
@@ -163,7 +157,5 @@ impl<T: Default, E: core::fmt::Display> Permissive<T, E> for core::result::Resul
         })
     }
 
-    // removed: *_with_ctx helpers (prefer static messages)
-
-    // removed: *_with_ctx helpers (prefer static messages)
+    // No lazy-with-ctx variants.
 }

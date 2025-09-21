@@ -1088,7 +1088,7 @@ impl<'a> RichHeader<'a> {
         Self::parse_with_opts(bytes, &crate::pe::options::ParseOptions::default())
     }
 
-    pub fn parse_with_opts(
+    pub(crate) fn parse_with_opts(
         bytes: &'a [u8],
         opts: &crate::pe::options::ParseOptions,
     ) -> error::Result<Option<Self>> {

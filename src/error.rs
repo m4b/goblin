@@ -68,5 +68,3 @@ impl fmt::Display for Error {
 
 /// An impish result
 pub type Result<T> = result::Result<T, Error>;
-
-// Permissive helper trait moved to `options` module so it's available without `alloc`.

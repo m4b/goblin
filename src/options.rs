@@ -28,6 +28,7 @@ impl ParseMode {
 }
 
 /// Common parsing options.
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ParseOptions {
     /// Selected parsing mode.

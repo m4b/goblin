@@ -4,6 +4,7 @@ use core::iter::FusedIterator;
 use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith, ctx};
 
 use crate::error;
+use crate::options::Permissive;
 use crate::pe::{data_directories, debug, optional_header, section_table, symbol};
 use crate::strtab;
 
@@ -798,6 +799,19 @@ impl CoffHeader {
         bytes: &[u8],
         offset: &mut usize,
     ) -> error::Result<Vec<section_table::SectionTable>> {
+        self.sections_with_opts(bytes, offset, &crate::pe::options::ParseOptions::default())
+    }
+
+    /// Parse the COFF section headers with parsing options.
+    ///
+    /// For COFF, these immediately follow the COFF header. For PE, these immediately follow the
+    /// optional header.
+    pub(crate) fn sections_with_opts(
+        &self,
+        bytes: &[u8],
+        offset: &mut usize,
+        opts: &crate::pe::options::ParseOptions,
+    ) -> error::Result<Vec<section_table::SectionTable>> {
         let nsections = self.number_of_sections as usize;
 
         // a section table is at least 40 bytes
@@ -810,8 +824,12 @@ impl CoffHeader {
         let string_table_offset = self.pointer_to_symbol_table as usize
             + symbol::SymbolTable::size(self.number_of_symbol_table as usize);
         for i in 0..nsections {
-            let section =
-                section_table::SectionTable::parse(bytes, offset, string_table_offset as usize)?;
+            let section = section_table::SectionTable::parse_with_opts(
+                bytes,
+                offset,
+                string_table_offset as usize,
+                opts,
+            )?;
             debug!("({}) {:#?}", i, section);
             sections.push(section);
         }
@@ -880,18 +898,19 @@ impl<'a> Header<'a> {
         dos_header: DosHeader,
         dos_stub: DosStub<'a>,
         parse_rich_header: bool,
+        opts: &crate::pe::options::ParseOptions,
     ) -> error::Result<Self> {
-        let mut offset = dos_header.pe_pointer as usize;
-
         let rich_header = if parse_rich_header {
-            RichHeader::parse(&bytes)?
+            RichHeader::parse_with_opts(&bytes, opts)?
         } else {
             None
         };
-
-        let signature = bytes.gread_with(&mut offset, scroll::LE).map_err(|_| {
-            error::Error::Malformed(format!("cannot parse PE signature (offset {:#x})", offset))
-        })?;
+        let mut offset = dos_header.pe_pointer as usize;
+        let signature = bytes
+            .gread_with::<u32>(&mut offset, scroll::LE)
+            .map_err(|_| {
+                error::Error::Malformed(format!("cannot parse PE signature (offset {:#x})", offset))
+            })?;
         let coff_header = CoffHeader::parse(&bytes, &mut offset)?;
         let optional_header = if coff_header.size_of_optional_header > 0 {
             Some(bytes.pread::<optional_header::OptionalHeader>(offset)?)
@@ -909,18 +928,33 @@ impl<'a> Header<'a> {
         })
     }
 
-    /// Parses PE header from the given bytes; this will fail if the DosHeader or DosStub is malformed or missing in some way
+    /// Parse a PE header from the underlying bytes
     pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
-        let dos_header = DosHeader::parse(&bytes)?;
-        let dos_stub = DosStub::parse(bytes, dos_header.pe_pointer)?;
-
-        Header::parse_impl(bytes, dos_header, dos_stub, true)
+        Self::parse_with_opts(bytes, &crate::pe::options::ParseOptions::default())
     }
 
-    /// Parses PE header from the given bytes, a default DosHeader and DosStub are generated, and any malformed header or stub is ignored
+    /// Parse a PE header from the underlying bytes with parsing options
+    pub(crate) fn parse_with_opts(
+        bytes: &'a [u8],
+        opts: &crate::pe::options::ParseOptions,
+    ) -> error::Result<Self> {
+        let dos_header = DosHeader::parse(&bytes)?;
+        let dos_stub = DosStub::parse(bytes, dos_header.pe_pointer)
+            .or_permissive_and_default(opts.parse_mode.is_permissive(), "DOS stub parse failed")?;
+
+        Header::parse_impl(bytes, dos_header, dos_stub, true, opts)
+    }
+
+    /// Parse a PE header from the underlying bytes, without the DOS header and DOS stub
     pub fn parse_without_dos(bytes: &'a [u8]) -> error::Result<Self> {
         let dos_header = DosHeader::default();
-        Header::parse_impl(bytes, dos_header, DosStub::default(), false)
+        Header::parse_impl(
+            bytes,
+            dos_header,
+            DosStub::default(),
+            false,
+            &crate::pe::options::ParseOptions::default(),
+        )
     }
 }
 
@@ -1051,13 +1085,22 @@ impl<'a> RichHeader<'a> {
     /// - The upper 16 bits of the tool ID describe the tool type,
     /// - while the lower 16 bits specify the tool’s build version.
     pub fn parse(bytes: &'a [u8]) -> error::Result<Option<Self>> {
+        Self::parse_with_opts(bytes, &crate::pe::options::ParseOptions::default())
+    }
+
+    pub(crate) fn parse_with_opts(
+        bytes: &'a [u8],
+        opts: &crate::pe::options::ParseOptions,
+    ) -> error::Result<Option<Self>> {
         // Parse the DOS header; some fields are required to locate the Rich header.
         let dos_header = DosHeader::parse(bytes)?;
         let dos_header_end_offset = PE_POINTER_OFFSET as usize;
         let pe_header_start_offset = dos_header.pe_pointer as usize;
 
         // The Rich header is not present in all PE files.
-        if (pe_header_start_offset - dos_header_end_offset) < 8 {
+        if pe_header_start_offset <= dos_header_end_offset
+            || (pe_header_start_offset - dos_header_end_offset) < 8
+        {
             return Ok(None);
         }
 
@@ -1068,7 +1111,12 @@ impl<'a> RichHeader<'a> {
             return Err(error::Error::Malformed(format!(
                 "Rich header scan start ({:#X}) is greater than scan end ({:#X})",
                 scan_start, scan_end
-            )));
+            )))
+            .or_permissive_and_value(
+                opts.parse_mode.is_permissive(),
+                "Packed binaries may have PE pointer before DOS header end",
+                None,
+            );
         }
         let scan_stub = &bytes[scan_start..scan_end];
 
@@ -1377,18 +1425,8 @@ pub fn machine_to_str(machine: u16) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        error,
-        pe::{
-            Coff,
-            header::{DosStub, TeHeader},
-        },
-    };
-
-    use super::{
-        COFF_MACHINE_X86, DOS_MAGIC, DosHeader, Header, PE_MAGIC, RichHeader, RichMetadata,
-        machine_to_str,
-    };
+    use super::*;
+    use crate::{error, pe::Coff};
 
     const CRSS_HEADER: [u8; 688] = [
         0x4d, 0x5a, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00,

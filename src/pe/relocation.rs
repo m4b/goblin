@@ -340,23 +340,56 @@ impl<'a> RelocationData<'a> {
         opts: &options::ParseOptions,
     ) -> error::Result<Self> {
         let offset =
-            utils::find_offset(dd.virtual_address as usize, sections, file_alignment, opts)
-                .ok_or_else(|| {
-                    error::Error::Malformed(format!(
+            match utils::find_offset(dd.virtual_address as usize, sections, file_alignment, opts) {
+                Some(offset) => offset,
+                None => {
+                    return Err(error::Error::Malformed(format!(
                         "Cannot map base reloc rva {:#x} into offset",
                         dd.virtual_address
-                    ))
-                })?;
-        // To allow parsing the rest, we will not raise a malformation error
-        // when we found that the base relocation directory not lies in the binary.
-        // If that's the case, we store an empty `bytes`, which implies no-op
-        // when `blocks` is called.
-        if bytes.len() < offset {
-            return Ok(Self { bytes: &[] });
+                    )));
+                }
+            };
+
+        let available_size = if offset + (dd.size as usize) <= bytes.len() {
+            dd.size as usize
+        } else {
+            return Err(error::Error::Malformed(format!(
+                "base reloc offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",
+                offset,
+                dd.size,
+                bytes.len()
+            )));
+        };
+
+        if offset >= bytes.len() {
+            return Err(error::Error::Malformed(format!(
+                "Relocation offset {:#x} is beyond file bounds (file size: {:#x})",
+                offset,
+                bytes.len()
+            )));
         }
+
+        // Ensure we don't try to read more bytes than are actually available
+        let remaining_bytes = bytes.len() - offset;
+        let safe_available_size = available_size.min(remaining_bytes);
+
+        if safe_available_size != available_size {
+            return Err(error::Error::Malformed(format!(
+                "Relocation size {:#x} at offset {:#x} exceeds remaining file data ({:#x} bytes)",
+                available_size, offset, remaining_bytes
+            )));
+        }
+
         let bytes = bytes[offset..]
-            .pread_with::<&[u8]>(0, dd.size as usize)
-            .unwrap_or_default();
+            .pread::<&[u8]>(safe_available_size)
+            .map_err(|_| {
+                error::Error::Malformed(format!(
+                    "base reloc offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",
+                    offset,
+                    safe_available_size,
+                    bytes.len()
+                ))
+            })?;
 
         Ok(Self { bytes })
     }

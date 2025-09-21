@@ -1,6 +1,7 @@
 use core::iter::FusedIterator;
 
 use crate::error;
+use crate::options::Permissive;
 use log::debug;
 use scroll::{Pread, Pwrite, SizeWith};
 
@@ -175,24 +176,40 @@ impl<'a> DebugData<'a> {
         rva_offset: u32,
     ) -> error::Result<Self> {
         let offset =
-            utils::find_offset(dd.virtual_address as usize, sections, file_alignment, opts)
-                .ok_or_else(|| {
-                    error::Error::Malformed(format!(
+            match utils::find_offset(dd.virtual_address as usize, sections, file_alignment, opts) {
+                Some(offset) => offset,
+                None => {
+                    return Err(error::Error::Malformed(format!(
                         "Cannot map ImageDebugDirectory rva {:#x} into offset",
                         dd.virtual_address
-                    ))
-                })?;
+                    )))?;
+                }
+            };
 
         // Ensure that the offset and size do not exceed the length of the bytes slice
-        if offset + dd.size as usize > bytes.len() {
-            return Err(error::Error::Malformed(format!(
-                "ImageDebugDirectory offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",
+        let available_size = if offset + dd.size as usize > bytes.len() {
+            let remaining_bytes = bytes.len().saturating_sub(offset);
+            Err(error::Error::Malformed(format!(
+                "ImageDebugDirectory offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}. \
+                This may indicate a packed binary.",
                 offset,
                 dd.size,
                 bytes.len()
-            )));
-        }
-        let data = &bytes[offset..offset + dd.size as usize];
+            )))
+            .or_permissive_and_value(
+                opts.parse_mode.is_permissive(),
+                "ImageDebugDirectory exceeds bounds; truncating",
+                remaining_bytes,
+            )?
+        } else {
+            dd.size as usize
+        };
+
+        let data = if available_size > 0 {
+            bytes.pread_with::<&[u8]>(offset, available_size)?
+        } else {
+            &[]
+        };
         let it = ImageDebugDirectoryIterator { data, rva_offset };
 
         let mut codeview_pdb70_debug_info = None;
@@ -370,7 +387,11 @@ impl<'a> CodeviewPDB70DebugInfo<'a> {
             return Err(error::Error::Malformed(format!(
                 "ImageDebugDirectory size of data seems wrong: {:?}",
                 idd.size_of_data
-            )));
+            )))
+            .or_permissive_and_default(
+                opts.parse_mode.is_permissive(),
+                "ImageDebugDirectory size of data seems wrong",
+            );
         }
         let filename_length = filename_length as usize;
 
@@ -481,7 +502,11 @@ impl<'a> CodeviewPDB20DebugInfo<'a> {
             return Err(error::Error::Malformed(format!(
                 "ImageDebugDirectory size of data seems wrong: {:?}",
                 idd.size_of_data
-            )));
+            )))
+            .or_permissive_and_default(
+                opts.parse_mode.is_permissive(),
+                "ImageDebugDirectory size of data seems wrong",
+            );
         }
         let filename_length = filename_length as usize;
 

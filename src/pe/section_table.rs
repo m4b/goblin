@@ -341,6 +341,19 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_section_to_bytes() {
+        let bytes = vec![0u8; 16];
+        let r_bytes = {
+            let mut section = SectionTable::default();
+            section.pointer_to_raw_data = 4;
+            section.size_of_raw_data = 4;
+            section.virtual_size = 4;
+            section.data(&bytes).unwrap().unwrap()
+        };
+        assert_eq!(*r_bytes, [0, 0, 0, 0])
+    }
+
+    #[test]
     fn set_name_offset() {
         let mut section = SectionTable::default();
         for &(offset, name) in [

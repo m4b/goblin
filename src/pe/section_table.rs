@@ -99,7 +99,7 @@ impl SectionTable {
         Ok(table)
     }
 
-    pub fn data<'a, 'b: 'a>(&'a self, pe_bytes: &'b [u8]) -> error::Result<Option<Cow<'a, [u8]>>> {
+    pub fn data<'b>(&self, pe_bytes: &'b [u8]) -> error::Result<Option<Cow<'b, [u8]>>> {
         let section_start: usize = self.pointer_to_raw_data.try_into().map_err(|_| {
             Error::Malformed(format!("Virtual address cannot fit in platform `usize`"))
         })?;
@@ -339,6 +339,19 @@ pub const IMAGE_SCN_MEM_WRITE: u32 = 0x8000_0000;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_section_to_bytes() {
+        let bytes = vec![0u8; 16];
+        let r_bytes = {
+            let mut section = SectionTable::default();
+            section.pointer_to_raw_data = 4;
+            section.size_of_raw_data = 4;
+            section.virtual_size = 4;
+            section.data(&bytes).unwrap().unwrap()
+        };
+        assert_eq!(*r_bytes, [0, 0, 0, 0])
+    }
 
     #[test]
     fn set_name_offset() {

@@ -513,8 +513,14 @@ impl<'a> TryFromCtx<'a, UnwindOpContext> for UnwindCode {
                 if ctx.version == 1 {
                     let register = Register::xmm(operation_info);
                     UnwindOperation::SaveXMM128(register, StackFrameOffset::with_ctx(data, ctx))
-                } else {
+                } else if ctx.version == 2 {
                     UnwindOperation::Noop
+                } else {
+                    let msg = format!(
+                        "Unwind info version has to be either one of `1` or `2`: {}",
+                        ctx.version
+                    );
+                    return Err(error::Error::Malformed(msg));
                 }
             }
             self::UWOP_SAVE_XMM128 => {

@@ -20,11 +20,6 @@ impl ParseMode {
     pub(crate) fn is_permissive(&self) -> bool {
         matches!(self, ParseMode::Permissive)
     }
-
-    /// True if strict.
-    pub(crate) fn is_strict(&self) -> bool {
-        matches!(self, ParseMode::Strict)
-    }
 }
 
 /// Common parsing options.

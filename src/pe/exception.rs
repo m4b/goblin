@@ -312,6 +312,7 @@ impl fmt::Display for Register {
 /// Unwind operations can be used to reverse the effects of the function prolog and restore register
 /// values of parent stack frames that have been saved to the stack.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum UnwindOperation {
     /// Push a nonvolatile integer register, decrementing `RSP` by 8.
     PushNonVolatile(Register),

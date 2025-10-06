@@ -312,6 +312,7 @@ impl fmt::Display for Register {
 /// Unwind operations can be used to reverse the effects of the function prolog and restore register
 /// values of parent stack frames that have been saved to the stack.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum UnwindOperation {
     /// Push a nonvolatile integer register, decrementing `RSP` by 8.
     PushNonVolatile(Register),
@@ -333,10 +334,45 @@ pub enum UnwindOperation {
     /// Save the lower 64 bits of a nonvolatile XMM register on the stack.
     SaveXMM(Register, StackFrameOffset),
 
-    /// Describes the function epilog.
+    /// Describes the function epilog location and size (Version 2).
     ///
-    /// This operation has been introduced with unwind info version 2 and is not implemented yet.
-    Epilog,
+    /// [UWOP_EPILOG] entries work together to describe where epilogues are located in the function,
+    /// but not what operations they perform. The actual operations performed during epilogue
+    /// execution are the reverse of the prolog operations.
+    ///
+    /// These entries always appear at the beginning of the [UnwindCode] array, with a minimum of
+    /// two entries required for alignment purposes, even when only one epilogue exists. The first
+    /// [UWOP_EPILOG] entry is special as it contains the size of the epilogue in its `offset_low_or_size`
+    /// field. If bit `0` of its `offset_high_or_flags` field is set, this first entry also describes
+    /// an epilogue located at the function's end, with `offset_low_or_size` serving dual purpose as
+    /// both size and offset. When bit `0` is not set, the first entry contains only the size, and
+    /// subsequent [UWOP_EPILOG] entries provide the epilogue locations.
+    ///
+    /// Each subsequent [UWOP_EPILOG] entry describes an additional epilogue location using a 12-bit
+    /// offset from the function's end address. The offset is formed by combining `offset_low_or_size`
+    /// (lower 8 bits) with the lower 4 bits of `offset_high_or_flags` (upper 4 bits). The epilogue's
+    /// starting address is calculated by subtracting this offset from the function's `EndAddress`.
+    Epilog {
+        /// For the first [UWOP_EPILOG] entry:
+        /// * Size of the epilogue in bytes
+        /// * If `offset_high_or_flags` bit 0 is set, also serves as offset
+        ///
+        /// For subsequent entries:
+        /// * Lower 8 bits of the offset from function end
+        offset_low_or_size: u8,
+
+        /// For the first [UWOP_EPILOG] entry:
+        /// * Bit 0: If set, epilogue is at function end and `offset_low_or_size`
+        ///   is also the offset
+        /// * Bits 1-3: Reserved/unused
+        ///
+        /// For subsequent entries:
+        /// * Upper 4 bits of the offset from function end (bits 0-3)
+        ///
+        /// The complete offset is computed as:
+        /// `EndAddress` - (`offset_high_or_flags` << 8 | `offset_low_or_size`)
+        offset_high_or_flags: u8,
+    },
 
     /// Save all 128 bits of a nonvolatile XMM register on the stack.
     SaveXMM128(Register, StackFrameOffset),
@@ -452,13 +488,25 @@ impl<'a> TryFromCtx<'a, UnwindOpContext> for UnwindCode {
                 UnwindOperation::SaveNonVolatile(register, StackFrameOffset::with_ctx(offset, ctx))
             }
             self::UWOP_EPILOG => {
-                let data = u32::from(bytes.gread_with::<u16>(&mut read, scroll::LE)?) * 16;
                 if ctx.version == 1 {
+                    // Version 1: This was UWOP_SAVE_XMM
+                    let data = u32::from(bytes.gread_with::<u16>(&mut read, scroll::LE)?) * 16;
                     let register = Register::xmm(operation_info);
                     UnwindOperation::SaveXMM(register, StackFrameOffset::with_ctx(data, ctx))
+                } else if ctx.version == 2 {
+                    // Version 2: UWOP_EPILOG - describes epilogue locations
+                    // See https://github.com/BlancLoup/weekly-geekly.github.io/blob/1cbdf1c6127fcdaeda1f01bcbb006febd17d5a95/articles/322956/index.html
+                    // See https://github.com/Montura/cpp/blob/4393c678ee8e44dd98feb7a198c3983a6108cef8/src/exception_handling/msvc/eh_msvc_cxx_EH_x64.md?plain=1#L119
+                    UnwindOperation::Epilog {
+                        offset_low_or_size: code_offset,
+                        offset_high_or_flags: operation_info,
+                    }
                 } else {
-                    // TODO: See https://weekly-geekly.github.io/articles/322956/index.html
-                    UnwindOperation::Epilog
+                    let msg = format!(
+                        "Unwind info version has to be either one of `1` or `2`: {}",
+                        ctx.version
+                    );
+                    return Err(error::Error::Malformed(msg));
                 }
             }
             self::UWOP_SPARE_CODE => {
@@ -466,8 +514,14 @@ impl<'a> TryFromCtx<'a, UnwindOpContext> for UnwindCode {
                 if ctx.version == 1 {
                     let register = Register::xmm(operation_info);
                     UnwindOperation::SaveXMM128(register, StackFrameOffset::with_ctx(data, ctx))
-                } else {
+                } else if ctx.version == 2 {
                     UnwindOperation::Noop
+                } else {
+                    let msg = format!(
+                        "Unwind info version has to be either one of `1` or `2`: {}",
+                        ctx.version
+                    );
+                    return Err(error::Error::Malformed(msg));
                 }
             }
             self::UWOP_SAVE_XMM128 => {
@@ -1109,6 +1163,118 @@ mod tests {
 
     //     assert_eq!(unwind_info.code_bytes, expected);
     // }
+
+    #[test]
+    fn test_unwind_codes_one_epilog() {
+        // ; Prologue
+        // .text:00000001400884E0 000 57        push    rdi // Save RDI
+        //
+        // .text:00000001400884E1 008 8B C2     mov     eax, edx
+        // .text:00000001400884E3 008 48 8B F9  mov     rdi, rcx
+        // .text:00000001400884E6 008 49 8B C8  mov     rcx, r8
+        // .text:00000001400884E9 008 F3 AA     rep stosb
+        // .text:00000001400884EB 008 49 8B C1  mov     rax, r9
+        //
+        // ; Epilogue
+        // .text:00000001400884EE 008 5F        pop     rdi // Restore RDI
+        // .text:00000001400884EF 000 C3        retn
+
+        const BYTES: &[u8] = &[
+            0x02, 0x01, 0x03, 0x00, // UNWIND_INFO_HDR <2, 0, 1, 3, 0, 0>
+            0x02, 0x16, // UNWIND_CODE <<2, 6, 1>> ; UWOP_EPILOG
+            0x00, 0x06, // UNWIND_CODE <<0, 6, 0>> ; UWOP_EPILOG
+            0x01, 0x70, // UNWIND_CODE <<1, 0, 7>> ; UWOP_PUSH_NONVOL
+        ];
+
+        let unwind_info = UnwindInfo::parse(BYTES, 0).unwrap();
+        let unwind_codes: Vec<UnwindCode> = unwind_info
+            .unwind_codes()
+            .map(|result| result.expect("Unable to parse unwind code"))
+            .collect();
+        assert_eq!(unwind_codes.len(), 3);
+        assert_eq!(
+            unwind_codes,
+            [
+                UnwindCode {
+                    code_offset: 2,
+                    operation: UnwindOperation::Epilog {
+                        offset_low_or_size: 2,
+                        offset_high_or_flags: 1,
+                    },
+                },
+                UnwindCode {
+                    code_offset: 0,
+                    operation: UnwindOperation::Epilog {
+                        offset_low_or_size: 0,
+                        offset_high_or_flags: 0,
+                    },
+                },
+                UnwindCode {
+                    code_offset: 1,
+                    operation: UnwindOperation::PushNonVolatile(Register(7)), // RDI
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn test_unwind_codes_two_epilog() {
+        // ; Prologue
+        // .text:00000001400889A0 000 57        push    rdi // Save RDI
+        // .text:00000001400889A1 008 56        push    rsi // Save RSI
+        //
+        // .text:00000001400889A2 010 48 8B F9  mov     rdi, rcx
+        // .text:00000001400889A5 010 48 8B F2  mov     rsi, rdx
+        // .text:00000001400889A8 010 49 8B C8  mov     rcx, r8
+        // .text:00000001400889AB 010 F3 A4     rep movsb
+        //
+        // ; Epilogue
+        // .text:00000001400889AD 010 5E        pop     rsi // Restore RSI
+        // .text:00000001400889AE 008 5F        pop     rdi // Restore RDI
+        // .text:00000001400889AF 000 C3        retn
+
+        const BYTES: &[u8] = &[
+            0x02, 0x02, 0x04, 0x00, // $xdatasym_5     UNWIND_INFO_HDR <2, 0, 2, 4, 0, 0>
+            0x03, 0x16, // UNWIND_CODE <<3, 6, 1>> ; UWOP_EPILOG
+            0x00, 0x06, // UNWIND_CODE <<0, 6, 0>> ; UWOP_EPILOG
+            0x02, 0x60, // UNWIND_CODE <<2, 0, 6>> ; UWOP_PUSH_NONVOL
+            0x01, 0x70, // UNWIND_CODE <<1, 0, 7>> ; UWOP_PUSH_NONVOL
+        ];
+
+        let unwind_info = UnwindInfo::parse(BYTES, 0).unwrap();
+        let unwind_codes: Vec<UnwindCode> = unwind_info
+            .unwind_codes()
+            .map(|result| result.expect("Unable to parse unwind code"))
+            .collect();
+        assert_eq!(unwind_codes.len(), 4);
+        assert_eq!(
+            unwind_codes,
+            [
+                UnwindCode {
+                    code_offset: 3,
+                    operation: UnwindOperation::Epilog {
+                        offset_low_or_size: 3,
+                        offset_high_or_flags: 1,
+                    },
+                },
+                UnwindCode {
+                    code_offset: 0,
+                    operation: UnwindOperation::Epilog {
+                        offset_low_or_size: 0,
+                        offset_high_or_flags: 0,
+                    },
+                },
+                UnwindCode {
+                    code_offset: 2,
+                    operation: UnwindOperation::PushNonVolatile(Register(6)), // RSI
+                },
+                UnwindCode {
+                    code_offset: 1,
+                    operation: UnwindOperation::PushNonVolatile(Register(7)), // RDI
+                },
+            ]
+        );
+    }
 
     #[test]
     fn test_iter_unwind_codes() {

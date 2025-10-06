@@ -5,7 +5,18 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.10, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
-## [0.10.1]
+## [0.10.2] - 2025-10-5
+## Added
+pe: make `LoadConfigData::directory` public, thanks @kkent030315: https://github.com/m4b/goblin/pull/488
+
+## Fixed
+pe: remove alignment in rva helper function, huge amount of great details in the linked PR, thanks @makubacki: https://github.com/m4b/goblin/pull/491
+elf, pe: Add/Extend ELF/PE permissive parsing mode to better handle packed, broken, or malware samples, thanks @chf0x: https://github.com/m4b/goblin/pull/479
+pe: fix resource parsing issues, thanks @x0rb3l: https://github.com/m4b/goblin/pull/490
+pe: fix bad lifetime annotation, thanks @Hexorg: https://github.com/m4b/goblin/pull/493
+pe, mach, elf: fix lifetime warnings (no pr): fddcc4747ccf306469ff6092a953bd667ec8ed7d
+
+## [0.10.1] - 2025-8-14
 ## Added
 pe: Add .NET CLR parser, thanks @kkent030315: https://github.com/m4b/goblin/pull/432
 pe: Add parser for `C_SCOPE_TABLE`, thanks @kkent030315: https://github.com/m4b/goblin/pull/477

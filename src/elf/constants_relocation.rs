@@ -906,8 +906,9 @@ pub const R_RISCV_SET16: u32 = 55;
 pub const R_RISCV_SET32: u32 = 56;
 
 /////////////////////
-// PowerPC
-// See: https://www.nxp.com/docs/en/reference-manual/E500ABIUG.pdf
+// PowerPC 32-bit
+// See: https://example61560.wordpress.com/wp-content/uploads/2016/11/powerpc_abi.pdf
+// and https://www.nxp.com/docs/en/reference-manual/E500ABIUG.pdf
 /////////////////////
 pub const R_PPC_NONE: u32 = 0;
 pub const R_PPC_ADDR32: u32 = 1;
@@ -986,6 +987,28 @@ pub const R_PPC_EMB_SPE_HALF_SDA0REL: u32 = 212;
 pub const R_PPC_EMB_SPE_DOUBLE_SDA: u32 = 213;
 pub const R_PPC_EMB_SPE_WORD_SDA: u32 = 214;
 pub const R_PPC_EMB_SPE_HALF_SDA: u32 = 215;
+pub const R_PPC_VLE_REL8: u32 = 216;
+pub const R_PPC_VLE_REL15: u32 = 217;
+pub const R_PPC_VLE_REL24: u32 = 218;
+pub const R_PPC_VLE_LO16A: u32 = 219;
+pub const R_PPC_VLE_LO16D: u32 = 220;
+pub const R_PPC_VLE_HI16A: u32 = 221;
+pub const R_PPC_VLE_HI16D: u32 = 222;
+pub const R_PPC_VLE_HA16A: u32 = 223;
+pub const R_PPC_VLE_HA16D: u32 = 224;
+pub const R_PPC_VLE_SDA21: u32 = 225;
+pub const R_PPC_VLE_SDA21_LO: u32 = 226;
+pub const R_PPC_VLE_SDAREL_LO16A: u32 = 227;
+pub const R_PPC_VLE_SDAREL_LO16D: u32 = 228;
+pub const R_PPC_VLE_SDAREL_HI16A: u32= 229;
+pub const R_PPC_VLE_SDAREL_HI16D: u32 = 230;
+pub const R_PPC_VLE_SDAREL_HA16A: u32 = 231;
+pub const R_PPC_VLE_SDAREL_HA16D: u32 = 232;
+pub const R_PPC_VLE_ADDR20: u32 = 233;
+pub const R_PPC_REL16: u32 = 249;
+pub const R_PPC_REL16_LO: u32 = 250;
+pub const R_PPC_REL16_HI: u32 = 251;
+pub const R_PPC_REL16_HA: u32 = 252;
 
 /////////////////////
 // PowerPC64
@@ -1035,7 +1058,7 @@ pub const R_PPC64_SECTOFF_LO: u32 = R_PPC_SECTOFF_LO;
 pub const R_PPC64_SECTOFF_HI: u32 = R_PPC_SECTOFF_HI;
 pub const R_PPC64_SECTOFF_HA: u32 = R_PPC_SECTOFF_HA;
 /// word30 (S + A - P) >> 2.
-pub const R_PPC64_ADDR30: u32 = 37;
+pub const R_PPC64_ADDR30: u32 = R_PPC_ADDR30;
 /// doubleword64 S + A.
 pub const R_PPC64_ADDR64: u32 = 38;
 /// half16 #higher(S + A).
@@ -1189,10 +1212,10 @@ pub const R_PPC64_ENTRY: u32 = 118;
 pub const R_PPC64_PCREL34: u32 = 132;
 pub const R_PPC64_GOT_PCREL34: u32 = 133;
 pub const R_PPC64_IRELATIVE: u32 = 248;
-pub const R_PPC64_REL16: u32 = 249;
-pub const R_PPC64_REL16_LO: u32 = 250;
-pub const R_PPC64_REL16_HI: u32 = 251;
-pub const R_PPC64_REL16_HA: u32 = 252;
+pub const R_PPC64_REL16: u32 = R_PPC_REL16;
+pub const R_PPC64_REL16_LO: u32 = R_PPC_REL16_LO;
+pub const R_PPC64_REL16_HI: u32 = R_PPC_REL16_HI;
+pub const R_PPC64_REL16_HA: u32 = R_PPC_REL16_HA;
 pub const R_PPC64_GNU_VTINHERIT: u32 = 253;
 pub const R_PPC64_GNU_VTENTRY: u32 = 254;
 
@@ -1824,7 +1847,7 @@ pub fn r_to_str(typ: u32, machine: u16) -> &'static str {
             R_RISCV_SET32 => "R_RISCV_SET32",
             _ => "R_UNKNOWN_RISCV",
         },
-        // Power-PC
+        // Power-PC 32-bit
         EM_PPC => match typ {
             R_PPC_NONE => "R_PPC_NONE",
             R_PPC_ADDR32 => "R_PPC_ADDR32",
@@ -1903,9 +1926,31 @@ pub fn r_to_str(typ: u32, machine: u16) -> &'static str {
             R_PPC_EMB_SPE_DOUBLE_SDA => "R_PPC_EMB_SPE_DOUBLE_SDA",
             R_PPC_EMB_SPE_WORD_SDA => "R_PPC_EMB_SPE_WORD_SDA",
             R_PPC_EMB_SPE_HALF_SDA => "R_PPC_EMB_SPE_HALF_SDA",
+            R_PPC_VLE_REL8 => "R_PPC_VLE_REL8",
+            R_PPC_VLE_REL15 => "R_PPC_VLE_REL15",
+            R_PPC_VLE_REL24 => "R_PPC_VLE_REL24",
+            R_PPC_VLE_LO16A => "R_PPC_VLE_LO16A",
+            R_PPC_VLE_LO16D => "R_PPC_VLE_LO16D",
+            R_PPC_VLE_HI16A => "R_PPC_VLE_HI16A",
+            R_PPC_VLE_HI16D => "R_PPC_VLE_HI16D",
+            R_PPC_VLE_HA16A => "R_PPC_VLE_HA16A",
+            R_PPC_VLE_HA16D => "R_PPC_VLE_HA16D",
+            R_PPC_VLE_SDA21 => "R_PPC_VLE_SDA21",
+            R_PPC_VLE_SDA21_LO => "R_PPC_VLE_SDA21_LO",
+            R_PPC_VLE_SDAREL_LO16A => "R_PPC_VLE_SDAREL_LO16A",
+            R_PPC_VLE_SDAREL_LO16D => "R_PPC_VLE_SDAREL_LO16D",
+            R_PPC_VLE_SDAREL_HI16A => "R_PPC_VLE_SDAREL_HI16A",
+            R_PPC_VLE_SDAREL_HI16D => "R_PPC_VLE_SDAREL_HI16D",
+            R_PPC_VLE_SDAREL_HA16A => "R_PPC_VLE_SDAREL_HA16A",
+            R_PPC_VLE_SDAREL_HA16D => "R_PPC_VLE_SDAREL_HA16D",
+            R_PPC_VLE_ADDR20 => "R_PPC_VLE_ADDR20",
+            R_PPC_REL16 => "R_PPC_REL16",
+            R_PPC_REL16_LO => "R_PPC_REL16_LO",
+            R_PPC_REL16_HI => "R_PPC_REL16_HI",
+            R_PPC_REL16_HA => "R_PPC_REL16_HA",
             _ => "R_UNKNOWN_PPC",
         },
-        // Power-PC
+        // Power-PC 64-bit
         EM_PPC64 => match typ {
             R_PPC64_NONE => "R_PPC64_NONE",
             R_PPC64_ADDR32 => "R_PPC64_ADDR32",

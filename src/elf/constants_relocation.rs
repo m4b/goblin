@@ -1847,7 +1847,7 @@ pub fn r_to_str(typ: u32, machine: u16) -> &'static str {
             R_RISCV_SET32 => "R_RISCV_SET32",
             _ => "R_UNKNOWN_RISCV",
         },
-        // Power-PC
+        // Power-PC 32-bit
         EM_PPC => match typ {
             R_PPC_NONE => "R_PPC_NONE",
             R_PPC_ADDR32 => "R_PPC_ADDR32",
@@ -1950,7 +1950,7 @@ pub fn r_to_str(typ: u32, machine: u16) -> &'static str {
             R_PPC_REL16_HA => "R_PPC_REL16_HA",
             _ => "R_UNKNOWN_PPC",
         },
-        // Power-PC
+        // Power-PC 64-bit
         EM_PPC64 => match typ {
             R_PPC64_NONE => "R_PPC64_NONE",
             R_PPC64_ADDR32 => "R_PPC64_ADDR32",

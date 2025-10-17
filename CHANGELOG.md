@@ -5,6 +5,10 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.10, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
+## [0.10.3] - 2025-10-16
+## Fixed
+pe: fix regression in PE relocs, thanks @PJB3005: https://github.com/m4b/goblin/pull/496
+
 ## [0.10.2] - 2025-10-5
 ## Added
 pe: make `LoadConfigData::directory` public, thanks @kkent030315: https://github.com/m4b/goblin/pull/488

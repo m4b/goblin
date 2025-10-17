@@ -187,8 +187,9 @@ In lexicographic order:
 - [@nico-abram]
 - [@npmccallum]
 - [@pchickey]
-- [@prettyroseslover]
 - [@philipc]
+- [@PJB3005]
+- [@prettyroseslover]
 - [@Pzixel]
 - [@quake]
 - [@raindev]
@@ -285,6 +286,7 @@ In lexicographic order:
 [@npmccallum]: https://github.com/npmccallum
 [@pchickey]: https://github.com/pchickey
 [@philipc]: https://github.com/philipc
+[@PJB3005]: https://github.com/PJB3005
 [@prettyroseslover]: https://github.com/prettyroseslover
 [@Pzixel]: https://github.com/Pzixel
 [@quake]: https://github.com/quake

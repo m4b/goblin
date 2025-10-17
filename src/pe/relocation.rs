@@ -380,8 +380,8 @@ impl<'a> RelocationData<'a> {
             )));
         }
 
-        let bytes = bytes[offset..]
-            .pread::<&[u8]>(safe_available_size)
+        let bytes = bytes
+            .pread_with::<&[u8]>(offset, safe_available_size)
             .map_err(|_| {
                 error::Error::Malformed(format!(
                     "base reloc offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",

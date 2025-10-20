@@ -710,6 +710,11 @@ impl<'a> UnwindInfo<'a> {
         // handler is called as part of the search for an exception handler or as part of an unwind.
         } else if flags & (UNW_FLAG_EHANDLER | UNW_FLAG_UHANDLER) != 0 {
             let address = bytes.gread_with::<u32>(&mut offset, scroll::LE)?;
+            if offset > bytes.len() {
+                return Err(error::Error::Malformed(format!(
+                    "Offset {offset:#x} is too big to contain unwind handlers",
+                )));
+            }
             let data = &bytes[offset..];
 
             handler = Some(if flags & UNW_FLAG_EHANDLER != 0 {

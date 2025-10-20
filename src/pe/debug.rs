@@ -810,7 +810,7 @@ impl<'a> Iterator for POGOEntryIterator<'a> {
             Err(error) => return Some(Err(error.into())),
         };
 
-        if offset >= self.data.len() {
+        if offset > self.data.len() {
             return Some(Err(error::Error::Malformed(format!(
                 "Offset {:#x} is too big for containing name field of POGO entry (rva {:#x} and size {:#X})",
                 offset, rva, size

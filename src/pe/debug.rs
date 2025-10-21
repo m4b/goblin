@@ -819,20 +819,19 @@ impl<'a> Iterator for POGOEntryIterator<'a> {
         }
         let name = match self.data[offset..].iter().position(|&b| b == 0) {
             Some(pos) => {
-                if offset + pos as usize >= self.data.len() {
+                // + 1 nul
+                let Some(name) = self.data.gread_with::<&[u8]>(&mut offset, pos + 1).ok() else {
                     return Some(Err(error::Error::Malformed(format!(
                         "Null-terminator for POGO entry (rva {rva:#x} and size {size:#X}) found but exceeds iterator buffer",
                     ))));
-                }
-                let name = &self.data[offset..offset + pos + 1];
-                offset = offset + pos + 1;
-                // Align to the next u32 boundary
-                offset = (offset + 3) & !3; // Round up to the nearest multiple of 4
+                };
+                // Round up to the nearest multiple of 4
+                offset = (offset + 3) & !3;
                 name
             }
             None => {
                 return Some(Err(error::Error::Malformed(format!(
-                    "Cannot find null-terimnator for POGO entry (rva {rva:#x} and size {size:#X})",
+                    "Cannot find null-terminator for POGO entry (rva {rva:#x} and size {size:#X})",
                 ))
                 .into()));
             }
@@ -853,6 +852,8 @@ impl FusedIterator for POGOEntryIterator<'_> {}
 
 #[cfg(test)]
 mod tests {
+    use crate::pe::debug::POGOEntryIterator;
+
     use super::{
         CODEVIEW_PDB70_MAGIC, ExDllCharacteristicsInfo, IMAGE_DEBUG_POGO_SIGNATURE_LTCG,
         IMAGE_DEBUG_TYPE_CODEVIEW, IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS, IMAGE_DEBUG_TYPE_ILTCG,
@@ -1104,5 +1105,45 @@ mod tests {
             },
         ];
         assert_eq!(entries, entries_expect);
+    }
+
+    #[rustfmt::skip]
+    const MALFORMED_POGO_NAME: &[u8; 83] = &[
+        // Entry 1: .text$mn
+        0x00, 0x10, 0x00, 0x00, // RVA: 0x00001000
+        0x03, 0x00, 0x00, 0x00, // Size: 0x00000003
+        0x2e, 0x74, 0x65, 0x78, // Name: ".text$mn\0"
+        0x74, 0x24, 0x6d, 0x6e,
+        0x00, 0x00, 0x00, 0x00,
+        // Entry 2: .rdata
+        0x00, 0x20, 0x00, 0x00, // RVA: 0x00002000
+        0xa8, 0x00, 0x00, 0x00, // Size: 0x000000A8
+        0x2e, 0x72, 0x64, 0x61, // Name: ".rdata\0"
+        0x74, 0x61, 0x00, 0x00,
+        // Entry 3: .rdata$voltmd
+        0xa8, 0x20, 0x00, 0x00, // RVA: 0x000020A8
+        0x18, 0x00, 0x00, 0x00, // Size: 0x00000018
+        0x2e, 0x72, 0x64, 0x61, // Name: ".rdata$voltmd\0"
+        0x74, 0x61, 0x24, 0x76,
+        0x6f, 0x6c, 0x74, 0x6d,
+        0x64, 0x00, 0x00, 0x00,
+        // Entry 4: .rdata$zzzdbg
+        0xc0, 0x20, 0x00, 0x00, // RVA: 0x000020C0
+        0xcc, 0x00, 0x00, 0x00, // Size: 0x000000CC
+        0x2e, 0x72, 0x64, 0x61, // Name: ".rdata$zzzdbg\0"
+        0x74, 0x61, 0x24, 0x7a,
+        0x7a, 0x7a, 0x64, 0x62,
+        0x67, 0x00, 0x00, /* truncated 0x00 */
+    ];
+
+    use alloc::string::{String, ToString};
+
+    #[test]
+    #[should_panic = "Malformed(\"Offset 0x18 exceeds buffer length 0x17\")"]
+    fn parse_debug_pogo_malformed_name() {
+        let entries = POGOEntryIterator {
+            data: MALFORMED_POGO_NAME,
+        };
+        let _ = entries.collect::<Result<Vec<_>, _>>().unwrap();
     }
 }

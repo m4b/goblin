@@ -852,14 +852,13 @@ impl FusedIterator for POGOEntryIterator<'_> {}
 
 #[cfg(test)]
 mod tests {
-    use crate::pe::debug::POGOEntryIterator;
-
     use super::{
         CODEVIEW_PDB70_MAGIC, ExDllCharacteristicsInfo, IMAGE_DEBUG_POGO_SIGNATURE_LTCG,
         IMAGE_DEBUG_TYPE_CODEVIEW, IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS, IMAGE_DEBUG_TYPE_ILTCG,
         IMAGE_DEBUG_TYPE_POGO, IMAGE_DEBUG_TYPE_REPRO, IMAGE_DEBUG_TYPE_VC_FEATURE,
         IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT, IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT_STRICT_MODE,
-        ImageDebugDirectory, POGO_SIGNATURE_SIZE, POGOInfoEntry, ReproInfo, VCFeatureInfo,
+        ImageDebugDirectory, POGO_SIGNATURE_SIZE, POGOEntryIterator, POGOInfoEntry, ReproInfo,
+        VCFeatureInfo,
     };
 
     const NO_DEBUG_DIRECTORIES_BIN: &[u8] =
@@ -1135,8 +1134,6 @@ mod tests {
         0x7a, 0x7a, 0x64, 0x62,
         0x67, 0x00, 0x00, /* truncated 0x00 */
     ];
-
-    use alloc::string::{String, ToString};
 
     #[test]
     #[should_panic = "Malformed(\"Offset 0x18 exceeds buffer length 0x17\")"]

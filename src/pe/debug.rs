@@ -810,18 +810,18 @@ impl<'a> Iterator for POGOEntryIterator<'a> {
             Err(error) => return Some(Err(error.into())),
         };
 
-        if offset > self.data.len() {
+        // Use >= to avoid empty slice, that we want to emit an error early here for
+        // malformed name in a POGO entry.
+        if offset >= self.data.len() {
             return Some(Err(error::Error::Malformed(format!(
-                "Offset {:#x} is too big for containing name field of POGO entry (rva {:#x} and size {:#X})",
-                offset, rva, size
+                "Offset {offset:#x} is too big for containing name field of POGO entry (rva {rva:#x} and size {size:#X})",
             ))));
         }
         let name = match self.data[offset..].iter().position(|&b| b == 0) {
             Some(pos) => {
                 if offset + pos as usize >= self.data.len() {
                     return Some(Err(error::Error::Malformed(format!(
-                        "Null-terminator for POGO entry (rva {:#x} and size {:#X}) found but exceeds iterator buffer",
-                        rva, size
+                        "Null-terminator for POGO entry (rva {rva:#x} and size {size:#X}) found but exceeds iterator buffer",
                     ))));
                 }
                 let name = &self.data[offset..offset + pos + 1];
@@ -832,13 +832,18 @@ impl<'a> Iterator for POGOEntryIterator<'a> {
             }
             None => {
                 return Some(Err(error::Error::Malformed(format!(
-                    "Cannot find null-terimnator for POGO entry (rva {:#x} and size {:#X})",
-                    rva, size
+                    "Cannot find null-terimnator for POGO entry (rva {rva:#x} and size {size:#X})",
                 ))
                 .into()));
             }
         };
 
+        if offset > self.data.len() {
+            return Some(Err(error::Error::Malformed(format!(
+                "Offset {offset:#x} exceeds buffer length {:#x}",
+                self.data.len()
+            ))));
+        }
         self.data = &self.data[offset..];
         Some(Ok(POGOInfoEntry { rva, size, name }))
     }

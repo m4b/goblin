@@ -668,6 +668,7 @@ impl<'a> Iterator for ResourceStringIterator<'a> {
                     "Parsed next resource string as size {:#x}: {:#x?}",
                     offset, next?
                 );
+                // Using offset from `ResourceString::parse` so this is infailable.
                 self.data = &self.data[offset..];
                 Ok(next?)
             }

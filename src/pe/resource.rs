@@ -399,11 +399,24 @@ impl ResourceEntry {
         P: Fn(&Self) -> bool,
     {
         let mut current = *self;
+        let mut visited = alloc::collections::BTreeSet::new();
+
+        // Track the offset to detect cycles
+        visited.insert(current.offset_to_data_or_directory);
 
         while let Some(next) = current.next_depth(bytes)? {
             if !predicate(&next) {
                 return Ok(Some(next));
             }
+
+            // Reject PEs that have a malformed resource tree
+            if !visited.insert(next.offset_to_data_or_directory) {
+                return Err(error::Error::Malformed(format!(
+                    "Cycle detected in resource directory at offset {:#x}",
+                    next.offset_to_data_or_directory
+                )));
+            }
+
             current = next;
         }
 
@@ -1285,6 +1298,8 @@ mod tests {
     const HAS_NO_RES: &[u8] = include_bytes!("../../tests/bins/pe/has_no_res.exe.bin");
     const HAS_RES_FULL_VERSION_AND_MANIFEST: &[u8] =
         include_bytes!("../../tests/bins/pe/has_res_full_version_and_manifest.exe.bin");
+    const MALFORMED_RESOURCE_TREE: &[u8] =
+        include_bytes!("../../tests/bins/pe/malformed_resource_tree.exe.bin");
 
     /// Binary representation of following default LLD manifest (`/MANIFEST`) expect as UTF-8.
     ///
@@ -1915,5 +1930,11 @@ mod tests {
         ];
         let result = to_utf16_string(bytes);
         assert!(result.is_some());
+    }
+
+    #[test]
+    #[should_panic = "Cycle detected in resource directory at offset"]
+    fn malformed_resource_tree() {
+        let _ = crate::pe::PE::parse(MALFORMED_RESOURCE_TREE).unwrap();
     }
 }

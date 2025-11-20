@@ -800,7 +800,11 @@ impl<'a> ResourceString<'a> {
             },
             4,
         );
-        let value = bytes.pread_with::<&[u8]>(*offset, real_value_len as usize)?;
+
+        // Some resource compilers (like mono) don't pad the last value to 4-byte alignment.
+        // If there aren't enough bytes for the aligned length, use what's available.
+        let actual_read_len = real_value_len.min(bytes.len() - *offset);
+        let value = bytes.pread_with::<&[u8]>(*offset, actual_read_len)?;
         *offset += value.len();
 
         Ok(Some(Self {

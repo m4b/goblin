@@ -792,18 +792,35 @@ impl<'a> ResourceString<'a> {
         let key = bytes.gread_with::<Utf16String>(offset, scroll::LE)?;
         *offset = utils::align_up(*offset, RESOURCE_STRING_FIELD_ALIGNMENT);
 
-        let real_value_len = utils::align_up(
-            if r#type == 1 {
-                value_len as usize * SIZE_OF_WCHAR
-            } else {
-                value_len as usize
-            },
-            4,
-        );
+        let unaligned_value_len = if r#type == 1 {
+            value_len.checked_mul(SIZE_OF_WCHAR as u16).ok_or_else(|| {
+                error::Error::Malformed(format!(
+                    "ResourceString value_len overflow: {} * {}",
+                    value_len, SIZE_OF_WCHAR
+                ))
+            })? as usize
+        } else {
+            value_len as usize
+        };
 
-        // Some resource compilers (like mono) don't pad the last value to 4-byte alignment.
-        // If there aren't enough bytes for the aligned length, use what's available.
-        let actual_read_len = real_value_len.min(bytes.len() - *offset);
+        let bytes_remaining = bytes.len().saturating_sub(*offset);
+        if unaligned_value_len > bytes_remaining {
+            return Err(error::Error::Malformed(format!(
+                "ResourceString value_len ({}) exceeds available bytes ({})",
+                unaligned_value_len, bytes_remaining
+            ))
+            .into());
+        }
+
+        // Only align if there are bytes remaining after the value
+        // Some resource compilers (like Mono) don't pad the last value to 4-byte alignment
+        let aligned_value_len = utils::align_up(unaligned_value_len, 4);
+        let actual_read_len = if aligned_value_len <= bytes_remaining {
+            aligned_value_len
+        } else {
+            unaligned_value_len
+        };
+
         let value = bytes.pread_with::<&[u8]>(*offset, actual_read_len)?;
         *offset += value.len();
 
@@ -1940,5 +1957,62 @@ mod tests {
     #[should_panic = "Cycle detected in resource directory at offset"]
     fn malformed_resource_tree() {
         let _ = crate::pe::PE::parse(MALFORMED_RESOURCE_TREE).unwrap();
+    }
+
+    #[test]
+    fn test_parse_dotnet_dll_resources() {
+        // Test parsing .NET DLL System.Xml.XDocument.dll compiled with Mono 4.8
+        // This DLL has resource structures without padding on the last value, which
+        // previously caused out-of-bounds read attempts
+        const MONO_DOTNET_DLL: &[u8] = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/bins/pe/System.Xml.XDocument.dll"
+        ));
+
+        let pe =
+            crate::pe::PE::parse(MONO_DOTNET_DLL).expect("Failed to parse Mono-compiled .NET DLL");
+
+        let res_data = pe
+            .resource_data
+            .as_ref()
+            .expect("Resource data should be present");
+
+        let ver_info = res_data
+            .version_info
+            .as_ref()
+            .expect("Version info should be present");
+
+        let fixed = ver_info
+            .fixed_info
+            .as_ref()
+            .expect("Fixed info should be present");
+
+        let file_ver = fixed.file_version();
+        assert_eq!(file_ver.major, 0, "File version major");
+        assert_eq!(file_ver.minor, 0, "File version minor");
+        assert_eq!(file_ver.build, 0, "File version build");
+        assert_eq!(file_ver.revision, 0, "File version revision");
+
+        let product_ver = fixed.product_version();
+        assert_eq!(product_ver.major, 4, "Product version major (Mono 4.x)");
+        assert_eq!(product_ver.minor, 8, "Product version minor");
+        assert_eq!(product_ver.build, 3761, "Product version build");
+        assert_eq!(product_ver.revision, 0, "Product version revision");
+
+        assert_eq!(
+            ver_info.string_info.legal_copyright(),
+            Some("(c) Various Mono authors".to_string()),
+            "Copyright should match Mono authors"
+        );
+        assert_eq!(
+            ver_info.string_info.product_name(),
+            Some("Mono Common Language Infrastructure".to_string()),
+            "Product name should match Mono CLI"
+        );
+        assert_eq!(
+            ver_info.string_info.file_description(),
+            Some("System.Xml.XDocument".to_string()),
+            "File description should match assembly name"
+        );
     }
 }

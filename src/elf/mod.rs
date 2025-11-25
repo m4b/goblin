@@ -55,6 +55,8 @@ pub mod reloc;
 pub mod note;
 #[cfg(all(any(feature = "elf32", feature = "elf64"), feature = "alloc"))]
 pub mod symver;
+#[cfg(all(any(feature = "elf32", feature = "elf64"), feature = "alloc"))]
+pub mod writer;
 
 macro_rules! if_sylvan {
     ($($i:item)*) => ($(

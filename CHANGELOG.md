@@ -5,6 +5,14 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.10, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
+## [0.10.4] - 2025-11-30
+## Added
+elf.reloc: add some missing PowerPC 32-bit relocation type constants, thanks @ivlzme: https://github.com/m4b/goblin/pull/495
+## Fixed
+pe: Fix potential out-of-bounds read in unwind/POGO info parser, thanks @kkent030315: https://github.com/m4b/goblin/pull/498
+pe: Reject cyclic resource trees, thanks @Mrmaxmeier: https://github.com/m4b/goblin/pull/499
+pe: Handle unpadded resource values in .NET assemblies compiled with Mono, thanks @BinFlip: https://github.com/m4b/goblin/pull/501
+
 ## [0.10.3] - 2025-10-16
 ## Fixed
 pe: fix regression in PE relocs, thanks @PJB3005: https://github.com/m4b/goblin/pull/496

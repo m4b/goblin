@@ -106,7 +106,7 @@ impl<'a> Strtab<'a> {
         let (end, overflow) = offset.overflowing_add(len);
 
         // Handle completely invalid offset
-        if offset >= bytes.len() {
+        if offset > bytes.len() {
             #[cfg(feature = "alloc")]
             return Err(error::Error::Malformed(format!(
                 "String table offset ({}) is beyond file boundary ({})",

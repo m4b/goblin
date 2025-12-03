@@ -1419,7 +1419,7 @@ pub fn machine_to_str(machine: u16) -> &'static str {
         COFF_MACHINE_SH5 => "SH5",
         COFF_MACHINE_THUMB => "THUMB",
         COFF_MACHINE_WCEMIPSV2 => "WCE_MIPS_V2",
-        _ => format!("Indeterminate machine type: {:X}", machine)
+        _ => format!("Indeterminate machine type: {:X}", machine),
     }
 }
 

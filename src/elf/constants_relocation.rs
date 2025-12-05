@@ -956,6 +956,7 @@ pub const R_PPC_SECTOFF: u32 = 33;
 pub const R_PPC_SECTOFF_LO: u32 = 34;
 pub const R_PPC_SECTOFF_HI: u32 = 35;
 pub const R_PPC_SECTOFF_HA: u32 = 36;
+pub const R_PPC_ADDR30: u32 = 37;
 /// none	(sym+add)@tls
 pub const R_PPC_TLS: u32 = 67;
 /// word32	(sym+add)@dtpmod
@@ -1122,7 +1123,7 @@ pub const R_PPC64_SECTOFF_LO: u32 = R_PPC_SECTOFF_LO;
 pub const R_PPC64_SECTOFF_HI: u32 = R_PPC_SECTOFF_HI;
 pub const R_PPC64_SECTOFF_HA: u32 = R_PPC_SECTOFF_HA;
 /// word30 (S + A - P) >> 2.
-pub const R_PPC64_ADDR30: u32 = 37;
+pub const R_PPC64_ADDR30: u32 = R_PPC_ADDR30;
 /// doubleword64 S + A.
 pub const R_PPC64_ADDR64: u32 = 38;
 /// half16 #higher(S + A).
@@ -1950,6 +1951,7 @@ pub fn r_to_str(typ: u32, machine: u16) -> &'static str {
             R_PPC_SECTOFF_LO => "R_PPC_SECTOFF_LO",
             R_PPC_SECTOFF_HI => "R_PPC_SECTOFF_HI",
             R_PPC_SECTOFF_HA => "R_PPC_SECTOFF_HA",
+            R_PPC_ADDR30 => "R_PPC_ADDR30",
             R_PPC_TLS => "R_PPC_TLS",
             R_PPC_DTPMOD32 => "R_PPC_DTPMOD32",
             R_PPC_TPREL16 => "R_PPC_TPREL16",

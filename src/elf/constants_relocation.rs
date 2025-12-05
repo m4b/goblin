@@ -908,19 +908,28 @@ pub const R_RISCV_SET32: u32 = 56;
 /////////////////////
 // PowerPC 32-bit
 // See: https://example61560.wordpress.com/wp-content/uploads/2016/11/powerpc_abi.pdf
-// and https://www.nxp.com/docs/en/reference-manual/E500ABIUG.pdf
+// and https://www.nxp.com/docs/en/reference-manual/E500ABIUG.pdf and elf.h
 /////////////////////
 pub const R_PPC_NONE: u32 = 0;
+/// 32bit absolute address
 pub const R_PPC_ADDR32: u32 = 1;
+/// 26bit address, 2 bits ignored.
 pub const R_PPC_ADDR24: u32 = 2;
+/// 16bit absolute address
 pub const R_PPC_ADDR16: u32 = 3;
+/// lower 16bit of absolute address
 pub const R_PPC_ADDR16_LO: u32 = 4;
+/// high 16bit of absolute address
 pub const R_PPC_ADDR16_HI: u32 = 5;
+/// adjusted high 16bit
 pub const R_PPC_ADDR16_HA: u32 = 6;
+/// 16bit address, 2 bits ignored
 pub const R_PPC_ADDR14: u32 = 7;
 pub const R_PPC_ADDR14_BRTAKEN: u32 = 8;
 pub const R_PPC_ADDR14_BRNTAKEN: u32 = 9;
+/// PC relative 26 bit
 pub const R_PPC_REL24: u32 = 10;
+/// PC relative 16 bit
 pub const R_PPC_REL14: u32 = 11;
 pub const R_PPC_REL14_BRTAKEN: u32 = 12;
 pub const R_PPC_REL14_BRNTAKEN: u32 = 13;
@@ -948,6 +957,62 @@ pub const R_PPC_SECTOFF_LO: u32 = 34;
 pub const R_PPC_SECTOFF_HI: u32 = 35;
 pub const R_PPC_SECTOFF_HA: u32 = 36;
 pub const R_PPC_ADDR30: u32 = 37;
+/// none	(sym+add)@tls
+pub const R_PPC_TLS: u32 = 67;
+/// word32	(sym+add)@dtpmod
+pub const R_PPC_DTPMOD32: u32 = 68;
+/// half16*	(sym+add)@tprel
+pub const R_PPC_TPREL16: u32 = 69;
+/// half16	(sym+add)@tprel@l
+pub const R_PPC_TPREL16_LO: u32 = 70;
+/// half16	(sym+add)@tprel@h
+pub const R_PPC_TPREL16_HI: u32 = 71;
+/// half16	(sym+add)@tprel@ha
+pub const R_PPC_TPREL16_HA: u32 = 72;
+/// word32	(sym+add)@tprel
+pub const R_PPC_TPREL32: u32 = 73;
+/// half16*	(sym+add)@dtprel
+pub const R_PPC_DTPREL16: u32 = 74;
+/// half16	(sym+add)@dtprel@l
+pub const R_PPC_DTPREL16_LO: u32 = 75;
+/// half16	(sym+add)@dtprel@h
+pub const R_PPC_DTPREL16_HI: u32 = 76;
+/// half16	(sym+add)@dtprel@ha
+pub const R_PPC_DTPREL16_HA: u32 = 77;
+/// word32	(sym+add)@dtprel
+pub const R_PPC_DTPREL32: u32 = 78;
+/// half16*	(sym+add)@got@tlsgd
+pub const R_PPC_GOT_TLSGD16: u32 = 79;
+/// half16	(sym+add)@got@tlsgd@l
+pub const R_PPC_GOT_TLSGD16_LO: u32 = 80;
+/// half16	(sym+add)@got@tlsgd@h
+pub const R_PPC_GOT_TLSGD16_HI: u32 = 81;
+/// half16	(sym+add)@got@tlsgd@ha
+pub const R_PPC_GOT_TLSGD16_HA: u32 = 82;
+/// half16*	(sym+add)@got@tlsld
+pub const R_PPC_GOT_TLSLD16: u32 = 83;
+/// half16	(sym+add)@got@tlsld@l
+pub const R_PPC_GOT_TLSLD16_LO: u32 = 84;
+/// half16	(sym+add)@got@tlsld@h
+pub const R_PPC_GOT_TLSLD16_HI: u32 = 85;
+/// half16	(sym+add)@got@tlsld@ha
+pub const R_PPC_GOT_TLSLD16_HA: u32 = 86;
+/// half16*	(sym+add)@got@tprel
+pub const R_PPC_GOT_TPREL16: u32 = 87;
+/// half16	(sym+add)@got@tprel@l
+pub const R_PPC_GOT_TPREL16_LO: u32 = 88;
+/// half16	(sym+add)@got@tprel@h
+pub const R_PPC_GOT_TPREL16_HI: u32 = 89;
+/// half16	(sym+add)@got@tprel@ha
+pub const R_PPC_GOT_TPREL16_HA: u32 = 90;
+/// half16*	(sym+add)@got@dtprel
+pub const R_PPC_GOT_DTPREL16: u32 = 91;
+/// half16*	(sym+add)@got@dtprel@l
+pub const R_PPC_GOT_DTPREL16_LO: u32 = 92;
+/// half16*	(sym+add)@got@dtprel@h
+pub const R_PPC_GOT_DTPREL16_HI: u32 = 93;
+/// half16*	(sym+add)@got@dtprel@ha
+pub const R_PPC_GOT_DTPREL16_HA: u32 = 94;
 pub const R_PPC_EMB_NADDR32: u32 = 101;
 pub const R_PPC_EMB_NADDR16: u32 = 102;
 pub const R_PPC_EMB_NADDR16_LO: u32 = 103;
@@ -1887,6 +1952,34 @@ pub fn r_to_str(typ: u32, machine: u16) -> &'static str {
             R_PPC_SECTOFF_HI => "R_PPC_SECTOFF_HI",
             R_PPC_SECTOFF_HA => "R_PPC_SECTOFF_HA",
             R_PPC_ADDR30 => "R_PPC_ADDR30",
+            R_PPC_TLS => "R_PPC_TLS",
+            R_PPC_DTPMOD32 => "R_PPC_DTPMOD32",
+            R_PPC_TPREL16 => "R_PPC_TPREL16",
+            R_PPC_TPREL16_LO => "R_PPC_TPREL16_LO",
+            R_PPC_TPREL16_HI => "R_PPC_TPREL16_HI",
+            R_PPC_TPREL16_HA => "R_PPC_TPREL16_HA",
+            R_PPC_TPREL32 => "R_PPC_TPREL32",
+            R_PPC_DTPREL16 => "R_PPC_DTPREL16",
+            R_PPC_DTPREL16_LO => "R_PPC_DTPREL16_LO",
+            R_PPC_DTPREL16_HI => "R_PPC_DTPREL16_HI",
+            R_PPC_DTPREL16_HA => "R_PPC_DTPREL16_HA",
+            R_PPC_DTPREL32 => "R_PPC_DTPREL32",
+            R_PPC_GOT_TLSGD16 => "R_PPC_GOT_TLSGD16",
+            R_PPC_GOT_TLSGD16_LO => "R_PPC_GOT_TLSGD16_LO",
+            R_PPC_GOT_TLSGD16_HI => "R_PPC_GOT_TLSGD16_HI",
+            R_PPC_GOT_TLSGD16_HA => "R_PPC_GOT_TLSGD16_HA",
+            R_PPC_GOT_TLSLD16 => "R_PPC_GOT_TLSLD16",
+            R_PPC_GOT_TLSLD16_LO => "R_PPC_GOT_TLSLD16_LO",
+            R_PPC_GOT_TLSLD16_HI => "R_PPC_GOT_TLSLD16_HI",
+            R_PPC_GOT_TLSLD16_HA => "R_PPC_GOT_TLSLD16_HA",
+            R_PPC_GOT_TPREL16 => "R_PPC_GOT_TPREL16",
+            R_PPC_GOT_TPREL16_LO => "R_PPC_GOT_TPREL16_LO",
+            R_PPC_GOT_TPREL16_HI => "R_PPC_GOT_TPREL16_HI",
+            R_PPC_GOT_TPREL16_HA => "R_PPC_GOT_TPREL16_HA",
+            R_PPC_GOT_DTPREL16 => "R_PPC_GOT_DTPREL16",
+            R_PPC_GOT_DTPREL16_LO => "R_PPC_GOT_DTPREL16_LO",
+            R_PPC_GOT_DTPREL16_HI => "R_PPC_GOT_DTPREL16_HI",
+            R_PPC_GOT_DTPREL16_HA => "R_PPC_GOT_DTPREL16_HA",
             R_PPC_EMB_NADDR32 => "R_PPC_EMB_NADDR32",
             R_PPC_EMB_NADDR16 => "R_PPC_EMB_NADDR16",
             R_PPC_EMB_NADDR16_LO => "R_PPC_EMB_NADDR16_LO",

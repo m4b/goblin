@@ -330,6 +330,7 @@ pub mod sym64 {
 use crate::container::{Container, Ctx};
 #[cfg(feature = "alloc")]
 use crate::error::Result;
+use crate::options::Permissive;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::fmt;
@@ -515,14 +516,77 @@ if_alloc! {
     impl<'a> Symtab<'a> {
         /// Parse a table of `count` ELF symbols from `offset`.
         pub fn parse(bytes: &'a [u8], offset: usize, count: usize, ctx: Ctx) -> Result<Symtab<'a>> {
-            let size = count
+            Self::parse_with_opts(bytes, offset, count, ctx, &crate::options::ParseOptions::default())
+        }
+
+        /// Parse a table of `count` ELF symbols from `offset` with options.
+        pub(crate) fn parse_with_opts(bytes: &'a [u8], offset: usize, count: usize, ctx: Ctx, opts: &crate::options::ParseOptions) -> Result<Symtab<'a>> {
+
+            // Validate offset is within bounds
+            if offset >= bytes.len() {
+                return Err(crate::error::Error::Malformed(
+                    format!("Symbol table offset ({}) is beyond file boundary ({})", offset, bytes.len())
+                )).or_permissive_and_value(
+                    opts.parse_mode.is_permissive(),
+                    "Symbol table offset is beyond file boundary, returning empty symbol table",
+                    Symtab { bytes: &[], count: 0, ctx, start: offset, end: offset }
+                );
+            }
+
+            // Check for extremely large counts
+            let mut actual_count = if count > usize::MAX {
+                Err(crate::error::Error::Malformed(
+                    format!("Symbol count ({}) exceeds maximum possible value", count)
+                ))
+                .or_permissive_and_then(
+                    opts.parse_mode.is_permissive(),
+                    "Symbol count exceeds maximum; truncating",
+                    || usize::MAX,
+                )?
+            } else {
+                count
+            };
+
+            let mut requested_size = actual_count
                 .checked_mul(Sym::size_with(&ctx))
                 .ok_or_else(|| crate::error::Error::Malformed(
-                    format!("Too many ELF symbols (offset {:#x}, count {})", offset, count)
+                    format!("Too many ELF symbols (offset {:#x}, count {})", offset, actual_count)
                 ))?;
-            // TODO: make this a better error message when too large
-            let bytes = bytes.pread_with(offset, size)?;
-            Ok(Symtab { bytes, count, ctx, start: offset, end: offset+size })
+
+            // Check if the requested size extends beyond the file
+            let available_bytes = bytes.len().saturating_sub(offset);
+            if requested_size > available_bytes {
+                let sym_size = Sym::size_with(&ctx);
+                let adjusted_count = if sym_size > 0 { available_bytes / sym_size } else { 0 };
+
+            let (new_size, new_count) = Err(crate::error::Error::Malformed(
+                format!("Symbol table extends beyond file boundary (requested: {}, available: {})",
+                        requested_size, available_bytes)
+            ))
+                .or_permissive_and_then(
+                    opts.parse_mode.is_permissive(),
+                    "Symbol table extends beyond file; truncating",
+                    || (available_bytes, adjusted_count),
+                )?;
+
+                requested_size = new_size;
+                actual_count = new_count;
+            }
+
+            bytes.pread_with(offset, requested_size)
+                .map_err(Into::into)
+                .map(|symbol_bytes| Symtab {
+                    bytes: symbol_bytes,
+                    count: actual_count,
+                    ctx,
+                    start: offset,
+                    end: offset + requested_size
+                })
+                .or_permissive_and_value(
+                    opts.parse_mode.is_permissive(),
+                    "Failed to read symbol table data",
+                    Symtab { bytes: &[], count: 0, ctx, start: offset, end: offset },
+                )
         }
 
         /// Try to parse a single symbol from the binary, at `index`.

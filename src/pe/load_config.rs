@@ -7,6 +7,7 @@ use crate::pe::data_directories;
 use crate::pe::options;
 use crate::pe::section_table;
 use crate::pe::utils;
+use log;
 
 // GuardFlags: bitflags for LoadConfigDirectory::guard_flags.
 
@@ -299,7 +300,7 @@ pub struct LoadConfigCodeIntegrity {
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct LoadConfigData {
     /// Parsed load config directory.
-    directory: LoadConfigDirectory,
+    pub directory: LoadConfigDirectory,
 }
 
 impl LoadConfigData {
@@ -336,6 +337,14 @@ impl LoadConfigData {
                         dd.virtual_address
                     ))
                 })?;
+
+        log::debug!(
+            "LoadConfig parsing: offset={:#x}, dd.size={:#x}, total_bytes_len={:#x}, remaining_bytes_from_offset={:#x}",
+            offset,
+            dd.size,
+            bytes.len(),
+            bytes.len().saturating_sub(offset)
+        );
         let bytes = bytes
             .pread_with::<&[u8]>(offset, dd.size as usize)
             .map_err(|_| {
@@ -346,6 +355,10 @@ impl LoadConfigData {
                     bytes.len()
                 ))
             })?;
+        log::debug!(
+            "LoadConfig bytes slice created successfully, length={}",
+            bytes.len()
+        );
 
         let ctx = Ctx::new(
             if is_64 {

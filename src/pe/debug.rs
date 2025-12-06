@@ -1,6 +1,7 @@
 use core::iter::FusedIterator;
 
 use crate::error;
+use crate::options::Permissive;
 use log::debug;
 use scroll::{Pread, Pwrite, SizeWith};
 
@@ -175,24 +176,40 @@ impl<'a> DebugData<'a> {
         rva_offset: u32,
     ) -> error::Result<Self> {
         let offset =
-            utils::find_offset(dd.virtual_address as usize, sections, file_alignment, opts)
-                .ok_or_else(|| {
-                    error::Error::Malformed(format!(
+            match utils::find_offset(dd.virtual_address as usize, sections, file_alignment, opts) {
+                Some(offset) => offset,
+                None => {
+                    return Err(error::Error::Malformed(format!(
                         "Cannot map ImageDebugDirectory rva {:#x} into offset",
                         dd.virtual_address
-                    ))
-                })?;
+                    )))?;
+                }
+            };
 
         // Ensure that the offset and size do not exceed the length of the bytes slice
-        if offset + dd.size as usize > bytes.len() {
-            return Err(error::Error::Malformed(format!(
-                "ImageDebugDirectory offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",
+        let available_size = if offset + dd.size as usize > bytes.len() {
+            let remaining_bytes = bytes.len().saturating_sub(offset);
+            Err(error::Error::Malformed(format!(
+                "ImageDebugDirectory offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}. \
+                This may indicate a packed binary.",
                 offset,
                 dd.size,
                 bytes.len()
-            )));
-        }
-        let data = &bytes[offset..offset + dd.size as usize];
+            )))
+            .or_permissive_and_value(
+                opts.parse_mode.is_permissive(),
+                "ImageDebugDirectory exceeds bounds; truncating",
+                remaining_bytes,
+            )?
+        } else {
+            dd.size as usize
+        };
+
+        let data = if available_size > 0 {
+            bytes.pread_with::<&[u8]>(offset, available_size)?
+        } else {
+            &[]
+        };
         let it = ImageDebugDirectoryIterator { data, rva_offset };
 
         let mut codeview_pdb70_debug_info = None;
@@ -370,7 +387,11 @@ impl<'a> CodeviewPDB70DebugInfo<'a> {
             return Err(error::Error::Malformed(format!(
                 "ImageDebugDirectory size of data seems wrong: {:?}",
                 idd.size_of_data
-            )));
+            )))
+            .or_permissive_and_default(
+                opts.parse_mode.is_permissive(),
+                "ImageDebugDirectory size of data seems wrong",
+            );
         }
         let filename_length = filename_length as usize;
 
@@ -481,7 +502,11 @@ impl<'a> CodeviewPDB20DebugInfo<'a> {
             return Err(error::Error::Malformed(format!(
                 "ImageDebugDirectory size of data seems wrong: {:?}",
                 idd.size_of_data
-            )));
+            )))
+            .or_permissive_and_default(
+                opts.parse_mode.is_permissive(),
+                "ImageDebugDirectory size of data seems wrong",
+            );
         }
         let filename_length = filename_length as usize;
 
@@ -785,35 +810,39 @@ impl<'a> Iterator for POGOEntryIterator<'a> {
             Err(error) => return Some(Err(error.into())),
         };
 
+        // Use >= to avoid empty slice, that we want to emit an error early here for
+        // malformed name in a POGO entry.
         if offset >= self.data.len() {
             return Some(Err(error::Error::Malformed(format!(
-                "Offset {:#x} is too big for containing name field of POGO entry (rva {:#x} and size {:#X})",
-                offset, rva, size
+                "Offset {offset:#x} is too big for containing name field of POGO entry (rva {rva:#x} and size {size:#X})",
             ))));
         }
         let name = match self.data[offset..].iter().position(|&b| b == 0) {
             Some(pos) => {
-                if offset + pos as usize >= self.data.len() {
+                // + 1 nul
+                let Some(name) = self.data.gread_with::<&[u8]>(&mut offset, pos + 1).ok() else {
                     return Some(Err(error::Error::Malformed(format!(
-                        "Null-terminator for POGO entry (rva {:#x} and size {:#X}) found but exceeds iterator buffer",
-                        rva, size
+                        "Null-terminator for POGO entry (rva {rva:#x} and size {size:#X}) found but exceeds iterator buffer",
                     ))));
-                }
-                let name = &self.data[offset..offset + pos + 1];
-                offset = offset + pos + 1;
-                // Align to the next u32 boundary
-                offset = (offset + 3) & !3; // Round up to the nearest multiple of 4
+                };
+                // Round up to the nearest multiple of 4
+                offset = (offset + 3) & !3;
                 name
             }
             None => {
                 return Some(Err(error::Error::Malformed(format!(
-                    "Cannot find null-terimnator for POGO entry (rva {:#x} and size {:#X})",
-                    rva, size
+                    "Cannot find null-terminator for POGO entry (rva {rva:#x} and size {size:#X})",
                 ))
                 .into()));
             }
         };
 
+        if offset > self.data.len() {
+            return Some(Err(error::Error::Malformed(format!(
+                "Offset {offset:#x} exceeds buffer length {:#x}",
+                self.data.len()
+            ))));
+        }
         self.data = &self.data[offset..];
         Some(Ok(POGOInfoEntry { rva, size, name }))
     }
@@ -828,7 +857,8 @@ mod tests {
         IMAGE_DEBUG_TYPE_CODEVIEW, IMAGE_DEBUG_TYPE_EX_DLLCHARACTERISTICS, IMAGE_DEBUG_TYPE_ILTCG,
         IMAGE_DEBUG_TYPE_POGO, IMAGE_DEBUG_TYPE_REPRO, IMAGE_DEBUG_TYPE_VC_FEATURE,
         IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT, IMAGE_DLLCHARACTERISTICS_EX_CET_COMPAT_STRICT_MODE,
-        ImageDebugDirectory, POGO_SIGNATURE_SIZE, POGOInfoEntry, ReproInfo, VCFeatureInfo,
+        ImageDebugDirectory, POGO_SIGNATURE_SIZE, POGOEntryIterator, POGOInfoEntry, ReproInfo,
+        VCFeatureInfo,
     };
 
     const NO_DEBUG_DIRECTORIES_BIN: &[u8] =
@@ -1074,5 +1104,43 @@ mod tests {
             },
         ];
         assert_eq!(entries, entries_expect);
+    }
+
+    #[rustfmt::skip]
+    const MALFORMED_POGO_NAME: &[u8; 83] = &[
+        // Entry 1: .text$mn
+        0x00, 0x10, 0x00, 0x00, // RVA: 0x00001000
+        0x03, 0x00, 0x00, 0x00, // Size: 0x00000003
+        0x2e, 0x74, 0x65, 0x78, // Name: ".text$mn\0"
+        0x74, 0x24, 0x6d, 0x6e,
+        0x00, 0x00, 0x00, 0x00,
+        // Entry 2: .rdata
+        0x00, 0x20, 0x00, 0x00, // RVA: 0x00002000
+        0xa8, 0x00, 0x00, 0x00, // Size: 0x000000A8
+        0x2e, 0x72, 0x64, 0x61, // Name: ".rdata\0"
+        0x74, 0x61, 0x00, 0x00,
+        // Entry 3: .rdata$voltmd
+        0xa8, 0x20, 0x00, 0x00, // RVA: 0x000020A8
+        0x18, 0x00, 0x00, 0x00, // Size: 0x00000018
+        0x2e, 0x72, 0x64, 0x61, // Name: ".rdata$voltmd\0"
+        0x74, 0x61, 0x24, 0x76,
+        0x6f, 0x6c, 0x74, 0x6d,
+        0x64, 0x00, 0x00, 0x00,
+        // Entry 4: .rdata$zzzdbg
+        0xc0, 0x20, 0x00, 0x00, // RVA: 0x000020C0
+        0xcc, 0x00, 0x00, 0x00, // Size: 0x000000CC
+        0x2e, 0x72, 0x64, 0x61, // Name: ".rdata$zzzdbg\0"
+        0x74, 0x61, 0x24, 0x7a,
+        0x7a, 0x7a, 0x64, 0x62,
+        0x67, 0x00, 0x00, /* truncated 0x00 */
+    ];
+
+    #[test]
+    #[should_panic = "Malformed(\"Offset 0x18 exceeds buffer length 0x17\")"]
+    fn parse_debug_pogo_malformed_name() {
+        let entries = POGOEntryIterator {
+            data: MALFORMED_POGO_NAME,
+        };
+        let _ = entries.collect::<Result<Vec<_>, _>>().unwrap();
     }
 }

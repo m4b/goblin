@@ -48,7 +48,7 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Utf16String<'a> {
     type Error = crate::error::Error;
     fn try_from_ctx(bytes: &'a [u8], _ctx: scroll::Endian) -> error::Result<(Self, usize)> {
         let len = bytes
-            .chunks(2)
+            .chunks_exact(2)
             .take_while(|x| u16::from_le_bytes([x[0], x[1]]) != 0u16)
             .count()
             * SIZE_OF_WCHAR;
@@ -169,7 +169,8 @@ impl<'a> ImageResourceDirectory {
     /// Returns the sum of [`ImageResourceDirectory::number_of_id_entries`] and [`ImageResourceDirectory::number_of_named_entries`]
     /// from the [`ImageResourceDirectory`].
     pub fn count(&self) -> u16 {
-        self.number_of_id_entries + self.number_of_named_entries
+        self.number_of_id_entries
+            .saturating_add(self.number_of_named_entries)
     }
 
     /// Returns the total size of entries in bytes
@@ -366,7 +367,7 @@ impl ResourceEntry {
             .then(|| self.offset_to_data_or_directory)
     }
 
-    /// Returns the next depth entry of [`ResourceEntry`] if present
+    /// Returns next depth entry of [`ResourceEntry`] recursively while either `predicate` returns `true` or reach the final depth
     pub fn next_depth<'a>(&self, bytes: &'a [u8]) -> error::Result<Option<ResourceEntry>> {
         let mut offset = self.offset_to_directory() as usize;
 
@@ -377,7 +378,7 @@ impl ResourceEntry {
         Ok(entries.first().map(|x| *x))
     }
 
-    /// Returns next depth entry of [`ResourceEntry`] recursively while either `predicate` returns `true` or reach the final depth
+    /// Returns next depth entry of [`ResourceEntry`] recursively while `predicate` returns `true`, or the final entry when predicate fails
     pub fn recursive_next_depth<'a, P>(
         &self,
         bytes: &'a [u8],
@@ -386,15 +387,40 @@ impl ResourceEntry {
     where
         P: Fn(&Self) -> bool,
     {
-        if let Some(next) = self.next_depth(bytes)? {
+        self.iterative_next_depth(bytes, predicate)
+    }
+
+    fn iterative_next_depth<'a, P>(
+        &self,
+        bytes: &'a [u8],
+        predicate: P,
+    ) -> error::Result<Option<ResourceEntry>>
+    where
+        P: Fn(&Self) -> bool,
+    {
+        let mut current = *self;
+        let mut visited = alloc::collections::BTreeSet::new();
+
+        // Track the offset to detect cycles
+        visited.insert(current.offset_to_data_or_directory);
+
+        while let Some(next) = current.next_depth(bytes)? {
             if !predicate(&next) {
-                Ok(Some(next))
-            } else {
-                next.recursive_next_depth(bytes, predicate)
+                return Ok(Some(next));
             }
-        } else {
-            Ok(Some(*self))
+
+            // Reject PEs that have a malformed resource tree
+            if !visited.insert(next.offset_to_data_or_directory) {
+                return Err(error::Error::Malformed(format!(
+                    "Cycle detected in resource directory at offset {:#x}",
+                    next.offset_to_data_or_directory
+                )));
+            }
+
+            current = next;
         }
+
+        Ok(Some(current))
     }
 }
 
@@ -655,6 +681,7 @@ impl<'a> Iterator for ResourceStringIterator<'a> {
                     "Parsed next resource string as size {:#x}: {:#x?}",
                     offset, next?
                 );
+                // Using offset from `ResourceString::parse` so this is infailable.
                 self.data = &self.data[offset..];
                 Ok(next?)
             }
@@ -765,15 +792,36 @@ impl<'a> ResourceString<'a> {
         let key = bytes.gread_with::<Utf16String>(offset, scroll::LE)?;
         *offset = utils::align_up(*offset, RESOURCE_STRING_FIELD_ALIGNMENT);
 
-        let real_value_len = utils::align_up(
-            if r#type == 1 {
-                value_len as usize * SIZE_OF_WCHAR
-            } else {
-                value_len as usize
-            },
-            4,
-        );
-        let value = bytes.pread_with::<&[u8]>(*offset, real_value_len as usize)?;
+        let unaligned_value_len = if r#type == 1 {
+            value_len.checked_mul(SIZE_OF_WCHAR as u16).ok_or_else(|| {
+                error::Error::Malformed(format!(
+                    "ResourceString value_len overflow: {} * {}",
+                    value_len, SIZE_OF_WCHAR
+                ))
+            })? as usize
+        } else {
+            value_len as usize
+        };
+
+        let bytes_remaining = bytes.len().saturating_sub(*offset);
+        if unaligned_value_len > bytes_remaining {
+            return Err(error::Error::Malformed(format!(
+                "ResourceString value_len ({}) exceeds available bytes ({})",
+                unaligned_value_len, bytes_remaining
+            ))
+            .into());
+        }
+
+        // Only align if there are bytes remaining after the value
+        // Some resource compilers (like Mono) don't pad the last value to 4-byte alignment
+        let aligned_value_len = utils::align_up(unaligned_value_len, 4);
+        let actual_read_len = if aligned_value_len <= bytes_remaining {
+            aligned_value_len
+        } else {
+            unaligned_value_len
+        };
+
+        let value = bytes.pread_with::<&[u8]>(*offset, actual_read_len)?;
         *offset += value.len();
 
         Ok(Some(Self {
@@ -1271,6 +1319,8 @@ mod tests {
     const HAS_NO_RES: &[u8] = include_bytes!("../../tests/bins/pe/has_no_res.exe.bin");
     const HAS_RES_FULL_VERSION_AND_MANIFEST: &[u8] =
         include_bytes!("../../tests/bins/pe/has_res_full_version_and_manifest.exe.bin");
+    const MALFORMED_RESOURCE_TREE: &[u8] =
+        include_bytes!("../../tests/bins/pe/malformed_resource_tree.exe.bin");
 
     /// Binary representation of following default LLD manifest (`/MANIFEST`) expect as UTF-8.
     ///
@@ -1901,5 +1951,68 @@ mod tests {
         ];
         let result = to_utf16_string(bytes);
         assert!(result.is_some());
+    }
+
+    #[test]
+    #[should_panic = "Cycle detected in resource directory at offset"]
+    fn malformed_resource_tree() {
+        let _ = crate::pe::PE::parse(MALFORMED_RESOURCE_TREE).unwrap();
+    }
+
+    #[test]
+    fn test_parse_dotnet_dll_resources() {
+        // Test parsing .NET DLL System.Xml.XDocument.dll compiled with Mono 4.8
+        // This DLL has resource structures without padding on the last value, which
+        // previously caused out-of-bounds read attempts
+        const MONO_DOTNET_DLL: &[u8] = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/bins/pe/System.Xml.XDocument.dll"
+        ));
+
+        let pe =
+            crate::pe::PE::parse(MONO_DOTNET_DLL).expect("Failed to parse Mono-compiled .NET DLL");
+
+        let res_data = pe
+            .resource_data
+            .as_ref()
+            .expect("Resource data should be present");
+
+        let ver_info = res_data
+            .version_info
+            .as_ref()
+            .expect("Version info should be present");
+
+        let fixed = ver_info
+            .fixed_info
+            .as_ref()
+            .expect("Fixed info should be present");
+
+        let file_ver = fixed.file_version();
+        assert_eq!(file_ver.major, 0, "File version major");
+        assert_eq!(file_ver.minor, 0, "File version minor");
+        assert_eq!(file_ver.build, 0, "File version build");
+        assert_eq!(file_ver.revision, 0, "File version revision");
+
+        let product_ver = fixed.product_version();
+        assert_eq!(product_ver.major, 4, "Product version major (Mono 4.x)");
+        assert_eq!(product_ver.minor, 8, "Product version minor");
+        assert_eq!(product_ver.build, 3761, "Product version build");
+        assert_eq!(product_ver.revision, 0, "Product version revision");
+
+        assert_eq!(
+            ver_info.string_info.legal_copyright(),
+            Some("(c) Various Mono authors".to_string()),
+            "Copyright should match Mono authors"
+        );
+        assert_eq!(
+            ver_info.string_info.product_name(),
+            Some("Mono Common Language Infrastructure".to_string()),
+            "Product name should match Mono CLI"
+        );
+        assert_eq!(
+            ver_info.string_info.file_description(),
+            Some("System.Xml.XDocument".to_string()),
+            "File description should match assembly name"
+        );
     }
 }

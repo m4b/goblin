@@ -67,6 +67,7 @@ if_sylvan! {
     use scroll::{ctx, Pread, Endian};
     use crate::strtab::Strtab;
     use crate::error;
+    use crate::options::{Permissive, ParseOptions};
     use crate::container::{Container, Ctx};
     use alloc::vec::Vec;
     use core::cmp;
@@ -260,9 +261,15 @@ if_sylvan! {
 
         /// Parses the contents of the byte stream in `bytes`, and maybe returns a unified binary
         pub fn parse(bytes: &'a [u8]) -> error::Result<Self> {
+            Self::parse_with_opts(bytes, &ParseOptions::default())
+        }
+
+        /// Parses the contents of the byte stream in `bytes` with options, and maybe returns a unified binary
+        pub fn parse_with_opts(bytes: &'a [u8], opts: &ParseOptions) -> error::Result<Self> {
             let header = Self::parse_header(bytes)?;
             let misc = parse_misc(&header)?;
             let ctx = misc.ctx;
+            let permissive = opts.parse_mode.is_permissive();
 
             let program_headers = ProgramHeader::parse(bytes, header.e_phoff as usize, header.e_phnum as usize, ctx)?;
 
@@ -275,7 +282,8 @@ if_sylvan! {
                 }
             }
 
-            let section_headers = SectionHeader::parse(bytes, header.e_shoff as usize, header.e_shnum as usize, ctx)?;
+            let section_headers = SectionHeader::parse(bytes, header.e_shoff as usize, header.e_shnum as usize, ctx)
+                .or_permissive_and_default(permissive, "Failed to parse section headers")?;
 
             let get_strtab = |section_headers: &[SectionHeader], mut section_idx: usize| {
                 if section_idx == section_header::SHN_XINDEX as usize {
@@ -290,8 +298,8 @@ if_sylvan! {
                     Ok(Strtab::default())
                 } else {
                     let shdr = &section_headers[section_idx];
-                    shdr.check_size(bytes.len())?;
-                    Strtab::parse(bytes, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0)
+                    shdr.check_size_with_opts(bytes.len(), permissive)?;
+                    Strtab::parse_with_opts(bytes, shdr.sh_offset as usize, shdr.sh_size as usize, 0x0, opts)
                 }
             };
 
@@ -302,8 +310,27 @@ if_sylvan! {
             let mut strtab = Strtab::default();
             if let Some(shdr) = section_headers.iter().rfind(|shdr| shdr.sh_type as u32 == section_header::SHT_SYMTAB) {
                 let size = shdr.sh_entsize;
-                let count = if size == 0 { 0 } else { shdr.sh_size / size };
-                syms = Symtab::parse(bytes, shdr.sh_offset as usize, count as usize, ctx)?;
+                let initial_count = if size == 0 { 0 } else { shdr.sh_size / size };
+
+                // Check for extremely large counts that exceed usize capacity
+                let count = if initial_count > usize::MAX as u64 {
+
+                    Err(crate::error::Error::Malformed(
+                        format!(
+                            "Symbol table count ({}) from section header exceeds maximum possible value",
+                            initial_count
+                        )
+                    ))
+                    .or_permissive_and_then(
+                        permissive,
+                        "Symbol table count exceeds maximum; truncating",
+                        || usize::MAX as u64,
+                    )?
+                } else {
+                    initial_count
+                };
+
+                syms = Symtab::parse_with_opts(bytes, shdr.sh_offset as usize, count as usize, ctx, opts)?;
                 strtab = get_strtab(&section_headers, shdr.sh_link as usize)?;
             }
 
@@ -317,15 +344,17 @@ if_sylvan! {
             let mut dynrels = RelocSection::default();
             let mut pltrelocs = RelocSection::default();
             let mut dynstrtab = Strtab::default();
-            let dynamic = Dynamic::parse(bytes, &program_headers, ctx)?;
+            let dynamic = Dynamic::parse(bytes, &program_headers, ctx)
+                .or_permissive_and_default(permissive, "Failed to parse dynamic section")?;
             if let Some(ref dynamic) = dynamic {
                 let dyn_info = &dynamic.info;
 
                 is_pie = dyn_info.flags_1 & dynamic::DF_1_PIE != 0;
-                dynstrtab = Strtab::parse(bytes,
-                                          dyn_info.strtab,
-                                          dyn_info.strsz,
-                                          0x0)?;
+                dynstrtab = Strtab::parse_with_opts(bytes,
+                                      dyn_info.strtab,
+                                      dyn_info.strsz,
+                                      0x0, opts)
+                    .or_permissive_and_default(permissive, "Failed to parse dynamic string table")?;
 
                 if dyn_info.soname != 0 {
                     // FIXME: warn! here
@@ -346,15 +375,22 @@ if_sylvan! {
                     }
                 }
                 // parse the dynamic relocations
-                dynrelas = RelocSection::parse(bytes, dyn_info.rela, dyn_info.relasz, true, ctx)?;
-                dynrels = RelocSection::parse(bytes, dyn_info.rel, dyn_info.relsz, false, ctx)?;
+                dynrelas = RelocSection::parse(bytes, dyn_info.rela, dyn_info.relasz, true, ctx)
+                    .or_permissive_and_default(permissive, "Failed to parse dynamic RELA relocations")?;
+
+                dynrels = RelocSection::parse(bytes, dyn_info.rel, dyn_info.relsz, false, ctx)
+                    .or_permissive_and_default(permissive, "Failed to parse dynamic REL relocations")?;
+
                 let is_rela = dyn_info.pltrel as u64 == dynamic::DT_RELA;
-                pltrelocs = RelocSection::parse(bytes, dyn_info.jmprel, dyn_info.pltrelsz, is_rela, ctx)?;
+                pltrelocs = RelocSection::parse(bytes, dyn_info.jmprel, dyn_info.pltrelsz, is_rela, ctx)
+                    .or_permissive_and_default(permissive, "Failed to parse PLT relocations")?;
 
                 let mut num_syms = if let Some(gnu_hash) = dyn_info.gnu_hash {
-                    gnu_hash_len(bytes, gnu_hash as usize, ctx)?
+                    gnu_hash_len(bytes, gnu_hash as usize, ctx)
+                        .or_permissive_and_default(permissive, "Failed to parse GNU hash table")?
                 } else if let Some(hash) = dyn_info.hash {
-                    hash_len(bytes, hash as usize, header.e_machine, ctx)?
+                    hash_len(bytes, hash as usize, header.e_machine, ctx)
+                        .or_permissive_and_default(permissive, "Failed to parse hash table")?
                 } else {
                     0
                 };
@@ -365,22 +401,36 @@ if_sylvan! {
                 if max_reloc_sym != 0 {
                     num_syms = cmp::max(num_syms, max_reloc_sym + 1);
                 }
-                dynsyms = Symtab::parse(bytes, dyn_info.symtab, num_syms, ctx)?;
+                dynsyms = Symtab::parse_with_opts(bytes, dyn_info.symtab, num_syms, ctx, opts)?;
             }
 
             let mut shdr_relocs = vec![];
             for (idx, section) in section_headers.iter().enumerate() {
                 let is_rela = section.sh_type == section_header::SHT_RELA;
                 if is_rela || section.sh_type == section_header::SHT_REL {
-                    section.check_size(bytes.len())?;
-                    let sh_relocs = RelocSection::parse(bytes, section.sh_offset as usize, section.sh_size as usize, is_rela, ctx)?;
-                    shdr_relocs.push((idx, sh_relocs));
+
+                    section.check_size_with_opts(bytes.len(), permissive)?;
+                    let sh_relocs_opt = RelocSection::parse(bytes, section.sh_offset as usize, section.sh_size as usize, is_rela, ctx)
+                        .map(Some)
+                        .or_permissive_and_default(
+                            permissive,
+                            "Failed to parse section relocation; skipping",
+                        )?;
+
+                    if let Some(sh_relocs) = sh_relocs_opt {
+                        shdr_relocs.push((idx, sh_relocs));
+                    }
                 }
             }
 
-            let versym = symver::VersymSection::parse(bytes, &section_headers, ctx)?;
-            let verdef = symver::VerdefSection::parse(bytes, &section_headers, ctx)?;
-            let verneed = symver::VerneedSection::parse(bytes, &section_headers, ctx)?;
+            let versym = symver::VersymSection::parse(bytes, &section_headers, ctx)
+                .or_permissive_and_default(permissive, "Failed to parse version symbol section")?;
+
+            let verdef = symver::VerdefSection::parse(bytes, &section_headers, ctx)
+                .or_permissive_and_default(permissive, "Failed to parse version definition section")?;
+
+            let verneed = symver::VerneedSection::parse(bytes, &section_headers, ctx)
+                .or_permissive_and_default(permissive, "Failed to parse version need section")?;
 
             let is_lib = misc.is_lib && !is_pie;
 

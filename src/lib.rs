@@ -110,7 +110,7 @@ macro_rules! if_alloc {
 
 #[cfg(feature = "alloc")]
 pub mod error;
-
+pub mod options;
 pub mod strtab;
 
 /// Binary container size information and byte-order context
@@ -306,7 +306,7 @@ if_everything! {
 
     impl<'a> Object<'a> {
         /// Tries to parse an `Object` from `bytes`
-        pub fn parse(bytes: &[u8]) -> error::Result<Object> {
+        pub fn parse(bytes: &[u8]) -> error::Result<Object<'_>> {
             if let Some(hint_bytes) = take_hint_bytes(bytes) {
                 match peek_bytes(hint_bytes)? {
                     Hint::Elf(_) => Ok(Object::Elf(elf::Elf::parse(bytes)?)),

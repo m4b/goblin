@@ -370,7 +370,8 @@ pub mod section_header64 {
 ///////////////////////////////
 
 if_alloc! {
-    use crate::error;
+    use crate::error::{self};
+    use crate::options::Permissive;
     use core::fmt;
     use core::result;
     use core::ops::Range;
@@ -477,6 +478,10 @@ if_alloc! {
             Ok(section_headers)
         }
         pub fn check_size(&self, size: usize) -> error::Result<()> {
+            self.check_size_with_opts(size, false)
+        }
+
+        pub(crate) fn check_size_with_opts(&self, size: usize, permissive: bool) -> error::Result<()> {
             if self.sh_type == SHT_NOBITS || self.sh_size == 0 {
                 return Ok(());
             }
@@ -484,13 +489,15 @@ if_alloc! {
             if overflow || end > size as u64 {
                 let message = format!("Section {} size ({}) + offset ({}) is out of bounds. Overflowed: {}",
                     self.sh_name, self.sh_offset, self.sh_size, overflow);
-                return Err(error::Error::Malformed(message));
+                return Err(error::Error::Malformed(message))
+                    .or_permissive_and_value(permissive, "Malformed section header", ());
             }
             let (_, overflow) = self.sh_addr.overflowing_add(self.sh_size);
             if overflow {
                 let message = format!("Section {} size ({}) + addr ({}) is out of bounds. Overflowed: {}",
                     self.sh_name, self.sh_addr, self.sh_size, overflow);
-                return Err(error::Error::Malformed(message));
+                return Err(error::Error::Malformed(message))
+                    .or_permissive_and_value(permissive, "Malformed section header", ());
             }
             Ok(())
         }

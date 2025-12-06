@@ -1,3 +1,5 @@
+pub use crate::options::ParseMode;
+
 /// Parsing Options structure for the PE parser
 #[non_exhaustive]
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -14,14 +16,6 @@ pub struct ParseOptions {
     pub parse_mode: ParseMode,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum ParseMode {
-    /// Always end with error on incorrect data
-    Strict,
-    /// Incorrect data will not cause to end with error if possible
-    Permissive,
-}
-
 impl Default for ParseOptions {
     /// Returns a parse options structure with default values
     fn default() -> Self {
@@ -35,6 +29,7 @@ impl Default for ParseOptions {
 }
 
 impl ParseOptions {
+    #[cfg(feature = "te")]
     pub(crate) fn te() -> Self {
         Self {
             resolve_rva: false,

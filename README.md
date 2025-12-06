@@ -143,8 +143,9 @@ In lexicographic order:
 - [@glandium]
 - [@Gelbpunkt]
 - [@gunbux]
-- [@hannahfluch]
 - [@h33p]
+- [@hannahfluch]
+- [@Hexorg]
 - [@ibabushkin]
 - [@ideeockus]
 - [@ivlzme]
@@ -172,6 +173,7 @@ In lexicographic order:
 - [@lzutao]
 - [@lzybkr]
 - [@m-hilgendorf]
+- [@makubacki]
 - [@mmaekr]
 - [@m4b]
 - [@messense]
@@ -185,8 +187,9 @@ In lexicographic order:
 - [@nico-abram]
 - [@npmccallum]
 - [@pchickey]
-- [@prettyroseslover]
 - [@philipc]
+- [@PJB3005]
+- [@prettyroseslover]
 - [@Pzixel]
 - [@quake]
 - [@raindev]
@@ -237,9 +240,10 @@ In lexicographic order:
 [@flanfly]: https://github.com/flanfly
 [@glandium]: https://github.com/glandium
 [@Gelbpunkt]: https://github.com/Gelbpunkt
-[@gunbux]: https://github.com/gunbux]
-[@hannahfluch]: https://github.com/hannahfluch
+[@gunbux]: https://github.com/gunbux
 [@h33p]: https://github.com/h33p
+[@hannahfluch]: https://github.com/hannahfluch
+[@Hexorg]: https://github.com/Hexorg
 [@ibabushkin]: https://github.com/ibabushkin
 [@ideeockus]: https://github.com/ideeockus
 [@ivlzme]: https://github.com/ivlzme
@@ -267,6 +271,7 @@ In lexicographic order:
 [@lzutao]: https://github.com/lzutao
 [@lzybkr]: https://github.com/lzybkr
 [@m-hilgendorf]: https://github.com/m-hilgendorf
+[@makubacki]: https://github.com/makubacki
 [@mmaekr]: https://github.com/mmaekr
 [@m4b]: https://github.com/m4b
 [@messense]: https://github.com/messense
@@ -281,6 +286,7 @@ In lexicographic order:
 [@npmccallum]: https://github.com/npmccallum
 [@pchickey]: https://github.com/pchickey
 [@philipc]: https://github.com/philipc
+[@PJB3005]: https://github.com/PJB3005
 [@prettyroseslover]: https://github.com/prettyroseslover
 [@Pzixel]: https://github.com/Pzixel
 [@quake]: https://github.com/quake

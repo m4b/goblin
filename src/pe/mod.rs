@@ -36,6 +36,7 @@ pub mod utils;
 
 use crate::container;
 use crate::error;
+use crate::options::Permissive;
 use crate::pe::utils::pad;
 use crate::strtab;
 use options::ParseMode;
@@ -104,7 +105,7 @@ impl<'a> PE<'a> {
 
     /// Reads a PE binary from the underlying `bytes`
     pub fn parse_with_opts(bytes: &'a [u8], opts: &options::ParseOptions) -> error::Result<Self> {
-        let header = header::Header::parse(bytes)?;
+        let header = header::Header::parse_with_opts(bytes, opts)?;
         let mut authenticode_excluded_sections = None;
 
         debug!("{:#?}", header);
@@ -114,7 +115,7 @@ impl<'a> PE<'a> {
         let offset =
             &mut (optional_header_offset + header.coff_header.size_of_optional_header as usize);
 
-        let sections = header.coff_header.sections(bytes, offset)?;
+        let sections = header.coff_header.sections_with_opts(bytes, offset, opts)?;
         let is_lib = characteristic::is_dll(header.coff_header.characteristics);
         let mut entry = 0;
         let mut image_base = 0;
@@ -232,28 +233,37 @@ impl<'a> PE<'a> {
             }
             debug!("imports: {:#?}", imports);
             if let Some(&debug_table) = optional_header.data_directories.get_debug_table() {
-                debug_data = Some(debug::DebugData::parse_with_opts(
+                debug_data = debug::DebugData::parse_with_opts(
                     bytes,
                     debug_table,
                     &sections,
                     file_alignment,
                     opts,
-                )?);
+                )
+                .map(Some)
+                .or_permissive_and_default(
+                    opts.parse_mode.is_permissive(),
+                    "Failed to parse resource data",
+                )?;
             }
 
-            if opts.parse_tls_data {
-                if let Some(tls_table) = optional_header.data_directories.get_tls_table() {
-                    tls_data = tls::TlsData::parse_with_opts(
-                        bytes,
-                        image_base,
-                        tls_table,
-                        &sections,
-                        file_alignment,
-                        opts,
-                        is_64,
-                    )?;
-                    debug!("tls data: {:#?}", tls_data);
-                }
+            if let Some(tls_table) = optional_header.data_directories.get_tls_table() {
+                tls_data = tls::TlsData::parse_with_opts(
+                    bytes,
+                    image_base,
+                    tls_table,
+                    &sections,
+                    file_alignment,
+                    opts,
+                    is_64,
+                ) // Result<Option<T>>
+                .or_else(|e| {
+                    opts.parse_mode
+                        .is_permissive()
+                        .then_some(None) // Permissive=true -> Some(None)
+                        .ok_or(e) // Some(None) -> Ok(None), None -> Err(e)
+                })?;
+                debug!("tls data: {:#?}", tls_data);
             }
 
             if header.coff_header.machine == header::COFF_MACHINE_X86_64 {
@@ -262,38 +272,57 @@ impl<'a> PE<'a> {
                 if let Some(&exception_table) =
                     optional_header.data_directories.get_exception_table()
                 {
-                    exception_data = Some(exception::ExceptionData::parse_with_opts(
+                    exception_data = exception::ExceptionData::parse_with_opts(
                         bytes,
                         exception_table,
                         &sections,
                         file_alignment,
                         opts,
-                    )?);
+                    )
+                    .map(Some)
+                    .or_permissive_and_default(
+                        opts.parse_mode.is_permissive(),
+                        "Failed to parse security data",
+                    )?;
                 }
             }
 
             if let Some(&baserelocs_dir) =
                 optional_header.data_directories.get_base_relocation_table()
             {
-                relocation_data = Some(relocation::RelocationData::parse_with_opts(
+                relocation_data = relocation::RelocationData::parse_with_opts(
                     bytes,
                     baserelocs_dir,
                     &sections,
                     file_alignment,
                     opts,
-                )?);
+                )
+                .map(Some)
+                .or_permissive_and_default(
+                    opts.parse_mode.is_permissive(),
+                    "Failed to parse base relocation data",
+                )?;
             }
 
             if let Some(&load_config_dir) = optional_header.data_directories.get_load_config_table()
             {
-                load_config_data = Some(load_config::LoadConfigData::parse_with_opts(
+                debug!(
+                    "LoadConfig directory found: virtual_address={:#x}, size={:#x}",
+                    load_config_dir.virtual_address, load_config_dir.size
+                );
+                load_config_data = load_config::LoadConfigData::parse_with_opts(
                     bytes,
                     load_config_dir,
                     &sections,
                     file_alignment,
                     opts,
                     is_64,
-                )?);
+                )
+                .map(Some)
+                .or_permissive_and_default(
+                    opts.parse_mode.is_permissive(),
+                    "Failed to parse load config data",
+                )?;
             }
 
             if let Some(&delay_import_dir) = optional_header
@@ -312,14 +341,18 @@ impl<'a> PE<'a> {
 
             if let Some(com_descriptor) = optional_header.data_directories.get_clr_runtime_header()
             {
-                let data = clr::ClrData::parse_with_opts(
+                clr_data = clr::ClrData::parse_with_opts(
                     bytes,
                     &com_descriptor,
                     &sections,
                     file_alignment,
                     opts,
+                )
+                .map(Some)
+                .or_permissive_and_default(
+                    opts.parse_mode.is_permissive(),
+                    "Failed to parse CLR runtime data",
                 )?;
-                clr_data = Some(data);
             }
 
             // Parse attribute certificates unless opted out of
@@ -678,8 +711,8 @@ impl<'a> Coff<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::Coff;
-    use super::PE;
+    use super::*;
+    use crate::pe::options::{ParseMode, ParseOptions};
 
     static INVALID_DOS_SIGNATURE: [u8; 512] = [
         0x3D, 0x5A, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00,
@@ -866,5 +899,47 @@ mod tests {
         let binary = PE::parse(HEADERONLY_EMPTY_PE64).unwrap();
         assert_eq!(binary.entry, 0x1020u32);
         assert_eq!(binary.image_base, 0x140000000u64);
+    }
+
+    #[test]
+    fn test_packed_binary_permissive_parsing() {
+        // Create a minimal PE with a PE pointer that's before the DOS stub offset
+        // This simulates a packed binary scenario
+        let mut packed_pe = vec![0u8; 0x100];
+
+        // DOS header with MZ signature
+        packed_pe[0] = 0x4D; // 'M'
+        packed_pe[1] = 0x5A; // 'Z'
+
+        // Set PE pointer to 0x30 (before DOS_STUB_OFFSET which is 0x40)
+        packed_pe[0x3C] = 0x30;
+        packed_pe[0x3D] = 0x00;
+        packed_pe[0x3E] = 0x00;
+        packed_pe[0x3F] = 0x00;
+
+        // PE signature at offset 0x30
+        packed_pe[0x30] = 0x50; // 'P'
+        packed_pe[0x31] = 0x45; // 'E'
+        packed_pe[0x32] = 0x00;
+        packed_pe[0x33] = 0x00;
+
+        // Minimal COFF header (machine type, etc.)
+        packed_pe[0x34] = 0x4C; // IMAGE_FILE_MACHINE_I386
+        packed_pe[0x35] = 0x01;
+
+        // Test strict parsing - should fail
+        let strict_result = PE::parse(&packed_pe);
+        assert!(
+            strict_result.is_err(),
+            "Strict parsing should fail for packed binary"
+        );
+
+        // Test permissive parsing - should succeed
+        let permissive_opts = ParseOptions::default().with_parse_mode(ParseMode::Permissive);
+        let permissive_result = PE::parse_with_opts(&packed_pe, &permissive_opts);
+        assert!(
+            permissive_result.is_ok(),
+            "Permissive parsing should succeed for packed binary"
+        );
     }
 }

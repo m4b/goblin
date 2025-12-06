@@ -2,7 +2,7 @@ pub use crate::options::ParseMode;
 
 /// Parsing Options structure for the PE parser
 #[non_exhaustive]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone)]
 pub struct ParseOptions {
     /// Wether the parser should resolve rvas or not. Default: true
     pub resolve_rva: bool,

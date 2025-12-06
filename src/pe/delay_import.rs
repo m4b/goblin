@@ -1,64 +1,15 @@
-use alloc::vec::Vec;
 use scroll::ctx;
 use scroll::{Pread, Pwrite, SizeWith};
 
 use crate::container::{Container, Ctx};
 use crate::error;
+use crate::options::Permissive;
+use crate::pe::ctx::PeCtx;
 use crate::pe::data_directories;
 use crate::pe::import::{IMPORT_BY_ORDINAL_32, IMPORT_BY_ORDINAL_64};
 use crate::pe::options;
 use crate::pe::section_table;
 use crate::pe::utils;
-
-/// A binary parsing context for PE parser
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct PeCtx<'a> {
-    pub container: Container,
-    pub le: scroll::Endian,
-    pub sections: &'a [section_table::SectionTable],
-    pub file_alignment: u32,
-    pub opts: options::ParseOptions,
-    pub bytes: &'a [u8], // full binary view
-}
-
-impl<'a> PeCtx<'a> {
-    pub fn new(
-        container: Container,
-        le: scroll::Endian,
-        sections: &'a [section_table::SectionTable],
-        file_alignment: u32,
-        opts: options::ParseOptions,
-        bytes: &'a [u8],
-    ) -> Self {
-        Self {
-            container,
-            le,
-            sections,
-            file_alignment,
-            opts,
-            bytes,
-        }
-    }
-
-    /// Whether this binary container context is "big" or not
-    pub fn is_big(self) -> bool {
-        self.container.is_big()
-    }
-
-    /// Whether this binary container context is little endian or not
-    pub fn is_little_endian(self) -> bool {
-        self.le.is_little()
-    }
-
-    /// Return a dubious pointer/address byte size for the container
-    pub fn size(self) -> usize {
-        match self.container {
-            // TODO: require pointer size initialization/setting or default to container size with these values, e.g., avr pointer width will be smaller iirc
-            Container::Little => 4,
-            Container::Big => 8,
-        }
-    }
-}
 
 #[derive(Debug, Default)]
 pub struct DelayImportFunction<'a> {
@@ -70,11 +21,10 @@ impl<'a> ctx::TryFromCtx<'a, (DelayImportDescriptor, PeCtx<'a>)> for DelayImport
     type Error = crate::error::Error;
     fn try_from_ctx(
         bytes: &'a [u8],
-        ctx: (DelayImportDescriptor, PeCtx<'a>),
+        (descriptor, ctx): (DelayImportDescriptor, PeCtx<'a>),
     ) -> error::Result<(Self, usize)> {
         let mut offset = 0;
 
-        let (descriptor, ctx) = ctx;
         let thunk =
             bytes.gread_with::<DelayImportThunk>(&mut offset, Ctx::new(ctx.container, ctx.le))?;
         if thunk.is_null() {
@@ -86,9 +36,9 @@ impl<'a> ctx::TryFromCtx<'a, (DelayImportDescriptor, PeCtx<'a>)> for DelayImport
         } else {
             thunk.is_ordinal32()
         };
-        let ordinal = if is_ordinal { thunk.ordinal() } else { 0 };
-        let name = if is_ordinal {
-            None
+
+        let (name, ordinal) = if is_ordinal {
+            (None, thunk.ordinal())
         } else {
             let dll_name_rva = descriptor.name_rva;
             let dll_name_offset = utils::find_offset(
@@ -101,9 +51,20 @@ impl<'a> ctx::TryFromCtx<'a, (DelayImportDescriptor, PeCtx<'a>)> for DelayImport
                 error::Error::Malformed(format!(
                     "cannot map delay import dll name rva {dll_name_rva:#x}"
                 ))
-            })?;
-            let dll_name = ctx.bytes.pread::<&'a str>(dll_name_offset)?;
-            Some(dll_name)
+            })
+            .or_permissive_and_then(
+                ctx.opts.parse_mode.is_permissive(),
+                &format!(
+                    "cannot map delay import dll name rva {dll_name_rva:#x}; treating as empty"
+                ),
+                || 0,
+            )?;
+            if dll_name_offset == 0 {
+                (None, 0) // 0 = not ordinal (ordinal starts from 1)
+            } else {
+                let dll_name = ctx.bytes.pread::<&'a str>(dll_name_offset)?;
+                (Some(dll_name), 0) // 0 = not ordinal (ordinal starts from 1)
+            }
         };
 
         let func = DelayImportFunction { name, ordinal };
@@ -125,14 +86,10 @@ impl<'a> DelayImportDll<'a> {
         sections: &'a [section_table::SectionTable],
     ) -> DelayImportFunctionIterator<'a> {
         // Replace sections with an actual sections ref
-        let pectx = PeCtx::new(
-            self.ctx.container,
-            self.ctx.le,
-            &sections,
-            self.ctx.file_alignment,
-            self.ctx.opts,
-            self.ctx.bytes,
-        );
+        let pectx = PeCtx {
+            sections,
+            ..self.ctx
+        };
         DelayImportFunctionIterator {
             ctx: pectx,
             bytes: self.bytes,
@@ -150,7 +107,7 @@ pub struct DelayImportDllIterator<'a> {
 }
 
 impl<'a> Iterator for DelayImportDllIterator<'a> {
-    type Item = error::Result<DelayImportDll<'a>>;
+    type Item = DelayImportDll<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.offset >= self.bytes.len() {
@@ -184,7 +141,7 @@ impl<'a> Iterator for DelayImportDllIterator<'a> {
             bytes: &self.ctx.bytes[name_table_offset..],
         };
 
-        Some(Ok(res))
+        Some(res)
     }
 }
 
@@ -197,7 +154,7 @@ pub struct DelayImportFunctionIterator<'a> {
 }
 
 impl<'a> Iterator for DelayImportFunctionIterator<'a> {
-    type Item = error::Result<DelayImportFunction<'a>>;
+    type Item = DelayImportFunction<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.offset >= self.bytes.len() {
@@ -217,7 +174,7 @@ impl<'a> Iterator for DelayImportFunctionIterator<'a> {
         let ctx = (self.descriptor, self.ctx);
         let func = self.bytes.pread_with::<DelayImportFunction>(0, ctx).ok()?;
 
-        Some(Ok(func))
+        Some(func)
     }
 }
 
@@ -246,7 +203,7 @@ pub struct DelayImportEntry<'a> {
 
 /// Internal helper struct to simplify bitflag operations.
 #[derive(Debug, SizeWith)]
-struct DelayImportThunk(pub u64);
+pub struct DelayImportThunk(pub u64);
 
 impl<'a> ctx::TryFromCtx<'a, Ctx> for DelayImportThunk {
     type Error = crate::error::Error;
@@ -356,8 +313,6 @@ impl<'a> DelayImportDescriptor {
 pub struct DelayImportData<'a> {
     ctx: PeCtx<'a>,
     bytes: &'a [u8],
-    /// Delay imported entries.
-    pub imports: Vec<DelayImportEntry<'a>>,
 }
 
 impl<'a> DelayImportData<'a> {
@@ -394,15 +349,14 @@ impl<'a> DelayImportData<'a> {
                         dd.virtual_address
                     ))
                 })?;
-        if offset + dd.size as usize > bytes.len() {
-            return Err(error::Error::Malformed(format!(
-                "delay import offset {:#x} and size {:#x} exceeds the bounds of the bytes size {:#x}",
-                offset,
-                dd.size,
-                bytes.len()
-            )));
-        }
-        let directory_bytes = &bytes[offset..offset + dd.size as usize];
+        let directory_bytes = bytes
+            .pread_with::<&[u8]>(offset, dd.size as usize)
+            .map_err(|_| {
+                error::Error::Malformed(format!(
+                    "delay import offset {offset:#x} and size {:#x} out of bounds",
+                    dd.size
+                ))
+            })?;
 
         let container = if is_64 {
             Container::Big
@@ -412,101 +366,9 @@ impl<'a> DelayImportData<'a> {
         // Avoid borrowing of sections here, we store the rest and modify sections field on demand
         let pectx = PeCtx::new(container, scroll::LE, &[], file_alignment, *opts, bytes);
 
-        let ctx = Ctx::new(container, scroll::LE);
-
-        let mut cursor = 0;
-        let mut imports = Vec::new();
-        let mut descriptor =
-            directory_bytes.gread_with::<DelayImportDescriptor>(&mut cursor, scroll::LE)?;
-        loop {
-            if descriptor.is_null() || !descriptor.is_possibly_valid() {
-                break;
-            }
-
-            let dll_name_rva = descriptor.name_rva;
-            let dll_name_offset =
-                utils::find_offset(dll_name_rva as usize, sections, file_alignment, opts)
-                    .ok_or_else(|| {
-                        error::Error::Malformed(format!(
-                            "cannot map delay import dll name rva {dll_name_rva:#x}"
-                        ))
-                    })?;
-            let dll_name = bytes.pread::<&'a str>(dll_name_offset)?;
-
-            let name_table_rva = descriptor.name_table_rva;
-            let name_table_offset =
-                utils::find_offset(name_table_rva as usize, sections, file_alignment, opts)
-                    .ok_or_else(|| {
-                        error::Error::Malformed(format!(
-                            "cannot map delay import name table rva {name_table_rva:#x}"
-                        ))
-                    })?;
-
-            let mut index = 0;
-            let mut current_name_offset = name_table_offset;
-
-            'inner: loop {
-                if current_name_offset > bytes.len() {
-                    break 'inner;
-                }
-                let thunk = &bytes[current_name_offset..].pread_with::<DelayImportThunk>(0, ctx)?;
-                if thunk.is_null() {
-                    break 'inner;
-                }
-
-                let is_ordinal = if is_64 {
-                    thunk.is_ordinal64()
-                } else {
-                    thunk.is_ordinal32()
-                };
-                let ordinal = if is_ordinal { thunk.ordinal() } else { 0 };
-                let rva = descriptor.address_table_rva + (index * ctx.size()) as u32;
-
-                if is_ordinal {
-                    imports.push(DelayImportEntry {
-                        descriptor,
-                        offset: current_name_offset as u32,
-                        rva,
-                        hint: 0,
-                        dll: dll_name,
-                        name: None,
-                        ordinal,
-                    });
-                } else {
-                    // IMAGE_IMPORT_BY_NAME
-                    let func_name_rva = thunk.name_rva();
-                    let func_name_offset =
-                        utils::find_offset(func_name_rva as usize, sections, file_alignment, opts)
-                            .ok_or_else(|| {
-                                error::Error::Malformed(format!(
-                                    "cannot map delay import byname rva {func_name_rva:#x}"
-                                ))
-                            })?;
-                    let hint = bytes.pread_with::<u16>(func_name_offset, scroll::LE)?;
-                    let name = bytes.pread::<&'a str>(func_name_offset + 2)?; // + 2 = sizeof(hint)
-                    imports.push(DelayImportEntry {
-                        descriptor,
-                        offset: current_name_offset as u32,
-                        rva,
-                        hint,
-                        dll: dll_name,
-                        name: Some(name),
-                        ordinal: 0,
-                    });
-                }
-
-                current_name_offset += if is_64 { 8 } else { 4 };
-                index += 1;
-            }
-
-            descriptor =
-                directory_bytes.gread_with::<DelayImportDescriptor>(&mut cursor, scroll::LE)?;
-        }
-
         Ok(Self {
             ctx: pectx,
             bytes: directory_bytes,
-            imports,
         })
     }
 

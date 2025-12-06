@@ -15,6 +15,7 @@ pub mod authenticode;
 pub mod certificate_table;
 pub mod characteristic;
 pub mod clr;
+pub(crate) mod ctx;
 pub mod data_directories;
 pub mod debug;
 pub mod delay_import;
@@ -41,7 +42,7 @@ use crate::pe::utils::pad;
 use crate::strtab;
 use options::ParseMode;
 
-use scroll::{Pwrite, ctx};
+use scroll::Pwrite;
 
 use log::debug;
 
@@ -536,7 +537,7 @@ impl<'a> PE<'a> {
     }
 }
 
-impl<'a> ctx::TryIntoCtx<scroll::Endian> for PE<'a> {
+impl<'a> scroll::ctx::TryIntoCtx<scroll::Endian> for PE<'a> {
     type Error = error::Error;
 
     fn try_into_ctx(self, bytes: &mut [u8], ctx: scroll::Endian) -> Result<usize, Self::Error> {

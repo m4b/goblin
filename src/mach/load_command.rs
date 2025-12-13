@@ -224,7 +224,7 @@ pub struct DylibCommand {
     pub dylib: Dylib,
 }
 
-pub const SIZEOF_DYLIB_COMMAND: usize = 20;
+pub const SIZEOF_DYLIB_COMMAND: usize = 24;
 
 /// A dynamically linked shared library may be a subframework of an umbrella
 /// framework.  If so it will be linked with "-umbrella umbrella_name" where

@@ -1,10 +1,10 @@
 //! Tests for ELF writer functionality
 //! These tests compare output against real patchelf for correctness
 
-use std::process::Command;
+use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::env;
+use std::process::Command;
 
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
 use goblin::elf::writer::ElfWriter;
@@ -12,7 +12,11 @@ use goblin::elf::writer::ElfWriter;
 /// Helper to create a temporary copy of a file
 fn copy_to_temp(original: &Path, suffix: &str) -> PathBuf {
     let temp_dir = env::temp_dir();
-    let filename = format!("goblin_test_{}_{}", original.file_name().unwrap().to_str().unwrap(), suffix);
+    let filename = format!(
+        "goblin_test_{}_{}",
+        original.file_name().unwrap().to_str().unwrap(),
+        suffix
+    );
     let temp_path = temp_dir.join(filename);
     fs::copy(original, &temp_path).unwrap();
     temp_path
@@ -44,21 +48,21 @@ fn create_test_executable() -> PathBuf {
     let output = temp_dir.join("test_exe");
 
     // Write a simple C source
-    fs::write(&source, r#"
+    fs::write(
+        &source,
+        r#"
         #include <stdio.h>
         int main() {
             printf("Hello, World!\n");
             return 0;
         }
-    "#).unwrap();
+    "#,
+    )
+    .unwrap();
 
     // Compile it
     let status = Command::new("gcc")
-        .args(&[
-            "-o",
-            output.to_str().unwrap(),
-            source.to_str().unwrap(),
-        ])
+        .args(&["-o", output.to_str().unwrap(), source.to_str().unwrap()])
         .status()
         .expect("Failed to compile test executable");
 
@@ -100,8 +104,10 @@ fn verify_same_interpreter(file1: &Path, file2: &Path) -> Result<(), String> {
     let data1 = fs::read(file1).map_err(|e| format!("Failed to read file1: {}", e))?;
     let data2 = fs::read(file2).map_err(|e| format!("Failed to read file2: {}", e))?;
 
-    let elf1 = goblin::elf::Elf::parse(&data1).map_err(|e| format!("Failed to parse file1: {}", e))?;
-    let elf2 = goblin::elf::Elf::parse(&data2).map_err(|e| format!("Failed to parse file2: {}", e))?;
+    let elf1 =
+        goblin::elf::Elf::parse(&data1).map_err(|e| format!("Failed to parse file1: {}", e))?;
+    let elf2 =
+        goblin::elf::Elf::parse(&data2).map_err(|e| format!("Failed to parse file2: {}", e))?;
 
     if elf1.interpreter != elf2.interpreter {
         return Err(format!(
@@ -118,13 +124,25 @@ fn verify_has_rpath_or_runpath(file: &Path) -> Result<bool, String> {
     let data = fs::read(file).map_err(|e| format!("Failed to read file: {}", e))?;
     let elf = goblin::elf::Elf::parse(&data).map_err(|e| format!("Failed to parse file: {}", e))?;
 
-    let has_rpath = elf.dynamic.as_ref().map(|d| {
-        d.dyns.iter().any(|dyn_entry| dyn_entry.d_tag == goblin::elf::dynamic::DT_RPATH)
-    }).unwrap_or(false);
+    let has_rpath = elf
+        .dynamic
+        .as_ref()
+        .map(|d| {
+            d.dyns
+                .iter()
+                .any(|dyn_entry| dyn_entry.d_tag == goblin::elf::dynamic::DT_RPATH)
+        })
+        .unwrap_or(false);
 
-    let has_runpath = elf.dynamic.as_ref().map(|d| {
-        d.dyns.iter().any(|dyn_entry| dyn_entry.d_tag == goblin::elf::dynamic::DT_RUNPATH)
-    }).unwrap_or(false);
+    let has_runpath = elf
+        .dynamic
+        .as_ref()
+        .map(|d| {
+            d.dyns
+                .iter()
+                .any(|dyn_entry| dyn_entry.d_tag == goblin::elf::dynamic::DT_RUNPATH)
+        })
+        .unwrap_or(false);
 
     Ok(has_rpath || has_runpath)
 }
@@ -134,17 +152,16 @@ fn verify_same_soname(file1: &Path, file2: &Path) -> Result<(), String> {
     let data1 = fs::read(file1).map_err(|e| format!("Failed to read file1: {}", e))?;
     let data2 = fs::read(file2).map_err(|e| format!("Failed to read file2: {}", e))?;
 
-    let elf1 = goblin::elf::Elf::parse(&data1).map_err(|e| format!("Failed to parse file1: {}", e))?;
-    let elf2 = goblin::elf::Elf::parse(&data2).map_err(|e| format!("Failed to parse file2: {}", e))?;
+    let elf1 =
+        goblin::elf::Elf::parse(&data1).map_err(|e| format!("Failed to parse file1: {}", e))?;
+    let elf2 =
+        goblin::elf::Elf::parse(&data2).map_err(|e| format!("Failed to parse file2: {}", e))?;
 
     let soname1 = elf1.soname;
     let soname2 = elf2.soname;
 
     if soname1 != soname2 {
-        return Err(format!(
-            "SONAMEs differ: {:?} vs {:?}",
-            soname1, soname2
-        ));
+        return Err(format!("SONAMEs differ: {:?} vs {:?}", soname1, soname2));
     }
 
     Ok(())
@@ -282,7 +299,10 @@ fn test_add_needed() {
     let goblin_data = fs::read(&goblin_copy).unwrap();
     let goblin_elf = goblin::elf::Elf::parse(&goblin_data).unwrap();
 
-    assert!(goblin_elf.libraries.contains(&new_lib), "Library should be added to dependencies");
+    assert!(
+        goblin_elf.libraries.contains(&new_lib),
+        "Library should be added to dependencies"
+    );
 
     // Cleanup
     let _ = fs::remove_file(&goblin_copy);

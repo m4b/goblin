@@ -10,14 +10,14 @@
 
 use crate::container;
 use crate::error;
-use crate::mach::load_command::*;
-use crate::mach::header::{Header, filetype_to_str};
 use crate::mach::constants::cputype::{CPU_TYPE_ARM64, CPU_TYPE_ARM64_32};
-use alloc::vec::Vec;
-use alloc::string::String;
+use crate::mach::header::{Header, filetype_to_str};
+use crate::mach::load_command::*;
 use alloc::collections::BTreeMap;
-use scroll::{Pwrite, Pread, ctx::TryIntoCtx, ctx::SizeWith};
+use alloc::string::String;
+use alloc::vec::Vec;
 use core::mem;
+use scroll::{Pread, Pwrite, ctx::SizeWith, ctx::TryIntoCtx};
 
 /// The kind of dylib dependency
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -121,9 +121,7 @@ impl MachOWriter {
 
         let offset = 0;
         let (_, ctx_opt) = parse_magic_and_ctx(&data, offset)?;
-        let ctx = ctx_opt.ok_or(error::Error::Malformed(
-            "Invalid Mach-O magic".into()
-        ))?;
+        let ctx = ctx_opt.ok_or(error::Error::Malformed("Invalid Mach-O magic".into()))?;
 
         let header: Header = data.pread_with(offset, ctx)?;
 
@@ -204,7 +202,8 @@ impl MachOWriter {
             } else {
                 let name_offset = cmd.offset + dylib_cmd.dylib.name as usize;
                 if name_offset < self.data.len() {
-                    self.data.pread::<&str>(name_offset)
+                    self.data
+                        .pread::<&str>(name_offset)
                         .map(|s| s.to_string())
                         .unwrap_or_default()
                 } else {
@@ -236,7 +235,8 @@ impl MachOWriter {
                 } else {
                     let path_offset = cmd.offset + rpath_cmd.path as usize;
                     if path_offset < self.data.len() {
-                        self.data.pread::<&str>(path_offset)
+                        self.data
+                            .pread::<&str>(path_offset)
                             .map(|s| s.to_string())
                             .unwrap_or_default()
                     } else {
@@ -258,8 +258,18 @@ impl MachOWriter {
     /// Change the install name (LC_ID_DYLIB) of this dylib
     pub fn change_id(&mut self, new_name: &str) -> error::Result<()> {
         for (idx, cmd) in self.load_commands.iter_mut().enumerate() {
-            if let CommandVariant::IdDylib(_) = cmd.command {
-                cmd.command = Self::create_dylib_command_variant(LC_ID_DYLIB, new_name, 0, 0, 0)?;
+            if let CommandVariant::IdDylib(dylib_cmd) = &cmd.command {
+                // Preserve the original timestamp, current_version, and compatibility_version
+                let timestamp = dylib_cmd.dylib.timestamp;
+                let current_version = dylib_cmd.dylib.current_version;
+                let compatibility_version = dylib_cmd.dylib.compatibility_version;
+                cmd.command = Self::create_dylib_command_variant(
+                    LC_ID_DYLIB,
+                    new_name,
+                    timestamp,
+                    current_version,
+                    compatibility_version,
+                )?;
                 self.modified_strings.insert(idx, new_name.to_string());
                 return Ok(());
             }
@@ -291,18 +301,40 @@ impl MachOWriter {
 
             if should_change {
                 let (cmd_type, timestamp, current_ver, compat_ver) = match &cmd.command {
-                    CommandVariant::LoadDylib(dc) => (LC_LOAD_DYLIB, dc.dylib.timestamp,
-                                                     dc.dylib.current_version, dc.dylib.compatibility_version),
-                    CommandVariant::LoadWeakDylib(dc) => (LC_LOAD_WEAK_DYLIB, dc.dylib.timestamp,
-                                                         dc.dylib.current_version, dc.dylib.compatibility_version),
-                    CommandVariant::ReexportDylib(dc) => (LC_REEXPORT_DYLIB, dc.dylib.timestamp,
-                                                         dc.dylib.current_version, dc.dylib.compatibility_version),
-                    CommandVariant::LazyLoadDylib(dc) => (LC_LAZY_LOAD_DYLIB, dc.dylib.timestamp,
-                                                         dc.dylib.current_version, dc.dylib.compatibility_version),
+                    CommandVariant::LoadDylib(dc) => (
+                        LC_LOAD_DYLIB,
+                        dc.dylib.timestamp,
+                        dc.dylib.current_version,
+                        dc.dylib.compatibility_version,
+                    ),
+                    CommandVariant::LoadWeakDylib(dc) => (
+                        LC_LOAD_WEAK_DYLIB,
+                        dc.dylib.timestamp,
+                        dc.dylib.current_version,
+                        dc.dylib.compatibility_version,
+                    ),
+                    CommandVariant::ReexportDylib(dc) => (
+                        LC_REEXPORT_DYLIB,
+                        dc.dylib.timestamp,
+                        dc.dylib.current_version,
+                        dc.dylib.compatibility_version,
+                    ),
+                    CommandVariant::LazyLoadDylib(dc) => (
+                        LC_LAZY_LOAD_DYLIB,
+                        dc.dylib.timestamp,
+                        dc.dylib.current_version,
+                        dc.dylib.compatibility_version,
+                    ),
                     _ => unreachable!(),
                 };
 
-                cmd.command = Self::create_dylib_command_variant(cmd_type, new_name, timestamp, current_ver, compat_ver)?;
+                cmd.command = Self::create_dylib_command_variant(
+                    cmd_type,
+                    new_name,
+                    timestamp,
+                    current_ver,
+                    compat_ver,
+                )?;
                 self.modified_strings.insert(idx, new_name.to_string());
                 found = true;
             }
@@ -310,7 +342,7 @@ impl MachOWriter {
 
         if !found {
             return Err(error::Error::Malformed(
-                alloc::format!("Dylib '{}' not found", old_name).into()
+                alloc::format!("Dylib '{}' not found", old_name).into(),
             ));
         }
 
@@ -354,7 +386,12 @@ impl MachOWriter {
             self.load_commands.remove(idx);
             self.modified_strings.remove(&idx);
             // Shift all indices after the removed one
-            let keys_to_update: Vec<_> = self.modified_strings.keys().filter(|&&k| k > idx).copied().collect();
+            let keys_to_update: Vec<_> = self
+                .modified_strings
+                .keys()
+                .filter(|&&k| k > idx)
+                .copied()
+                .collect();
             for key in keys_to_update {
                 if let Some(value) = self.modified_strings.remove(&key) {
                     self.modified_strings.insert(key - 1, value);
@@ -363,7 +400,7 @@ impl MachOWriter {
             Ok(())
         } else {
             Err(error::Error::Malformed(
-                alloc::format!("Dylib '{}' not found", path).into()
+                alloc::format!("Dylib '{}' not found", path).into(),
             ))
         }
     }
@@ -396,7 +433,7 @@ impl MachOWriter {
 
             if existing_path == Some(path) {
                 return Err(error::Error::Malformed(
-                    alloc::format!("Dylib '{}' already exists", path).into()
+                    alloc::format!("Dylib '{}' already exists", path).into(),
                 ));
             }
         }
@@ -409,22 +446,20 @@ impl MachOWriter {
             DylibKind::Upward => LC_LOAD_UPWARD_DYLIB,
             DylibKind::Id => {
                 return Err(error::Error::Malformed(
-                    "Cannot add LC_ID_DYLIB via add_dylib, use change_id instead".into()
+                    "Cannot add LC_ID_DYLIB via add_dylib, use change_id instead".into(),
                 ));
             }
         };
 
         let command = Self::create_dylib_command_variant(
-            cmd_type,
-            path,
-            0,         // timestamp
-            0x10000,   // current_version (1.0.0)
-            0x10000,   // compatibility_version (1.0.0)
+            cmd_type, path, 0,       // timestamp
+            0x10000, // current_version (1.0.0)
+            0x10000, // compatibility_version (1.0.0)
         )?;
 
         let new_idx = self.load_commands.len();
         self.load_commands.push(LoadCommand {
-            offset: 0,  // will be recalculated
+            offset: 0, // will be recalculated
             command,
         });
         self.modified_strings.insert(new_idx, path.to_string());
@@ -444,7 +479,7 @@ impl MachOWriter {
                 };
                 if existing_path == path {
                     return Err(error::Error::Malformed(
-                        alloc::format!("Rpath '{}' already exists", path).into()
+                        alloc::format!("Rpath '{}' already exists", path).into(),
                     ));
                 }
             }
@@ -453,7 +488,7 @@ impl MachOWriter {
         let command = Self::create_rpath_command_variant(path)?;
         let new_idx = self.load_commands.len();
         self.load_commands.push(LoadCommand {
-            offset: 0,  // will be recalculated
+            offset: 0, // will be recalculated
             command,
         });
         self.modified_strings.insert(new_idx, path.to_string());
@@ -483,7 +518,12 @@ impl MachOWriter {
             self.load_commands.remove(idx);
             self.modified_strings.remove(&idx);
             // Shift all indices after the removed one
-            let keys_to_update: Vec<_> = self.modified_strings.keys().filter(|&&k| k > idx).copied().collect();
+            let keys_to_update: Vec<_> = self
+                .modified_strings
+                .keys()
+                .filter(|&&k| k > idx)
+                .copied()
+                .collect();
             for key in keys_to_update {
                 if let Some(value) = self.modified_strings.remove(&key) {
                     self.modified_strings.insert(key - 1, value);
@@ -492,7 +532,7 @@ impl MachOWriter {
             Ok(())
         } else {
             Err(error::Error::Malformed(
-                alloc::format!("Rpath '{}' not found", path).into()
+                alloc::format!("Rpath '{}' not found", path).into(),
             ))
         }
     }
@@ -516,14 +556,15 @@ impl MachOWriter {
         }
 
         Err(error::Error::Malformed(
-            alloc::format!("Rpath '{}' not found", old_path).into()
+            alloc::format!("Rpath '{}' not found", old_path).into(),
         ))
     }
 
     /// Remove code signature (it becomes invalid after modification)
     pub fn remove_code_signature(&mut self) {
         // Find all code signature indices first
-        let mut indices_to_remove: Vec<usize> = self.load_commands
+        let mut indices_to_remove: Vec<usize> = self
+            .load_commands
             .iter()
             .enumerate()
             .filter(|(_, cmd)| matches!(cmd.command, CommandVariant::CodeSignature(_)))
@@ -538,7 +579,8 @@ impl MachOWriter {
             self.modified_strings.remove(&idx);
 
             // Shift all indices after the removed one
-            let keys_to_update: Vec<_> = self.modified_strings
+            let keys_to_update: Vec<_> = self
+                .modified_strings
                 .keys()
                 .filter(|&&k| k > idx)
                 .copied()
@@ -554,8 +596,9 @@ impl MachOWriter {
 
     /// Build the modified Mach-O binary
     pub fn build(&mut self) -> error::Result<Vec<u8>> {
-        // Remove code signature first as it will be invalid
-        self.remove_code_signature();
+        // Note: We intentionally do NOT remove the code signature here.
+        // Like Apple's install_name_tool, we keep it (though it becomes invalid).
+        // Users can explicitly call remove_code_signature() before build() if needed.
 
         // Calculate new load commands size
         let new_sizeofcmds = self.calculate_load_commands_size();
@@ -564,9 +607,6 @@ impl MachOWriter {
 
         // Find where actual data starts (first section offset)
         let first_data_offset = self.find_first_data_offset();
-
-        // Original load commands end - this is where we'll copy data from if not relocating
-        let _original_commands_end = header_size + self.header.sizeofcmds as usize;
 
         // Check if we need to relocate segments (new commands don't fit in available space)
         let needs_relocation = load_commands_end > first_data_offset;
@@ -669,7 +709,10 @@ impl MachOWriter {
     }
 
     fn calculate_load_commands_size(&self) -> usize {
-        self.load_commands.iter().map(|cmd| cmd.command.cmdsize()).sum()
+        self.load_commands
+            .iter()
+            .map(|cmd| cmd.command.cmdsize())
+            .sum()
     }
 
     fn find_first_segment_offset(&self) -> usize {
@@ -708,7 +751,10 @@ impl MachOWriter {
                         for i in 0..seg.nsects as usize {
                             let section_offset = sections_start + i * SIZEOF_SECTION_32;
                             if section_offset + SIZEOF_SECTION_32 <= self.data.len() {
-                                if let Ok(section) = self.data.pread_with::<Section32>(section_offset, self.ctx.le) {
+                                if let Ok(section) = self
+                                    .data
+                                    .pread_with::<Section32>(section_offset, self.ctx.le)
+                                {
                                     // Only consider sections with actual file data (not zerofill)
                                     if section.offset > 0 && section.size > 0 {
                                         min_offset = min_offset.min(section.offset as usize);
@@ -724,7 +770,10 @@ impl MachOWriter {
                         for i in 0..seg.nsects as usize {
                             let section_offset = sections_start + i * SIZEOF_SECTION_64;
                             if section_offset + SIZEOF_SECTION_64 <= self.data.len() {
-                                if let Ok(section) = self.data.pread_with::<Section64>(section_offset, self.ctx.le) {
+                                if let Ok(section) = self
+                                    .data
+                                    .pread_with::<Section64>(section_offset, self.ctx.le)
+                                {
                                     if section.offset > 0 && section.size > 0 {
                                         min_offset = min_offset.min(section.offset as usize);
                                     }
@@ -754,8 +803,8 @@ impl MachOWriter {
     /// ARM64 uses 16KB pages, x86/x86_64 use 4KB pages
     fn page_size(&self) -> usize {
         match self.header.cputype {
-            CPU_TYPE_ARM64 | CPU_TYPE_ARM64_32 => 16384,  // 16KB for Apple Silicon
-            _ => 4096,  // 4KB for Intel and others
+            CPU_TYPE_ARM64 | CPU_TYPE_ARM64_32 => 16384, // 16KB for Apple Silicon
+            _ => 4096,                                   // 4KB for Intel and others
         }
     }
 
@@ -951,6 +1000,17 @@ impl MachOWriter {
                     self.update_section_offsets_64(&mut buf, seg.nsects)?;
                 }
             }
+            CommandVariant::CodeSignature(l)
+            | CommandVariant::SegmentSplitInfo(l)
+            | CommandVariant::FunctionStarts(l)
+            | CommandVariant::DataInCode(l)
+            | CommandVariant::DylibCodeSignDrs(l)
+            | CommandVariant::LinkerOptimizationHint(l)
+            | CommandVariant::DyldExportsTrie(l)
+            | CommandVariant::DyldChainedFixups(l) => {
+                // Always serialize using pwrite to capture any modifications (like extended datasize)
+                buf.pwrite_with(l, 0, self.ctx.le)?;
+            }
             _ => {
                 // For other commands, copy from original data
                 let orig_cmd = &self.load_commands[idx];
@@ -1062,28 +1122,66 @@ impl CommandVariant {
     /// Returns Ok(()) if successful, Err if this command type doesn't support pwrite
     fn pwrite_into(&self, buf: &mut [u8], le: scroll::Endian) -> error::Result<()> {
         match self {
-            CommandVariant::Segment32(s) => { buf.pwrite_with(s, 0, le)?; }
-            CommandVariant::Segment64(s) => { buf.pwrite_with(s, 0, le)?; }
-            CommandVariant::Symtab(s) => { buf.pwrite_with(s, 0, le)?; }
-            CommandVariant::Dysymtab(d) => { buf.pwrite_with(d, 0, le)?; }
-            CommandVariant::Uuid(u) => { buf.pwrite_with(u, 0, le)?; }
+            CommandVariant::Segment32(s) => {
+                buf.pwrite_with(s, 0, le)?;
+            }
+            CommandVariant::Segment64(s) => {
+                buf.pwrite_with(s, 0, le)?;
+            }
+            CommandVariant::Symtab(s) => {
+                buf.pwrite_with(s, 0, le)?;
+            }
+            CommandVariant::Dysymtab(d) => {
+                buf.pwrite_with(d, 0, le)?;
+            }
+            CommandVariant::Uuid(u) => {
+                buf.pwrite_with(u, 0, le)?;
+            }
             CommandVariant::VersionMinMacosx(v)
             | CommandVariant::VersionMinIphoneos(v)
             | CommandVariant::VersionMinTvos(v)
-            | CommandVariant::VersionMinWatchos(v) => { buf.pwrite_with(v, 0, le)?; }
-            CommandVariant::SourceVersion(s) => { buf.pwrite_with(s, 0, le)?; }
-            CommandVariant::Main(e) => { buf.pwrite_with(e, 0, le)?; }
-            CommandVariant::DyldInfo(d) | CommandVariant::DyldInfoOnly(d) => { buf.pwrite_with(d, 0, le)?; }
-            CommandVariant::BuildVersion(b) => { buf.pwrite_with(b, 0, le)?; }
-            CommandVariant::PreboundDylib(p) => { buf.pwrite_with(p, 0, le)?; }
-            CommandVariant::Routines32(r) => { buf.pwrite_with(r, 0, le)?; }
-            CommandVariant::Routines64(r) => { buf.pwrite_with(r, 0, le)?; }
-            CommandVariant::SubFramework(s) => { buf.pwrite_with(s, 0, le)?; }
-            CommandVariant::SubUmbrella(s) => { buf.pwrite_with(s, 0, le)?; }
-            CommandVariant::SubClient(s) => { buf.pwrite_with(s, 0, le)?; }
-            CommandVariant::SubLibrary(s) => { buf.pwrite_with(s, 0, le)?; }
-            CommandVariant::TwolevelHints(t) => { buf.pwrite_with(t, 0, le)?; }
-            CommandVariant::PrebindCksum(p) => { buf.pwrite_with(p, 0, le)?; }
+            | CommandVariant::VersionMinWatchos(v) => {
+                buf.pwrite_with(v, 0, le)?;
+            }
+            CommandVariant::SourceVersion(s) => {
+                buf.pwrite_with(s, 0, le)?;
+            }
+            CommandVariant::Main(e) => {
+                buf.pwrite_with(e, 0, le)?;
+            }
+            CommandVariant::DyldInfo(d) | CommandVariant::DyldInfoOnly(d) => {
+                buf.pwrite_with(d, 0, le)?;
+            }
+            CommandVariant::BuildVersion(b) => {
+                buf.pwrite_with(b, 0, le)?;
+            }
+            CommandVariant::PreboundDylib(p) => {
+                buf.pwrite_with(p, 0, le)?;
+            }
+            CommandVariant::Routines32(r) => {
+                buf.pwrite_with(r, 0, le)?;
+            }
+            CommandVariant::Routines64(r) => {
+                buf.pwrite_with(r, 0, le)?;
+            }
+            CommandVariant::SubFramework(s) => {
+                buf.pwrite_with(s, 0, le)?;
+            }
+            CommandVariant::SubUmbrella(s) => {
+                buf.pwrite_with(s, 0, le)?;
+            }
+            CommandVariant::SubClient(s) => {
+                buf.pwrite_with(s, 0, le)?;
+            }
+            CommandVariant::SubLibrary(s) => {
+                buf.pwrite_with(s, 0, le)?;
+            }
+            CommandVariant::TwolevelHints(t) => {
+                buf.pwrite_with(t, 0, le)?;
+            }
+            CommandVariant::PrebindCksum(p) => {
+                buf.pwrite_with(p, 0, le)?;
+            }
             CommandVariant::CodeSignature(l)
             | CommandVariant::SegmentSplitInfo(l)
             | CommandVariant::FunctionStarts(l)
@@ -1092,22 +1190,48 @@ impl CommandVariant {
             | CommandVariant::LinkerOptimizationHint(l)
             | CommandVariant::DyldExportsTrie(l)
             | CommandVariant::LinkerOption(l)
-            | CommandVariant::DyldChainedFixups(l) => { buf.pwrite_with(l, 0, le)?; }
-            CommandVariant::EncryptionInfo32(e) => { buf.pwrite_with(e, 0, le)?; }
-            CommandVariant::EncryptionInfo64(e) => { buf.pwrite_with(e, 0, le)?; }
-            CommandVariant::Note(n) => { buf.pwrite_with(n, 0, le)?; }
-            CommandVariant::FilesetEntry(f) => { buf.pwrite_with(f, 0, le)?; }
-            CommandVariant::LoadFvmlib(f) | CommandVariant::IdFvmlib(f) => { buf.pwrite_with(f, 0, le)?; }
-            CommandVariant::Fvmfile(f) => { buf.pwrite_with(f, 0, le)?; }
-            CommandVariant::Symseg(s) => { buf.pwrite_with(s, 0, le)?; }
-            CommandVariant::Ident(i) => { buf.pwrite_with(i, 0, le)?; }
-            CommandVariant::Prepage(p) => { buf.pwrite_with(p, 0, le)?; }
-            CommandVariant::LoadUpwardDylib(u) => { buf.pwrite_with(u, 0, le)?; }
-            CommandVariant::Unimplemented(h) => { buf.pwrite_with(h, 0, le)?; }
+            | CommandVariant::DyldChainedFixups(l) => {
+                buf.pwrite_with(l, 0, le)?;
+            }
+            CommandVariant::EncryptionInfo32(e) => {
+                buf.pwrite_with(e, 0, le)?;
+            }
+            CommandVariant::EncryptionInfo64(e) => {
+                buf.pwrite_with(e, 0, le)?;
+            }
+            CommandVariant::Note(n) => {
+                buf.pwrite_with(n, 0, le)?;
+            }
+            CommandVariant::FilesetEntry(f) => {
+                buf.pwrite_with(f, 0, le)?;
+            }
+            CommandVariant::LoadFvmlib(f) | CommandVariant::IdFvmlib(f) => {
+                buf.pwrite_with(f, 0, le)?;
+            }
+            CommandVariant::Fvmfile(f) => {
+                buf.pwrite_with(f, 0, le)?;
+            }
+            CommandVariant::Symseg(s) => {
+                buf.pwrite_with(s, 0, le)?;
+            }
+            CommandVariant::Ident(i) => {
+                buf.pwrite_with(i, 0, le)?;
+            }
+            CommandVariant::Prepage(p) => {
+                buf.pwrite_with(p, 0, le)?;
+            }
+            CommandVariant::LoadUpwardDylib(u) => {
+                buf.pwrite_with(u, 0, le)?;
+            }
+            CommandVariant::Unimplemented(h) => {
+                buf.pwrite_with(h, 0, le)?;
+            }
             // Commands that don't implement Pwrite or are handled specially
             // These should have been handled by copying from original data
             _ => {
-                return Err(error::Error::Malformed("Command must be copied from original data".into()));
+                return Err(error::Error::Malformed(
+                    "Command must be copied from original data".into(),
+                ));
             }
         }
         Ok(())
@@ -1150,6 +1274,12 @@ where
     }
 }
 
+/// Align value up to the specified power-of-2 alignment
+fn align_to(value: usize, align_power: u32) -> usize {
+    let alignment = 1usize << align_power;
+    (value + alignment - 1) & !(alignment - 1)
+}
+
 /// Process 32-bit fat binary
 fn modify_fat_binary_32<F>(
     data: &[u8],
@@ -1179,12 +1309,13 @@ where
         arch_data.push((arch, modified));
     }
 
-    // Calculate new offsets and write arch headers
-    let mut current_offset = mem::size_of::<FatHeader>() + header.nfat_arch as usize * mem::size_of::<FatArch>();
-    // Align to 4096
-    current_offset = ((current_offset + 4095) / 4096) * 4096;
+    // Calculate new offsets using each architecture's alignment requirement
+    let mut current_offset =
+        mem::size_of::<FatHeader>() + header.nfat_arch as usize * mem::size_of::<FatArch>();
 
     for (arch, modified_data) in &mut arch_data {
+        // Align to this architecture's requirement (arch.align is a power of 2)
+        current_offset = align_to(current_offset, arch.align);
         arch.offset = current_offset as u32;
         arch.size = modified_data.len() as u32;
 
@@ -1192,7 +1323,7 @@ where
         arch_bytes.pwrite_with(*arch, 0, scroll::BE)?;
         output.extend_from_slice(&arch_bytes);
 
-        current_offset = ((current_offset + modified_data.len() + 4095) / 4096) * 4096;
+        current_offset += modified_data.len();
     }
 
     // Pad to first arch offset
@@ -1234,7 +1365,9 @@ where
         let start = arch.offset as usize;
         let end = start + arch.size as usize;
         if end > data.len() {
-            return Err(error::Error::Malformed("FatArch64 offset/size out of bounds".into()));
+            return Err(error::Error::Malformed(
+                "FatArch64 offset/size out of bounds".into(),
+            ));
         }
         let arch_bytes = data[start..end].to_vec();
 
@@ -1246,12 +1379,13 @@ where
         arch_data.push((arch, modified));
     }
 
-    // Calculate new offsets and write arch headers
-    let mut current_offset = mem::size_of::<FatHeader>() + header.nfat_arch as usize * SIZEOF_FAT_ARCH_64;
-    // Align to 4096
-    current_offset = ((current_offset + 4095) / 4096) * 4096;
+    // Calculate new offsets using each architecture's alignment requirement
+    let mut current_offset =
+        mem::size_of::<FatHeader>() + header.nfat_arch as usize * SIZEOF_FAT_ARCH_64;
 
     for (arch, modified_data) in &mut arch_data {
+        // Align to this architecture's requirement (arch.align is a power of 2)
+        current_offset = align_to(current_offset, arch.align);
         arch.offset = current_offset as u64;
         arch.size = modified_data.len() as u64;
 
@@ -1259,7 +1393,7 @@ where
         arch_bytes.pwrite_with(*arch, 0, scroll::BE)?;
         output.extend_from_slice(&arch_bytes);
 
-        current_offset = ((current_offset + modified_data.len() + 4095) / 4096) * 4096;
+        current_offset += modified_data.len();
     }
 
     // Pad to first arch offset
@@ -1277,6 +1411,476 @@ where
     }
 
     Ok(output.clone())
+}
+
+// ==================== Ad-hoc Code Signing ====================
+//
+// This module implements ad-hoc code signing for Mach-O binaries,
+// matching Apple's install_name_tool behavior for linker-signed binaries.
+
+/// Code signature magic numbers
+pub mod codesign_constants {
+    /// Magic number for embedded signature SuperBlob
+    pub const CSMAGIC_EMBEDDED_SIGNATURE: u32 = 0xfade0cc0;
+    /// Magic number for CodeDirectory blob
+    pub const CSMAGIC_CODEDIRECTORY: u32 = 0xfade0c02;
+    /// Slot index for CodeDirectory
+    pub const CSSLOT_CODEDIRECTORY: u32 = 0;
+    /// SHA-256 hash type
+    pub const CS_HASHTYPE_SHA256: u8 = 2;
+    /// Ad-hoc signature flag
+    pub const CS_ADHOC: u32 = 0x0002;
+    /// Linker-signed flag
+    pub const CS_LINKER_SIGNED: u32 = 0x20000;
+    /// Main binary exec segment flag
+    pub const CS_EXECSEG_MAIN_BINARY: u64 = 0x1;
+    /// Code signature page size (4KB)
+    pub const CS_PAGE_SIZE: usize = 4096;
+    /// Code signature page size as log2
+    pub const CS_PAGE_SIZE_LOG2: u8 = 12;
+    /// CodeDirectory version
+    pub const CS_VERSION: u32 = 0x20400;
+}
+
+#[cfg(feature = "codesign")]
+mod codesign_impl {
+    use super::codesign_constants::*;
+    use super::*;
+    use sha2::{Digest, Sha256};
+
+    /// SuperBlob header for embedded signature
+    #[derive(Debug, Clone, Copy)]
+    #[repr(C)]
+    struct SuperBlob {
+        magic: u32,
+        length: u32,
+        count: u32,
+    }
+
+    /// Blob index entry
+    #[derive(Debug, Clone, Copy)]
+    #[repr(C)]
+    struct BlobIndex {
+        typ: u32,
+        offset: u32,
+    }
+
+    /// CodeDirectory structure (version 0x20400)
+    #[derive(Debug, Clone, Copy)]
+    #[repr(C)]
+    struct CodeDirectory {
+        magic: u32,
+        length: u32,
+        version: u32,
+        flags: u32,
+        hash_offset: u32,
+        ident_offset: u32,
+        n_special_slots: u32,
+        n_code_slots: u32,
+        code_limit: u32,
+        hash_size: u8,
+        hash_type: u8,
+        _pad1: u8,
+        page_size: u8,
+        _pad2: u32,
+        scatter_offset: u32,
+        team_offset: u32,
+        _pad3: u32,
+        code_limit64: u64,
+        exec_seg_base: u64,
+        exec_seg_limit: u64,
+        exec_seg_flags: u64,
+    }
+
+    impl SuperBlob {
+        fn to_bytes(&self) -> [u8; 12] {
+            let mut buf = [0u8; 12];
+            buf[0..4].copy_from_slice(&self.magic.to_be_bytes());
+            buf[4..8].copy_from_slice(&self.length.to_be_bytes());
+            buf[8..12].copy_from_slice(&self.count.to_be_bytes());
+            buf
+        }
+    }
+
+    impl BlobIndex {
+        fn to_bytes(&self) -> [u8; 8] {
+            let mut buf = [0u8; 8];
+            buf[0..4].copy_from_slice(&self.typ.to_be_bytes());
+            buf[4..8].copy_from_slice(&self.offset.to_be_bytes());
+            buf
+        }
+    }
+
+    impl CodeDirectory {
+        fn to_bytes(&self) -> [u8; 88] {
+            let mut buf = [0u8; 88];
+            buf[0..4].copy_from_slice(&self.magic.to_be_bytes());
+            buf[4..8].copy_from_slice(&self.length.to_be_bytes());
+            buf[8..12].copy_from_slice(&self.version.to_be_bytes());
+            buf[12..16].copy_from_slice(&self.flags.to_be_bytes());
+            buf[16..20].copy_from_slice(&self.hash_offset.to_be_bytes());
+            buf[20..24].copy_from_slice(&self.ident_offset.to_be_bytes());
+            buf[24..28].copy_from_slice(&self.n_special_slots.to_be_bytes());
+            buf[28..32].copy_from_slice(&self.n_code_slots.to_be_bytes());
+            buf[32..36].copy_from_slice(&self.code_limit.to_be_bytes());
+            buf[36] = self.hash_size;
+            buf[37] = self.hash_type;
+            buf[38] = self._pad1;
+            buf[39] = self.page_size;
+            buf[40..44].copy_from_slice(&self._pad2.to_be_bytes());
+            buf[44..48].copy_from_slice(&self.scatter_offset.to_be_bytes());
+            buf[48..52].copy_from_slice(&self.team_offset.to_be_bytes());
+            buf[52..56].copy_from_slice(&self._pad3.to_be_bytes());
+            buf[56..64].copy_from_slice(&self.code_limit64.to_be_bytes());
+            buf[64..72].copy_from_slice(&self.exec_seg_base.to_be_bytes());
+            buf[72..80].copy_from_slice(&self.exec_seg_limit.to_be_bytes());
+            buf[80..88].copy_from_slice(&self.exec_seg_flags.to_be_bytes());
+            buf
+        }
+    }
+
+    /// Check if a Mach-O binary has a linker-signed code signature
+    ///
+    /// This function parses the binary to find the code signature and checks
+    /// if it has the CS_LINKER_SIGNED flag (0x20000). Returns false if no
+    /// code signature is found or if it doesn't have the linker-signed flag.
+    pub fn is_linker_signed(data: &[u8]) -> bool {
+        use crate::mach::header::Header;
+        use crate::mach::load_command::LC_CODE_SIGNATURE;
+        use crate::mach::parse_magic_and_ctx;
+        use scroll::Pread;
+
+        // Parse header
+        let (_, ctx_opt) = match parse_magic_and_ctx(data, 0) {
+            Ok(r) => r,
+            Err(_) => return false,
+        };
+        let ctx = match ctx_opt {
+            Some(c) => c,
+            None => return false,
+        };
+        let header: Header = match data.pread_with(0, ctx) {
+            Ok(h) => h,
+            Err(_) => return false,
+        };
+        let header_size = Header::size_with(&ctx);
+
+        // Find LC_CODE_SIGNATURE
+        let mut offset = header_size;
+        for _ in 0..header.ncmds {
+            let cmd: u32 = match data.pread_with(offset, ctx.le) {
+                Ok(c) => c,
+                Err(_) => return false,
+            };
+            let cmdsize: u32 = match data.pread_with(offset + 4, ctx.le) {
+                Ok(c) => c,
+                Err(_) => return false,
+            };
+
+            if cmd == LC_CODE_SIGNATURE {
+                let dataoff: u32 = match data.pread_with(offset + 8, ctx.le) {
+                    Ok(d) => d,
+                    Err(_) => return false,
+                };
+                let datasize: u32 = match data.pread_with(offset + 12, ctx.le) {
+                    Ok(d) => d,
+                    Err(_) => return false,
+                };
+                return is_linker_signed_internal(data, dataoff as usize, datasize as usize);
+            }
+
+            offset += cmdsize as usize;
+        }
+        false
+    }
+
+    /// Internal helper to check linker-signed flag in code signature
+    fn is_linker_signed_internal(data: &[u8], codesig_offset: usize, codesig_size: usize) -> bool {
+        if codesig_offset + codesig_size > data.len() || codesig_size < 20 {
+            return false;
+        }
+
+        let sig_data = &data[codesig_offset..codesig_offset + codesig_size];
+
+        // Check SuperBlob magic
+        let magic = u32::from_be_bytes([sig_data[0], sig_data[1], sig_data[2], sig_data[3]]);
+        if magic != CSMAGIC_EMBEDDED_SIGNATURE {
+            return false;
+        }
+
+        let count =
+            u32::from_be_bytes([sig_data[8], sig_data[9], sig_data[10], sig_data[11]]) as usize;
+
+        // Find CodeDirectory blob
+        for i in 0..count {
+            let idx_offset = 12 + i * 8;
+            if idx_offset + 8 > sig_data.len() {
+                break;
+            }
+            let blob_type = u32::from_be_bytes([
+                sig_data[idx_offset],
+                sig_data[idx_offset + 1],
+                sig_data[idx_offset + 2],
+                sig_data[idx_offset + 3],
+            ]);
+            let blob_offset = u32::from_be_bytes([
+                sig_data[idx_offset + 4],
+                sig_data[idx_offset + 5],
+                sig_data[idx_offset + 6],
+                sig_data[idx_offset + 7],
+            ]) as usize;
+
+            if blob_type == CSSLOT_CODEDIRECTORY && blob_offset + 16 <= sig_data.len() {
+                // Read CodeDirectory flags at offset 12 from blob start
+                let flags = u32::from_be_bytes([
+                    sig_data[blob_offset + 12],
+                    sig_data[blob_offset + 13],
+                    sig_data[blob_offset + 14],
+                    sig_data[blob_offset + 15],
+                ]);
+                return (flags & CS_LINKER_SIGNED) != 0;
+            }
+        }
+        false
+    }
+
+    /// Generate an ad-hoc code signature for a Mach-O binary
+    ///
+    /// # Arguments
+    /// * `data` - The binary data (will be modified in place)
+    /// * `identifier` - The identifier string to use in the signature
+    /// * `codesig_cmd_offset` - Offset of LC_CODE_SIGNATURE load command
+    /// * `codesig_data_offset` - Offset where code signature data starts
+    /// * `linkedit_cmd_offset` - Offset of __LINKEDIT segment command
+    /// * `text_fileoff` - File offset of __TEXT segment
+    /// * `text_filesize` - File size of __TEXT segment
+    /// * `is_64bit` - Whether this is a 64-bit binary
+    /// * `is_executable` - Whether this is a main executable (MH_EXECUTE)
+    ///
+    /// Returns the new binary data with updated signature
+    pub fn generate_adhoc_signature(
+        mut data: Vec<u8>,
+        identifier: &str,
+        codesig_cmd_offset: usize,
+        codesig_data_offset: usize,
+        linkedit_cmd_offset: usize,
+        linkedit_fileoff: u64,
+        text_fileoff: u64,
+        text_filesize: u64,
+        is_64bit: bool,
+        is_executable: bool,
+    ) -> error::Result<Vec<u8>> {
+        // Calculate signature size
+        let id_bytes = identifier.as_bytes();
+        let id_len = id_bytes.len() + 1; // Include null terminator
+        let n_hashes = (codesig_data_offset + CS_PAGE_SIZE - 1) / CS_PAGE_SIZE;
+
+        let superblob_size = 12; // SuperBlob header
+        let blob_index_size = 8; // One BlobIndex
+        let codedir_size = 88; // CodeDirectory header
+        let hash_offset = codedir_size + id_len;
+        let codedir_total = hash_offset + n_hashes * 32;
+        let blob_content_size = superblob_size + blob_index_size + codedir_total;
+        // Apple aligns code signature datasize to 8 bytes
+        let padded_sig_size = (blob_content_size + 7) & !7;
+
+        // Build the signature
+        let superblob = SuperBlob {
+            magic: CSMAGIC_EMBEDDED_SIGNATURE,
+            length: blob_content_size as u32, // SuperBlob length is the actual blob size, not padded
+            count: 1,
+        };
+
+        let blob_index = BlobIndex {
+            typ: CSSLOT_CODEDIRECTORY,
+            offset: (superblob_size + blob_index_size) as u32,
+        };
+
+        let codedir = CodeDirectory {
+            magic: CSMAGIC_CODEDIRECTORY,
+            length: codedir_total as u32,
+            version: CS_VERSION,
+            flags: CS_ADHOC | CS_LINKER_SIGNED,
+            hash_offset: hash_offset as u32,
+            ident_offset: codedir_size as u32,
+            n_special_slots: 0,
+            n_code_slots: n_hashes as u32,
+            code_limit: codesig_data_offset as u32,
+            hash_size: 32,
+            hash_type: CS_HASHTYPE_SHA256,
+            _pad1: 0,
+            page_size: CS_PAGE_SIZE_LOG2,
+            _pad2: 0,
+            scatter_offset: 0,
+            team_offset: 0,
+            _pad3: 0,
+            code_limit64: 0,
+            exec_seg_base: text_fileoff,
+            exec_seg_limit: text_filesize,
+            // Only set CS_EXECSEG_MAIN_BINARY for executables, not dylibs
+            exec_seg_flags: if is_executable {
+                CS_EXECSEG_MAIN_BINARY
+            } else {
+                0
+            },
+        };
+
+        // Update LC_CODE_SIGNATURE command FIRST (before hashing)
+        // datasize is at offset 12 in LinkeditDataCommand
+        // Use padded_sig_size for the datasize (must be multiple of 16)
+        let datasize_offset = codesig_cmd_offset + 12;
+        data[datasize_offset..datasize_offset + 4]
+            .copy_from_slice(&(padded_sig_size as u32).to_le_bytes());
+
+        // Update __LINKEDIT segment filesize FIRST (before hashing)
+        // Note: We only update filesize, not vmsize. vmsize is the virtual memory size
+        // and should remain page-aligned as set by the linker. filesize is the actual
+        // bytes in the file that get mapped.
+        let new_linkedit_filesize =
+            codesig_data_offset as u64 + padded_sig_size as u64 - linkedit_fileoff;
+        if is_64bit {
+            // In segment_command_64:
+            //   vmsize at offset 32 (8 bytes) - don't update, keep page-aligned
+            //   fileoff at offset 40 (8 bytes) - don't update
+            //   filesize at offset 48 (8 bytes) - update this
+            let filesize_offset = linkedit_cmd_offset + 48;
+            data[filesize_offset..filesize_offset + 8]
+                .copy_from_slice(&new_linkedit_filesize.to_le_bytes());
+        } else {
+            // In segment_command:
+            //   vmsize at offset 28 (4 bytes) - don't update, keep page-aligned
+            //   fileoff at offset 32 (4 bytes) - don't update
+            //   filesize at offset 36 (4 bytes) - update this
+            let filesize_offset = linkedit_cmd_offset + 36;
+            data[filesize_offset..filesize_offset + 4]
+                .copy_from_slice(&(new_linkedit_filesize as u32).to_le_bytes());
+        }
+
+        // Build signature blob content
+        let mut sig = Vec::with_capacity(padded_sig_size);
+        sig.extend_from_slice(&superblob.to_bytes());
+        sig.extend_from_slice(&blob_index.to_bytes());
+        sig.extend_from_slice(&codedir.to_bytes());
+        sig.extend_from_slice(id_bytes);
+        sig.push(0); // Null terminator
+
+        // Calculate page hashes AFTER updating load commands
+        let mut hasher = Sha256::new();
+        let mut offset = 0;
+        while offset < codesig_data_offset {
+            let end = core::cmp::min(offset + CS_PAGE_SIZE, codesig_data_offset);
+            hasher.update(&data[offset..end]);
+            sig.extend_from_slice(&hasher.finalize_reset());
+            offset = end;
+        }
+
+        // Add padding to reach padded_sig_size (multiple of 16)
+        sig.resize(padded_sig_size, 0);
+
+        // Resize and write signature
+        data.resize(codesig_data_offset + padded_sig_size, 0);
+        data[codesig_data_offset..].copy_from_slice(&sig);
+
+        Ok(data)
+    }
+}
+
+#[cfg(feature = "codesign")]
+pub use codesign_impl::{generate_adhoc_signature, is_linker_signed};
+
+/// Sign a Mach-O binary with an ad-hoc signature
+///
+/// This function handles the complete flow of ad-hoc signing:
+/// 1. Parse the binary to find code signature and segment information
+/// 2. Generate a new ad-hoc signature with the specified identifier
+/// 3. Update the load commands and write the new signature
+///
+/// # Arguments
+/// * `data` - The Mach-O binary data
+/// * `identifier` - The identifier to embed in the signature (typically the filename)
+///
+/// # Returns
+/// The signed binary data, or an error if signing failed
+#[cfg(feature = "codesign")]
+pub fn adhoc_sign(data: Vec<u8>, identifier: &str) -> error::Result<Vec<u8>> {
+    use crate::mach::header::Header;
+    use crate::mach::parse_magic_and_ctx;
+
+    // Parse header
+    let (_, ctx_opt) = parse_magic_and_ctx(&data, 0)?;
+    let ctx = ctx_opt.ok_or(error::Error::Malformed("Invalid Mach-O magic".into()))?;
+    let header: Header = data.pread_with(0, ctx)?;
+    let is_64bit = ctx.container == container::Container::Big;
+    let header_size = Header::size_with(&ctx);
+
+    // Parse load commands to find what we need
+    let mut codesig_cmd_offset = None;
+    let mut codesig_data_offset = 0usize;
+    let mut linkedit_cmd_offset = None;
+    let mut linkedit_fileoff = 0u64;
+    let mut text_fileoff = 0u64;
+    let mut text_filesize = 0u64;
+
+    let mut offset = header_size;
+    for _ in 0..header.ncmds {
+        let cmd: u32 = data.pread_with(offset, ctx.le)?;
+        let cmdsize: u32 = data.pread_with(offset + 4, ctx.le)?;
+
+        if cmd == LC_CODE_SIGNATURE {
+            codesig_cmd_offset = Some(offset);
+            let dataoff: u32 = data.pread_with(offset + 8, ctx.le)?;
+            codesig_data_offset = dataoff as usize;
+        } else if cmd == LC_SEGMENT_64 {
+            let segname_bytes = &data[offset + 8..offset + 24];
+            let segname = core::str::from_utf8(segname_bytes)
+                .unwrap_or("")
+                .trim_end_matches('\0');
+
+            if segname == "__LINKEDIT" {
+                linkedit_cmd_offset = Some(offset);
+                linkedit_fileoff = data.pread_with(offset + 32 + 8, ctx.le)?;
+            } else if segname == "__TEXT" {
+                text_fileoff = data.pread_with(offset + 32 + 8, ctx.le)?;
+                text_filesize = data.pread_with(offset + 32 + 16, ctx.le)?;
+            }
+        } else if cmd == LC_SEGMENT {
+            let segname_bytes = &data[offset + 8..offset + 24];
+            let segname = core::str::from_utf8(segname_bytes)
+                .unwrap_or("")
+                .trim_end_matches('\0');
+
+            if segname == "__LINKEDIT" {
+                linkedit_cmd_offset = Some(offset);
+                linkedit_fileoff = data.pread_with::<u32>(offset + 28 + 4, ctx.le)? as u64;
+            } else if segname == "__TEXT" {
+                text_fileoff = data.pread_with::<u32>(offset + 28 + 4, ctx.le)? as u64;
+                text_filesize = data.pread_with::<u32>(offset + 28 + 8, ctx.le)? as u64;
+            }
+        }
+
+        offset += cmdsize as usize;
+    }
+
+    let codesig_cmd_offset = codesig_cmd_offset
+        .ok_or_else(|| error::Error::Malformed("No LC_CODE_SIGNATURE found".into()))?;
+    let linkedit_cmd_offset = linkedit_cmd_offset
+        .ok_or_else(|| error::Error::Malformed("No __LINKEDIT segment found".into()))?;
+
+    // Check if this is a main executable (MH_EXECUTE = 2)
+    let is_executable = header.filetype == 2;
+
+    codesign_impl::generate_adhoc_signature(
+        data,
+        identifier,
+        codesig_cmd_offset,
+        codesig_data_offset,
+        linkedit_cmd_offset,
+        linkedit_fileoff,
+        text_fileoff,
+        text_filesize,
+        is_64bit,
+        is_executable,
+    )
 }
 
 #[cfg(test)]

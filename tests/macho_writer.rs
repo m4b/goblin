@@ -1,16 +1,20 @@
 //! Tests for Mach-O writer functionality
 //! These tests compare output against Apple's install_name_tool for bit-for-bit identical results
 
-use goblin::mach::writer::{MachOWriter, DylibKind, modify_fat_binary};
-use std::process::Command;
+use goblin::mach::writer::{DylibKind, MachOWriter, modify_fat_binary};
+use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::env;
+use std::process::Command;
 
 /// Helper to create a temporary copy of a file
 fn copy_to_temp(original: &Path, suffix: &str) -> PathBuf {
     let temp_dir = env::temp_dir();
-    let filename = format!("goblin_test_{}_{}", original.file_name().unwrap().to_str().unwrap(), suffix);
+    let filename = format!(
+        "goblin_test_{}_{}",
+        original.file_name().unwrap().to_str().unwrap(),
+        suffix
+    );
     let temp_path = temp_dir.join(filename);
     fs::copy(original, &temp_path).unwrap();
     temp_path
@@ -67,12 +71,26 @@ fn compare_binaries(file1: &Path, file2: &Path) -> Result<(), String> {
     }
 }
 
-/// Create a simple test dylib for testing
+/// Create a simple test dylib for testing with a unique name
 #[cfg(target_os = "macos")]
 fn create_test_dylib() -> PathBuf {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+
     let temp_dir = env::temp_dir();
-    let source = temp_dir.join("test_lib.c");
-    let output = temp_dir.join("libtest.dylib");
+    let unique_id = format!(
+        "{}_{}_{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        COUNTER.fetch_add(1, Ordering::SeqCst)
+    );
+    let source = temp_dir.join(format!("test_lib_{}.c", unique_id));
+    let output = temp_dir.join(format!("libtest_{}.dylib", unique_id));
 
     // Write a simple C source
     fs::write(&source, "int test_function() { return 42; }").unwrap();
@@ -93,6 +111,9 @@ fn create_test_dylib() -> PathBuf {
 
     assert!(status.success(), "Failed to compile test dylib");
 
+    // Clean up source file
+    let _ = fs::remove_file(&source);
+
     output
 }
 
@@ -107,9 +128,7 @@ fn test_change_id_vs_apple_tool() {
 
     // Modify with goblin
     let data = fs::read(&goblin_copy).unwrap();
-    let result = modify_fat_binary(data, |writer| {
-        writer.change_id("/new/path/libtest.dylib")
-    });
+    let result = modify_fat_binary(data, |writer| writer.change_id("/new/path/libtest.dylib"));
     let modified = result.unwrap();
     fs::write(&goblin_copy, &modified).unwrap();
 
@@ -160,8 +179,11 @@ fn test_add_rpath_vs_apple_tool() {
     fs::write(&goblin_copy, &modified).unwrap();
 
     // Modify with Apple's tool
-    run_apple_install_name_tool(&apple_copy, &["-add_rpath", "@executable_path/../Frameworks"])
-        .unwrap();
+    run_apple_install_name_tool(
+        &apple_copy,
+        &["-add_rpath", "@executable_path/../Frameworks"],
+    )
+    .unwrap();
 
     // Compare
     match compare_binaries(&goblin_copy, &apple_copy) {
@@ -177,9 +199,11 @@ fn test_add_rpath_vs_apple_tool() {
             let apple_macho = goblin::mach::MachO::parse(&apple_data, 0).unwrap();
 
             assert_eq!(goblin_macho.rpaths, apple_macho.rpaths);
-            assert!(goblin_macho
-                .rpaths
-                .contains(&"@executable_path/../Frameworks"));
+            assert!(
+                goblin_macho
+                    .rpaths
+                    .contains(&"@executable_path/../Frameworks")
+            );
         }
     }
 
@@ -202,7 +226,6 @@ fn test_writer_basic_operations() {
 #[test]
 #[cfg(target_os = "macos")]
 fn test_change_dylib_dependency() {
-
     // Create a test executable that depends on a dylib
     let temp_dir = env::temp_dir();
     let source = temp_dir.join("test_exe.c");
@@ -275,8 +298,11 @@ fn test_delete_rpath() {
 
     // First add an rpath
     let with_rpath = copy_to_temp(&test_dylib, "with_rpath");
-    run_apple_install_name_tool(&with_rpath, &["-add_rpath", "@executable_path/../Frameworks"])
-        .unwrap();
+    run_apple_install_name_tool(
+        &with_rpath,
+        &["-add_rpath", "@executable_path/../Frameworks"],
+    )
+    .unwrap();
 
     let goblin_copy = copy_to_temp(&with_rpath, "goblin_delete");
     let apple_copy = copy_to_temp(&with_rpath, "apple_delete");
@@ -290,8 +316,11 @@ fn test_delete_rpath() {
     fs::write(&goblin_copy, &modified).unwrap();
 
     // Delete with Apple's tool
-    run_apple_install_name_tool(&apple_copy, &["-delete_rpath", "@executable_path/../Frameworks"])
-        .unwrap();
+    run_apple_install_name_tool(
+        &apple_copy,
+        &["-delete_rpath", "@executable_path/../Frameworks"],
+    )
+    .unwrap();
 
     // Verify both have the same result
     let goblin_data = fs::read(&goblin_copy).unwrap();
@@ -301,9 +330,11 @@ fn test_delete_rpath() {
     let apple_macho = goblin::mach::MachO::parse(&apple_data, 0).unwrap();
 
     assert_eq!(goblin_macho.rpaths, apple_macho.rpaths);
-    assert!(!goblin_macho
-        .rpaths
-        .contains(&"@executable_path/../Frameworks"));
+    assert!(
+        !goblin_macho
+            .rpaths
+            .contains(&"@executable_path/../Frameworks")
+    );
 
     // Cleanup
     let _ = fs::remove_file(&goblin_copy);
@@ -335,9 +366,7 @@ fn test_multiple_operations() {
 
     assert_eq!(goblin_macho.name, Some("/new/install/name.dylib"));
     assert!(goblin_macho.rpaths.contains(&"@executable_path"));
-    assert!(goblin_macho
-        .rpaths
-        .contains(&"@loader_path/../Frameworks"));
+    assert!(goblin_macho.rpaths.contains(&"@loader_path/../Frameworks"));
 
     // Cleanup
     let _ = fs::remove_file(&goblin_copy);
@@ -438,9 +467,15 @@ fn test_add_weak_dylib() {
     let data = fs::read(&work_copy).unwrap();
     let writer = MachOWriter::new(data).unwrap();
     let dylibs = writer.get_dylibs();
-    let weak_lib = dylibs.iter().find(|d| d.path == "/usr/lib/liboptional.dylib");
+    let weak_lib = dylibs
+        .iter()
+        .find(|d| d.path == "/usr/lib/liboptional.dylib");
     assert!(weak_lib.is_some(), "Should have added weak dylib");
-    assert_eq!(weak_lib.unwrap().kind, DylibKind::Weak, "Should be marked as weak");
+    assert_eq!(
+        weak_lib.unwrap().kind,
+        DylibKind::Weak,
+        "Should be marked as weak"
+    );
 
     // Cleanup
     let _ = fs::remove_file(&work_copy);

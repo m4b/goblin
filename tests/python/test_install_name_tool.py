@@ -237,6 +237,8 @@ def run_apple_tool(
 
     if operation == "change_id":
         cmd.extend(["-id", args[0]])
+    elif operation == "change_dylib":
+        cmd.extend(["-change", args[0], args[1]])
     elif operation == "add_rpath":
         cmd.extend(["-add_rpath", args[0]])
     elif operation == "delete_rpath":
@@ -279,6 +281,8 @@ def run_goblin_tool(
 
     if operation == "change_id":
         cmd.extend(["-id", args[0]])
+    elif operation == "change_dylib":
+        cmd.extend(["-change", args[0], args[1]])
     elif operation == "add_rpath":
         cmd.extend(["-add_rpath", args[0]])
     elif operation == "delete_rpath":
@@ -309,6 +313,81 @@ def run_goblin_tool(
         return False, f"Goblin tool not found at {goblin_path}"
 
 
+def run_single_test(
+    dylib_path: Path,
+    goblin_tool: Path,
+    tmpdir: Path,
+    operation: str,
+    args: list[str],
+    strict: bool = False,
+) -> TestCase:
+    """Run a single test case comparing Apple and goblin tools.
+
+    In strict mode, uses the same filename for both tools to ensure
+    identical code signature identifiers.
+    """
+    tc = TestCase(name=operation, operation=operation, args=args)
+
+    if strict:
+        # Use the same filename for both to get identical code signatures
+        test_file = tmpdir / "testfile"
+        apple_result = tmpdir / "apple_result"
+
+        # Run Apple tool
+        apple_ok, apple_err = run_apple_tool(dylib_path, test_file, operation, args)
+        if not apple_ok:
+            tc.result = TestResult.SKIP
+            tc.error_message = f"Apple tool failed: {apple_err}"
+            return tc
+
+        # Save Apple's result
+        shutil.copy(test_file, apple_result)
+
+        # Run goblin tool on a fresh copy with the same filename
+        goblin_ok, goblin_err = run_goblin_tool(
+            goblin_tool, dylib_path, test_file, operation, args
+        )
+        if not goblin_ok:
+            tc.result = TestResult.ERROR
+            tc.error_message = f"Goblin tool failed: {goblin_err}"
+            return tc
+
+        # Compare
+        tc.goblin_size = test_file.stat().st_size
+        tc.apple_size = apple_result.stat().st_size
+        match, msg = compare_binaries(test_file, apple_result, strict=True)
+    else:
+        # Non-strict: use separate filenames (faster, no need to save/restore)
+        apple_out = tmpdir / f"apple_{operation}"
+        goblin_out = tmpdir / f"goblin_{operation}"
+
+        apple_ok, apple_err = run_apple_tool(dylib_path, apple_out, operation, args)
+        if not apple_ok:
+            tc.result = TestResult.SKIP
+            tc.error_message = f"Apple tool failed: {apple_err}"
+            return tc
+
+        goblin_ok, goblin_err = run_goblin_tool(
+            goblin_tool, dylib_path, goblin_out, operation, args
+        )
+        if not goblin_ok:
+            tc.result = TestResult.ERROR
+            tc.error_message = f"Goblin tool failed: {goblin_err}"
+            return tc
+
+        tc.goblin_size = goblin_out.stat().st_size
+        tc.apple_size = apple_out.stat().st_size
+        match, msg = compare_binaries(goblin_out, apple_out, strict=False)
+
+    if match:
+        tc.result = TestResult.PASS
+    else:
+        tc.result = TestResult.FAIL
+        tc.error_message = msg
+
+    return tc
+
+
 def test_file(
     dylib_path: Path,
     goblin_tool: Path,
@@ -337,185 +416,120 @@ def test_file(
         # Test change_id (only for dylibs with install name)
         if "change_id" in operations and result.install_name:
             new_id = random_path()
-            tc = TestCase(
-                name="change_id",
-                operation="change_id",
-                args=[new_id],
+            tc = run_single_test(
+                dylib_path, goblin_tool, tmpdir, "change_id", [new_id], strict
             )
+            result.test_cases.append(tc)
 
-            apple_out = tmpdir / "apple_change_id.dylib"
-            goblin_out = tmpdir / "goblin_change_id.dylib"
-
-            apple_ok, apple_err = run_apple_tool(
-                dylib_path, apple_out, "change_id", [new_id]
+        # Test change_dylib (only if there are dylibs)
+        if "change_dylib" in operations and result.dylibs:
+            old_dylib = result.dylibs[0]  # Pick first dylib to change
+            new_dylib = random_path()
+            tc = run_single_test(
+                dylib_path, goblin_tool, tmpdir, "change_dylib", [old_dylib, new_dylib], strict
             )
-            goblin_ok, goblin_err = run_goblin_tool(
-                goblin_tool, dylib_path, goblin_out, "change_id", [new_id]
-            )
-
-            if not apple_ok:
-                tc.result = TestResult.SKIP
-                tc.error_message = f"Apple tool failed: {apple_err}"
-            elif not goblin_ok:
-                tc.result = TestResult.ERROR
-                tc.error_message = f"Goblin tool failed: {goblin_err}"
-            else:
-                tc.goblin_size = goblin_out.stat().st_size
-                tc.apple_size = apple_out.stat().st_size
-                match, msg = compare_binaries(goblin_out, apple_out, strict)
-                if match:
-                    tc.result = TestResult.PASS
-                else:
-                    tc.result = TestResult.FAIL
-                    tc.error_message = msg
-
             result.test_cases.append(tc)
 
         # Test add_rpath
         if "add_rpath" in operations:
             new_rpath = f"@executable_path/../Frameworks/{random_string(8)}"
-            tc = TestCase(
-                name="add_rpath",
-                operation="add_rpath",
-                args=[new_rpath],
+            tc = run_single_test(
+                dylib_path, goblin_tool, tmpdir, "add_rpath", [new_rpath], strict
             )
-
-            apple_out = tmpdir / "apple_add_rpath.dylib"
-            goblin_out = tmpdir / "goblin_add_rpath.dylib"
-
-            apple_ok, apple_err = run_apple_tool(
-                dylib_path, apple_out, "add_rpath", [new_rpath]
-            )
-            goblin_ok, goblin_err = run_goblin_tool(
-                goblin_tool, dylib_path, goblin_out, "add_rpath", [new_rpath]
-            )
-
-            if not apple_ok:
-                tc.result = TestResult.SKIP
-                tc.error_message = f"Apple tool failed: {apple_err}"
-            elif not goblin_ok:
-                tc.result = TestResult.ERROR
-                tc.error_message = f"Goblin tool failed: {goblin_err}"
-            else:
-                tc.goblin_size = goblin_out.stat().st_size
-                tc.apple_size = apple_out.stat().st_size
-                match, msg = compare_binaries(goblin_out, apple_out, strict)
-                if match:
-                    tc.result = TestResult.PASS
-                else:
-                    tc.result = TestResult.FAIL
-                    tc.error_message = msg
-
             result.test_cases.append(tc)
 
         # Test delete_rpath (only if there are rpaths)
         if "delete_rpath" in operations and result.rpaths:
             rpath_to_delete = result.rpaths[0]
-            tc = TestCase(
-                name="delete_rpath",
-                operation="delete_rpath",
-                args=[rpath_to_delete],
+            tc = run_single_test(
+                dylib_path, goblin_tool, tmpdir, "delete_rpath", [rpath_to_delete], strict
             )
-
-            apple_out = tmpdir / "apple_delete_rpath.dylib"
-            goblin_out = tmpdir / "goblin_delete_rpath.dylib"
-
-            apple_ok, apple_err = run_apple_tool(
-                dylib_path, apple_out, "delete_rpath", [rpath_to_delete]
-            )
-            goblin_ok, goblin_err = run_goblin_tool(
-                goblin_tool, dylib_path, goblin_out, "delete_rpath", [rpath_to_delete]
-            )
-
-            if not apple_ok:
-                tc.result = TestResult.SKIP
-                tc.error_message = f"Apple tool failed: {apple_err}"
-            elif not goblin_ok:
-                tc.result = TestResult.ERROR
-                tc.error_message = f"Goblin tool failed: {goblin_err}"
-            else:
-                tc.goblin_size = goblin_out.stat().st_size
-                tc.apple_size = apple_out.stat().st_size
-                match, msg = compare_binaries(goblin_out, apple_out, strict)
-                if match:
-                    tc.result = TestResult.PASS
-                else:
-                    tc.result = TestResult.FAIL
-                    tc.error_message = msg
-
             result.test_cases.append(tc)
 
         # Test change_rpath (only if there are rpaths)
         if "change_rpath" in operations and result.rpaths:
             old_rpath = result.rpaths[0]
             new_rpath = f"@loader_path/../lib/{random_string(8)}"
-            tc = TestCase(
-                name="change_rpath",
-                operation="change_rpath",
-                args=[old_rpath, new_rpath],
+            tc = run_single_test(
+                dylib_path, goblin_tool, tmpdir, "change_rpath", [old_rpath, new_rpath], strict
             )
-
-            apple_out = tmpdir / "apple_change_rpath.dylib"
-            goblin_out = tmpdir / "goblin_change_rpath.dylib"
-
-            apple_ok, apple_err = run_apple_tool(
-                dylib_path, apple_out, "change_rpath", [old_rpath, new_rpath]
-            )
-            goblin_ok, goblin_err = run_goblin_tool(
-                goblin_tool,
-                dylib_path,
-                goblin_out,
-                "change_rpath",
-                [old_rpath, new_rpath],
-            )
-
-            if not apple_ok:
-                tc.result = TestResult.SKIP
-                tc.error_message = f"Apple tool failed: {apple_err}"
-            elif not goblin_ok:
-                tc.result = TestResult.ERROR
-                tc.error_message = f"Goblin tool failed: {goblin_err}"
-            else:
-                tc.goblin_size = goblin_out.stat().st_size
-                tc.apple_size = apple_out.stat().st_size
-                match, msg = compare_binaries(goblin_out, apple_out, strict)
-                if match:
-                    tc.result = TestResult.PASS
-                else:
-                    tc.result = TestResult.FAIL
-                    tc.error_message = msg
-
             result.test_cases.append(tc)
 
     return result
 
 
-def find_dylibs(path: Path, max_files: Optional[int] = None) -> list[Path]:
-    """Find all dylib files in a directory or return single file."""
+def is_macho_file(path: Path) -> bool:
+    """Check if a file is a Mach-O binary by reading its magic number."""
+    try:
+        with open(path, "rb") as f:
+            magic = f.read(4)
+            # Check for Mach-O magic numbers (both endiannesses)
+            # MH_MAGIC, MH_CIGAM, MH_MAGIC_64, MH_CIGAM_64, FAT_MAGIC, FAT_CIGAM
+            macho_magics = [
+                b"\xfe\xed\xfa\xce",  # MH_MAGIC (32-bit)
+                b"\xce\xfa\xed\xfe",  # MH_CIGAM (32-bit swapped)
+                b"\xfe\xed\xfa\xcf",  # MH_MAGIC_64 (64-bit)
+                b"\xcf\xfa\xed\xfe",  # MH_CIGAM_64 (64-bit swapped)
+                b"\xca\xfe\xba\xbe",  # FAT_MAGIC (universal)
+                b"\xbe\xba\xfe\xca",  # FAT_CIGAM (universal swapped)
+                b"\xca\xfe\xba\xbf",  # FAT_MAGIC_64 (universal 64-bit)
+                b"\xbf\xba\xfe\xca",  # FAT_CIGAM_64 (universal 64-bit swapped)
+            ]
+            return magic in macho_magics
+    except (IOError, OSError):
+        return False
+
+
+def find_macho_files(
+    path: Path, max_files: Optional[int] = None, include_executables: bool = False
+) -> list[Path]:
+    """Find Mach-O files in a directory or return single file."""
     if path.is_file():
         # Resolve symlinks and check readability
         resolved = path.resolve()
         if resolved.exists() and os.access(resolved, os.R_OK):
-            return [resolved]
+            if resolved.suffix == ".dylib" or (include_executables and is_macho_file(resolved)):
+                return [resolved]
         return []
 
-    dylibs = []
+    files_found = []
+    seen_inodes = set()  # Track inodes to avoid duplicate files via symlinks
+
     for root, dirs, files in os.walk(path):
         for f in files:
-            if f.endswith(".dylib"):
-                p = Path(root) / f
-                # Resolve symlinks and check if file actually exists and is readable
-                try:
-                    resolved = p.resolve()
-                    if resolved.exists() and os.access(resolved, os.R_OK):
-                        dylibs.append(resolved)
-                        if max_files and len(dylibs) >= max_files:
-                            return dylibs
-                except (OSError, IOError):
-                    # Skip files that can't be resolved
-                    pass
+            p = Path(root) / f
+            try:
+                resolved = p.resolve()
+                if not resolved.exists() or not os.access(resolved, os.R_OK):
+                    continue
 
-    return dylibs
+                # Skip duplicates (same file via different symlinks)
+                stat_info = resolved.stat()
+                inode_key = (stat_info.st_dev, stat_info.st_ino)
+                if inode_key in seen_inodes:
+                    continue
+                seen_inodes.add(inode_key)
+
+                # Check if it's a dylib or (optionally) an executable
+                if f.endswith(".dylib"):
+                    files_found.append(resolved)
+                elif include_executables and is_macho_file(resolved):
+                    # Skip .o, .a files and other non-executable Mach-O
+                    if not f.endswith((".o", ".a", ".dSYM")):
+                        files_found.append(resolved)
+
+                if max_files and len(files_found) >= max_files:
+                    return files_found
+            except (OSError, IOError):
+                pass
+
+    return files_found
+
+
+# Keep old name for backwards compatibility
+def find_dylibs(path: Path, max_files: Optional[int] = None) -> list[Path]:
+    """Find all dylib files in a directory or return single file."""
+    return find_macho_files(path, max_files, include_executables=False)
 
 
 def build_goblin_tool(project_root: Path) -> Optional[Path]:
@@ -574,9 +588,14 @@ def main():
         help="Skip fat/universal binaries",
     )
     parser.add_argument(
+        "--include-executables",
+        action="store_true",
+        help="Also test executable Mach-O files (not just dylibs)",
+    )
+    parser.add_argument(
         "--operations",
         type=str,
-        default="change_id,add_rpath,delete_rpath,change_rpath",
+        default="change_id,change_dylib,add_rpath,delete_rpath,change_rpath",
         help="Comma-separated list of operations to test",
     )
 
@@ -599,13 +618,17 @@ def main():
 
     print(f"Using goblin tool: {goblin_tool}")
 
-    # Find dylibs to test
-    dylibs = find_dylibs(args.path, args.max_files)
-    if not dylibs:
-        print(f"No dylib files found in {args.path}")
+    # Find Mach-O files to test
+    macho_files = find_macho_files(
+        args.path, args.max_files, include_executables=args.include_executables
+    )
+    if not macho_files:
+        file_types = "Mach-O files" if args.include_executables else "dylib files"
+        print(f"No {file_types} found in {args.path}")
         sys.exit(1)
 
-    print(f"Found {len(dylibs)} dylib(s) to test")
+    file_types = "Mach-O file(s)" if args.include_executables else "dylib(s)"
+    print(f"Found {len(macho_files)} {file_types} to test")
 
     operations = [op.strip() for op in args.operations.split(",")]
     print(f"Testing operations: {operations}")
@@ -617,11 +640,11 @@ def main():
     total_skipped = 0
     total_errors = 0
 
-    for i, dylib in enumerate(dylibs, 1):
-        print(f"[{i}/{len(dylibs)}] Testing {dylib.name}...")
+    for i, macho_file in enumerate(macho_files, 1):
+        print(f"[{i}/{len(macho_files)}] Testing {macho_file.name}...")
 
         result = test_file(
-            dylib,
+            macho_file,
             goblin_tool,
             operations,
             strict=args.strict,

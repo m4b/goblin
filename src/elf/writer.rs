@@ -9,13 +9,15 @@
 //! - Rebuilding modified ELF from scratch
 
 use crate::container::Ctx;
-use crate::error;
-use crate::elf::program_header::{ProgramHeader, PT_INTERP, PT_DYNAMIC};
-use crate::elf::dynamic::{Dyn, DT_NULL, DT_NEEDED, DT_SONAME, DT_RPATH, DT_RUNPATH, DT_STRTAB, DT_STRSZ};
+use crate::elf::dynamic::{
+    DT_NEEDED, DT_NULL, DT_RPATH, DT_RUNPATH, DT_SONAME, DT_STRSZ, DT_STRTAB, Dyn,
+};
 use crate::elf::header::Header;
-use crate::elf::section_header::{SectionHeader, SHT_STRTAB};
-use alloc::vec::Vec;
+use crate::elf::program_header::{PT_DYNAMIC, PT_INTERP, ProgramHeader};
+use crate::elf::section_header::{SHT_STRTAB, SectionHeader};
+use crate::error;
 use alloc::string::String;
+use alloc::vec::Vec;
 use scroll::Pwrite;
 
 /// String table builder for dynamic strings
@@ -95,8 +97,16 @@ impl ElfWriter {
         let elf = Elf::parse(&data_copy)?;
         let is_64 = elf.is_64;
         let ctx = Ctx::new(
-            if is_64 { crate::container::Container::Big } else { crate::container::Container::Little },
-            if elf.little_endian { scroll::Endian::Little } else { scroll::Endian::Big },
+            if is_64 {
+                crate::container::Container::Big
+            } else {
+                crate::container::Container::Little
+            },
+            if elf.little_endian {
+                scroll::Endian::Little
+            } else {
+                scroll::Endian::Big
+            },
         );
 
         // Clone program headers
@@ -117,7 +127,8 @@ impl ElfWriter {
         let mut dynstr = DynStrBuilder::new();
 
         // Find PT_DYNAMIC offset
-        let pt_dynamic_offset = program_headers.iter()
+        let pt_dynamic_offset = program_headers
+            .iter()
             .find(|ph| ph.p_type == PT_DYNAMIC)
             .map(|ph| ph.p_offset);
 
@@ -157,14 +168,19 @@ impl ElfWriter {
         let offset = self.dynstr.add(new_rpath);
 
         // Insert before DT_NULL
-        let insert_pos = self.dynamic_entries.iter()
+        let insert_pos = self
+            .dynamic_entries
+            .iter()
             .position(|d| d.d_tag == DT_NULL)
             .unwrap_or(self.dynamic_entries.len());
 
-        self.dynamic_entries.insert(insert_pos, Dyn {
-            d_tag: DT_RPATH,
-            d_val: offset as u64,
-        });
+        self.dynamic_entries.insert(
+            insert_pos,
+            Dyn {
+                d_tag: DT_RPATH,
+                d_val: offset as u64,
+            },
+        );
 
         Ok(())
     }
@@ -178,14 +194,19 @@ impl ElfWriter {
         let offset = self.dynstr.add(new_runpath);
 
         // Insert before DT_NULL
-        let insert_pos = self.dynamic_entries.iter()
+        let insert_pos = self
+            .dynamic_entries
+            .iter()
             .position(|d| d.d_tag == DT_NULL)
             .unwrap_or(self.dynamic_entries.len());
 
-        self.dynamic_entries.insert(insert_pos, Dyn {
-            d_tag: DT_RUNPATH,
-            d_val: offset as u64,
-        });
+        self.dynamic_entries.insert(
+            insert_pos,
+            Dyn {
+                d_tag: DT_RUNPATH,
+                d_val: offset as u64,
+            },
+        );
 
         Ok(())
     }
@@ -199,14 +220,19 @@ impl ElfWriter {
         let offset = self.dynstr.add(new_soname);
 
         // Insert before DT_NULL
-        let insert_pos = self.dynamic_entries.iter()
+        let insert_pos = self
+            .dynamic_entries
+            .iter()
             .position(|d| d.d_tag == DT_NULL)
             .unwrap_or(self.dynamic_entries.len());
 
-        self.dynamic_entries.insert(insert_pos, Dyn {
-            d_tag: DT_SONAME,
-            d_val: offset as u64,
-        });
+        self.dynamic_entries.insert(
+            insert_pos,
+            Dyn {
+                d_tag: DT_SONAME,
+                d_val: offset as u64,
+            },
+        );
 
         Ok(())
     }
@@ -224,14 +250,19 @@ impl ElfWriter {
         let offset = self.dynstr.add(library);
 
         // Insert before DT_NULL
-        let insert_pos = self.dynamic_entries.iter()
+        let insert_pos = self
+            .dynamic_entries
+            .iter()
             .position(|d| d.d_tag == DT_NULL)
             .unwrap_or(self.dynamic_entries.len());
 
-        self.dynamic_entries.insert(insert_pos, Dyn {
-            d_tag: DT_NEEDED,
-            d_val: offset as u64,
-        });
+        self.dynamic_entries.insert(
+            insert_pos,
+            Dyn {
+                d_tag: DT_NEEDED,
+                d_val: offset as u64,
+            },
+        );
 
         Ok(())
     }
@@ -267,7 +298,11 @@ impl ElfWriter {
 
     // Helper methods
 
-    fn update_interpreter_inplace(&self, output: &mut Vec<u8>, new_interp: &str) -> error::Result<()> {
+    fn update_interpreter_inplace(
+        &self,
+        output: &mut Vec<u8>,
+        new_interp: &str,
+    ) -> error::Result<()> {
         // Find PT_INTERP segment
         for ph in &self.program_headers {
             if ph.p_type == PT_INTERP {
@@ -302,7 +337,9 @@ impl ElfWriter {
 
     fn update_dynamic_section_inplace(&mut self, output: &mut Vec<u8>) -> error::Result<()> {
         // Find PT_DYNAMIC segment
-        let dynamic_ph = self.program_headers.iter()
+        let dynamic_ph = self
+            .program_headers
+            .iter()
             .find(|ph| ph.p_type == PT_DYNAMIC)
             .ok_or_else(|| error::Error::Malformed("No PT_DYNAMIC segment found".into()))?;
 
@@ -319,7 +356,8 @@ impl ElfWriter {
                     "Dynamic section too small: need {} bytes, have {} bytes",
                     required_size,
                     dyn_size
-                ).into()
+                )
+                .into(),
             ));
         }
 
@@ -334,9 +372,12 @@ impl ElfWriter {
         if self.dynamic_entries.last().map(|d| d.d_tag) != Some(DT_NULL) {
             if current_offset + entry_size <= dyn_offset + dyn_size {
                 output.pwrite_with(
-                    Dyn { d_tag: DT_NULL, d_val: 0 },
+                    Dyn {
+                        d_tag: DT_NULL,
+                        d_val: 0,
+                    },
                     current_offset,
-                    self.ctx
+                    self.ctx,
                 )?;
             }
         }
@@ -352,7 +393,9 @@ impl ElfWriter {
         // For simplicity, we'll use a heuristic: find SHT_STRTAB section that's referenced by dynamic entries
 
         // Find section by looking for DT_STRTAB in dynamic entries
-        let strtab_addr = self.dynamic_entries.iter()
+        let strtab_addr = self
+            .dynamic_entries
+            .iter()
             .find(|d| d.d_tag == DT_STRTAB)
             .map(|d| d.d_val)
             .ok_or_else(|| error::Error::Malformed("No DT_STRTAB found".into()))?;
@@ -371,7 +414,8 @@ impl ElfWriter {
                             "Dynamic string table grew too large: {} bytes needed, {} available",
                             new_data.len(),
                             size
-                        ).into()
+                        )
+                        .into(),
                     ));
                 }
 
@@ -384,7 +428,11 @@ impl ElfWriter {
                 }
 
                 // Update DT_STRSZ
-                if let Some(dynamic_ph) = self.program_headers.iter().find(|ph| ph.p_type == PT_DYNAMIC) {
+                if let Some(dynamic_ph) = self
+                    .program_headers
+                    .iter()
+                    .find(|ph| ph.p_type == PT_DYNAMIC)
+                {
                     let dyn_offset = dynamic_ph.p_offset as usize;
                     let entry_size = if self.is_64 { 16 } else { 8 };
 
@@ -392,9 +440,12 @@ impl ElfWriter {
                         if dyn_entry.d_tag == DT_STRSZ {
                             let offset = dyn_offset + idx * entry_size;
                             output.pwrite_with(
-                                Dyn { d_tag: DT_STRSZ, d_val: new_data.len() as u64 },
+                                Dyn {
+                                    d_tag: DT_STRSZ,
+                                    d_val: new_data.len() as u64,
+                                },
                                 offset,
-                                self.ctx
+                                self.ctx,
                             )?;
                             break;
                         }

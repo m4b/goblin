@@ -180,6 +180,32 @@ fn main() {
         }
     };
 
+    // Re-sign if the binary was linker-signed (like Apple's install_name_tool does)
+    // Only re-sign if the original binary had the linker-signed flag (0x20000)
+    // Files with just adhoc (0x2) flag are NOT re-signed by Apple
+    #[cfg(feature = "codesign")]
+    let modified = {
+        use goblin::mach::writer::{adhoc_sign, is_linker_signed};
+        use std::path::Path;
+
+        // Only re-sign if the original binary was linker-signed
+        // Check the modified data since that's what we'll sign
+        if is_linker_signed(&modified) {
+            let output_path = output_file.as_ref().unwrap_or(&input_file);
+            let identifier = Path::new(output_path)
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("a.out");
+
+            match adhoc_sign(modified.clone(), identifier) {
+                Ok(signed) => signed,
+                Err(_) => modified,
+            }
+        } else {
+            modified
+        }
+    };
+
     // Write output
     let output_path = output_file.as_ref().unwrap_or(&input_file);
     if let Err(e) = fs::write(output_path, &modified) {

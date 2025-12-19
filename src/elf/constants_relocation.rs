@@ -856,21 +856,21 @@ pub const R_RISCV_TPREL_LO12_I: u32 = 30;
 pub const R_RISCV_TPREL_LO12_S: u32 = 31;
 /// TLS LE thread usage: %tprel_add(symbol)
 pub const R_RISCV_TPREL_ADD: u32 = 32;
-/// 8-bit label addition: word8 = S + A
+/// 8-bit label addition: word8 = V + S + A
 pub const R_RISCV_ADD8: u32 = 33;
-/// 16-bit label addition: word16 = S + A
+/// 16-bit label addition: word16 = V + S + A
 pub const R_RISCV_ADD16: u32 = 34;
-/// 32-bit label addition: word32 = S + A
+/// 32-bit label addition: word32 = V + S + A
 pub const R_RISCV_ADD32: u32 = 35;
-/// 64-bit label addition: word64 = S + A
+/// 64-bit label addition: word64 = V + S + A
 pub const R_RISCV_ADD64: u32 = 36;
-/// 8-bit label subtraction: word8 = S - A
+/// 8-bit label subtraction: word8 = V - S - A
 pub const R_RISCV_SUB8: u32 = 37;
-/// 16-bit label subtraction: word16 = S - A
+/// 16-bit label subtraction: word16 = V - S - A
 pub const R_RISCV_SUB16: u32 = 38;
-/// 32-bit label subtraction: word32 = S - A
+/// 32-bit label subtraction: word32 = V - S - A
 pub const R_RISCV_SUB32: u32 = 39;
-/// 64-bit label subtraction: word64 = S - A
+/// 64-bit label subtraction: word64 = V - S - A
 pub const R_RISCV_SUB64: u32 = 40;
 /// GNU C++ vtable hierarchy
 pub const R_RISCV_GNU_VTINHERIT: u32 = 41;
@@ -896,14 +896,34 @@ pub const R_RISCV_TPREL_S: u32 = 50;
 pub const R_RISCV_RELAX: u32 = 51;
 /// Local label subtraction
 pub const R_RISCV_SUB6: u32 = 52;
-/// Local label subtraction
+/// Local label assignment
 pub const R_RISCV_SET6: u32 = 53;
-/// Local label subtraction
+/// Local label assignment
 pub const R_RISCV_SET8: u32 = 54;
-/// Local label subtraction
+/// Local label assignment
 pub const R_RISCV_SET16: u32 = 55;
-/// Local label subtraction
+/// Local label assignment
 pub const R_RISCV_SET32: u32 = 56;
+/// 32-bit PC-relative relocation
+pub const R_RISCV_32_PCREL: u32 = 57;
+/// IRELATIVE relocation against non-preemptible ifunc symbol
+pub const R_RISCV_IRELATIVE: u32 = 58;
+/// 32-bit relative offset to a function or its PLT entry
+pub const R_RISCV_PLT32: u32 = 59;
+/// ULEB128 local label assignment
+pub const R_RISCV_SET_ULEB128: u32 = 60;
+/// ULEB128 local label subtraction
+pub const R_RISCV_SUB_ULEB128: u32 = 61;
+/// TLS descriptor: high 20 bits
+pub const R_RISCV_TLSDESC_HI20: u32 = 62;
+/// TLS descriptor: load low 12 bits
+pub const R_RISCV_TLSDESC_LOAD_LO12: u32 = 63;
+/// TLS descriptor: add low 12 bits
+pub const R_RISCV_TLSDESC_ADD_LO12: u32 = 64;
+/// TLS descriptor: call
+pub const R_RISCV_TLSDESC_CALL: u32 = 65;
+/// Vendor marker
+pub const R_RISCV_VENDOR: u32 = 191;
 
 /////////////////////
 // PowerPC 32-bit
@@ -1845,6 +1865,16 @@ pub fn r_to_str(typ: u32, machine: u16) -> &'static str {
             R_RISCV_SET8 => "R_RISCV_SET8",
             R_RISCV_SET16 => "R_RISCV_SET16",
             R_RISCV_SET32 => "R_RISCV_SET32",
+            R_RISCV_32_PCREL => "R_RISCV_32_PCREL",
+            R_RISCV_IRELATIVE => "R_RISCV_IRELATIVE",
+            R_RISCV_PLT32 => "R_RISCV_PLT32",
+            R_RISCV_SET_ULEB128 => "R_RISCV_SET_ULEB128",
+            R_RISCV_SUB_ULEB128 => "R_RISCV_SUB_ULEB128",
+            R_RISCV_TLSDESC_HI20 => "R_RISCV_TLSDESC_HI20",
+            R_RISCV_TLSDESC_LOAD_LO12 => "R_RISCV_TLSDESC_LOAD_LO12",
+            R_RISCV_TLSDESC_ADD_LO12 => "R_RISCV_TLSDESC_ADD_LO12",
+            R_RISCV_TLSDESC_CALL => "R_RISCV_TLSDESC_CALL",
+            R_RISCV_VENDOR => "R_RISCV_VENDOR",
             _ => "R_UNKNOWN_RISCV",
         },
         // Power-PC 32-bit

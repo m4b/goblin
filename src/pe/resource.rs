@@ -1,4 +1,5 @@
 use crate::error;
+use crate::options::Permissive;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::fmt;
@@ -493,11 +494,23 @@ impl<'a> ResourceData<'a> {
         if offset > data.len() {
             return Err(error::Error::Malformed(format!(
                 "Resource entry offset ({offset:#x}) out of bounds"
-            )));
+            )))
+            .or_permissive_and_default(
+                opts.parse_mode.is_permissive(),
+                "Resource entry offset out of bounds; skipping",
+            );
         }
-        let iterator_data = data.pread_with::<&[u8]>(offset, size).map_err(|_| {
-            error::Error::Malformed(format!("Resource entry offset ({offset:#x}) out of bounds"))
-        })?;
+        let iterator_data = data
+            .pread_with::<&[u8]>(offset, size)
+            .map_err(|_| {
+                error::Error::Malformed(format!(
+                    "Resource entry offset ({offset:#x}) out of bounds"
+                ))
+            })
+            .or_permissive_and_default(
+                opts.parse_mode.is_permissive(),
+                "Resource entry offset out of bounds; skipping",
+            )?;
         let iterator = ResourceEntryIterator {
             data: iterator_data,
         };

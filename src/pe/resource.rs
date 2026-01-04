@@ -495,10 +495,9 @@ impl<'a> ResourceData<'a> {
             return Err(error::Error::Malformed(format!(
                 "Resource entry offset ({offset:#x}) out of bounds"
             )))
-            .or_permissive_and_then(
+            .or_permissive_and_default(
                 opts.parse_mode.is_permissive(),
                 "Resource entry offset out of bounds; skipping",
-                || ResourceData::default(),
             );
         }
         let iterator_data = data
@@ -508,10 +507,9 @@ impl<'a> ResourceData<'a> {
                     "Resource entry offset ({offset:#x}) out of bounds"
                 ))
             })
-            .or_permissive_and_then(
+            .or_permissive_and_default(
                 opts.parse_mode.is_permissive(),
                 "Resource entry offset out of bounds; skipping",
-                || Default::default(),
             )?;
         let iterator = ResourceEntryIterator {
             data: iterator_data,

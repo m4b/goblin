@@ -23,10 +23,6 @@ description = "An impish, cross-platform, ELF, Mach-o, and PE binary parsing and
 [dependencies]
 plain = "0.2.3"
 
-[dependencies.sha2]
-version = "0.10"
-optional = true
-
 [dependencies.log]
 version = "0.4"
 default-features = false
@@ -51,7 +47,6 @@ default = [
 ]
 std = ["alloc", "scroll/std"]
 alloc = ["scroll/derive", "log"]
-codesign = ["std", "sha2"]
 endian_fd = ["alloc"]
 elf32 = []
 elf64 = []

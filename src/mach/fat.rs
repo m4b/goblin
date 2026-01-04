@@ -206,15 +206,17 @@ impl FatArch64 {
         let arch = bytes.pread_with::<FatArch64>(offset, scroll::BE)?;
         Ok(arch)
     }
+}
 
+impl From<FatArch64> for FatArch {
     /// Convert to a 32-bit FatArch (may lose precision for large values)
-    pub fn to_fat_arch(&self) -> FatArch {
+    fn from(arch: FatArch64) -> Self {
         FatArch {
-            cputype: self.cputype,
-            cpusubtype: self.cpusubtype,
-            offset: self.offset as u32,
-            size: self.size as u32,
-            align: self.align,
+            cputype: arch.cputype,
+            cpusubtype: arch.cpusubtype,
+            offset: arch.offset as u32,
+            size: arch.size as u32,
+            align: arch.align,
         }
     }
 }

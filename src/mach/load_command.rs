@@ -1858,3 +1858,48 @@ impl LoadCommand {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use core::mem::size_of;
+
+    /// Validate that our SIZEOF_* constants match the actual struct sizes.
+    /// These sizes must match Apple's loader.h definitions exactly for
+    /// correct binary parsing and generation.
+    /// Reference: https://github.com/apple/darwin-xnu/blob/main/EXTERNAL_HEADERS/mach-o/loader.h
+    #[test]
+    fn test_load_command_struct_sizes() {
+        // Basic structures
+        assert_eq!(size_of::<LoadCommandHeader>(), SIZEOF_LOAD_COMMAND);
+        assert_eq!(size_of::<Section32>(), SIZEOF_SECTION_32);
+        assert_eq!(size_of::<Section64>(), SIZEOF_SECTION_64);
+        assert_eq!(size_of::<SegmentCommand32>(), SIZEOF_SEGMENT_COMMAND_32);
+        assert_eq!(size_of::<SegmentCommand64>(), SIZEOF_SEGMENT_COMMAND_64);
+
+        // Dylib structures
+        // struct dylib: lc_str (4) + timestamp (4) + current_version (4) + compat_version (4) = 16
+        assert_eq!(size_of::<Dylib>(), SIZEOF_DYLIB);
+        // struct dylib_command: cmd (4) + cmdsize (4) + dylib (16) = 24
+        assert_eq!(size_of::<DylibCommand>(), SIZEOF_DYLIB_COMMAND);
+
+        // Other load commands
+        assert_eq!(size_of::<Fvmlib>(), SIZEOF_FVMLIB);
+        assert_eq!(size_of::<FvmlibCommand>(), SIZEOF_FVMLIB_COMMAND);
+        assert_eq!(size_of::<SubFrameworkCommand>(), SIZEOF_SUB_FRAMEWORK_COMMAND);
+        assert_eq!(size_of::<SubClientCommand>(), SIZEOF_SUB_CLIENT_COMMAND);
+        assert_eq!(size_of::<SubUmbrellaCommand>(), SIZEOF_SUB_UMBRELLA_COMMAND);
+        assert_eq!(size_of::<SubLibraryCommand>(), SIZEOF_SUB_LIBRARY_COMMAND);
+        assert_eq!(size_of::<PreboundDylibCommand>(), SIZEOF_PREBOUND_DYLIB_COMMAND);
+        assert_eq!(size_of::<DylinkerCommand>(), SIZEOF_DYLINKER_COMMAND);
+        assert_eq!(size_of::<RpathCommand>(), SIZEOF_RPATH_COMMAND);
+        assert_eq!(size_of::<LinkeditDataCommand>(), SIZEOF_LINKEDIT_DATA_COMMAND);
+        assert_eq!(size_of::<SymtabCommand>(), SIZEOF_SYMTAB_COMMAND);
+        assert_eq!(size_of::<DysymtabCommand>(), SIZEOF_DYSYMTAB_COMMAND);
+        assert_eq!(size_of::<EntryPointCommand>(), SIZEOF_ENTRY_POINT_COMMAND);
+        assert_eq!(size_of::<EncryptionInfoCommand32>(), SIZEOF_ENCRYPTION_INFO_COMMAND_32);
+        assert_eq!(size_of::<EncryptionInfoCommand64>(), SIZEOF_ENCRYPTION_INFO_COMMAND_64);
+        assert_eq!(size_of::<VersionMinCommand>(), SIZEOF_VERSION_MIN_COMMAND);
+        assert_eq!(size_of::<DyldInfoCommand>(), SIZEOF_DYLIB_INFO_COMMAND);
+    }
+}

@@ -1886,19 +1886,34 @@ mod tests {
         // Other load commands
         assert_eq!(size_of::<Fvmlib>(), SIZEOF_FVMLIB);
         assert_eq!(size_of::<FvmlibCommand>(), SIZEOF_FVMLIB_COMMAND);
-        assert_eq!(size_of::<SubFrameworkCommand>(), SIZEOF_SUB_FRAMEWORK_COMMAND);
+        assert_eq!(
+            size_of::<SubFrameworkCommand>(),
+            SIZEOF_SUB_FRAMEWORK_COMMAND
+        );
         assert_eq!(size_of::<SubClientCommand>(), SIZEOF_SUB_CLIENT_COMMAND);
         assert_eq!(size_of::<SubUmbrellaCommand>(), SIZEOF_SUB_UMBRELLA_COMMAND);
         assert_eq!(size_of::<SubLibraryCommand>(), SIZEOF_SUB_LIBRARY_COMMAND);
-        assert_eq!(size_of::<PreboundDylibCommand>(), SIZEOF_PREBOUND_DYLIB_COMMAND);
+        assert_eq!(
+            size_of::<PreboundDylibCommand>(),
+            SIZEOF_PREBOUND_DYLIB_COMMAND
+        );
         assert_eq!(size_of::<DylinkerCommand>(), SIZEOF_DYLINKER_COMMAND);
         assert_eq!(size_of::<RpathCommand>(), SIZEOF_RPATH_COMMAND);
-        assert_eq!(size_of::<LinkeditDataCommand>(), SIZEOF_LINKEDIT_DATA_COMMAND);
+        assert_eq!(
+            size_of::<LinkeditDataCommand>(),
+            SIZEOF_LINKEDIT_DATA_COMMAND
+        );
         assert_eq!(size_of::<SymtabCommand>(), SIZEOF_SYMTAB_COMMAND);
         assert_eq!(size_of::<DysymtabCommand>(), SIZEOF_DYSYMTAB_COMMAND);
         assert_eq!(size_of::<EntryPointCommand>(), SIZEOF_ENTRY_POINT_COMMAND);
-        assert_eq!(size_of::<EncryptionInfoCommand32>(), SIZEOF_ENCRYPTION_INFO_COMMAND_32);
-        assert_eq!(size_of::<EncryptionInfoCommand64>(), SIZEOF_ENCRYPTION_INFO_COMMAND_64);
+        assert_eq!(
+            size_of::<EncryptionInfoCommand32>(),
+            SIZEOF_ENCRYPTION_INFO_COMMAND_32
+        );
+        assert_eq!(
+            size_of::<EncryptionInfoCommand64>(),
+            SIZEOF_ENCRYPTION_INFO_COMMAND_64
+        );
         assert_eq!(size_of::<VersionMinCommand>(), SIZEOF_VERSION_MIN_COMMAND);
         assert_eq!(size_of::<DyldInfoCommand>(), SIZEOF_DYLIB_INFO_COMMAND);
     }

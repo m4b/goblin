@@ -872,26 +872,14 @@ pub const R_RISCV_SUB16: u32 = 38;
 pub const R_RISCV_SUB32: u32 = 39;
 /// 64-bit label subtraction: word64 = V - S - A
 pub const R_RISCV_SUB64: u32 = 40;
-/// GNU C++ vtable hierarchy
-pub const R_RISCV_GNU_VTINHERIT: u32 = 41;
-/// GNU C++ vtable member usage
-pub const R_RISCV_GNU_VTENTRY: u32 = 42;
+/// 32-bit PC-relative relocation to a GOT entry
+pub const R_RISCV_GOT32_PCREL: u32 = 41;
 /// Alignment statement
 pub const R_RISCV_ALIGN: u32 = 43;
 /// PC-relative branch offset (CB-Type)
 pub const R_RISCV_RVC_BRANCH: u32 = 44;
 /// PC-relative jump offset (CJ-Type)
 pub const R_RISCV_RVC_JUMP: u32 = 45;
-/// Absolute address (CI-Type)
-pub const R_RISCV_RVC_LUI: u32 = 46;
-/// GP-relative reference (I-Type)
-pub const R_RISCV_GPREL_I: u32 = 47;
-/// GP-relative reference (S-Type)
-pub const R_RISCV_GPREL_S: u32 = 48;
-/// TP-relative TLS LE load (I-Type)
-pub const R_RISCV_TPREL_I: u32 = 49;
-/// TP-relative TLS LE store (S-Type)
-pub const R_RISCV_TPREL_S: u32 = 50;
 /// Instruction pair can be relaxed
 pub const R_RISCV_RELAX: u32 = 51;
 /// Local label subtraction
@@ -1914,16 +1902,10 @@ pub fn r_to_str(typ: u32, machine: u16) -> &'static str {
             R_RISCV_SUB16 => "R_RISCV_SUB16",
             R_RISCV_SUB32 => "R_RISCV_SUB32",
             R_RISCV_SUB64 => "R_RISCV_SUB64",
-            R_RISCV_GNU_VTINHERIT => "R_RISCV_GNU_VTINHERIT",
-            R_RISCV_GNU_VTENTRY => "R_RISCV_GNU_VTENTRY",
+            R_RISCV_GOT32_PCREL => "R_RISCV_GOT32_PCREL",
             R_RISCV_ALIGN => "R_RISCV_ALIGN",
             R_RISCV_RVC_BRANCH => "R_RISCV_RVC_BRANCH",
             R_RISCV_RVC_JUMP => "R_RISCV_RVC_JUMP",
-            R_RISCV_RVC_LUI => "R_RISCV_RVC_LUI",
-            R_RISCV_GPREL_I => "R_RISCV_GPREL_I",
-            R_RISCV_GPREL_S => "R_RISCV_GPREL_S",
-            R_RISCV_TPREL_I => "R_RISCV_TPREL_I",
-            R_RISCV_TPREL_S => "R_RISCV_TPREL_S",
             R_RISCV_RELAX => "R_RISCV_RELAX",
             R_RISCV_SUB6 => "R_RISCV_SUB6",
             R_RISCV_SET6 => "R_RISCV_SET6",

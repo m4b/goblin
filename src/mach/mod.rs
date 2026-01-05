@@ -398,10 +398,12 @@ pub fn peek_bytes(bytes: &[u8; 16]) -> error::Result<crate::Hint> {
                 }
             }
             fat::FAT_MAGIC | fat::FAT_MAGIC_64 => {
-                // should probably verify this is always Big Endian...
                 let narchitectures = bytes.pread_with::<u32>(4, BE)? as usize;
                 Ok(crate::Hint::MachFat(narchitectures))
             }
+            fat::FAT_CIGAM | fat::FAT_CIGAM_64 => Err(error::Error::Malformed(
+                "Fat binary is byte-swapped (little-endian); only big-endian fat binaries are supported".into(),
+            )),
             _ => Ok(crate::Hint::Unknown(bytes.pread::<u64>(0)?)),
         }
     }
@@ -603,6 +605,9 @@ impl<'a> Mach<'a> {
                 let multi = MultiArch::new(bytes)?;
                 Ok(Mach::Fat(multi))
             }
+            fat::FAT_CIGAM | fat::FAT_CIGAM_64 => Err(error::Error::Malformed(
+                "Fat binary is byte-swapped (little-endian); only big-endian fat binaries are supported".into(),
+            )),
             // we might be a regular binary
             _ => {
                 let binary = MachO::parse_impl(bytes, 0, lossy)?;

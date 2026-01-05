@@ -105,8 +105,12 @@ impl<'a> Strtab<'a> {
     ) -> error::Result<Self> {
         let (end, overflow) = offset.overflowing_add(len);
 
+        // For COFF with an empty string table, len is zero and offset is equal to bytes.len().
+        // In this case an empty slice is returned.
+        // ELF has explicit checks for string tables with sh_size of zero.
+
         // Handle completely invalid offset
-        if offset >= bytes.len() {
+        if offset > bytes.len() {
             #[cfg(feature = "alloc")]
             return Err(error::Error::Malformed(format!(
                 "String table offset ({}) is beyond file boundary ({})",

@@ -318,6 +318,8 @@ pub struct MultiArch<'a> {
     data: &'a [u8],
     start: usize,
     pub narches: usize,
+    /// Whether this is a fat64 binary (uses FatArch64 instead of FatArch)
+    pub is_fat64: bool,
 }
 
 /// Iterator over the fat architecture headers in a `MultiArch` container
@@ -326,6 +328,7 @@ pub struct FatArchIterator<'a> {
     data: &'a [u8],
     narches: usize,
     start: usize,
+    is_fat64: bool,
 }
 
 /// A single architecture froma multi architecture binary container
@@ -343,11 +346,23 @@ impl<'a> Iterator for FatArchIterator<'a> {
         if self.index >= self.narches {
             None
         } else {
-            let offset = (self.index * fat::SIZEOF_FAT_ARCH) + self.start;
-            let arch = self
-                .data
-                .pread_with::<fat::FatArch>(offset, scroll::BE)
-                .map_err(core::convert::Into::into);
+            let arch_size = if self.is_fat64 {
+                fat::SIZEOF_FAT_ARCH_64
+            } else {
+                fat::SIZEOF_FAT_ARCH
+            };
+            let offset = (self.index * arch_size) + self.start;
+            let arch = if self.is_fat64 {
+                // Parse FatArch64 and convert to FatArch
+                self.data
+                    .pread_with::<fat::FatArch64>(offset, scroll::BE)
+                    .map(fat::FatArch::from)
+                    .map_err(core::convert::Into::into)
+            } else {
+                self.data
+                    .pread_with::<fat::FatArch>(offset, scroll::BE)
+                    .map_err(core::convert::Into::into)
+            };
             self.index += 1;
             Some(arch)
         }
@@ -360,6 +375,7 @@ pub struct SingleArchIterator<'a> {
     data: &'a [u8],
     narches: usize,
     start: usize,
+    is_fat64: bool,
 }
 
 pub fn peek_bytes(bytes: &[u8; 16]) -> error::Result<crate::Hint> {
@@ -381,7 +397,7 @@ pub fn peek_bytes(bytes: &[u8; 16]) -> error::Result<crate::Hint> {
                     )))
                 }
             }
-            fat::FAT_MAGIC => {
+            fat::FAT_MAGIC | fat::FAT_MAGIC_64 => {
                 // should probably verify this is always Big Endian...
                 let narchitectures = bytes.pread_with::<u32>(4, BE)? as usize;
                 Ok(crate::Hint::MachFat(narchitectures))
@@ -418,9 +434,21 @@ impl<'a> Iterator for SingleArchIterator<'a> {
             None
         } else {
             let index = self.index;
-            let offset = (index * fat::SIZEOF_FAT_ARCH) + self.start;
+            let arch_size = if self.is_fat64 {
+                fat::SIZEOF_FAT_ARCH_64
+            } else {
+                fat::SIZEOF_FAT_ARCH
+            };
+            let offset = (index * arch_size) + self.start;
             self.index += 1;
-            match self.data.pread_with::<fat::FatArch>(offset, scroll::BE) {
+            let arch_result = if self.is_fat64 {
+                self.data
+                    .pread_with::<fat::FatArch64>(offset, scroll::BE)
+                    .map(fat::FatArch::from)
+            } else {
+                self.data.pread_with::<fat::FatArch>(offset, scroll::BE)
+            };
+            match arch_result {
                 Ok(arch) => {
                     let bytes = arch.slice(self.data);
                     Some(extract_multi_entry(bytes))
@@ -440,6 +468,7 @@ impl<'a, 'b> IntoIterator for &'b MultiArch<'a> {
             data: self.data,
             narches: self.narches,
             start: self.start,
+            is_fat64: self.is_fat64,
         }
     }
 }
@@ -448,10 +477,12 @@ impl<'a> MultiArch<'a> {
     /// Lazily construct `Self`
     pub fn new(bytes: &'a [u8]) -> error::Result<Self> {
         let header = fat::FatHeader::parse(bytes)?;
+        let is_fat64 = header.magic == fat::FAT_MAGIC_64;
         Ok(MultiArch {
             data: bytes,
             start: fat::SIZEOF_FAT_HEADER,
             narches: header.nfat_arch as usize,
+            is_fat64,
         })
     }
     /// Iterate every fat arch header
@@ -461,11 +492,17 @@ impl<'a> MultiArch<'a> {
             data: self.data,
             narches: self.narches,
             start: self.start,
+            is_fat64: self.is_fat64,
         }
     }
     /// Return all the architectures in this binary
     pub fn arches(&self) -> error::Result<Vec<fat::FatArch>> {
-        if self.narches > self.data.len() / fat::SIZEOF_FAT_ARCH {
+        let arch_size = if self.is_fat64 {
+            fat::SIZEOF_FAT_ARCH_64
+        } else {
+            fat::SIZEOF_FAT_ARCH
+        };
+        if self.narches > self.data.len() / arch_size {
             return Err(error::Error::BufferTooShort(self.narches, "arches"));
         }
 
@@ -483,8 +520,19 @@ impl<'a> MultiArch<'a> {
                 index, self.narches
             )));
         }
-        let offset = (index * fat::SIZEOF_FAT_ARCH) + self.start;
-        let arch = self.data.pread_with::<fat::FatArch>(offset, scroll::BE)?;
+        let arch_size = if self.is_fat64 {
+            fat::SIZEOF_FAT_ARCH_64
+        } else {
+            fat::SIZEOF_FAT_ARCH
+        };
+        let offset = (index * arch_size) + self.start;
+        let arch = if self.is_fat64 {
+            self.data
+                .pread_with::<fat::FatArch64>(offset, scroll::BE)
+                .map(fat::FatArch::from)?
+        } else {
+            self.data.pread_with::<fat::FatArch>(offset, scroll::BE)?
+        };
         let bytes = arch.slice(self.data);
         extract_multi_entry(bytes)
     }
@@ -551,7 +599,7 @@ impl<'a> Mach<'a> {
         }
         let magic = peek(&bytes, 0)?;
         match magic {
-            fat::FAT_MAGIC => {
+            fat::FAT_MAGIC | fat::FAT_MAGIC_64 => {
                 let multi = MultiArch::new(bytes)?;
                 Ok(Mach::Fat(multi))
             }
@@ -619,6 +667,68 @@ mod test {
                             assert!(!archive.members().is_empty())
                         }
                         _ => panic!("expected MultiArchEntry::Archive, got {:?}", entry),
+                    }
+                }
+            }
+            Mach::Binary(_) => panic!("expected Mach::Fat, got Mach::Binary"),
+        }
+    }
+
+    #[test]
+    fn parse_fat64_binary() {
+        use super::cputype::{CPU_TYPE_ARM64, CPU_TYPE_X86_64};
+
+        // Created with:
+        // clang -arch arm64 -shared -o /tmp/hello_world_arm hello_world.c
+        // clang -arch x86_64 -shared -o /tmp/hello_world_x86_64 hello_world.c
+        // lipo -create -fat64 -output hello_world_fat64 /tmp/hello_world_arm /tmp/hello_world_x86_64
+        let bytes = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/assets/hello_world_fat64"
+        ));
+        let mach = Mach::parse(bytes).expect("failed to parse fat64 binary");
+        match mach {
+            Mach::Fat(fat) => {
+                assert!(fat.is_fat64, "expected is_fat64 to be true");
+
+                // Test arches() method
+                let arches = fat.arches().expect("failed to get arches");
+                assert_eq!(arches.len(), 2, "expected 2 architectures");
+
+                // Test iter_arches()
+                let iter_count = fat.iter_arches().count();
+                assert_eq!(iter_count, 2, "iter_arches should yield 2 architectures");
+
+                // Test get() method for each index
+                for i in 0..2 {
+                    let entry = fat
+                        .get(i)
+                        .expect(&format!("failed to get entry at index {}", i));
+                    match entry {
+                        SingleArch::MachO(_) => {}
+                        _ => panic!("expected SingleArch::MachO at index {}", i),
+                    }
+                }
+
+                // Test find_cputype() for both architectures
+                let arm64 = fat
+                    .find_cputype(CPU_TYPE_ARM64 as u32)
+                    .expect("failed to search for arm64");
+                assert!(arm64.is_some(), "expected to find arm64 architecture");
+
+                let x86_64 = fat
+                    .find_cputype(CPU_TYPE_X86_64 as u32)
+                    .expect("failed to search for x86_64");
+                assert!(x86_64.is_some(), "expected to find x86_64 architecture");
+
+                // Test into_iter() and verify each entry
+                for entry in fat.into_iter() {
+                    let entry = entry.expect("failed to read entry");
+                    match entry {
+                        SingleArch::MachO(macho) => {
+                            assert!(macho.symbols().count() > 0);
+                        }
+                        _ => panic!("expected SingleArch::MachO, got {:?}", entry),
                     }
                 }
             }

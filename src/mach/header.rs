@@ -141,6 +141,10 @@ pub const MH_DSYM: u32 = 0xa;
 pub const MH_KEXT_BUNDLE: u32 = 0xb;
 /// set of mach-o's
 pub const MH_FILESET: u32 = 0xc;
+/// gpu program
+pub const MH_GPU_EXECUTE: u32 = 0xd;
+/// gpu support functions
+pub const MH_GPU_DYLIB: u32 = 0xe;
 
 pub fn filetype_to_str(filetype: u32) -> &'static str {
     match filetype {
@@ -156,6 +160,8 @@ pub fn filetype_to_str(filetype: u32) -> &'static str {
         MH_DSYM => "DSYM",
         MH_KEXT_BUNDLE => "KEXT_BUNDLE",
         MH_FILESET => "FILESET",
+        MH_GPU_EXECUTE => "GPU_EXECUTE",
+        MH_GPU_DYLIB => "GPU_DYLIB",
         _ => "UNKNOWN FILETYPE",
     }
 }

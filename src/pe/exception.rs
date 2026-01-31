@@ -1160,7 +1160,7 @@ impl Arm64RuntimeFunction {
 
     /// Returns `true` if this unwind data is packed, `false` otherwise.
     pub const fn is_packed(&self) -> bool {
-        self.flag() != 0
+        self.flag() != ARM64_PDATA_REF_TO_FULL_XDATA
     }
 
     /// Returns an RVA of the full unwind data.

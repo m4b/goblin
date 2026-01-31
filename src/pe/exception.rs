@@ -1370,16 +1370,16 @@ pub struct Arm64UnwindInfo<'a> {
 
 impl<'a> Arm64UnwindInfo<'a> {
     fn checked_mul4(words: u32) -> error::Result<usize> {
-        let bytes = words.checked_mul(4).ok_or_else(|| {
-            error::Error::Malformed("arm64 unwind info size overflow".to_string())
-        })?;
+        let bytes = words
+            .checked_mul(4)
+            .ok_or_else(|| error::Error::Malformed("arm64 unwind info size overflow".into()))?;
         usize::try_from(bytes)
-            .map_err(|_| error::Error::Malformed("arm64 unwind info size overflow".to_string()))
+            .map_err(|_| error::Error::Malformed("arm64 unwind info size overflow".into()))
     }
 
     fn checked_add(a: usize, b: usize) -> error::Result<usize> {
         a.checked_add(b)
-            .ok_or_else(|| error::Error::Malformed("arm64 unwind info size overflow".to_string()))
+            .ok_or_else(|| error::Error::Malformed("arm64 unwind info size overflow".into()))
     }
 
     /// Precomputes the size of this xdata. This does _not_ count for handler-specific bytes after handler RVA.

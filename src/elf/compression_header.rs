@@ -18,6 +18,8 @@ macro_rules! elf_compression_header {
 
 /// ZLIB/DEFLATE algorithm.
 pub const ELFCOMPRESS_ZLIB: u32 = 1;
+/// Zstandard algorithm.
+pub const ELFCOMPRESS_ZSTD: u32 = 2;
 /// Start of OS-specific.
 pub const ELFCOMPRESS_LOOS: u32 = 0x6000_0000;
 /// End of OS-specific.

@@ -5,6 +5,16 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.10, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
+## [0.10.5] - 2026-2-11
+## Added
+elf.reloc: Add even more missing powerpc relocations, thanks @ivlzme: https://github.com/m4b/goblin/pull/505
+elf.reloc: Add more RISCV relocs, thanks @Jvlegod:  https://github.com/m4b/goblin/pull/507
+pe: Add support for permissive parsing in resource parser, thanks @kkent030315: https://github.com/m4b/goblin/pull/508
+macho: Add MH_GPU filetype, thanks @ReturnRei: https://github.com/m4b/goblin/pull/513
+elf: Add elf constants for zstandard compression, thanks @koutheir: https://github.com/m4b/goblin/pull/516
+## Fixed
+strtab: Fix regression parsing empty strtabs, thanks @glslang: https://github.com/m4b/goblin/pull/503
+
 ## [0.10.4] - 2025-11-30
 ## Added
 elf.reloc: add some missing PowerPC 32-bit relocation type constants, thanks @ivlzme: https://github.com/m4b/goblin/pull/495

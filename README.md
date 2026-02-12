@@ -141,6 +141,7 @@ In lexicographic order:
 - [@ExPixel]
 - [@flanfly]
 - [@glandium]
+- [@glslang]
 - [@Gelbpunkt]
 - [@gunbux]
 - [@h33p]
@@ -160,6 +161,7 @@ In lexicographic order:
 - [@joschock]
 - [@jrmuizel]
 - [@jsgf]
+- [@Jvlegod]
 - [@keith]
 - [@kjempelodott]
 - [@kkent030315]
@@ -194,6 +196,7 @@ In lexicographic order:
 - [@quake]
 - [@raindev]
 - [@RaitoBezarius]
+- [@ReturnRei]
 - [@rocallahan]
 - [@sanxiyn]
 - [@skdltmxn]
@@ -239,6 +242,7 @@ In lexicographic order:
 [@ExPixel]: https://github.com/ExPixel
 [@flanfly]: https://github.com/flanfly
 [@glandium]: https://github.com/glandium
+[@glslang]: https://github.com/glslang
 [@Gelbpunkt]: https://github.com/Gelbpunkt
 [@gunbux]: https://github.com/gunbux
 [@h33p]: https://github.com/h33p
@@ -258,10 +262,12 @@ In lexicographic order:
 [@jdub]: https://github.com/jdub
 [@jrmuizel]: https://github.com/jrmuizel
 [@jsgf]: https://github.com/jsgf
+[@Jvlegod]: https://github.com/Jvlegod
 [@keith]: https://github.com/keith
 [@kjempelodott]: https://github.com/kjempelodott
 [@kkent030315]: https://github.com/kkent030315
 [@ko1N]: https://github.com/ko1N
+[@koutheir]: https://github.com/koutheir
 [@le-jzr]: https://github.com/le-jzr
 [@Lichtso]: https://github.com/Lichtso
 [@lion128]: https://github.com/lion128
@@ -292,6 +298,7 @@ In lexicographic order:
 [@quake]: https://github.com/quake
 [@raindev]: https://github.com/raindev
 [@RaitoBezarius]: https://github.com/RaitoBezarius
+[@ReturnRei]: https://github.com/ReturnRei
 [@rocallahan]: https://github.com/rocallahan
 [@sanxiyn]: https://github.com/sanxiyn
 [@skdltmxn]: https://github.com/skdltmxn

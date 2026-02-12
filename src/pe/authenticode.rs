@@ -12,7 +12,7 @@ use alloc::collections::VecDeque;
 use core::ops::Range;
 use log::debug;
 
-use super::{PE, section_table::SectionTable};
+use super::{section_table::SectionTable, PE};
 
 static PADDING: [u8; 7] = [0; 7];
 
@@ -181,7 +181,7 @@ impl<'s> Iterator for ExcludedSectionsIter<'s> {
                         };
                     }
                     IterState::Sections {
-                        mut tail,
+                        tail: _,
                         mut sum_of_bytes_hashed,
                     } => {
                         // 11. Walk through the sorted table, load the corresponding section into memory,
@@ -190,7 +190,6 @@ impl<'s> Iterator for ExcludedSectionsIter<'s> {
                         if let Some(section) = self.sections.pop_front() {
                             let start = section.pointer_to_raw_data as usize;
                             let end = start + section.size_of_raw_data as usize;
-                            tail = end;
 
                             // 12. Add the section’s SizeOfRawData value to SUM_OF_BYTES_HASHED.
                             sum_of_bytes_hashed += section.size_of_raw_data as usize;
@@ -200,7 +199,7 @@ impl<'s> Iterator for ExcludedSectionsIter<'s> {
 
                             // 13. Repeat steps 11 and 12 for all of the sections in the sorted table.
                             self.state = IterState::Sections {
-                                tail,
+                                tail: end,
                                 sum_of_bytes_hashed,
                             };
 

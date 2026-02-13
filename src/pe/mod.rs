@@ -262,8 +262,11 @@ impl<'a> PE<'a> {
                 debug!("tls data: {:#?}", tls_data);
             }
 
-            if header.coff_header.machine == header::COFF_MACHINE_X86_64 {
-                // currently only x86_64 is supported
+            if matches!(
+                header.coff_header.machine,
+                header::COFF_MACHINE_X86_64 | header::COFF_MACHINE_ARM64
+            ) {
+                // currently only x86_64 and arm64 is supported
                 debug!("exception data: {:#?}", exception_data);
                 if let Some(&exception_table) =
                     optional_header.data_directories.get_exception_table()
@@ -278,7 +281,7 @@ impl<'a> PE<'a> {
                     .map(Some)
                     .or_permissive_and_default(
                         opts.parse_mode.is_permissive(),
-                        "Failed to parse security data",
+                        "Failed to parse exception data",
                     )?;
                 }
             }

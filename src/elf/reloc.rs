@@ -266,6 +266,28 @@ pub mod reloc64 {
         (sym << 32) + typ
     }
 
+    /// Convert a MIPS64 little-endian `r_info` value to the standard ELF64 format.
+    ///
+    /// MIPS64 ELF uses a non-standard relocation info layout:
+    /// - `r_sym` (32 bits) | `r_ssym` (8 bits) | `r_type3` (8 bits) | `r_type2` (8 bits) | `r_type` (8 bits)
+    ///
+    /// On little-endian systems, when this struct is read as a single `u64`, the byte order
+    /// causes the fields to be scrambled compared to the standard `(sym << 32) | type` layout.
+    /// This function rearranges the bytes so that the standard [`r_sym`] and [`r_type`] functions
+    /// return correct values.
+    ///
+    /// See the [MIPS64 ELF ABI](https://web.archive.org/web/20231012215433/https://techpubs.jurassic.nl/manuals/hdwr/developer/Mpro_n32_ABI/sgi_html/sgidoc/books/Mpro_n32_ABI/sgi_html/ch06.html)
+    /// and [LLVM's implementation](https://github.com/llvm/llvm-project/blob/119bf57ab6de49a3e61b9200c917a6d30ac6f0ad/llvm/include/llvm/Object/ELFTypes.h#L435-L444)
+    /// for reference.
+    #[inline(always)]
+    pub fn mips64el_r_info(info: u64) -> u64 {
+        (info << 32)
+            | ((info >> 8) & 0xff000000)
+            | ((info >> 24) & 0x00ff0000)
+            | ((info >> 40) & 0x0000ff00)
+            | ((info >> 56) & 0x000000ff)
+    }
+
     elf_rela_std_impl!(u64, i64);
 }
 
@@ -297,6 +319,19 @@ if_alloc! {
         pub fn size(is_rela: bool, ctx: Ctx) -> usize {
             use scroll::ctx::SizeWith;
             Reloc::size_with(&(is_rela, ctx))
+        }
+
+        /// Fix up `r_sym` and `r_type` for MIPS64 little-endian binaries.
+        ///
+        /// MIPS64 ELF uses a non-standard relocation info layout that causes
+        /// `r_sym` and `r_type` to be incorrectly extracted on little-endian systems.
+        /// This method reconstructs the original `r_info`, applies the MIPS64 LE
+        /// byte transformation, and re-extracts the correct values.
+        fn fixup_mips64el(&mut self) {
+            let r_info = ((self.r_sym as u64) << 32) | (self.r_type as u64);
+            let fixed = reloc64::mips64el_r_info(r_info);
+            self.r_sym = reloc64::r_sym(fixed) as usize;
+            self.r_type = reloc64::r_type(fixed);
         }
     }
 
@@ -394,6 +429,7 @@ if_alloc! {
         ctx: RelocCtx,
         start: usize,
         end: usize,
+        is_mips64el: bool,
     }
 
     impl<'a> fmt::Debug for RelocSection<'a> {
@@ -411,7 +447,23 @@ if_alloc! {
     impl<'a> RelocSection<'a> {
         #[cfg(feature = "endian_fd")]
         /// Parse a REL or RELA section of size `filesz` from `offset`.
+        ///
+        /// **Note:** This method does not apply the MIPS64 little-endian relocation
+        /// fixup. If you are parsing a MIPS64 LE binary, use [`Elf::parse`] or
+        /// [`Elf::parse_with_opts`] instead, which automatically detect MIPS64 LE
+        /// and apply the necessary `r_info` byte transformation.
         pub fn parse(bytes: &'a [u8], offset: usize, filesz: usize, is_rela: bool, ctx: Ctx) -> crate::error::Result<RelocSection<'a>> {
+            Self::parse_inner(bytes, offset, filesz, is_rela, ctx, false)
+        }
+
+        #[cfg(feature = "endian_fd")]
+        /// Parse a REL or RELA section of size `filesz` from `offset`, with MIPS64
+        /// little-endian relocation info handling.
+        ///
+        /// When `is_mips64el` is `true`, the MIPS64 little-endian byte transformation
+        /// is applied to the `r_info` field of each relocation entry, which corrects
+        /// the `r_sym` and `r_type` extraction for MIPS64 LE binaries.
+        pub(crate) fn parse_inner(bytes: &'a [u8], offset: usize, filesz: usize, is_rela: bool, ctx: Ctx, is_mips64el: bool) -> crate::error::Result<RelocSection<'a>> {
             // TODO: better error message when too large (see symtab implementation)
             let bytes = if filesz != 0 {
                 bytes.pread_with::<&'a [u8]>(offset, filesz)?
@@ -420,11 +472,12 @@ if_alloc! {
             };
 
             Ok(RelocSection {
-                bytes: bytes,
+                bytes,
                 count: filesz / Reloc::size(is_rela, ctx),
                 ctx: (is_rela, ctx),
                 start: offset,
                 end: offset + filesz,
+                is_mips64el,
             })
         }
 
@@ -434,7 +487,11 @@ if_alloc! {
             if index >= self.count {
                 None
             } else {
-                Some(self.bytes.pread_with(index * Reloc::size_with(&self.ctx), self.ctx).unwrap())
+                let mut reloc: Reloc = self.bytes.pread_with(index * Reloc::size_with(&self.ctx), self.ctx).unwrap();
+                if self.is_mips64el {
+                    reloc.fixup_mips64el();
+                }
+                Some(reloc)
             }
         }
 
@@ -473,6 +530,7 @@ if_alloc! {
                 index: 0,
                 count: self.count,
                 ctx: self.ctx,
+                is_mips64el: self.is_mips64el,
             }
         }
     }
@@ -483,6 +541,7 @@ if_alloc! {
         index: usize,
         count: usize,
         ctx: RelocCtx,
+        is_mips64el: bool,
     }
 
     impl<'a> fmt::Debug for RelocIterator<'a> {
@@ -506,7 +565,11 @@ if_alloc! {
                 None
             } else {
                 self.index += 1;
-                Some(self.bytes.gread_with(&mut self.offset, self.ctx).unwrap())
+                let mut reloc: Reloc = self.bytes.gread_with(&mut self.offset, self.ctx).unwrap();
+                if self.is_mips64el {
+                    reloc.fixup_mips64el();
+                }
+                Some(reloc)
             }
         }
     }
@@ -518,3 +581,130 @@ if_alloc! {
         }
     }
 } // end if_alloc
+
+#[cfg(test)]
+mod tests {
+    use super::reloc64;
+
+    #[test]
+    fn test_mips64el_r_info() {
+        // Test case from issue #274: a MIPS64 LE binary with r_info bytes
+        // [00 00 00 00 00 00 12 03] which, read as LE u64, gives 0x0312000000000000.
+        //
+        // Without the fix:
+        //   r_sym = 0x0312000000000000 >> 32 = 0x03120000 = 51511296 (WRONG)
+        //   r_type = 0x0312000000000000 & 0xFFFFFFFF = 0 (WRONG)
+        //
+        // The actual MIPS64 struct contains:
+        //   r_sym = 0, r_ssym = 0, r_type3 = 0, r_type2 = 0x12 (R_MIPS_64), r_type = 0x03 (R_MIPS_REL32)
+        let info: u64 = 0x0312000000000000;
+        let fixed = reloc64::mips64el_r_info(info);
+        assert_eq!(reloc64::r_sym(fixed), 0, "r_sym should be 0");
+        assert_eq!(
+            reloc64::r_type(fixed),
+            0x00001203,
+            "r_type should contain composite MIPS64 type"
+        );
+        assert_eq!(
+            reloc64::r_type(fixed) & 0xFF,
+            3,
+            "primary r_type should be R_MIPS_REL32 (3)"
+        );
+        assert_eq!(
+            (reloc64::r_type(fixed) >> 8) & 0xFF,
+            0x12,
+            "r_type2 should be R_MIPS_64 (18)"
+        );
+    }
+
+    #[test]
+    fn test_mips64el_r_info_with_sym() {
+        // Test case from issue #274: last reloc entry with sym=0x27
+        // Raw bytes in file: [27 00 00 00 00 00 12 03]
+        // As LE u64: 0x0312000000000027
+        let info: u64 = 0x0312000000000027;
+        let fixed = reloc64::mips64el_r_info(info);
+        assert_eq!(reloc64::r_sym(fixed), 0x27, "r_sym should be 0x27 (39)");
+        assert_eq!(
+            reloc64::r_type(fixed) & 0xFF,
+            3,
+            "primary r_type should be R_MIPS_REL32 (3)"
+        );
+    }
+
+    #[test]
+    fn test_mips64el_r_info_zero() {
+        // All-zero r_info should remain all-zero
+        let info: u64 = 0;
+        let fixed = reloc64::mips64el_r_info(info);
+        assert_eq!(reloc64::r_sym(fixed), 0);
+        assert_eq!(reloc64::r_type(fixed), 0);
+    }
+
+    #[test]
+    fn test_standard_r_sym_r_type_unchanged() {
+        // Ensure the standard r_sym/r_type functions still work for non-MIPS
+        let info: u64 = (42u64 << 32) | 7u64;
+        assert_eq!(reloc64::r_sym(info), 42);
+        assert_eq!(reloc64::r_type(info), 7);
+    }
+
+    /// Test that RelocSection correctly applies MIPS64 LE fixup when parsing
+    /// raw relocation bytes through the full pipeline.
+    #[test]
+    #[cfg(feature = "endian_fd")]
+    fn test_mips64el_reloc_section_parse() {
+        use super::RelocSection;
+        use crate::container::{Container, Ctx};
+
+        let ctx = Ctx::new(Container::Big, scroll::Endian::Little);
+
+        // Construct raw bytes for a REL entry (r_offset + r_info, each 8 bytes).
+        // r_offset = 0x150f0 (LE bytes: f0 50 01 00 00 00 00 00)
+        // r_info as MIPS64 struct: r_sym=0, r_ssym=0, r_type3=0, r_type2=0x12, r_type=0x03
+        // In file bytes: 00 00 00 00 00 00 12 03
+        let rel_bytes: Vec<u8> = vec![
+            // r_offset (LE u64 = 0x150f0)
+            0xf0, 0x50, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, // r_info (MIPS64 LE layout)
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x12, 0x03,
+        ];
+
+        // Prepend enough zeros so the offset parameter works
+        let mut bytes = vec![0u8; 64];
+        let offset = bytes.len();
+        bytes.extend_from_slice(&rel_bytes);
+
+        // Parse without MIPS64 fixup - should give wrong values
+        let section_no_fix =
+            RelocSection::parse(&bytes, offset, rel_bytes.len(), false, ctx).unwrap();
+        let reloc_no_fix = section_no_fix.get(0).unwrap();
+        assert_eq!(reloc_no_fix.r_offset, 0x150f0);
+        // Without fixup, r_sym is garbage (51511296) and r_type is wrong (0)
+        assert_eq!(
+            reloc_no_fix.r_sym, 51511296,
+            "Without fixup, r_sym should be 51511296 (wrong)"
+        );
+        assert_eq!(
+            reloc_no_fix.r_type, 0,
+            "Without fixup, r_type should be 0 (wrong)"
+        );
+
+        // Parse with MIPS64 fixup - should give correct values
+        let section_fixed =
+            RelocSection::parse_inner(&bytes, offset, rel_bytes.len(), false, ctx, true).unwrap();
+        let reloc_fixed = section_fixed.get(0).unwrap();
+        assert_eq!(reloc_fixed.r_offset, 0x150f0);
+        assert_eq!(reloc_fixed.r_sym, 0, "With fixup, r_sym should be 0");
+        assert_eq!(
+            reloc_fixed.r_type & 0xFF,
+            3,
+            "With fixup, primary r_type should be R_MIPS_REL32 (3)"
+        );
+
+        // Also test iteration
+        let relocs: Vec<_> = section_fixed.iter().collect();
+        assert_eq!(relocs.len(), 1);
+        assert_eq!(relocs[0].r_sym, 0);
+        assert_eq!(relocs[0].r_type & 0xFF, 3);
+    }
+}

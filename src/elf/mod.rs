@@ -271,6 +271,11 @@ if_sylvan! {
             let ctx = misc.ctx;
             let permissive = opts.parse_mode.is_permissive();
 
+            // MIPS64 little-endian uses a non-standard relocation info layout
+            let is_mips64el = header.e_machine == header::EM_MIPS
+                && ctx.is_big()
+                && ctx.is_little_endian();
+
             let program_headers = ProgramHeader::parse(bytes, header.e_phoff as usize, header.e_phnum as usize, ctx)?;
 
             let mut interpreter = None;
@@ -375,14 +380,14 @@ if_sylvan! {
                     }
                 }
                 // parse the dynamic relocations
-                dynrelas = RelocSection::parse(bytes, dyn_info.rela, dyn_info.relasz, true, ctx)
+                dynrelas = RelocSection::parse_inner(bytes, dyn_info.rela, dyn_info.relasz, true, ctx, is_mips64el)
                     .or_permissive_and_default(permissive, "Failed to parse dynamic RELA relocations")?;
 
-                dynrels = RelocSection::parse(bytes, dyn_info.rel, dyn_info.relsz, false, ctx)
+                dynrels = RelocSection::parse_inner(bytes, dyn_info.rel, dyn_info.relsz, false, ctx, is_mips64el)
                     .or_permissive_and_default(permissive, "Failed to parse dynamic REL relocations")?;
 
                 let is_rela = dyn_info.pltrel as u64 == dynamic::DT_RELA;
-                pltrelocs = RelocSection::parse(bytes, dyn_info.jmprel, dyn_info.pltrelsz, is_rela, ctx)
+                pltrelocs = RelocSection::parse_inner(bytes, dyn_info.jmprel, dyn_info.pltrelsz, is_rela, ctx, is_mips64el)
                     .or_permissive_and_default(permissive, "Failed to parse PLT relocations")?;
 
                 let mut num_syms = if let Some(gnu_hash) = dyn_info.gnu_hash {
@@ -410,7 +415,7 @@ if_sylvan! {
                 if is_rela || section.sh_type == section_header::SHT_REL {
 
                     section.check_size_with_opts(bytes.len(), permissive)?;
-                    let sh_relocs_opt = RelocSection::parse(bytes, section.sh_offset as usize, section.sh_size as usize, is_rela, ctx)
+                    let sh_relocs_opt = RelocSection::parse_inner(bytes, section.sh_offset as usize, section.sh_size as usize, is_rela, ctx, is_mips64el)
                         .map(Some)
                         .or_permissive_and_default(
                             permissive,

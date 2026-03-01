@@ -15,8 +15,10 @@ pub mod authenticode;
 pub mod certificate_table;
 pub mod characteristic;
 pub mod clr;
+pub(crate) mod ctx;
 pub mod data_directories;
 pub mod debug;
+pub mod delay_import;
 pub mod dll_characteristic;
 pub mod exception;
 pub mod export;
@@ -40,7 +42,7 @@ use crate::pe::utils::pad;
 use crate::strtab;
 use options::ParseMode;
 
-use scroll::{Pwrite, ctx};
+use scroll::Pwrite;
 
 use log::debug;
 
@@ -86,6 +88,8 @@ pub struct PE<'a> {
     pub relocation_data: Option<relocation::RelocationData<'a>>,
     /// Load config data if any
     pub load_config_data: Option<load_config::LoadConfigData>,
+    /// Delay import data if any
+    pub delay_import_data: Option<delay_import::DelayImportData<'a>>,
     /// Certificates present, if any, described by the Certificate Table
     pub certificates: certificate_table::CertificateDirectoryTable<'a>,
     /// Resource information if any
@@ -126,6 +130,7 @@ impl<'a> PE<'a> {
         let mut tls_data = None;
         let mut exception_data = None;
         let mut relocation_data = None;
+        let mut delay_import_data = None;
         let mut load_config_data = None;
         let mut certificates = Default::default();
         let mut resource_data = Default::default();
@@ -321,6 +326,20 @@ impl<'a> PE<'a> {
                 )?;
             }
 
+            if let Some(&delay_import_dir) = optional_header
+                .data_directories
+                .get_delay_import_descriptor()
+            {
+                delay_import_data = Some(delay_import::DelayImportData::parse_with_opts(
+                    bytes,
+                    delay_import_dir,
+                    &sections,
+                    file_alignment,
+                    opts,
+                    is_64,
+                )?);
+            }
+
             if let Some(com_descriptor) = optional_header.data_directories.get_clr_runtime_header()
             {
                 clr_data = clr::ClrData::parse_with_opts(
@@ -404,6 +423,7 @@ impl<'a> PE<'a> {
             exception_data,
             relocation_data,
             load_config_data,
+            delay_import_data,
             certificates,
             resource_data,
             clr_data,
@@ -517,7 +537,7 @@ impl<'a> PE<'a> {
     }
 }
 
-impl<'a> ctx::TryIntoCtx<scroll::Endian> for PE<'a> {
+impl<'a> scroll::ctx::TryIntoCtx<scroll::Endian> for PE<'a> {
     type Error = error::Error;
 
     fn try_into_ctx(self, bytes: &mut [u8], ctx: scroll::Endian) -> Result<usize, Self::Error> {

@@ -318,7 +318,7 @@ if_alloc! {
     impl Reloc {
         pub fn size(is_rela: bool, ctx: Ctx) -> usize {
             use scroll::ctx::SizeWith;
-            Reloc::size_with(&(is_rela, ctx))
+            Reloc::size_with(&RelocCtx::new(is_rela, ctx))
         }
 
         /// Fix up `r_sym` and `r_type` for MIPS64 little-endian binaries.
@@ -335,16 +335,27 @@ if_alloc! {
         }
     }
 
-    type RelocCtx = (bool, Ctx);
+    #[derive(Clone, Copy, Debug, Default)]
+    struct RelocCtx {
+        is_rela: bool,
+        is_mips64el: bool,
+        ctx: Ctx,
+    }
+
+    impl RelocCtx {
+        fn new(is_rela: bool, ctx: Ctx) -> Self {
+            RelocCtx { is_rela, is_mips64el: false, ctx }
+        }
+    }
 
     impl ctx::SizeWith<RelocCtx> for Reloc {
-        fn size_with( &(is_rela, Ctx { container, .. }): &RelocCtx) -> usize {
-            match container {
+        fn size_with(rctx: &RelocCtx) -> usize {
+            match rctx.ctx.container {
                 Container::Little => {
-                    if is_rela { reloc32::SIZEOF_RELA } else { reloc32::SIZEOF_REL }
+                    if rctx.is_rela { reloc32::SIZEOF_RELA } else { reloc32::SIZEOF_REL }
                 },
                 Container::Big => {
-                    if is_rela { reloc64::SIZEOF_RELA } else { reloc64::SIZEOF_REL }
+                    if rctx.is_rela { reloc64::SIZEOF_RELA } else { reloc64::SIZEOF_REL }
                 }
             }
         }
@@ -352,36 +363,41 @@ if_alloc! {
 
     impl<'a> ctx::TryFromCtx<'a, RelocCtx> for Reloc {
         type Error = crate::error::Error;
-        fn try_from_ctx(bytes: &'a [u8], (is_rela, Ctx { container, le }): RelocCtx) -> result::Result<(Self, usize), Self::Error> {
+        fn try_from_ctx(bytes: &'a [u8], rctx: RelocCtx) -> result::Result<(Self, usize), Self::Error> {
             use scroll::Pread;
-            let reloc = match container {
+            let Ctx { container, le } = rctx.ctx;
+            let (mut reloc, size): (Reloc, usize) = match container {
                 Container::Little => {
-                    if is_rela {
+                    if rctx.is_rela {
                         (bytes.pread_with::<reloc32::Rela>(0, le)?.into(), reloc32::SIZEOF_RELA)
                     } else {
                         (bytes.pread_with::<reloc32::Rel>(0, le)?.into(), reloc32::SIZEOF_REL)
                     }
                 },
                 Container::Big => {
-                    if is_rela {
+                    if rctx.is_rela {
                         (bytes.pread_with::<reloc64::Rela>(0, le)?.into(), reloc64::SIZEOF_RELA)
                     } else {
                         (bytes.pread_with::<reloc64::Rel>(0, le)?.into(), reloc64::SIZEOF_REL)
                     }
                 }
             };
-            Ok(reloc)
+            if rctx.is_mips64el {
+                reloc.fixup_mips64el();
+            }
+            Ok((reloc, size))
         }
     }
 
     impl ctx::TryIntoCtx<RelocCtx> for Reloc {
         type Error = crate::error::Error;
         /// Writes the relocation into `bytes`
-        fn try_into_ctx(self, bytes: &mut [u8], (is_rela, Ctx {container, le}): RelocCtx) -> result::Result<usize, Self::Error> {
+        fn try_into_ctx(self, bytes: &mut [u8], rctx: RelocCtx) -> result::Result<usize, Self::Error> {
             use scroll::Pwrite;
+            let Ctx { container, le } = rctx.ctx;
             match container {
                 Container::Little => {
-                    if is_rela {
+                    if rctx.is_rela {
                         let rela: reloc32::Rela = self.into();
                         Ok(bytes.pwrite_with(rela, 0, le)?)
                     } else {
@@ -390,7 +406,7 @@ if_alloc! {
                     }
                 },
                 Container::Big => {
-                    if is_rela {
+                    if rctx.is_rela {
                         let rela: reloc64::Rela = self.into();
                         Ok(bytes.pwrite_with(rela, 0, le)?)
                     } else {
@@ -404,9 +420,9 @@ if_alloc! {
 
     impl ctx::IntoCtx<(bool, Ctx)> for Reloc {
         /// Writes the relocation into `bytes`
-        fn into_ctx(self, bytes: &mut [u8], ctx: RelocCtx) {
+        fn into_ctx(self, bytes: &mut [u8], (is_rela, ctx): (bool, Ctx)) {
             use scroll::Pwrite;
-            bytes.pwrite_with(self, 0, ctx).unwrap();
+            bytes.pwrite_with(self, 0, RelocCtx { is_rela, is_mips64el: false, ctx }).unwrap();
         }
     }
 
@@ -429,7 +445,6 @@ if_alloc! {
         ctx: RelocCtx,
         start: usize,
         end: usize,
-        is_mips64el: bool,
     }
 
     impl<'a> fmt::Debug for RelocSection<'a> {
@@ -474,10 +489,9 @@ if_alloc! {
             Ok(RelocSection {
                 bytes,
                 count: filesz / Reloc::size(is_rela, ctx),
-                ctx: (is_rela, ctx),
+                ctx: RelocCtx { is_rela, is_mips64el, ctx },
                 start: offset,
                 end: offset + filesz,
-                is_mips64el,
             })
         }
 
@@ -487,11 +501,7 @@ if_alloc! {
             if index >= self.count {
                 None
             } else {
-                let mut reloc: Reloc = self.bytes.pread_with(index * Reloc::size_with(&self.ctx), self.ctx).unwrap();
-                if self.is_mips64el {
-                    reloc.fixup_mips64el();
-                }
-                Some(reloc)
+                Some(self.bytes.pread_with(index * Reloc::size_with(&self.ctx), self.ctx).unwrap())
             }
         }
 
@@ -530,7 +540,6 @@ if_alloc! {
                 index: 0,
                 count: self.count,
                 ctx: self.ctx,
-                is_mips64el: self.is_mips64el,
             }
         }
     }
@@ -541,7 +550,6 @@ if_alloc! {
         index: usize,
         count: usize,
         ctx: RelocCtx,
-        is_mips64el: bool,
     }
 
     impl<'a> fmt::Debug for RelocIterator<'a> {
@@ -565,11 +573,7 @@ if_alloc! {
                 None
             } else {
                 self.index += 1;
-                let mut reloc: Reloc = self.bytes.gread_with(&mut self.offset, self.ctx).unwrap();
-                if self.is_mips64el {
-                    reloc.fixup_mips64el();
-                }
-                Some(reloc)
+                Some(self.bytes.gread_with(&mut self.offset, self.ctx).unwrap())
             }
         }
     }

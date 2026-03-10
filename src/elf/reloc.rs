@@ -318,7 +318,7 @@ if_alloc! {
     impl Reloc {
         pub fn size(is_rela: bool, ctx: Ctx) -> usize {
             use scroll::ctx::SizeWith;
-            Reloc::size_with(&RelocCtx::new(is_rela, ctx))
+            Reloc::size_with(&RelocCtx { is_rela, is_mips64el: false, ctx })
         }
 
         /// Fix up `r_sym` and `r_type` for MIPS64 little-endian binaries.
@@ -342,11 +342,6 @@ if_alloc! {
         ctx: Ctx,
     }
 
-    impl RelocCtx {
-        fn new(is_rela: bool, ctx: Ctx) -> Self {
-            RelocCtx { is_rela, is_mips64el: false, ctx }
-        }
-    }
 
     impl ctx::SizeWith<RelocCtx> for Reloc {
         fn size_with(rctx: &RelocCtx) -> usize {
@@ -392,8 +387,11 @@ if_alloc! {
     impl ctx::TryIntoCtx<RelocCtx> for Reloc {
         type Error = crate::error::Error;
         /// Writes the relocation into `bytes`
-        fn try_into_ctx(self, bytes: &mut [u8], rctx: RelocCtx) -> result::Result<usize, Self::Error> {
+        fn try_into_ctx(mut self, bytes: &mut [u8], rctx: RelocCtx) -> result::Result<usize, Self::Error> {
             use scroll::Pwrite;
+            if rctx.is_mips64el {
+                self.fixup_mips64el();
+            }
             let Ctx { container, le } = rctx.ctx;
             match container {
                 Container::Little => {
@@ -418,11 +416,11 @@ if_alloc! {
         }
     }
 
-    impl ctx::IntoCtx<(bool, Ctx)> for Reloc {
+    impl ctx::IntoCtx<RelocCtx> for Reloc {
         /// Writes the relocation into `bytes`
-        fn into_ctx(self, bytes: &mut [u8], (is_rela, ctx): (bool, Ctx)) {
+        fn into_ctx(self, bytes: &mut [u8], rctx: RelocCtx) {
             use scroll::Pwrite;
-            bytes.pwrite_with(self, 0, RelocCtx { is_rela, is_mips64el: false, ctx }).unwrap();
+            bytes.pwrite_with(self, 0, rctx).unwrap();
         }
     }
 

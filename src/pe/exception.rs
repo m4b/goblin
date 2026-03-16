@@ -1382,12 +1382,12 @@ pub struct Arm64UnwindInfo<'a> {
     pub header: Arm64UnwindHeader,
     /// Extension info if present.
     pub extension: Option<Arm64UnwindExtension>,
+    /// Exception handler and bytes of handler specific data if present.
+    pub exception_handler: Option<Arm64ExceptionHandler<'a>>,
     /// Bytes of epilog scope.
     epilog_scope_bytes: &'a [u8],
     /// Bytes of unwind codes.
     unwind_code_bytes: &'a [u8],
-    /// Exception handler and bytes of handler specific data if present.
-    pub exception_handler: Option<Arm64ExceptionHandler<'a>>,
 }
 
 impl<'a> Arm64UnwindInfo<'a> {

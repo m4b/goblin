@@ -1138,16 +1138,19 @@ impl Arm64RuntimeFunction {
     /// - [ARM64_PDATA_REF_TO_FULL_XDATA]
     /// - [ARM64_PDATA_PACKED_UNWIND_FUNCTION]
     /// - [ARM64_PDATA_PACKED_UNWIND_FRAGMENT]
+    #[inline]
     pub const fn flag(&self) -> u32 {
         Self::bits(self.unwind_data, 0, 2)
     }
 
     /// Returns the length of the function in bytes.
+    #[inline]
     pub const fn function_length(&self) -> u32 {
         Self::bits(self.unwind_data, 2, 11).wrapping_mul(4)
     }
 
     /// Returns the frame size in bytes (bits [21:13], multiplied by 16).
+    #[inline]
     pub const fn frame_size(&self) -> u32 {
         Self::bits(self.unwind_data, 13, 9).wrapping_mul(16)
     }
@@ -1159,16 +1162,19 @@ impl Arm64RuntimeFunction {
     /// - [ARM64_PDATA_CR_UNCHAINED_SAVED_LR]
     /// - [ARM64_PDATA_CR_CHAINED_WITH_PAC]
     /// - [ARM64_PDATA_CR_CHAINED]
+    #[inline]
     pub const fn cr(&self) -> u32 {
         Self::bits(self.unwind_data, 22, 2)
     }
 
     /// Returns `true` if the function homes integer parameter registers x0-x7 (bit [24]).
+    #[inline]
     pub const fn h(&self) -> bool {
         Self::bits(self.unwind_data, 24, 1) != 0
     }
 
     /// Returns the number of saved non-volatile INT registers (x19-x28) (bits [28:25]).
+    #[inline]
     pub const fn reg_i(&self) -> u32 {
         Self::bits(self.unwind_data, 25, 4)
     }
@@ -1176,16 +1182,19 @@ impl Arm64RuntimeFunction {
     /// Returns the number of saved non-volatile FP registers (d8-d15) (bits [31:29]).
     ///
     /// 0 means no FP registers saved. Values 1-7 mean `reg_f + 1` registers saved.
+    #[inline]
     pub const fn reg_f(&self) -> u32 {
         Self::bits(self.unwind_data, 29, 3)
     }
 
     /// Returns `true` if this unwind data is packed, `false` otherwise.
+    #[inline]
     pub const fn is_packed(&self) -> bool {
         self.flag() != ARM64_PDATA_REF_TO_FULL_XDATA
     }
 
     /// Returns an RVA of the full unwind data.
+    #[inline]
     pub const fn unwind_data_rva(&self) -> u32 {
         self.unwind_data & !Self::mask(2)
     }
@@ -1251,37 +1260,44 @@ impl Arm64UnwindHeader {
     }
 
     /// Returns a function length in bytes.
+    #[inline]
     pub const fn function_length(&self) -> u32 {
         Self::bits(self.0, 0, 18).wrapping_mul(4)
     }
 
     /// Returns an unwind info version.
+    #[inline]
     pub const fn version(&self) -> u32 {
         Self::bits(self.0, 18, 2)
     }
 
     /// Returns `true` if the unwind info has exception handler.
+    #[inline]
     pub const fn exception_data_present(&self) -> bool {
         Self::bits(self.0, 20, 1) != 0
     }
 
     /// Returns `true` if an epilog is in the header.
+    #[inline]
     pub const fn epilog_in_header(&self) -> bool {
         Self::bits(self.0, 21, 1) != 0
     }
 
     /// Returns bits indicates either an number of epilog scope or
     /// the index of the first unwind code that describes the epilog.
+    #[inline]
     pub const fn epilog_count(&self) -> u32 {
         Self::bits(self.0, 22, 5)
     }
 
     /// Returns the number of u32's with unwind codes.
+    #[inline]
     pub const fn code_words(&self) -> u32 {
         Self::bits(self.0, 27, 5)
     }
 
     /// Returns `true` if "extension" bytes are in addition.
+    #[inline]
     pub const fn has_extension(&self) -> bool {
         self.epilog_count() == 0 && self.code_words() == 0
     }
@@ -1294,11 +1310,13 @@ const _: () = assert!(size_of::<Arm64UnwindExtension>() == 4);
 
 impl Arm64UnwindExtension {
     /// Returns the number of epilog.
+    #[inline]
     pub const fn epilog_count(&self) -> u32 {
         self.0 & 0xFFFF
     }
 
     /// Returns the number of u32's with unwind codes.
+    #[inline]
     pub const fn code_words(&self) -> u32 {
         (self.0 >> 16) & 0xFF
     }
@@ -1320,16 +1338,19 @@ impl Arm64EpilogScope {
     }
 
     /// Returns an epulog start offset in bytes.
+    #[inline]
     pub const fn start_offset_words(&self) -> u32 {
         Self::bits(self.0, 0, 18).wrapping_mul(4)
     }
 
     /// Returns the bits indicate condition.
+    #[inline]
     pub const fn condition(&self) -> u32 {
         Self::bits(self.0, 18, 4)
     }
 
     /// Returns the index of the unwind code.
+    #[inline]
     pub const fn start_index(&self) -> u32 {
         Self::bits(self.0, 22, 10)
     }

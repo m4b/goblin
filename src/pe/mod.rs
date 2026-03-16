@@ -271,8 +271,7 @@ impl<'a> PE<'a> {
                 if let Some(&exception_table) =
                     optional_header.data_directories.get_exception_table()
                 {
-                    let is_arm64 =
-                        header.coff_header.machine == header::COFF_MACHINE_ARM64;
+                    let is_arm64 = header.coff_header.machine == header::COFF_MACHINE_ARM64;
                     exception_data = if is_arm64 {
                         exception::ExceptionData::parse_arm64_with_opts(
                             bytes,

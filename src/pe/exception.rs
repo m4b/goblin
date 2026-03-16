@@ -1,4 +1,4 @@
-//! Exception handling and stack unwinding for x64.
+//! Exception handling and stack unwinding for x64 and ARM64.
 //!
 //! Exception information is exposed via the [`ExceptionData`] structure. If present in a PE file,
 //! it contains a list of [`RuntimeFunction`] entries that can be used to get [`UnwindInfo`] for a
@@ -834,6 +834,37 @@ impl<'a> ExceptionData<'a> {
             }));
         }
 
+        Self::parse_inner(bytes, directory, sections, file_alignment, opts)
+    }
+
+    /// Parses ARM64 exception data from the image at the given offset.
+    pub fn parse_arm64_with_opts(
+        bytes: &'a [u8],
+        directory: data_directories::DataDirectory,
+        sections: &[section_table::SectionTable],
+        file_alignment: u32,
+        opts: &options::ParseOptions,
+    ) -> error::Result<Self> {
+        let size = directory.size as usize;
+
+        if size % size_of::<Arm64RuntimeFunction>() != 0 {
+            return Err(error::Error::from(scroll::Error::BadInput {
+                size,
+                msg: "invalid exception directory table size",
+            }));
+        }
+
+        Self::parse_inner(bytes, directory, sections, file_alignment, opts)
+    }
+
+    fn parse_inner(
+        bytes: &'a [u8],
+        directory: data_directories::DataDirectory,
+        sections: &[section_table::SectionTable],
+        file_alignment: u32,
+        opts: &options::ParseOptions,
+    ) -> error::Result<Self> {
+        let size = directory.size as usize;
         let rva = directory.virtual_address as usize;
         let offset = utils::find_offset(rva, sections, file_alignment, opts).ok_or_else(|| {
             error::Error::Malformed(format!("cannot map exception_rva ({:#x}) into offset", rva))
@@ -851,9 +882,14 @@ impl<'a> ExceptionData<'a> {
         })
     }
 
-    /// The number of function entries described by this exception data.
+    /// The number of x64 function entries described by this exception data.
     pub fn len(&self) -> usize {
         self.size / RUNTIME_FUNCTION_SIZE
+    }
+
+    /// The number of ARM64 function entries described by this exception data.
+    pub fn len_arm64(&self) -> usize {
+        self.size / size_of::<Arm64RuntimeFunction>()
     }
 
     /// Indicating whether there are functions in this entry.
@@ -1075,18 +1111,6 @@ pub const ARM64_PDATA_CR_CHAINED_WITH_PAC: u32 = 2;
 /// Chained function.
 pub const ARM64_PDATA_CR_CHAINED: u32 = 3;
 
-// Arm64RuntimeFunction::ret
-// this is not relevant for ARM64.
-
-/// Return by `pop {pc}`.
-pub const ARM_PDATA_RET_POP_PC: u32 = 0;
-/// Return by 16-bit branch.
-pub const ARM_PDATA_RET_BRANCH_16: u32 = 1;
-/// Return by 32-bit branch.
-pub const ARM_PDATA_RET_BRANCH_32: u32 = 2;
-/// Return with no epilogue.
-pub const ARM_PDATA_RET_NO_EPILOGUE: u32 = 3;
-
 /// An ARM64 unwind entry for a range.
 #[repr(C)]
 #[derive(Copy, Clone, PartialEq, Default, Pread, Pwrite)]
@@ -1123,39 +1147,37 @@ impl Arm64RuntimeFunction {
         Self::bits(self.unwind_data, 2, 11).wrapping_mul(4)
     }
 
-    /// Returns the frame size in bytes.
+    /// Returns the frame size in bytes (bits [21:13], multiplied by 16).
     pub const fn frame_size(&self) -> u32 {
         Self::bits(self.unwind_data, 13, 9).wrapping_mul(16)
     }
 
-    /// Returns bits indicates saved FP/SIMD register info.
-    pub const fn reg_f(&self) -> u32 {
-        Self::bits(self.unwind_data, 13, 3)
-    }
-
-    /// Returns bits indicates saved integer register info.
-    pub const fn reg_i(&self) -> u32 {
-        Self::bits(self.unwind_data, 16, 4)
-    }
-
-    /// Returns bits indicates epilog info.
-    pub const fn ret(&self) -> u32 {
-        Self::bits(self.unwind_data, 13, 2)
-    }
-
-    /// Returns `true` if the function homes registers.
-    pub const fn h(&self) -> bool {
-        Self::bits(self.unwind_data, 20, 1) != 0
-    }
-
-    /// Returns bits indicates frame chaining / LR handling.
+    /// Returns the CR (chain/return) field (bits [23:22]).
+    ///
+    /// Must be one of:
+    /// - [ARM64_PDATA_CR_UNCHAINED]
+    /// - [ARM64_PDATA_CR_UNCHAINED_SAVED_LR]
+    /// - [ARM64_PDATA_CR_CHAINED_WITH_PAC]
+    /// - [ARM64_PDATA_CR_CHAINED]
     pub const fn cr(&self) -> u32 {
-        Self::bits(self.unwind_data, 21, 2)
+        Self::bits(self.unwind_data, 22, 2)
     }
 
-    /// Returns the stack adjustment in bytes.
-    pub const fn stack_adjust(&self) -> u32 {
-        Self::bits(self.unwind_data, 23, 9).wrapping_mul(16)
+    /// Returns `true` if the function homes integer parameter registers x0-x7 (bit [24]).
+    pub const fn h(&self) -> bool {
+        Self::bits(self.unwind_data, 24, 1) != 0
+    }
+
+    /// Returns the number of saved non-volatile INT registers (x19-x28) (bits [28:25]).
+    pub const fn reg_i(&self) -> u32 {
+        Self::bits(self.unwind_data, 25, 4)
+    }
+
+    /// Returns the number of saved non-volatile FP registers (d8-d15) (bits [31:29]).
+    ///
+    /// 0 means no FP registers saved. Values 1-7 mean `reg_f + 1` registers saved.
+    pub const fn reg_f(&self) -> u32 {
+        Self::bits(self.unwind_data, 29, 3)
     }
 
     /// Returns `true` if this unwind data is packed, `false` otherwise.
@@ -1273,12 +1295,12 @@ const _: () = assert!(size_of::<Arm64UnwindExtension>() == 4);
 impl Arm64UnwindExtension {
     /// Returns the number of epilog.
     pub const fn epilog_count(&self) -> u32 {
-        (self.0 & 0xFFFF) as u32
+        self.0 & 0xFFFF
     }
 
     /// Returns the number of u32's with unwind codes.
     pub const fn code_words(&self) -> u32 {
-        ((self.0 >> 16) & 0xFF) as u32
+        (self.0 >> 16) & 0xFF
     }
 }
 
@@ -1938,7 +1960,7 @@ impl<'a> Iterator for Arm64UnwindCodeIterator<'a> {
                             _ => 0,
                         };
 
-                        let kind = cls as u8;
+                        let kind = cls;
                         (
                             Arm64UnwindCode::SaveAnyReg {
                                 kind,
@@ -2485,6 +2507,14 @@ mod tests {
 
         #[test]
         fn parse_unwind_info_packed() {
+            // unwind_data = 0x00E00021
+            // bits [1:0]   = 01       -> Flag = 1 (packed function)
+            // bits [12:2]  = 8        -> FunctionLength = 8 * 4 = 32
+            // bits [21:13] = 256      -> FrameSize = 256 * 16 = 0x1000
+            // bits [23:22] = 11       -> CR = 3 (chained)
+            // bit  [24]    = 0        -> H = false
+            // bits [28:25] = 0000     -> RegI = 0
+            // bits [31:29] = 000      -> RegF = 0
             const DATA: &[u8] = &[
                 0x78, 0x11, 0x00, 0x00, // begin_address
                 0x21, 0x00, 0xE0, 0x00, // unwind_data
@@ -2496,10 +2526,111 @@ mod tests {
             assert_eq!(func.flag(), ARM64_PDATA_PACKED_UNWIND_FUNCTION);
             assert_eq!(func.function_length(), 32);
             assert_eq!(func.frame_size(), 0x1000);
-            assert_eq!(func.cr(), 3);
+            assert_eq!(func.cr(), ARM64_PDATA_CR_CHAINED);
             assert_eq!(func.h(), false);
             assert_eq!(func.reg_f(), 0);
             assert_eq!(func.reg_i(), 0);
+        }
+
+        #[test]
+        fn parse_packed_all_fields_nonzero() {
+            // Construct a value where every packed field is non-zero to verify
+            // that each accessor extracts from the correct bit position.
+            //
+            // unwind_data = 0x6B810041
+            // bits [1:0]   = 01       -> Flag = 1 (packed function)
+            // bits [12:2]  = 0x10     -> FunctionLength = 16 * 4 = 64
+            // bits [21:13] = 0x08     -> FrameSize = 8 * 16 = 128
+            // bits [23:22] = 10       -> CR = 2 (chained with PAC)
+            // bit  [24]    = 1        -> H = true
+            // bits [28:25] = 0101     -> RegI = 5
+            // bits [31:29] = 011      -> RegF = 3
+            const DATA: &[u8] = &[
+                0x00, 0x10, 0x00, 0x00, // begin_address
+                0x41, 0x00, 0x81, 0x6B, // unwind_data = 0x6B810041
+            ];
+
+            let func = DATA.pread::<Arm64RuntimeFunction>(0).unwrap();
+            assert_eq!(func.flag(), ARM64_PDATA_PACKED_UNWIND_FUNCTION);
+            assert!(func.is_packed());
+            assert_eq!(func.function_length(), 64);
+            assert_eq!(func.frame_size(), 128);
+            assert_eq!(func.cr(), ARM64_PDATA_CR_CHAINED_WITH_PAC);
+            assert_eq!(func.h(), true);
+            assert_eq!(func.reg_i(), 5);
+            assert_eq!(func.reg_f(), 3);
+        }
+
+        #[test]
+        fn parse_unpacked_xdata_rva() {
+            // Flag = 0 -> unwind_data is an RVA (low 2 bits cleared)
+            // unwind_data = 0x00001234, with low 2 bits = 00
+            const DATA: &[u8] = &[
+                0x00, 0x10, 0x00, 0x00, // begin_address
+                0x34, 0x12, 0x00, 0x00, // unwind_data = 0x00001234
+            ];
+
+            let func = DATA.pread::<Arm64RuntimeFunction>(0).unwrap();
+            assert_eq!(func.flag(), ARM64_PDATA_REF_TO_FULL_XDATA);
+            assert!(!func.is_packed());
+            assert_eq!(func.unwind_data_rva(), 0x00001234);
+        }
+
+        #[test]
+        fn arm64_runtime_function_iterator() {
+            // 2 ARM64 entries (8 bytes each = 16 bytes total)
+            #[rustfmt::skip]
+            const DATA: &[u8] = &[
+                0x00, 0x10, 0x00, 0x00, 0x34, 0x12, 0x00, 0x00,
+                0x00, 0x20, 0x00, 0x00, 0x78, 0x56, 0x00, 0x00,
+            ];
+
+            let iter = Arm64RuntimeFunctionIterator { data: DATA };
+            let funcs: Vec<_> = iter.map(|r| r.unwrap()).collect();
+            assert_eq!(funcs.len(), 2);
+            assert_eq!(funcs[0].begin_address, 0x1000);
+            assert_eq!(funcs[0].unwind_data, 0x00001234);
+            assert_eq!(funcs[1].begin_address, 0x2000);
+            assert_eq!(funcs[1].unwind_data, 0x00005678);
+        }
+
+        #[test]
+        fn xdata_header_with_extension() {
+            // Header word with epilog_count=0 and code_words=0 -> extension present
+            #[rustfmt::skip]
+            const XDATA: &[u8] = &[
+                0x04, 0x00, 0x00, 0x00, // header: func_len=1, ver=0, X=0, E=0, epilog_count=0, code_words=0
+                0x01, 0x00, 0x01, 0x00, // extension: epilog_count=1, code_words=1
+
+                // Epilog scope
+                0x0D, 0x00, 0x00, 0x00,
+
+                // Unwind codes (1 word = 4 bytes)
+                0x81, 0xE4, 0xE3, 0xE3,
+            ];
+
+            let info = Arm64UnwindInfo::parse(XDATA, 0).unwrap();
+            assert!(info.extension.is_some());
+            let ext = info.extension.unwrap();
+            assert_eq!(ext.epilog_count(), 1);
+            assert_eq!(ext.code_words(), 1);
+            assert_eq!(info.epilog_scope_bytes.len(), 4);
+            assert_eq!(info.unwind_code_bytes.len(), 4);
+        }
+
+        #[test]
+        fn epilog_scope_field_extraction() {
+            // Construct: start_offset=0x3FFFF (18 bits max), condition=0xF (reserved for arm64), start_index=0x3FF (10 bits max)
+            // But let's use smaller values to be clear:
+            // start_offset_words = 52 (0x34 / 4 = 0x0D -> bits [17:0] = 0x0D, *4 = 52)
+            // condition = 0x0E (bits [21:18])
+            // start_index = 2 (bits [31:22])
+            //
+            // value = (2 << 22) | (0x0E << 18) | 0x0D = 0x00B8000D
+            let scope = Arm64EpilogScope(0x00B8000D);
+            assert_eq!(scope.start_offset_words(), 52);
+            assert_eq!(scope.condition(), 0x0E);
+            assert_eq!(scope.start_index(), 2);
         }
 
         #[test]
@@ -2685,6 +2816,178 @@ mod tests {
                     data: &0x000032A0u32.to_le_bytes()
                 })
             );
+        }
+
+        #[test]
+        fn unwind_code_alloc_large_and_custom_stack() {
+            // Test alloc_l (0xE0), pac_sign_lr (0xFC), custom stack opcodes, and end
+            #[rustfmt::skip]
+            const CODES: &[u8] = &[
+                0xE0, 0x00, 0x01, 0x00, // alloc_l: imm = 0x000100, size = 256 * 16 = 4096
+                0xFC,                    // pac_sign_lr
+                0xE8,                    // MSFT_OP_TRAP_FRAME
+                0xE4,                    // end
+                0xE3,                    // nop (padding)
+            ];
+
+            let iter = Arm64UnwindCodeIterator::new(CODES, 0).unwrap();
+            let codes: Vec<_> = iter.map(|r| r.unwrap()).collect();
+            assert_eq!(codes.len(), 5);
+            assert_eq!(
+                codes[0].code,
+                Arm64UnwindCode::AllocLarge { size_bytes: 4096 }
+            );
+            assert_eq!(codes[0].len, 4);
+            assert_eq!(codes[1].code, Arm64UnwindCode::PacSignLr);
+            assert_eq!(
+                codes[2].code,
+                Arm64UnwindCode::CustomStack(Arm64CustomStackCase::TrapFrame)
+            );
+            assert_eq!(codes[3].code, Arm64UnwindCode::End);
+            assert_eq!(codes[4].code, Arm64UnwindCode::Nop);
+        }
+
+        #[test]
+        fn unwind_code_reserved_opcodes() {
+            // Test reserved multi-byte opcodes
+            #[rustfmt::skip]
+            const CODES: &[u8] = &[
+                0xF8, 0xAB,             // reserved 2-byte
+                0xF9, 0x12, 0x34,       // reserved 3-byte
+                0xE4,                    // end
+                0xE3, 0xE3,             // padding
+            ];
+
+            let iter = Arm64UnwindCodeIterator::new(CODES, 0).unwrap();
+            let codes: Vec<_> = iter.map(|r| r.unwrap()).collect();
+            assert_eq!(codes.len(), 5);
+            assert_eq!(
+                codes[0].code,
+                Arm64UnwindCode::Reserved {
+                    opcode: 0xF8,
+                    data: 0xAB,
+                    data_len: 1
+                }
+            );
+            assert_eq!(codes[0].len, 2);
+            assert_eq!(
+                codes[1].code,
+                Arm64UnwindCode::Reserved {
+                    opcode: 0xF9,
+                    data: 0x1234,
+                    data_len: 2
+                }
+            );
+            assert_eq!(codes[1].len, 3);
+            assert_eq!(codes[2].code, Arm64UnwindCode::End);
+        }
+
+        #[test]
+        fn unwind_code_freg_operations() {
+            // save_fregp (0xD8): b0=0xD8, b1=0x42
+            //   x = ((0xD8 & 0x01) << 2) | ((0x42 >> 6) & 0x03) = (0 << 2) | 1 = 1
+            //   z = 0x42 & 0x3f = 2
+            //   first_reg = 8 + 1 = 9, offset = 2 * 8 = 16
+            //
+            // save_freg_x (0xDE): b1=0x65
+            //   x = (0x65 >> 5) & 0x07 = 3
+            //   z = 0x65 & 0x1f = 5
+            //   reg = 8 + 3 = 11, offset = (5+1) * 8 = 48
+            #[rustfmt::skip]
+            const CODES: &[u8] = &[
+                0xD8, 0x42,             // save_fregp
+                0xDE, 0x65,             // save_freg_x
+            ];
+
+            let iter = Arm64UnwindCodeIterator::new(CODES, 0).unwrap();
+            let codes: Vec<_> = iter.map(|r| r.unwrap()).collect();
+            assert_eq!(codes.len(), 2);
+            assert_eq!(
+                codes[0].code,
+                Arm64UnwindCode::SaveFRegPair {
+                    first_reg: 9,
+                    offset_bytes: 16
+                }
+            );
+            assert_eq!(
+                codes[1].code,
+                Arm64UnwindCode::SaveFRegPreindexed {
+                    reg: 11,
+                    offset_bytes: 48
+                }
+            );
+        }
+
+        #[test]
+        fn unwind_code_iterator_start_index() {
+            // Verify that start_index correctly skips into the byte stream
+            #[rustfmt::skip]
+            const CODES: &[u8] = &[
+                0xE1,                   // set_fp (offset 0)
+                0x87,                   // save_fplr_x (offset 1)
+                0xE4,                   // end (offset 2)
+                0xE3,                   // nop padding (offset 3)
+            ];
+
+            // Start at index 2 -> should see end + nop
+            let iter = Arm64UnwindCodeIterator::new(CODES, 2).unwrap();
+            let codes: Vec<_> = iter.map(|r| r.unwrap()).collect();
+            assert_eq!(codes.len(), 2);
+            assert_eq!(codes[0].code, Arm64UnwindCode::End);
+            assert_eq!(codes[0].offset, 2);
+            assert_eq!(codes[1].code, Arm64UnwindCode::Nop);
+        }
+
+        #[test]
+        fn unwind_code_iterator_bad_length() {
+            // Length not a multiple of 4
+            let result = Arm64UnwindCodeIterator::new(&[0xE4, 0xE3, 0xE3], 0);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn xdata_no_exception_handler() {
+            // Header: func_len=4, ver=0, X=0, E=1, epilog_count=0, code_words=1
+            // X=0 -> no exception data
+            // E=1 -> epilog in header
+            #[rustfmt::skip]
+            const XDATA: &[u8] = &[
+                0x10, 0x00, 0x20, 0x08, // header
+                0x81, 0xE4, 0xE3, 0xE3, // unwind codes
+            ];
+
+            let info = Arm64UnwindInfo::parse(XDATA, 0).unwrap();
+            assert!(!info.header.exception_data_present());
+            assert!(info.header.epilog_in_header());
+            assert!(info.exception_handler.is_none());
+            assert!(info.epilog_scopes().is_none());
+        }
+
+        #[test]
+        fn xdata_size_without_handler() {
+            // Same as above — size should be header (4) + code_words (1*4) = 8
+            #[rustfmt::skip]
+            const XDATA: &[u8] = &[
+                0x10, 0x00, 0x20, 0x08, // header
+                0x81, 0xE4, 0xE3, 0xE3, // unwind codes
+            ];
+
+            assert_eq!(Arm64UnwindInfo::size(XDATA).unwrap(), 8);
+        }
+
+        #[test]
+        fn arm64_len_vs_x64_len() {
+            // Verify len_arm64 gives different (correct) results from len
+            let ed = ExceptionData {
+                bytes: &[0u8; 64],
+                offset: 0,
+                size: 32,
+                file_alignment: 4,
+            };
+            // 32 / 12 = 2 (x64)
+            assert_eq!(ed.len(), 2);
+            // 32 / 8 = 4 (arm64)
+            assert_eq!(ed.len_arm64(), 4);
         }
     }
 }

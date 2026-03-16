@@ -271,13 +271,25 @@ impl<'a> PE<'a> {
                 if let Some(&exception_table) =
                     optional_header.data_directories.get_exception_table()
                 {
-                    exception_data = exception::ExceptionData::parse_with_opts(
-                        bytes,
-                        exception_table,
-                        &sections,
-                        file_alignment,
-                        opts,
-                    )
+                    let is_arm64 =
+                        header.coff_header.machine == header::COFF_MACHINE_ARM64;
+                    exception_data = if is_arm64 {
+                        exception::ExceptionData::parse_arm64_with_opts(
+                            bytes,
+                            exception_table,
+                            &sections,
+                            file_alignment,
+                            opts,
+                        )
+                    } else {
+                        exception::ExceptionData::parse_with_opts(
+                            bytes,
+                            exception_table,
+                            &sections,
+                            file_alignment,
+                            opts,
+                        )
+                    }
                     .map(Some)
                     .or_permissive_and_default(
                         opts.parse_mode.is_permissive(),

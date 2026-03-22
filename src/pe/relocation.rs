@@ -441,6 +441,13 @@ pub struct RelocationBlockIterator<'a> {
     offset: usize,
 }
 
+impl<'a> RelocationBlockIterator<'a> {
+    /// Creates a `RelocationBlockIterator` from raw bytes containing base relocation blocks.
+    pub(crate) fn from_bytes(bytes: &'a [u8]) -> Self {
+        Self { bytes, offset: 0 }
+    }
+}
+
 impl<'a> Iterator for RelocationBlockIterator<'a> {
     type Item = error::Result<RelocationBlock<'a>>;
 

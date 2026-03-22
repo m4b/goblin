@@ -7,7 +7,7 @@ use scroll::ctx;
 
 use crate::container::{Container, Ctx};
 use crate::error;
-use crate::pe::relocation::RelocationWord;
+use crate::pe::relocation::{RelocationBlockIterator, RelocationWord};
 
 /// Indicates Return Flow (RF) prologue guard relocation for dynamic relocation entries
 pub const IMAGE_DYNAMIC_RELOCATION_GUARD_RF_PROLOGUE: u64 = 0x00000001;
@@ -707,6 +707,404 @@ impl SwitchableBranchDynReloc {
     }
 }
 
+/// Header for epilogue dynamic relocation data.
+///
+/// See `IMAGE_EPILOGUE_DYNAMIC_RELOCATION_HEADER` in Windows SDK.
+#[derive(Debug, Copy, Clone)]
+pub struct EpilogueDynRelocHeader {
+    /// Number of epilogue sequences
+    pub epilogue_count: u32,
+    /// Size in bytes of each epilogue byte sequence
+    pub epilogue_byte_count: u8,
+    /// Size in bits of each branch descriptor element
+    pub branch_descriptor_element_size: u8,
+    /// Number of branch descriptor elements
+    pub branch_descriptor_count: u16,
+}
+
+impl EpilogueDynRelocHeader {
+    /// Size of the header in bytes
+    pub const SIZE: usize = 8;
+
+    /// Parse the header from a byte slice at the given offset.
+    pub fn parse(bytes: &[u8], offset: &mut usize) -> error::Result<Self> {
+        let epilogue_count = bytes.gread_with::<u32>(offset, scroll::LE)?;
+        let epilogue_byte_count = bytes.gread_with::<u8>(offset, scroll::LE)?;
+        let branch_descriptor_element_size = bytes.gread_with::<u8>(offset, scroll::LE)?;
+        let branch_descriptor_count = bytes.gread_with::<u16>(offset, scroll::LE)?;
+
+        Ok(Self {
+            epilogue_count,
+            epilogue_byte_count,
+            branch_descriptor_element_size,
+            branch_descriptor_count,
+        })
+    }
+
+    /// Returns the total size in bytes of the packed branch descriptor bitstream.
+    pub fn branch_descriptors_byte_size(&self) -> usize {
+        let total_bits =
+            self.branch_descriptor_element_size as usize * self.branch_descriptor_count as usize;
+        (total_bits + 7) / 8
+    }
+
+    /// Returns the total size in bytes of all epilogue byte sequences.
+    pub fn epilogue_sequences_byte_size(&self) -> usize {
+        self.epilogue_byte_count as usize * self.epilogue_count as usize
+    }
+
+    /// Returns the total size of the prefix (header + branch descriptors + epilogue sequences).
+    pub fn total_prefix_size(&self) -> usize {
+        Self::SIZE + self.branch_descriptors_byte_size() + self.epilogue_sequences_byte_size()
+    }
+}
+
+/// Parsed epilogue dynamic relocation info containing the header, branch descriptors,
+/// and epilogue byte sequences.
+///
+/// Access this via [`DynRelocEntry::epilogue_info`].
+#[derive(Debug, Copy, Clone)]
+pub struct EpilogueDynRelocInfo<'a> {
+    /// The parsed epilogue header
+    pub header: EpilogueDynRelocHeader,
+    /// Raw bytes of the packed branch descriptor bitstream
+    pub branch_descriptor_bytes: &'a [u8],
+    /// Raw bytes of all epilogue byte sequences (each `header.epilogue_byte_count` bytes)
+    pub epilogue_byte_sequences: &'a [u8],
+}
+
+impl<'a> EpilogueDynRelocInfo<'a> {
+    /// Extracts a branch descriptor at the given index from the packed bitstream.
+    ///
+    /// Each descriptor is `header.branch_descriptor_element_size` bits wide.
+    /// Returns `None` if the index is out of range.
+    pub fn branch_descriptor(&self, index: usize) -> Option<u64> {
+        if index >= self.header.branch_descriptor_count as usize {
+            return None;
+        }
+        let bit_size = self.header.branch_descriptor_element_size as usize;
+        if bit_size == 0 {
+            return Some(0);
+        }
+        let bit_offset = index * bit_size;
+        let mut value: u64 = 0;
+        for i in 0..bit_size {
+            let abs_bit = bit_offset + i;
+            let byte_idx = abs_bit / 8;
+            let bit_idx = abs_bit % 8;
+            if byte_idx >= self.branch_descriptor_bytes.len() {
+                return None;
+            }
+            if self.branch_descriptor_bytes[byte_idx] & (1 << bit_idx) != 0 {
+                value |= 1 << i;
+            }
+        }
+        Some(value)
+    }
+
+    /// Returns the epilogue byte sequence at the given index.
+    ///
+    /// Each sequence is `header.epilogue_byte_count` bytes long.
+    /// Returns `None` if the index is out of range.
+    pub fn epilogue_bytes(&self, index: usize) -> Option<&'a [u8]> {
+        if index >= self.header.epilogue_count as usize {
+            return None;
+        }
+        let byte_count = self.header.epilogue_byte_count as usize;
+        let start = index * byte_count;
+        let end = start + byte_count;
+        if end > self.epilogue_byte_sequences.len() {
+            return None;
+        }
+        Some(&self.epilogue_byte_sequences[start..end])
+    }
+}
+
+/// Header for a single function override entry within a function override dynamic relocation.
+///
+/// See `IMAGE_FUNCTION_OVERRIDE_HEADER` in Windows SDK.
+#[derive(Debug, Copy, Clone, Default)]
+pub struct FunctionOverrideHeader {
+    /// RVA of the original function
+    pub original_rva: u32,
+    /// Offset into the BDD (Binary Decision Diagram) data
+    pub bdd_offset: u32,
+    /// Size of the override RVA array in bytes
+    pub rva_size: u32,
+    /// Size of base relocations for this override in bytes
+    pub base_reloc_size: u32,
+}
+
+impl FunctionOverrideHeader {
+    /// Size of the header in bytes
+    pub const SIZE: usize = 16;
+
+    /// Parse the header from a byte slice at the given offset.
+    pub fn parse(bytes: &[u8], offset: &mut usize) -> error::Result<Self> {
+        let original_rva = bytes.gread_with::<u32>(offset, scroll::LE)?;
+        let bdd_offset = bytes.gread_with::<u32>(offset, scroll::LE)?;
+        let rva_size = bytes.gread_with::<u32>(offset, scroll::LE)?;
+        let base_reloc_size = bytes.gread_with::<u32>(offset, scroll::LE)?;
+
+        Ok(Self {
+            original_rva,
+            bdd_offset,
+            rva_size,
+            base_reloc_size,
+        })
+    }
+
+    /// Returns true if this is a zero-filled terminator header.
+    pub fn is_terminator(&self) -> bool {
+        self.original_rva == 0
+            && self.bdd_offset == 0
+            && self.rva_size == 0
+            && self.base_reloc_size == 0
+    }
+}
+
+/// A single function override entry containing override RVAs and base relocations.
+#[derive(Debug, Copy, Clone)]
+pub struct FunctionOverride<'a> {
+    /// The parsed function override header
+    pub header: FunctionOverrideHeader,
+    /// Raw bytes of the override RVA array
+    override_rva_bytes: &'a [u8],
+    /// Raw bytes of the base relocations for this override
+    base_reloc_bytes: &'a [u8],
+}
+
+impl<'a> FunctionOverride<'a> {
+    /// Returns the number of override RVAs.
+    pub fn rva_count(&self) -> usize {
+        self.override_rva_bytes.len() / 4
+    }
+
+    /// Returns an iterator over the override RVAs.
+    pub fn rvas(&self) -> FunctionOverrideRvaIterator<'a> {
+        FunctionOverrideRvaIterator {
+            bytes: self.override_rva_bytes,
+            offset: 0,
+        }
+    }
+
+    /// Returns an iterator over the base relocation blocks for this override.
+    pub fn base_reloc_blocks(&self) -> RelocationBlockIterator<'a> {
+        RelocationBlockIterator::from_bytes(self.base_reloc_bytes)
+    }
+}
+
+/// Iterator over override RVAs within a [`FunctionOverride`].
+#[derive(Debug, Copy, Clone)]
+pub struct FunctionOverrideRvaIterator<'a> {
+    bytes: &'a [u8],
+    offset: usize,
+}
+
+impl Iterator for FunctionOverrideRvaIterator<'_> {
+    type Item = error::Result<u32>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.offset >= self.bytes.len() {
+            return None;
+        }
+        Some(
+            self.bytes
+                .gread_with::<u32>(&mut self.offset, scroll::LE)
+                .map_err(Into::into),
+        )
+    }
+}
+
+impl FusedIterator for FunctionOverrideRvaIterator<'_> {}
+
+/// BDD (Binary Decision Diagram) info header for function override relocations.
+#[derive(Debug, Copy, Clone)]
+pub struct BddInfo {
+    /// BDD format version (must be 1)
+    pub version: u32,
+    /// Total size of the BDD data (including this header)
+    pub size: u32,
+}
+
+impl BddInfo {
+    /// Size of the BDD info header in bytes
+    pub const SIZE: usize = 8;
+
+    /// Parse BDD info from a byte slice at the given offset.
+    pub fn parse(bytes: &[u8], offset: &mut usize) -> error::Result<Self> {
+        let version = bytes.gread_with::<u32>(offset, scroll::LE)?;
+        let size = bytes.gread_with::<u32>(offset, scroll::LE)?;
+        Ok(Self { version, size })
+    }
+}
+
+/// A single BDD (Binary Decision Diagram) node.
+#[derive(Debug, Copy, Clone)]
+pub struct BddNode {
+    /// Index of the left child node
+    pub left: u16,
+    /// Index of the right child node
+    pub right: u16,
+    /// Value associated with this node
+    pub value: u32,
+}
+
+impl BddNode {
+    /// Size of a BDD node in bytes
+    pub const SIZE: usize = 8;
+}
+
+/// Iterator over BDD nodes within a function override dynamic relocation.
+#[derive(Debug, Copy, Clone)]
+pub struct BddNodeIterator<'a> {
+    bytes: &'a [u8],
+    offset: usize,
+}
+
+impl Iterator for BddNodeIterator<'_> {
+    type Item = error::Result<BddNode>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.offset >= self.bytes.len() {
+            return None;
+        }
+        let left = match self.bytes.gread_with::<u16>(&mut self.offset, scroll::LE) {
+            Ok(v) => v,
+            Err(e) => return Some(Err(e.into())),
+        };
+        let right = match self.bytes.gread_with::<u16>(&mut self.offset, scroll::LE) {
+            Ok(v) => v,
+            Err(e) => return Some(Err(e.into())),
+        };
+        let value = match self.bytes.gread_with::<u32>(&mut self.offset, scroll::LE) {
+            Ok(v) => v,
+            Err(e) => return Some(Err(e.into())),
+        };
+        Some(Ok(BddNode { left, right, value }))
+    }
+}
+
+impl FusedIterator for BddNodeIterator<'_> {}
+
+/// Iterator over function override entries.
+#[derive(Debug, Copy, Clone)]
+pub struct FunctionOverrideIterator<'a> {
+    /// Byte slice covering only the overrides region (excludes the leading size DWORD and BDD)
+    bytes: &'a [u8],
+    offset: usize,
+}
+
+impl<'a> Iterator for FunctionOverrideIterator<'a> {
+    type Item = error::Result<FunctionOverride<'a>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.offset >= self.bytes.len() {
+            return None;
+        }
+        let header = match FunctionOverrideHeader::parse(self.bytes, &mut self.offset) {
+            Ok(h) => h,
+            Err(e) => {
+                self.offset = self.bytes.len();
+                return Some(Err(e));
+            }
+        };
+        if header.is_terminator() {
+            self.offset = self.bytes.len();
+            return None;
+        }
+        let rva_size = header.rva_size as usize;
+        let base_reloc_size = header.base_reloc_size as usize;
+        let override_rva_bytes = match self.bytes.gread_with::<&[u8]>(&mut self.offset, rva_size) {
+            Ok(b) => b,
+            Err(e) => {
+                self.offset = self.bytes.len();
+                return Some(Err(e.into()));
+            }
+        };
+        let base_reloc_bytes = match self
+            .bytes
+            .gread_with::<&[u8]>(&mut self.offset, base_reloc_size)
+        {
+            Ok(b) => b,
+            Err(e) => {
+                self.offset = self.bytes.len();
+                return Some(Err(e.into()));
+            }
+        };
+        Some(Ok(FunctionOverride {
+            header,
+            override_rva_bytes,
+            base_reloc_bytes,
+        }))
+    }
+}
+
+impl FusedIterator for FunctionOverrideIterator<'_> {}
+
+/// Top-level view over function override dynamic relocation data.
+#[derive(Debug, Copy, Clone)]
+pub struct FunctionOverrideDynRelocInfo<'a> {
+    /// Size of the overrides region (from the leading DWORD)
+    func_override_size: u32,
+    /// Raw bytes after the leading size DWORD
+    bytes: &'a [u8],
+}
+
+impl<'a> FunctionOverrideDynRelocInfo<'a> {
+    /// Parse from raw entry bytes.
+    fn parse(bytes: &'a [u8]) -> error::Result<Self> {
+        let mut offset = 0;
+        let func_override_size = bytes.gread_with::<u32>(&mut offset, scroll::LE)?;
+        Ok(Self {
+            func_override_size,
+            bytes: &bytes[offset..],
+        })
+    }
+
+    /// Returns the size of the overrides region in bytes.
+    pub fn func_override_size(&self) -> u32 {
+        self.func_override_size
+    }
+
+    /// Returns an iterator over the function override entries.
+    pub fn overrides(&self) -> FunctionOverrideIterator<'a> {
+        let end = (self.func_override_size as usize).min(self.bytes.len());
+        FunctionOverrideIterator {
+            bytes: &self.bytes[..end],
+            offset: 0,
+        }
+    }
+
+    /// Locates and parses the BDD info header.
+    pub fn bdd_info(&self) -> Option<error::Result<BddInfo>> {
+        // The BDD data follows immediately after the overrides region.
+        let bdd_start = self.func_override_size as usize;
+        if bdd_start >= self.bytes.len() {
+            return None;
+        }
+        let mut offset = bdd_start;
+        Some(BddInfo::parse(self.bytes, &mut offset))
+    }
+
+    /// Returns an iterator over the BDD nodes.
+    pub fn bdd_nodes(&self) -> Option<BddNodeIterator<'a>> {
+        // The BDD nodes follow immediately after the BDD info header.
+        let bdd_start = self.func_override_size as usize;
+        if bdd_start >= self.bytes.len() {
+            return None;
+        }
+        let mut offset = bdd_start;
+        let info = BddInfo::parse(self.bytes, &mut offset).ok()?;
+        let node_bytes_len = info.size.checked_sub(BddInfo::SIZE as u32)? as usize;
+        let node_bytes = self.bytes.get(offset..offset + node_bytes_len)?;
+        Some(BddNodeIterator {
+            bytes: node_bytes,
+            offset: 0,
+        })
+    }
+}
+
 /// ARM64X fixup type for zero-filling memory.
 ///
 /// Indicates that the specified memory region should be filled with zeros.
@@ -790,6 +1188,39 @@ pub struct DynRelocBranch {
     pub record: SwitchableBranchDynReloc,
 }
 
+/// Prologue guard dynamic relocation entry.
+#[derive(Debug, Copy, Clone)]
+pub struct DynRelocPrologue {
+    /// Symbol identifier ([`IMAGE_DYNAMIC_RELOCATION_GUARD_RF_PROLOGUE`])
+    pub symbol: u64,
+    /// Relative Virtual Address of the containing block
+    pub block_rva: u32,
+    /// Standard relocation word (type:4 bits + offset:12 bits)
+    pub record: RelocationWord,
+}
+
+/// ARM64 kernel import call transfer dynamic relocation entry.
+#[derive(Debug, Copy, Clone)]
+pub struct DynRelocKernelImport {
+    /// Symbol identifier ([`IMAGE_DYNAMIC_RELOCATION_ARM64_KERNEL_IMPORT_CALL_TRANSFER`])
+    pub symbol: u64,
+    /// Relative Virtual Address of the containing block
+    pub block_rva: u32,
+    /// ARM64 import control transfer relocation record
+    pub record: ImportControlTransferArm64Reloc,
+}
+
+/// Epilogue guard dynamic relocation entry.
+#[derive(Debug, Copy, Clone)]
+pub struct DynRelocEpilogue {
+    /// Symbol identifier ([`IMAGE_DYNAMIC_RELOCATION_GUARD_RF_EPILOGUE`])
+    pub symbol: u64,
+    /// Relative Virtual Address of the containing block
+    pub block_rva: u32,
+    /// Standard relocation word (type:4 bits + offset:12 bits)
+    pub record: RelocationWord,
+}
+
 /// Dynamic relocation entry variants.
 #[derive(Debug)]
 pub enum DynRelocRelocation {
@@ -801,6 +1232,12 @@ pub enum DynRelocRelocation {
     Indirect(DynRelocIndirect),
     /// Switchable branch dynamic relocation
     Branch(DynRelocBranch),
+    /// Prologue guard dynamic relocation
+    Prologue(DynRelocPrologue),
+    /// Epilogue guard dynamic relocation
+    Epilogue(DynRelocEpilogue),
+    /// ARM64 kernel import call transfer dynamic relocation
+    KernelImport(DynRelocKernelImport),
 }
 
 impl DynRelocRelocation {
@@ -811,6 +1248,11 @@ impl DynRelocRelocation {
             DynRelocRelocation::Import(data) => Some(data.record.page_relative_offset() as _),
             DynRelocRelocation::Indirect(data) => Some(data.record.page_relative_offset() as _),
             DynRelocRelocation::Branch(data) => Some(data.record.page_relative_offset() as _),
+            DynRelocRelocation::Prologue(data) => Some(data.record.offset() as _),
+            DynRelocRelocation::Epilogue(data) => Some(data.record.offset() as _),
+            DynRelocRelocation::KernelImport(data) => {
+                Some(data.record.page_relative_offset() as _)
+            }
         }
     }
 }
@@ -845,11 +1287,90 @@ pub struct DynRelocEntryIterator<'a> {
 impl<'a> DynRelocEntry<'a> {
     /// Returns an iterator over the relocation blocks within this entry.
     pub fn blocks(&self) -> DynRelocBlockIterator<'a> {
+        // For epilogue entries (symbol=2), the iterator starts after the epilogue prefix
+        // (header + branch descriptors + epilogue byte sequences).
+        //
+        // For function override entries (symbol=7), returns an empty iterator.
+        // Use [`Self::function_override_info`] instead.
+        let offset = match self.symbol {
+            IMAGE_DYNAMIC_RELOCATION_GUARD_RF_EPILOGUE => {
+                self.epilogue_prefix_size().unwrap_or(self.bytes.len())
+            }
+            IMAGE_DYNAMIC_RELOCATION_FUNCTION_OVERRIDE => {
+                return DynRelocBlockIterator {
+                    symbol: self.symbol,
+                    bytes: &[],
+                    offset: 0,
+                };
+            }
+            _ => 0,
+        };
         DynRelocBlockIterator {
             symbol: self.symbol,
             bytes: self.bytes,
-            offset: 0,
+            offset,
         }
+    }
+
+    /// Returns the epilogue header, branch descriptors, and epilogue byte sequences
+    /// for epilogue entries (symbol=2).
+    ///
+    /// Returns `None` if this entry is not an epilogue entry.
+    pub fn epilogue_info(&self) -> Option<error::Result<EpilogueDynRelocInfo<'a>>> {
+        if self.symbol != IMAGE_DYNAMIC_RELOCATION_GUARD_RF_EPILOGUE {
+            return None;
+        }
+        let mut offset = 0;
+        let header = match EpilogueDynRelocHeader::parse(self.bytes, &mut offset) {
+            Ok(h) => h,
+            Err(e) => return Some(Err(e)),
+        };
+        let bd_size = header.branch_descriptors_byte_size();
+        let branch_descriptor_bytes = match self.bytes.get(offset..offset + bd_size) {
+            Some(b) => b,
+            None => {
+                return Some(Err(error::Error::Malformed(
+                    "Epilogue branch descriptors truncated".into(),
+                )));
+            }
+        };
+        offset += bd_size;
+        let es_size = header.epilogue_sequences_byte_size();
+        let epilogue_byte_sequences = match self.bytes.get(offset..offset + es_size) {
+            Some(b) => b,
+            None => {
+                return Some(Err(error::Error::Malformed(
+                    "Epilogue byte sequences truncated".into(),
+                )));
+            }
+        };
+        Some(Ok(EpilogueDynRelocInfo {
+            header,
+            branch_descriptor_bytes,
+            epilogue_byte_sequences,
+        }))
+    }
+
+    /// Returns the function override dynamic relocation info for function override
+    /// entries (symbol=7).
+    ///
+    /// Returns `None` if this entry is not a function override entry.
+    pub fn function_override_info(
+        &self,
+    ) -> Option<error::Result<FunctionOverrideDynRelocInfo<'a>>> {
+        if self.symbol != IMAGE_DYNAMIC_RELOCATION_FUNCTION_OVERRIDE {
+            return None;
+        }
+        Some(FunctionOverrideDynRelocInfo::parse(self.bytes))
+    }
+
+    /// Computes the DWORD-aligned prefix size for epilogue entries.
+    fn epilogue_prefix_size(&self) -> Option<usize> {
+        let mut offset = 0;
+        let header = EpilogueDynRelocHeader::parse(self.bytes, &mut offset).ok()?;
+        let prefix = header.total_prefix_size();
+        // DWORD-align
+        Some((prefix + 3) & !3)
     }
 }
 
@@ -943,11 +1464,6 @@ impl<'a> Iterator for DynRelocBlockIterator<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         if self.offset >= self.bytes.len() {
             return None;
-        }
-
-        if self.symbol == IMAGE_DYNAMIC_RELOCATION_FUNCTION_OVERRIDE {
-            self.bytes = &[];
-            return None; // Unimplemented
         }
 
         let mut offset = self.offset;
@@ -1080,9 +1596,60 @@ impl Iterator for DynRelocRelocationIterator<'_> {
                     record,
                 })
             }
+            IMAGE_DYNAMIC_RELOCATION_GUARD_RF_PROLOGUE => {
+                let record = RelocationWord {
+                    value: self
+                        .bytes
+                        .gread_with::<u16>(&mut self.offset, scroll::LE)
+                        .ok()?,
+                };
+
+                if record.reloc_type() == 0 {
+                    return None; // IMAGE_REL_BASED_ABSOLUTE padding
+                }
+
+                DynRelocRelocation::Prologue(DynRelocPrologue {
+                    symbol: self.symbol,
+                    block_rva: self.block_rva,
+                    record,
+                })
+            }
+            IMAGE_DYNAMIC_RELOCATION_GUARD_RF_EPILOGUE => {
+                let record = RelocationWord {
+                    value: self
+                        .bytes
+                        .gread_with::<u16>(&mut self.offset, scroll::LE)
+                        .ok()?,
+                };
+
+                if record.reloc_type() == 0 {
+                    return None; // IMAGE_REL_BASED_ABSOLUTE padding
+                }
+
+                DynRelocRelocation::Epilogue(DynRelocEpilogue {
+                    symbol: self.symbol,
+                    block_rva: self.block_rva,
+                    record,
+                })
+            }
+            IMAGE_DYNAMIC_RELOCATION_ARM64_KERNEL_IMPORT_CALL_TRANSFER => {
+                let record = ImportControlTransferArm64Reloc(
+                    self.bytes
+                        .gread_with::<u32>(&mut self.offset, scroll::LE)
+                        .ok()?,
+                );
+
+                DynRelocRelocation::KernelImport(DynRelocKernelImport {
+                    symbol: self.symbol,
+                    block_rva: self.block_rva,
+                    record,
+                })
+            }
             IMAGE_DYNAMIC_RELOCATION_FUNCTION_OVERRIDE => {
-                // This is unreachable. See impl Iterator for DynRelocBlockIterator.
-                unimplemented!()
+                // Function override uses a different access path via
+                // DynRelocEntry::function_override_info(), not base relocation blocks.
+                self.bytes = &[];
+                return None;
             }
             // IMAGE_DYNAMIC_RELOCATION_KI_USER_SHARED_DATA64 etc
             x if x > u8::MAX as _ => {

@@ -1250,9 +1250,7 @@ impl DynRelocRelocation {
             DynRelocRelocation::Branch(data) => Some(data.record.page_relative_offset() as _),
             DynRelocRelocation::Prologue(data) => Some(data.record.offset() as _),
             DynRelocRelocation::Epilogue(data) => Some(data.record.offset() as _),
-            DynRelocRelocation::KernelImport(data) => {
-                Some(data.record.page_relative_offset() as _)
-            }
+            DynRelocRelocation::KernelImport(data) => Some(data.record.page_relative_offset() as _),
         }
     }
 }

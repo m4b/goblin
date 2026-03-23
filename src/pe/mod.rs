@@ -194,7 +194,10 @@ impl<'a> PE<'a> {
                 }
             }
             debug!("exports: {:#?}", exports);
-            if let Some(&import_table) = optional_header.data_directories.get_import_table() {
+            if let (true, Some(&import_table)) = (
+                opts.parse_imports,
+                optional_header.data_directories.get_import_table(),
+            ) {
                 let id = if is_64 {
                     import::ImportData::parse_with_opts::<u64>(
                         bytes,

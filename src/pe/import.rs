@@ -452,8 +452,18 @@ impl<'a> ImportData<'a> {
         }
 
         debug!("import data offset {:#x}", offset);
+
+        let max_entries = if dd.size as usize >= SIZEOF_IMPORT_DIRECTORY_ENTRY {
+            dd.size as usize / SIZEOF_IMPORT_DIRECTORY_ENTRY - 1
+        } else {
+            0
+        };
         let mut import_data = Vec::new();
+        let mut entry_index = 0usize;
         loop {
+            if entry_index >= max_entries {
+                break;
+            }
             // Check bounds before reading to handle packed binaries where sections
             // may point to addresses beyond the file size
             if *offset + SIZEOF_IMPORT_DIRECTORY_ENTRY > bytes.len() {
@@ -474,6 +484,7 @@ impl<'a> ImportData<'a> {
             let import_directory_entry: ImportDirectoryEntry =
                 bytes.gread_with(offset, scroll::LE)?;
             debug!("{:#?} at {:#x}", import_directory_entry, offset);
+            entry_index += 1;
             if import_directory_entry.is_null() || !import_directory_entry.is_possibly_valid() {
                 break;
             } else {

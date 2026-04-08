@@ -40,7 +40,7 @@ use crate::pe::utils::pad;
 use crate::strtab;
 use options::ParseMode;
 
-use scroll::{Pwrite, ctx};
+use scroll::{ctx, Pwrite};
 
 use log::debug;
 
@@ -365,15 +365,19 @@ impl<'a> PE<'a> {
             };
 
             if let Some(&resource_table) = optional_header.data_directories.get_resource_table() {
-                let data = resource::ResourceData::parse_with_opts(
+                resource_data = resource::ResourceData::parse_with_opts(
                     bytes,
                     resource_table,
                     &sections,
                     file_alignment,
                     opts,
+                )
+                .map(Some)
+                .or_permissive_and_default(
+                    opts.parse_mode.is_permissive(),
+                    "Failed to parse resource data",
                 )?;
-                resource_data = Some(data);
-                debug!("resource_data data: {:#?}", data.version_info);
+                debug!("resource_data data: {:#?}", resource_data);
             }
 
             authenticode_excluded_sections = Some(authenticode::ExcludedSections::new(

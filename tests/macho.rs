@@ -528,10 +528,25 @@ fn parse_sections() {
 fn version() {
     let bytes = &DEADBEEF_MACH_64;
     let mach = Mach::parse(&bytes[..]).unwrap();
-    let actual: version::Version = mach.into();
+    let actual_hash = mach.versions();
+    let actual = &actual_hash[&cputype::CPU_TYPE_X86_64];
     let expected = "10.10.0".parse::<version::Version>();
     assert!(expected.is_ok()); // Test parsing strings
-    assert_eq!(actual, expected.unwrap()); // Test parsing binaries
+    assert_eq!(actual_hash.len(), 1); // Test parsing binaries
+    assert_eq!(actual, &expected.unwrap()); // Test parsing binaries
+    assert_eq!(format!("{}", actual), "10.10.0"); // Test formatting version
+}
+
+#[test]
+fn version_from_macho() {
+    let bytes = &DEADBEEF_MACH_64;
+    if let Mach::Binary(binary) = Mach::parse(bytes.as_ref()).unwrap() {
+        let expected = "10.10.0".parse::<version::Version>().unwrap();
+        let actual = binary.version();
+        assert_eq!(actual, Some(expected));
+    } else {
+        panic!("got mach fat from regular binary");
+    }
 }
 
 #[test]

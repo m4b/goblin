@@ -6,13 +6,13 @@ use crate::mach::MachO;
 use crate::mach::load_command::CommandVariant;
 
 if_std! {
+    use crate::error;
     use crate::mach::{Mach, SingleArch};
-    use crate::error::Error;
-    use crate::mach::cputype::{CPU_TYPE_ARM64, CPU_TYPE_X86_64};
+    use crate::mach::cputype::CpuType;
     use std::cmp::Ordering;
-    use std::collections::VecDeque;
+    use std::collections::{VecDeque,HashMap};
     use std::str::FromStr;
-    use std::{env, fmt};
+    use std::fmt;
 }
 
 #[derive(Eq, Debug)]
@@ -26,29 +26,24 @@ impl From<u32> for Version {
     fn from(packed: u32) -> Self {
         // X.Y.Z is encoded in nibbles xxxx.yy.zz
         // 12.6 = 0b0000_0000_0000_1100_0000_0110_0000_0000
-        let major = (packed & 0b1111_1111_1111_1111_0000_0000_0000_0000u32) >> 16;
-        let minor = (packed & 0b0000_0000_0000_0000_1111_1111_0000_0000u32) >> 8;
-        let patch = (packed & 0b0000_0000_0000_0000_0000_0000_1111_1111u32) >> 0;
         Self {
-            major,
-            minor,
-            patch,
+            major: (packed & 0b1111_1111_1111_1111_0000_0000_0000_0000u32) >> 16,
+            minor: (packed & 0b0000_0000_0000_0000_1111_1111_0000_0000u32) >> 8,
+            patch: (packed & 0b0000_0000_0000_0000_0000_0000_1111_1111u32) >> 0,
         }
     }
 }
 
-impl From<MachO<'_>> for Version {
-    fn from(b: MachO) -> Self {
-        let packed = b
-            .load_commands
+impl MachO<'_> {
+    pub fn version(&self) -> Option<Version> {
+        self.load_commands
             .iter()
             .find_map(|c| match c.command {
                 CommandVariant::VersionMinMacosx(v) => Some(v.version),
                 CommandVariant::BuildVersion(v) => Some(v.minos),
                 _ => None,
             })
-            .unwrap();
-        Self::from(packed)
+            .map(Version::from)
     }
 }
 
@@ -92,47 +87,62 @@ if_std! {
     }
 
     impl FromStr for Version {
-        type Err = Error;
+        type Err = error::Error;
 
         fn from_str(s: &str) -> Result<Self, Self::Err> {
             let mut parts = s
             .trim()
             .split('.')
-            .map(|p| p.parse::<u32>().unwrap())
+            .map(|p| p.parse::<u32>().unwrap_or(0))
             .take(3)
             .collect::<VecDeque<u32>>();
 
-            Ok(Self {
-                major: parts.pop_front().unwrap(),
-                minor: parts.pop_front().unwrap_or(0),
-                patch: parts.pop_front().unwrap_or(0),
-            })
+            if parts.front().is_some_and(|major| *major > 0) {
+                Ok(Self {
+                    major: parts.pop_front().unwrap(), // existance checked in conditional
+                    minor: parts.pop_front().unwrap_or(0),
+                    patch: parts.pop_front().unwrap_or(0),
+                })
+            } else {
+                Err(error::Error::Malformed("Missing major version from target version, version string should look like: X.Y.Z".to_string()))
+            }
         }
     }
 
-    impl From<Mach<'_>> for Version {
-        fn from(b: Mach) -> Self {
+    impl TryFrom<Mach<'_>> for Vec<Version> {
+        type Error = error::Error;
+
+        fn try_from(b: Mach) -> Result<Self, error::Error> {
             match b {
-                Mach::Binary(b) => Version::from(b),
-                Mach::Fat(f) => {
-                    match f
-                    .find(|r| {
-                        r.unwrap().cputype
-                        == match env::var("CARGO_CFG_TARGET_ARCH").as_deref() {
-                            Ok("x86_64") => CPU_TYPE_X86_64,
-                            Ok("aarch64") => CPU_TYPE_ARM64,
-                            _ => panic!("unknown arch"),
-                        }
-                    })
-                    .unwrap()
-                    .ok()
-                    .unwrap()
-                    {
-                        SingleArch::MachO(b) => Version::from(b),
-                        SingleArch::Archive(_) => panic!("lib is an archive?"),
-                    }
-                }
+                Mach::Binary(b) => b.version().ok_or(error::Error::Malformed("Binary has no version".to_string())).map(|v|vec![v]),
+                Mach::Fat(f) => f.into_iter().map(|r| r.map(|s| match s {
+                    SingleArch::MachO(b) => b.version().ok_or_else(||error::Error::Malformed("Missing or corrupted version".to_string())),
+                    SingleArch::Archive(_) => Err(error::Error::Malformed("lib is an archive?".to_string())),
+                }).flatten()).collect(),
             }
+        }
+    }
+
+    impl Mach<'_> {
+        pub fn versions(self) -> HashMap<CpuType, Version> {
+            let mut hash = HashMap::new();
+            match self {
+                Mach::Binary(b) => {
+                    if let Some(v) = b.version() {
+                        hash.insert(b.header.cputype, v);
+                    }
+                },
+                Mach::Fat(f) => {
+                    for r in f.into_iter() {
+                        if let Ok(SingleArch::MachO(b)) = r {
+                            if let Some(v) = b.version() {
+                                hash.insert(b.header.cputype, v);
+                            }
+                        }
+                    }
+                },
+            };
+            hash
         }
     }
 }

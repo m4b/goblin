@@ -118,7 +118,7 @@ if_std! {
                 Mach::Fat(f) => f.into_iter().map(|r| r.map(|s| match s {
                     SingleArch::MachO(b) => b.version().ok_or_else(||error::Error::Malformed("Missing or corrupted version".to_string())),
                     SingleArch::Archive(_) => Err(error::Error::Malformed("lib is an archive?".to_string())),
-                }).flatten()).collect(),
+                }).and_then(std::convert::identity)).collect(),
             }
         }
     }

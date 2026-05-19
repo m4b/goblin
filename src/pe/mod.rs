@@ -378,7 +378,9 @@ impl<'a> PE<'a> {
                 0
             };
 
-            if let Some(&resource_table) = optional_header.data_directories.get_resource_table() {
+            if opts.parse_resources
+                && let Some(&resource_table) = optional_header.data_directories.get_resource_table()
+            {
                 resource_data = resource::ResourceData::parse_with_opts(
                     bytes,
                     resource_table,

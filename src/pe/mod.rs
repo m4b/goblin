@@ -364,19 +364,18 @@ impl<'a> PE<'a> {
                 0
             };
 
-            if opts.parse_resources {
-                if let Some(&resource_table) = optional_header.data_directories.get_resource_table()
-                {
-                    let data = resource::ResourceData::parse_with_opts(
-                        bytes,
-                        resource_table,
-                        &sections,
-                        file_alignment,
-                        opts,
-                    )?;
-                    resource_data = Some(data);
-                    debug!("resource_data data: {:#?}", data.version_info);
-                }
+            if opts.parse_resources
+                && let Some(&resource_table) = optional_header.data_directories.get_resource_table()
+            {
+                let data = resource::ResourceData::parse_with_opts(
+                    bytes,
+                    resource_table,
+                    &sections,
+                    file_alignment,
+                    opts,
+                )?;
+                resource_data = Some(data);
+                debug!("resource_data data: {:#?}", data.version_info);
             }
 
             authenticode_excluded_sections = Some(authenticode::ExcludedSections::new(

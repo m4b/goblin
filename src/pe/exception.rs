@@ -1,4 +1,4 @@
-//! Exception handling and stack unwinding for x64.
+//! Exception handling and stack unwinding for x64 and ARM64.
 //!
 //! Exception information is exposed via the [`ExceptionData`] structure. If present in a PE file,
 //! it contains a list of [`RuntimeFunction`] entries that can be used to get [`UnwindInfo`] for a
@@ -834,6 +834,37 @@ impl<'a> ExceptionData<'a> {
             }));
         }
 
+        Self::parse_inner(bytes, directory, sections, file_alignment, opts)
+    }
+
+    /// Parses ARM64 exception data from the image at the given offset.
+    pub fn parse_arm64_with_opts(
+        bytes: &'a [u8],
+        directory: data_directories::DataDirectory,
+        sections: &[section_table::SectionTable],
+        file_alignment: u32,
+        opts: &options::ParseOptions,
+    ) -> error::Result<Self> {
+        let size = directory.size as usize;
+
+        if size % size_of::<Arm64RuntimeFunction>() != 0 {
+            return Err(error::Error::from(scroll::Error::BadInput {
+                size,
+                msg: "invalid exception directory table size",
+            }));
+        }
+
+        Self::parse_inner(bytes, directory, sections, file_alignment, opts)
+    }
+
+    fn parse_inner(
+        bytes: &'a [u8],
+        directory: data_directories::DataDirectory,
+        sections: &[section_table::SectionTable],
+        file_alignment: u32,
+        opts: &options::ParseOptions,
+    ) -> error::Result<Self> {
+        let size = directory.size as usize;
         let rva = directory.virtual_address as usize;
         let offset = utils::find_offset(rva, sections, file_alignment, opts).ok_or_else(|| {
             error::Error::Malformed(format!("cannot map exception_rva ({:#x}) into offset", rva))
@@ -851,9 +882,14 @@ impl<'a> ExceptionData<'a> {
         })
     }
 
-    /// The number of function entries described by this exception data.
+    /// The number of x64 function entries described by this exception data.
     pub fn len(&self) -> usize {
         self.size / RUNTIME_FUNCTION_SIZE
+    }
+
+    /// The number of ARM64 function entries described by this exception data.
+    pub fn len_arm64(&self) -> usize {
+        self.size / size_of::<Arm64RuntimeFunction>()
     }
 
     /// Indicating whether there are functions in this entry.
@@ -877,6 +913,18 @@ impl<'a> ExceptionData<'a> {
     /// Returns the function at the given index.
     pub fn get_function(&self, index: usize) -> error::Result<RuntimeFunction> {
         self.get_function_by_offset(self.offset + index * RUNTIME_FUNCTION_SIZE)
+    }
+
+    /// Returns an iterator over ARM64 runtime function entries.
+    pub fn functions_arm64(&self) -> Arm64RuntimeFunctionIterator<'a> {
+        Arm64RuntimeFunctionIterator {
+            data: &self.bytes[self.offset..self.offset + self.size],
+        }
+    }
+
+    /// Returns an ARM64 runtime function at the given index.
+    pub fn get_function_arm64(&self, index: usize) -> error::Result<Arm64RuntimeFunction> {
+        self.get_function_by_offset_arm64(self.offset + index * size_of::<Arm64RuntimeFunction>())
     }
 
     /// Performs a binary search to find a function entry covering the given RVA relative to the
@@ -926,6 +974,15 @@ impl<'a> ExceptionData<'a> {
         self.get_unwind_info_with_opts(function, sections, &options::ParseOptions::default())
     }
 
+    /// Resolves unwind information for the given ARM64 function entry.
+    pub fn get_unwind_info_arm64(
+        &self,
+        function: Arm64RuntimeFunction,
+        sections: &[section_table::SectionTable],
+    ) -> Option<error::Result<Arm64UnwindInfo<'a>>> {
+        self.get_unwind_info_arm64_with_opts(function, sections, &options::ParseOptions::default())
+    }
+
     /// Resolves unwind information for the given function entry.
     pub fn get_unwind_info_with_opts(
         &self,
@@ -945,6 +1002,29 @@ impl<'a> ExceptionData<'a> {
             })?;
 
         UnwindInfo::parse(self.bytes, offset)
+    }
+
+    /// Resolves unwind information for the given ARM64 function entry.
+    pub fn get_unwind_info_arm64_with_opts(
+        &self,
+        function: Arm64RuntimeFunction,
+        sections: &[section_table::SectionTable],
+        opts: &options::ParseOptions,
+    ) -> Option<error::Result<Arm64UnwindInfo<'a>>> {
+        if function.flag() == ARM64_PDATA_REF_TO_FULL_XDATA {
+            let rva = function.unwind_data_rva() as usize;
+            let offset = match utils::find_offset(rva, sections, self.file_alignment, opts)
+                .ok_or_else(|| {
+                    error::Error::Malformed(format!("cannot map unwind rva ({rva:#x}) into offset"))
+                }) {
+                Ok(v) => v,
+                Err(err) => return Some(Err(err)),
+            };
+            Some(Arm64UnwindInfo::parse(self.bytes, offset))
+        } else {
+            // Unwind info is packed into the runtime function entry.
+            None
+        }
     }
 
     #[allow(dead_code)]
@@ -980,6 +1060,14 @@ impl<'a> ExceptionData<'a> {
 
         Ok(self.bytes.pread_with(offset, scroll::LE)?)
     }
+
+    #[inline]
+    fn get_function_by_offset_arm64(&self, offset: usize) -> error::Result<Arm64RuntimeFunction> {
+        debug_assert!((offset - self.offset) % size_of::<Arm64RuntimeFunction>() == 0);
+        debug_assert!(offset < self.offset + self.size);
+
+        Ok(self.bytes.pread_with(offset, scroll::LE)?)
+    }
 }
 
 impl fmt::Debug for ExceptionData<'_> {
@@ -1000,6 +1088,1020 @@ impl<'a> IntoIterator for &'_ ExceptionData<'a> {
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
         self.functions()
+    }
+}
+
+// Arm64RuntimeFunction::flag
+
+/// `unwind_data` is an RVA to a full unwind record.
+pub const ARM64_PDATA_REF_TO_FULL_XDATA: u32 = 0;
+/// `unwind_data` uses the packed unwind data for a function.
+pub const ARM64_PDATA_PACKED_UNWIND_FUNCTION: u32 = 1;
+/// `unwind_data` uses the packed unwind data for a fragment.
+pub const ARM64_PDATA_PACKED_UNWIND_FRAGMENT: u32 = 2;
+
+// Arm64RuntimeFunction::cr
+
+/// Unchained function `<x29, lr>` pair is not saved on the stack.
+pub const ARM64_PDATA_CR_UNCHAINED: u32 = 0;
+/// Unchained function but `lr` is saved on the stack.
+pub const ARM64_PDATA_CR_UNCHAINED_SAVED_LR: u32 = 1;
+/// Chained function with PAC (Pointer Authentication Code).
+pub const ARM64_PDATA_CR_CHAINED_WITH_PAC: u32 = 2;
+/// Chained function.
+pub const ARM64_PDATA_CR_CHAINED: u32 = 3;
+
+/// An ARM64 unwind entry for a range.
+#[repr(C)]
+#[derive(Copy, Clone, PartialEq, Default, Pread, Pwrite)]
+pub struct Arm64RuntimeFunction {
+    /// Function start RVA.
+    pub begin_address: u32,
+    /// Unwind data for this function entry.
+    pub unwind_data: u32,
+}
+
+const _: () = assert!(size_of::<Arm64RuntimeFunction>() == 8);
+
+impl Arm64RuntimeFunction {
+    const fn mask(bits: u32) -> u32 {
+        (1u32 << bits) - 1
+    }
+
+    const fn bits(v: u32, shr: u32, bits: u32) -> u32 {
+        (v >> shr) & Self::mask(bits)
+    }
+
+    /// If zero, unwind data is an RVA, packed into the runtime function entry otherwise.
+    ///
+    /// Must be one of:
+    /// - [ARM64_PDATA_REF_TO_FULL_XDATA]
+    /// - [ARM64_PDATA_PACKED_UNWIND_FUNCTION]
+    /// - [ARM64_PDATA_PACKED_UNWIND_FRAGMENT]
+    #[inline]
+    pub const fn flag(&self) -> u32 {
+        Self::bits(self.unwind_data, 0, 2)
+    }
+
+    /// Returns the length of the function in bytes.
+    #[inline]
+    pub const fn function_length(&self) -> u32 {
+        Self::bits(self.unwind_data, 2, 11).wrapping_mul(4)
+    }
+
+    /// Returns the frame size in bytes (bits [21:13], multiplied by 16).
+    #[inline]
+    pub const fn frame_size(&self) -> u32 {
+        Self::bits(self.unwind_data, 13, 9).wrapping_mul(16)
+    }
+
+    /// Returns the CR (chain/return) field (bits [23:22]).
+    ///
+    /// Must be one of:
+    /// - [ARM64_PDATA_CR_UNCHAINED]
+    /// - [ARM64_PDATA_CR_UNCHAINED_SAVED_LR]
+    /// - [ARM64_PDATA_CR_CHAINED_WITH_PAC]
+    /// - [ARM64_PDATA_CR_CHAINED]
+    #[inline]
+    pub const fn cr(&self) -> u32 {
+        Self::bits(self.unwind_data, 22, 2)
+    }
+
+    /// Returns `true` if the function homes integer parameter registers x0-x7 (bit [24]).
+    #[inline]
+    pub const fn h(&self) -> bool {
+        Self::bits(self.unwind_data, 24, 1) != 0
+    }
+
+    /// Returns the number of saved non-volatile INT registers (x19-x28) (bits [28:25]).
+    #[inline]
+    pub const fn reg_i(&self) -> u32 {
+        Self::bits(self.unwind_data, 25, 4)
+    }
+
+    /// Returns the number of saved non-volatile FP registers (d8-d15) (bits [31:29]).
+    ///
+    /// 0 means no FP registers saved. Values 1-7 mean `reg_f + 1` registers saved.
+    #[inline]
+    pub const fn reg_f(&self) -> u32 {
+        Self::bits(self.unwind_data, 29, 3)
+    }
+
+    /// Returns `true` if this unwind data is packed, `false` otherwise.
+    #[inline]
+    pub const fn is_packed(&self) -> bool {
+        self.flag() != ARM64_PDATA_REF_TO_FULL_XDATA
+    }
+
+    /// Returns an RVA of the full unwind data.
+    #[inline]
+    pub const fn unwind_data_rva(&self) -> u32 {
+        self.unwind_data & !Self::mask(2)
+    }
+}
+
+impl fmt::Debug for Arm64RuntimeFunction {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Arm64RuntimeFunction")
+            .field("begin_address", &format_args!("{:#x}", self.begin_address))
+            .field("unwind_data", &format_args!("{:#x}", self.unwind_data))
+            .finish()
+    }
+}
+
+/// Iterator over [Arm64RuntimeFunction] ARM64 runtime function entries.
+#[derive(Debug)]
+pub struct Arm64RuntimeFunctionIterator<'a> {
+    data: &'a [u8],
+}
+
+impl Iterator for Arm64RuntimeFunctionIterator<'_> {
+    type Item = error::Result<Arm64RuntimeFunction>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.data.is_empty() {
+            return None;
+        }
+
+        Some(match self.data.pread_with(0, scroll::LE) {
+            Ok(func) => {
+                self.data = &self.data[size_of::<Arm64RuntimeFunction>()..];
+                Ok(func)
+            }
+            Err(error) => {
+                self.data = &[];
+                Err(error.into())
+            }
+        })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.data.len() / size_of::<Arm64RuntimeFunction>();
+        (len, Some(len))
+    }
+}
+
+impl FusedIterator for Arm64RuntimeFunctionIterator<'_> {}
+impl ExactSizeIterator for Arm64RuntimeFunctionIterator<'_> {}
+
+/// ARM64 unwind info header.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Arm64UnwindHeader(pub u32);
+
+const _: () = assert!(size_of::<Arm64UnwindHeader>() == 4);
+
+impl Arm64UnwindHeader {
+    const fn mask(bits: u32) -> u32 {
+        (1u32 << bits) - 1
+    }
+
+    const fn bits(v: u32, shr: u32, bits: u32) -> u32 {
+        (v >> shr) & Self::mask(bits)
+    }
+
+    /// Returns a function length in bytes.
+    #[inline]
+    pub const fn function_length(&self) -> u32 {
+        Self::bits(self.0, 0, 18).wrapping_mul(4)
+    }
+
+    /// Returns an unwind info version.
+    #[inline]
+    pub const fn version(&self) -> u32 {
+        Self::bits(self.0, 18, 2)
+    }
+
+    /// Returns `true` if the unwind info has exception handler.
+    #[inline]
+    pub const fn exception_data_present(&self) -> bool {
+        Self::bits(self.0, 20, 1) != 0
+    }
+
+    /// Returns `true` if an epilog is in the header.
+    #[inline]
+    pub const fn epilog_in_header(&self) -> bool {
+        Self::bits(self.0, 21, 1) != 0
+    }
+
+    /// Returns bits indicates either an number of epilog scope or
+    /// the index of the first unwind code that describes the epilog.
+    #[inline]
+    pub const fn epilog_count(&self) -> u32 {
+        Self::bits(self.0, 22, 5)
+    }
+
+    /// Returns the number of u32's with unwind codes.
+    #[inline]
+    pub const fn code_words(&self) -> u32 {
+        Self::bits(self.0, 27, 5)
+    }
+
+    /// Returns `true` if "extension" bytes are in addition.
+    #[inline]
+    pub const fn has_extension(&self) -> bool {
+        self.epilog_count() == 0 && self.code_words() == 0
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Arm64UnwindExtension(pub u32);
+
+const _: () = assert!(size_of::<Arm64UnwindExtension>() == 4);
+
+impl Arm64UnwindExtension {
+    /// Returns the number of epilog.
+    #[inline]
+    pub const fn epilog_count(&self) -> u32 {
+        self.0 & 0xFFFF
+    }
+
+    /// Returns the number of u32's with unwind codes.
+    #[inline]
+    pub const fn code_words(&self) -> u32 {
+        (self.0 >> 16) & 0xFF
+    }
+}
+
+/// ARM64 epilog scope info.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Arm64EpilogScope(pub u32);
+
+const _: () = assert!(size_of::<Arm64EpilogScope>() == 4);
+
+impl Arm64EpilogScope {
+    const fn mask(bits: u32) -> u32 {
+        (1u32 << bits) - 1
+    }
+
+    const fn bits(v: u32, shr: u32, bits: u32) -> u32 {
+        (v >> shr) & Self::mask(bits)
+    }
+
+    /// Returns an epulog start offset in bytes.
+    #[inline]
+    pub const fn start_offset_words(&self) -> u32 {
+        Self::bits(self.0, 0, 18).wrapping_mul(4)
+    }
+
+    /// Returns the bits indicate condition.
+    #[inline]
+    pub const fn condition(&self) -> u32 {
+        Self::bits(self.0, 18, 4)
+    }
+
+    /// Returns the index of the unwind code.
+    #[inline]
+    pub const fn start_index(&self) -> u32 {
+        Self::bits(self.0, 22, 10)
+    }
+}
+
+/// Iterator over epilog scopes.
+#[derive(Debug)]
+pub struct Arm64EpilogScopeIterator<'a> {
+    bytes: &'a [u8],
+    offset: usize,
+}
+
+impl Iterator for Arm64EpilogScopeIterator<'_> {
+    type Item = error::Result<Arm64EpilogScope>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.offset >= self.bytes.len() {
+            return None;
+        }
+        Some(
+            self.bytes
+                .gread_with::<u32>(&mut self.offset, scroll::LE)
+                .map(Arm64EpilogScope)
+                .map_err(Into::into),
+        )
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = (self.bytes.len().saturating_sub(self.offset)) / size_of_val(&0u32);
+        (len, Some(len))
+    }
+}
+
+impl FusedIterator for Arm64EpilogScopeIterator<'_> {}
+impl ExactSizeIterator for Arm64EpilogScopeIterator<'_> {}
+
+/// ARM64 exception handler.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Arm64ExceptionHandler<'a> {
+    /// RVA of the exception handler.
+    pub rva: u32,
+    /// Handler-specific data.
+    pub data: &'a [u8],
+}
+
+/// ARM64 unwind info.
+#[derive(Clone, Debug)]
+pub struct Arm64UnwindInfo<'a> {
+    /// Unwind info header.
+    pub header: Arm64UnwindHeader,
+    /// Extension info if present.
+    pub extension: Option<Arm64UnwindExtension>,
+    /// Exception handler and bytes of handler specific data if present.
+    pub exception_handler: Option<Arm64ExceptionHandler<'a>>,
+    /// Bytes of epilog scope.
+    epilog_scope_bytes: &'a [u8],
+    /// Bytes of unwind codes.
+    unwind_code_bytes: &'a [u8],
+}
+
+impl<'a> Arm64UnwindInfo<'a> {
+    fn checked_mul4(words: u32) -> error::Result<usize> {
+        let bytes = words
+            .checked_mul(4)
+            .ok_or_else(|| error::Error::Malformed("arm64 unwind info size overflow".into()))?;
+        usize::try_from(bytes)
+            .map_err(|_| error::Error::Malformed("arm64 unwind info size overflow".into()))
+    }
+
+    fn checked_add(a: usize, b: usize) -> error::Result<usize> {
+        a.checked_add(b)
+            .ok_or_else(|| error::Error::Malformed("arm64 unwind info size overflow".into()))
+    }
+
+    /// Precomputes the size of this xdata. This does _not_ count for handler-specific bytes after handler RVA.
+    /// <https://learn.microsoft.com/en-us/cpp/build/arm64-exception-handling?view=msvc-170#xdata-records>
+    pub fn size(bytes: &[u8]) -> error::Result<usize> {
+        let w0 = bytes.pread_with::<u32>(0, scroll::LE)?;
+
+        let (mut size_u32, epilog_scopes, unwind_words) = if (w0 >> 22) != 0 {
+            let size = 4u32;
+            let epilog_scopes = (w0 >> 22) & 0x1f;
+            let unwind_words = (w0 >> 27) & 0x1f;
+            (size, epilog_scopes, unwind_words)
+        } else {
+            let w1 = bytes.pread_with::<u32>(4, scroll::LE)?;
+            let size = 8u32;
+            let epilog_scopes = w1 & 0xffff;
+            let unwind_words = (w1 >> 16) & 0xff;
+            (size, epilog_scopes, unwind_words)
+        };
+
+        let epilog_in_header = (w0 & (1u32 << 21)) != 0;
+        if !epilog_in_header {
+            size_u32 = Self::checked_add(size_u32 as _, Self::checked_mul4(epilog_scopes)?)? as _;
+        }
+
+        size_u32 = Self::checked_add(size_u32 as _, Self::checked_mul4(unwind_words)?)? as _;
+
+        let exception_data_present = (w0 & (1u32 << 20)) != 0;
+        if exception_data_present {
+            size_u32 = Self::checked_add(size_u32 as _, 4)? as _;
+        }
+
+        Ok(size_u32 as usize)
+    }
+
+    /// Parses a full ARM64 unwind xdata.
+    pub fn parse(bytes: &'a [u8], mut offset: usize) -> error::Result<Self> {
+        let header_word = bytes.gread_with::<u32>(&mut offset, scroll::LE)?;
+        let header = Arm64UnwindHeader(header_word);
+
+        if header.version() != 0 {
+            return Err(error::Error::Malformed(format!(
+                "unsupported ARM64 .xdata version ({})",
+                header.version()
+            )));
+        }
+
+        let extension = if header.has_extension() {
+            let ext_word = bytes.gread_with::<u32>(&mut offset, scroll::LE)?;
+            Some(Arm64UnwindExtension(ext_word))
+        } else {
+            None
+        };
+
+        let epilog_scopes = match (header.epilog_in_header(), extension) {
+            (false, Some(ext)) => ext.epilog_count(),
+            (false, None) => header.epilog_count(),
+            (true, _) => 0,
+        };
+
+        let unwind_words = if let Some(ext) = extension {
+            ext.code_words()
+        } else {
+            header.code_words()
+        };
+
+        let scope_bytes_len = Self::checked_mul4(epilog_scopes)?;
+        let epilog_scope_bytes = bytes.gread_with(&mut offset, scope_bytes_len)?;
+
+        let unwind_bytes_len = Self::checked_mul4(unwind_words)?;
+        let unwind_code_bytes = bytes.gread_with(&mut offset, unwind_bytes_len)?;
+
+        let exception_handler = if header.exception_data_present() {
+            let handler_rva = bytes.gread_with::<u32>(&mut offset, scroll::LE)?;
+            let data = bytes.get(offset..).unwrap_or(&[]);
+            Some(Arm64ExceptionHandler {
+                rva: handler_rva,
+                data,
+            })
+        } else {
+            None
+        };
+
+        Ok(Self {
+            header,
+            extension,
+            epilog_scope_bytes,
+            unwind_code_bytes,
+            exception_handler,
+        })
+    }
+
+    /// Returns an iterator over epilog scope words.
+    pub fn epilog_scopes(&self) -> Option<Arm64EpilogScopeIterator<'a>> {
+        if self.header.epilog_in_header() || self.epilog_scope_bytes.is_empty() {
+            return None;
+        }
+        Some(Arm64EpilogScopeIterator {
+            bytes: self.epilog_scope_bytes,
+            offset: 0,
+        })
+    }
+
+    /// Returns an iterator over unwind codes.
+    pub fn unwind_codes(&self, start_index: u16) -> error::Result<Arm64UnwindCodeIterator<'a>> {
+        Arm64UnwindCodeIterator::new(self.unwind_code_bytes, start_index as usize)
+    }
+}
+
+/// Custom stack cases reserved for specific Microsoft unwind opcodes.
+///
+/// For more info: <https://learn.microsoft.com/en-us/cpp/build/arm64-exception-handling?view=msvc-170#unwind-codes>
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Arm64CustomStackCase {
+    TrapFrame,
+    MachineFrame,
+    Context,
+    EcContext,
+    ClearUnwoundToCall,
+}
+
+/// ARM64 unwind codes.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Arm64UnwindCode {
+    AllocSmall {
+        size_bytes: u32,
+    },
+    SaveR19R20Preindexed {
+        offset_bytes: u32,
+    },
+    SaveFpLr {
+        offset_bytes: u32,
+    },
+    SaveFpLrPreindexed {
+        offset_bytes: u32,
+    },
+    AllocMedium {
+        size_bytes: u32,
+    },
+    SaveRegPair {
+        first_reg: u8,
+        offset_bytes: u32,
+    },
+    SaveRegPairPreindexed {
+        first_reg: u8,
+        offset_bytes: u32,
+    },
+    SaveReg {
+        reg: u8,
+        offset_bytes: u32,
+    },
+    SaveRegPreindexed {
+        reg: u8,
+        offset_bytes: u32,
+    },
+    SaveLrPair {
+        first_reg: u8,
+        offset_bytes: u32,
+    },
+    SaveFRegPair {
+        first_reg: u8,
+        offset_bytes: u32,
+    },
+    SaveFRegPairPreindexed {
+        first_reg: u8,
+        offset_bytes: u32,
+    },
+    SaveFReg {
+        reg: u8,
+        offset_bytes: u32,
+    },
+    SaveFRegPreindexed {
+        reg: u8,
+        offset_bytes: u32,
+    },
+
+    AllocZ {
+        count: u8,
+    },
+
+    AllocLarge {
+        size_bytes: u32,
+    },
+    SetFp,
+    AddFp {
+        imm8: u8,
+        offset_bytes: u32,
+    },
+    Nop,
+    End,
+    EndC,
+    SaveNext,
+
+    SaveAnyReg {
+        kind: u8,
+        pair: bool,
+        preindexed: bool,
+        reg: u8,
+        offset_bytes: u32,
+    },
+
+    SaveZReg {
+        r: u8,
+        o: u16,
+    },
+
+    SavePReg {
+        r: u8,
+        o: u16,
+    },
+
+    CustomStack(Arm64CustomStackCase),
+
+    PacSignLr,
+
+    Reserved {
+        opcode: u8,
+        data: u32,
+        data_len: u8,
+    },
+}
+
+/// Intermediate data to store offset and length of the unwind code.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Arm64UnwindCodeData {
+    /// Offset of this unwind code.
+    pub offset: u16,
+    /// The unwind code.
+    pub code: Arm64UnwindCode,
+    /// Length of this unwind code in bytes.
+    pub len: u8,
+}
+
+/// Iterator over ARM64 unwind codes.
+pub struct Arm64UnwindCodeIterator<'a> {
+    bytes: &'a [u8],
+    offset: usize,
+}
+
+impl<'a> Arm64UnwindCodeIterator<'a> {
+    /// Create a new iterator starting at `start` (byte index in the MSB-first unwind-byte stream).
+    pub fn new(raw_unwind_bytes: &'a [u8], start: usize) -> error::Result<Self> {
+        if raw_unwind_bytes.len() % 4 != 0 {
+            return Err(error::Error::Malformed("length not a multiple of 4".into()));
+        }
+        if start > raw_unwind_bytes.len() {
+            return Err(error::Error::Malformed("start index out of range".into()));
+        }
+
+        Ok(Self {
+            bytes: raw_unwind_bytes,
+            offset: start,
+        })
+    }
+}
+
+impl<'a> Iterator for Arm64UnwindCodeIterator<'a> {
+    type Item = error::Result<Arm64UnwindCodeData>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.offset >= self.bytes.len() {
+            return None;
+        }
+
+        macro_rules! fail {
+            ($msg:expr) => {{
+                self.offset = self.bytes.len();
+                return Some(Err($crate::error::Error::Malformed(($msg).into())));
+            }};
+            ($fmt:literal $(, $args:expr)* $(,)?) => {{
+                self.offset = self.bytes.len();
+                return Some(Err($crate::error::Error::Malformed(format!($fmt $(, $args)*))));
+            }};
+        }
+
+        macro_rules! try_read_u8 {
+            ($at:expr) => {{
+                match self.bytes.pread::<u8>($at) {
+                    Ok(v) => v,
+                    Err(err) => fail!("{}", err),
+                }
+            }};
+            ($at:expr, $msg:expr) => {{
+                match self.bytes.pread::<u8>($at) {
+                    Ok(v) => v,
+                    Err(_) => fail!($msg),
+                }
+            }};
+            ($at:expr, $fmt:literal $(, $args:expr)* $(,)?) => {{
+                match self.bytes.pread::<u8>($at) {
+                    Ok(v) => v,
+                    Err(_) => fail!($fmt $(, $args)*),
+                }
+            }};
+        }
+
+        // https://learn.microsoft.com/en-us/cpp/build/arm64-exception-handling?view=msvc-170#unwind-codes
+
+        let start = self.offset;
+        let b0 = try_read_u8!(start);
+
+        let (code, len) = match b0 {
+            0x00..=0x1f => {
+                let x = (b0 & 0x1f) as u32;
+                (
+                    Arm64UnwindCode::AllocSmall {
+                        size_bytes: x.wrapping_mul(16),
+                    },
+                    1,
+                )
+            }
+
+            0x20..=0x3f => {
+                let z = (b0 & 0x1f) as u32;
+                (
+                    Arm64UnwindCode::SaveR19R20Preindexed {
+                        offset_bytes: z.wrapping_mul(8),
+                    },
+                    1,
+                )
+            }
+
+            0x40..=0x7f => {
+                let z = (b0 & 0x3f) as u32;
+                (
+                    Arm64UnwindCode::SaveFpLr {
+                        offset_bytes: z.wrapping_mul(8),
+                    },
+                    1,
+                )
+            }
+
+            0x80..=0xbf => {
+                let z = (b0 & 0x3f) as u32;
+                (
+                    Arm64UnwindCode::SaveFpLrPreindexed {
+                        offset_bytes: (z.wrapping_add(1)).wrapping_mul(8),
+                    },
+                    1,
+                )
+            }
+
+            0xc0..=0xc7 => {
+                let r = try_read_u8!(start + 1, "alloc_m is truncated");
+                let x = (((b0 & 0x07) as u32) << 8) | (r as u32);
+                (
+                    Arm64UnwindCode::AllocMedium {
+                        size_bytes: x.wrapping_mul(16),
+                    },
+                    2,
+                )
+            }
+
+            0xc8..=0xcb => {
+                let b1 = try_read_u8!(start + 1, "save_regp is truncated");
+                let x = (((b0 & 0x03) as u32) << 2) | (((b1 >> 6) & 0x03) as u32);
+                let z = (b1 & 0x3f) as u32;
+                let first_reg = 19u8.wrapping_add(x as u8);
+                (
+                    Arm64UnwindCode::SaveRegPair {
+                        first_reg,
+                        offset_bytes: z.wrapping_mul(8),
+                    },
+                    2,
+                )
+            }
+
+            0xcc..=0xcf => {
+                let b1 = try_read_u8!(start + 1, "save_regp_x is truncated");
+                let x = (((b0 & 0x03) as u32) << 2) | (((b1 >> 6) & 0x03) as u32);
+                let z = (b1 & 0x3f) as u32;
+                let first_reg = 19u8.wrapping_add(x as u8);
+                (
+                    Arm64UnwindCode::SaveRegPairPreindexed {
+                        first_reg,
+                        offset_bytes: (z.wrapping_add(1)).wrapping_mul(8),
+                    },
+                    2,
+                )
+            }
+
+            0xd0..=0xd3 => {
+                let b1 = try_read_u8!(start + 1, "save_reg is truncated");
+                let x = (((b0 & 0x03) as u32) << 2) | (((b1 >> 6) & 0x03) as u32);
+                let z = (b1 & 0x3f) as u32;
+                let reg = 19u8.wrapping_add(x as u8);
+                (
+                    Arm64UnwindCode::SaveReg {
+                        reg,
+                        offset_bytes: z.wrapping_mul(8),
+                    },
+                    2,
+                )
+            }
+
+            0xd4..=0xd5 => {
+                let b1 = try_read_u8!(start + 1, "save_reg_x is truncated");
+                let x = (((b0 & 0x01) as u32) << 3) | (((b1 >> 5) & 0x07) as u32);
+                let z = (b1 & 0x1f) as u32;
+                let reg = 19u8.wrapping_add(x as u8);
+                (
+                    Arm64UnwindCode::SaveRegPreindexed {
+                        reg,
+                        offset_bytes: (z.wrapping_add(1)).wrapping_mul(8),
+                    },
+                    2,
+                )
+            }
+
+            0xd6..=0xd7 => {
+                let b1 = try_read_u8!(start + 1, "save_lrpair is truncated");
+                let x = (((b0 & 0x01) as u32) << 2) | (((b1 >> 6) & 0x03) as u32);
+                let z = (b1 & 0x3f) as u32;
+                let first_reg = 19u8.wrapping_add((2 * x) as u8);
+                (
+                    Arm64UnwindCode::SaveLrPair {
+                        first_reg,
+                        offset_bytes: z.wrapping_mul(8),
+                    },
+                    2,
+                )
+            }
+
+            0xd8..=0xd9 => {
+                let b1 = try_read_u8!(start + 1, "save_fregp is truncated");
+                let x = (((b0 & 0x01) as u32) << 2) | (((b1 >> 6) & 0x03) as u32);
+                let z = (b1 & 0x3f) as u32;
+                let first_reg = 8u8.wrapping_add(x as u8);
+                (
+                    Arm64UnwindCode::SaveFRegPair {
+                        first_reg,
+                        offset_bytes: z.wrapping_mul(8),
+                    },
+                    2,
+                )
+            }
+
+            0xda..=0xdb => {
+                let b1 = try_read_u8!(start + 1, "save_fregp_x is truncated");
+                let x = (((b0 & 0x01) as u32) << 2) | (((b1 >> 6) & 0x03) as u32);
+                let z = (b1 & 0x3f) as u32;
+                let first_reg = 8u8.wrapping_add(x as u8);
+                (
+                    Arm64UnwindCode::SaveFRegPairPreindexed {
+                        first_reg,
+                        offset_bytes: (z.wrapping_add(1)).wrapping_mul(8),
+                    },
+                    2,
+                )
+            }
+
+            0xdc..=0xdd => {
+                let b1 = try_read_u8!(start + 1, "save_freg is truncated");
+                let x = (((b0 & 0x01) as u32) << 2) | (((b1 >> 6) & 0x03) as u32);
+                let z = (b1 & 0x3f) as u32;
+                let reg = 8u8.wrapping_add(x as u8);
+                (
+                    Arm64UnwindCode::SaveFReg {
+                        reg,
+                        offset_bytes: z.wrapping_mul(8),
+                    },
+                    2,
+                )
+            }
+
+            0xde => {
+                let b1 = try_read_u8!(start + 1, "save_freg_x is truncated");
+                let x = ((b1 >> 5) & 0x07) as u32;
+                let z = (b1 & 0x1f) as u32;
+                let reg = 8u8.wrapping_add(x as u8);
+                (
+                    Arm64UnwindCode::SaveFRegPreindexed {
+                        reg,
+                        offset_bytes: (z.wrapping_add(1)).wrapping_mul(8),
+                    },
+                    2,
+                )
+            }
+
+            0xdf => {
+                let z = try_read_u8!(start + 1, "alloc_z is truncated");
+                (Arm64UnwindCode::AllocZ { count: z }, 2)
+            }
+
+            0xe0 => {
+                let imm = {
+                    let b0 = try_read_u8!(start + 1) as u32;
+                    let b1 = try_read_u8!(start + 2) as u32;
+                    let b2 = try_read_u8!(start + 3) as u32;
+
+                    (b0 << 16) | (b1 << 8) | b2
+                };
+                (
+                    Arm64UnwindCode::AllocLarge {
+                        size_bytes: imm.wrapping_mul(16),
+                    },
+                    4,
+                )
+            }
+
+            0xe1 => (Arm64UnwindCode::SetFp, 1),
+
+            0xe2 => {
+                let imm8 = try_read_u8!(start + 1, "add_fp is truncated");
+                (
+                    Arm64UnwindCode::AddFp {
+                        imm8,
+                        offset_bytes: (imm8 as u32).wrapping_mul(8),
+                    },
+                    2,
+                )
+            }
+
+            0xe3 => (Arm64UnwindCode::Nop, 1),
+            0xe4 => (Arm64UnwindCode::End, 1),
+            0xe5 => (Arm64UnwindCode::EndC, 1),
+            0xe6 => (Arm64UnwindCode::SaveNext, 1),
+
+            0xe7 => {
+                let b1 = try_read_u8!(start + 1);
+
+                if (b1 & 0x80) != 0 {
+                    let data = b1 as u32;
+                    (
+                        Arm64UnwindCode::Reserved {
+                            opcode: 0xe7,
+                            data,
+                            data_len: 1,
+                        },
+                        2,
+                    )
+                } else {
+                    let b2 = try_read_u8!(start + 2, "save_any_? is truncated");
+
+                    let cls = (b2 >> 6) & 0x03;
+                    if cls != 3 {
+                        let p = ((b1 >> 6) & 1) != 0;
+                        let x = ((b1 >> 5) & 1) != 0;
+                        let r = (b1 & 0x1f) as u8;
+                        let o = (b2 & 0x3f) as u32;
+
+                        let offset_bytes = match (cls, x || p) {
+                            (0 | 1, true) => match o.checked_mul(16) {
+                                Some(v) => v,
+                                None => fail!("save_any_reg offset overflow"),
+                            },
+                            (0 | 1, false) => match o.checked_mul(8) {
+                                Some(v) => v,
+                                None => fail!("save_any_reg offset overflow"),
+                            },
+                            (2, _) => match o.checked_mul(16) {
+                                Some(v) => v,
+                                None => fail!("save_any_reg offset overflow"),
+                            },
+                            _ => 0,
+                        };
+
+                        let kind = cls;
+                        (
+                            Arm64UnwindCode::SaveAnyReg {
+                                kind,
+                                pair: p,
+                                preindexed: x,
+                                reg: r,
+                                offset_bytes,
+                            },
+                            3,
+                        )
+                    } else {
+                        let hi = ((b1 >> 5) & 0x03) as u16;
+                        let r = (b1 & 0x0f) as u8;
+                        let lo = (b2 & 0x3f) as u16;
+                        let o = (hi << 6) | lo;
+
+                        if (b1 & 0x10) != 0 {
+                            (Arm64UnwindCode::SavePReg { r, o }, 3)
+                        } else {
+                            (Arm64UnwindCode::SaveZReg { r, o }, 3)
+                        }
+                    }
+                }
+            }
+
+            0xe8 => (
+                Arm64UnwindCode::CustomStack(Arm64CustomStackCase::TrapFrame),
+                1,
+            ),
+            0xe9 => (
+                Arm64UnwindCode::CustomStack(Arm64CustomStackCase::MachineFrame),
+                1,
+            ),
+            0xea => (
+                Arm64UnwindCode::CustomStack(Arm64CustomStackCase::Context),
+                1,
+            ),
+            0xeb => (
+                Arm64UnwindCode::CustomStack(Arm64CustomStackCase::EcContext),
+                1,
+            ),
+            0xec => (
+                Arm64UnwindCode::CustomStack(Arm64CustomStackCase::ClearUnwoundToCall),
+                1,
+            ),
+
+            0xfc => (Arm64UnwindCode::PacSignLr, 1),
+
+            0xf8 => {
+                let b1 = try_read_u8!(start + 1);
+                (
+                    Arm64UnwindCode::Reserved {
+                        opcode: 0xf8,
+                        data: b1 as u32,
+                        data_len: 1,
+                    },
+                    2,
+                )
+            }
+            0xf9 => {
+                let b1 = try_read_u8!(start + 1);
+                let b2 = try_read_u8!(start + 2);
+                let data = ((b1 as u32) << 8) | (b2 as u32);
+                (
+                    Arm64UnwindCode::Reserved {
+                        opcode: 0xf9,
+                        data,
+                        data_len: 2,
+                    },
+                    3,
+                )
+            }
+            0xfa => {
+                let b1 = try_read_u8!(start + 1);
+                let b2 = try_read_u8!(start + 2);
+                let b3 = try_read_u8!(start + 3);
+                let data = ((b1 as u32) << 16) | ((b2 as u32) << 8) | (b3 as u32);
+                (
+                    Arm64UnwindCode::Reserved {
+                        opcode: 0xfa,
+                        data,
+                        data_len: 3,
+                    },
+                    4,
+                )
+            }
+            0xfb => {
+                let b1 = try_read_u8!(start + 1);
+                let b2 = try_read_u8!(start + 2);
+                let b3 = try_read_u8!(start + 3);
+                let b4 = try_read_u8!(start + 4);
+                let data =
+                    ((b1 as u32) << 24) | ((b2 as u32) << 16) | ((b3 as u32) << 8) | (b4 as u32);
+                (
+                    Arm64UnwindCode::Reserved {
+                        opcode: 0xfb,
+                        data,
+                        data_len: 4,
+                    },
+                    5,
+                )
+            }
+
+            other => (
+                Arm64UnwindCode::Reserved {
+                    opcode: other,
+                    data: 0,
+                    data_len: 0,
+                },
+                1,
+            ),
+        };
+
+        self.offset += len;
+
+        Some(Ok(Arm64UnwindCodeData {
+            offset: start as u16,
+            code,
+            len: len as u8,
+        }))
     }
 }
 
@@ -1419,5 +2521,494 @@ mod tests {
             offset: 0,
         };
         let _ = it.collect::<Vec<_>>();
+    }
+
+    mod arm64 {
+        use crate::pe::exception::*;
+
+        #[test]
+        fn parse_unwind_info_packed() {
+            // unwind_data = 0x00E00021
+            // bits [1:0]   = 01       -> Flag = 1 (packed function)
+            // bits [12:2]  = 8        -> FunctionLength = 8 * 4 = 32
+            // bits [21:13] = 256      -> FrameSize = 256 * 16 = 0x1000
+            // bits [23:22] = 11       -> CR = 3 (chained)
+            // bit  [24]    = 0        -> H = false
+            // bits [28:25] = 0000     -> RegI = 0
+            // bits [31:29] = 000      -> RegF = 0
+            const DATA: &[u8] = &[
+                0x78, 0x11, 0x00, 0x00, // begin_address
+                0x21, 0x00, 0xE0, 0x00, // unwind_data
+            ];
+
+            let func = DATA.pread::<Arm64RuntimeFunction>(0).unwrap();
+            assert_eq!(func.begin_address, 0x1178);
+            assert_eq!(func.is_packed(), true);
+            assert_eq!(func.flag(), ARM64_PDATA_PACKED_UNWIND_FUNCTION);
+            assert_eq!(func.function_length(), 32);
+            assert_eq!(func.frame_size(), 0x1000);
+            assert_eq!(func.cr(), ARM64_PDATA_CR_CHAINED);
+            assert_eq!(func.h(), false);
+            assert_eq!(func.reg_f(), 0);
+            assert_eq!(func.reg_i(), 0);
+        }
+
+        #[test]
+        fn parse_packed_all_fields_nonzero() {
+            // Construct a value where every packed field is non-zero to verify
+            // that each accessor extracts from the correct bit position.
+            //
+            // unwind_data = 0x6B810041
+            // bits [1:0]   = 01       -> Flag = 1 (packed function)
+            // bits [12:2]  = 0x10     -> FunctionLength = 16 * 4 = 64
+            // bits [21:13] = 0x08     -> FrameSize = 8 * 16 = 128
+            // bits [23:22] = 10       -> CR = 2 (chained with PAC)
+            // bit  [24]    = 1        -> H = true
+            // bits [28:25] = 0101     -> RegI = 5
+            // bits [31:29] = 011      -> RegF = 3
+            const DATA: &[u8] = &[
+                0x00, 0x10, 0x00, 0x00, // begin_address
+                0x41, 0x00, 0x81, 0x6B, // unwind_data = 0x6B810041
+            ];
+
+            let func = DATA.pread::<Arm64RuntimeFunction>(0).unwrap();
+            assert_eq!(func.flag(), ARM64_PDATA_PACKED_UNWIND_FUNCTION);
+            assert!(func.is_packed());
+            assert_eq!(func.function_length(), 64);
+            assert_eq!(func.frame_size(), 128);
+            assert_eq!(func.cr(), ARM64_PDATA_CR_CHAINED_WITH_PAC);
+            assert_eq!(func.h(), true);
+            assert_eq!(func.reg_i(), 5);
+            assert_eq!(func.reg_f(), 3);
+        }
+
+        #[test]
+        fn parse_unpacked_xdata_rva() {
+            // Flag = 0 -> unwind_data is an RVA (low 2 bits cleared)
+            // unwind_data = 0x00001234, with low 2 bits = 00
+            const DATA: &[u8] = &[
+                0x00, 0x10, 0x00, 0x00, // begin_address
+                0x34, 0x12, 0x00, 0x00, // unwind_data = 0x00001234
+            ];
+
+            let func = DATA.pread::<Arm64RuntimeFunction>(0).unwrap();
+            assert_eq!(func.flag(), ARM64_PDATA_REF_TO_FULL_XDATA);
+            assert!(!func.is_packed());
+            assert_eq!(func.unwind_data_rva(), 0x00001234);
+        }
+
+        #[test]
+        fn arm64_runtime_function_iterator() {
+            // 2 ARM64 entries (8 bytes each = 16 bytes total)
+            #[rustfmt::skip]
+            const DATA: &[u8] = &[
+                0x00, 0x10, 0x00, 0x00, 0x34, 0x12, 0x00, 0x00,
+                0x00, 0x20, 0x00, 0x00, 0x78, 0x56, 0x00, 0x00,
+            ];
+
+            let iter = Arm64RuntimeFunctionIterator { data: DATA };
+            let funcs: Vec<_> = iter.map(|r| r.unwrap()).collect();
+            assert_eq!(funcs.len(), 2);
+            assert_eq!(funcs[0].begin_address, 0x1000);
+            assert_eq!(funcs[0].unwind_data, 0x00001234);
+            assert_eq!(funcs[1].begin_address, 0x2000);
+            assert_eq!(funcs[1].unwind_data, 0x00005678);
+        }
+
+        #[test]
+        fn xdata_header_with_extension() {
+            // Header word with epilog_count=0 and code_words=0 -> extension present
+            #[rustfmt::skip]
+            const XDATA: &[u8] = &[
+                0x04, 0x00, 0x00, 0x00, // header: func_len=1, ver=0, X=0, E=0, epilog_count=0, code_words=0
+                0x01, 0x00, 0x01, 0x00, // extension: epilog_count=1, code_words=1
+
+                // Epilog scope
+                0x0D, 0x00, 0x00, 0x00,
+
+                // Unwind codes (1 word = 4 bytes)
+                0x81, 0xE4, 0xE3, 0xE3,
+            ];
+
+            let info = Arm64UnwindInfo::parse(XDATA, 0).unwrap();
+            assert!(info.extension.is_some());
+            let ext = info.extension.unwrap();
+            assert_eq!(ext.epilog_count(), 1);
+            assert_eq!(ext.code_words(), 1);
+            assert_eq!(info.epilog_scope_bytes.len(), 4);
+            assert_eq!(info.unwind_code_bytes.len(), 4);
+        }
+
+        #[test]
+        fn epilog_scope_field_extraction() {
+            // Construct: start_offset=0x3FFFF (18 bits max), condition=0xF (reserved for arm64), start_index=0x3FF (10 bits max)
+            // But let's use smaller values to be clear:
+            // start_offset_words = 52 (0x34 / 4 = 0x0D -> bits [17:0] = 0x0D, *4 = 52)
+            // condition = 0x0E (bits [21:18])
+            // start_index = 2 (bits [31:22])
+            //
+            // value = (2 << 22) | (0x0E << 18) | 0x0D = 0x00B8000D
+            let scope = Arm64EpilogScope(0x00B8000D);
+            assert_eq!(scope.start_offset_words(), 52);
+            assert_eq!(scope.condition(), 0x0E);
+            assert_eq!(scope.start_index(), 2);
+        }
+
+        #[test]
+        fn parse_unwind_info_0() {
+            #[rustfmt::skip]
+            const XDATA: &[u8] = &[
+                0x96, 0x00, 0x70, 0x10,
+
+                // Unwind codes
+                0xE1,                   // set_fp
+                0x87,                   // save_fplr_x
+                0xD1, 0x04,             // save_reg
+                0xC8, 0x82,             // save_regp
+                0x26,                   // save_r19r20_x
+                0xE4,                   // end
+
+                // Exception handler and its exception data
+                0x8C, 0x1E, 0x00, 0x00, // imagerel __CxxFrameHandler3_0
+                0xA0, 0x32, 0x00, 0x00, // exception data
+            ];
+
+            let info = Arm64UnwindInfo::parse(XDATA, 0).unwrap();
+
+            // do not count handler-specific dta.
+            assert_eq!(
+                Arm64UnwindInfo::size(XDATA).unwrap(),
+                XDATA.len() - size_of_val(&0u32)
+            );
+
+            assert_eq!(info.header.0, 0x10700096);
+            assert_eq!(info.header.function_length(), 600);
+            assert_eq!(info.header.version(), 0);
+            assert_eq!(info.header.exception_data_present(), true);
+            assert_eq!(info.header.epilog_in_header(), true);
+            assert_eq!(info.header.epilog_count(), 1);
+            assert_eq!(info.header.code_words(), 2);
+            assert_eq!(info.header.has_extension(), false);
+
+            assert_eq!(info.unwind_code_bytes, &XDATA[4..12]);
+
+            let codes = info.unwind_codes(0).unwrap();
+            let codes = codes.collect::<Vec<_>>();
+            assert_eq!(codes.len(), 6);
+            assert_eq!(
+                codes[0].as_ref().unwrap(),
+                &Arm64UnwindCodeData {
+                    offset: 0,
+                    code: Arm64UnwindCode::SetFp,
+                    len: 1,
+                }
+            );
+            assert_eq!(
+                codes[1].as_ref().unwrap(),
+                &Arm64UnwindCodeData {
+                    offset: 1,
+                    code: Arm64UnwindCode::SaveFpLrPreindexed { offset_bytes: 64 },
+                    len: 1,
+                }
+            );
+            assert_eq!(
+                codes[2].as_ref().unwrap(),
+                &Arm64UnwindCodeData {
+                    offset: 2,
+                    code: Arm64UnwindCode::SaveReg {
+                        reg: 23,
+                        offset_bytes: 32,
+                    },
+                    len: 2,
+                }
+            );
+            assert_eq!(
+                codes[3].as_ref().unwrap(),
+                &Arm64UnwindCodeData {
+                    offset: 4,
+                    code: Arm64UnwindCode::SaveRegPair {
+                        first_reg: 21,
+                        offset_bytes: 16,
+                    },
+                    len: 2,
+                }
+            );
+            assert_eq!(
+                codes[4].as_ref().unwrap(),
+                &Arm64UnwindCodeData {
+                    offset: 6,
+                    code: Arm64UnwindCode::SaveR19R20Preindexed { offset_bytes: 48 },
+                    len: 1,
+                }
+            );
+            assert_eq!(
+                codes[5].as_ref().unwrap(),
+                &Arm64UnwindCodeData {
+                    offset: 7,
+                    code: Arm64UnwindCode::End,
+                    len: 1,
+                }
+            );
+        }
+
+        #[test]
+        fn parse_unwind_info_1() {
+            #[rustfmt::skip]
+            const XDATA: &[u8] = &[
+                0x10, 0x00, 0x50, 0x08,
+
+                // Epilog scopes
+                0x0D, 0x00, 0x00, 0x00,
+
+                // Unwind codes
+                0x81, // save_fplr_x
+                0xE4, // end
+
+                0xE3, 0xE3, // align to 4
+
+                // Exception handler and its exception data
+                0x8C, 0x1E, 0x00, 0x00, // imagerel __CxxFrameHandler3_0
+                0xA0, 0x32, 0x00, 0x00, // exception data
+            ];
+
+            let info = Arm64UnwindInfo::parse(XDATA, 0).unwrap();
+
+            // do not count handler-specific dta.
+            assert_eq!(
+                Arm64UnwindInfo::size(XDATA).unwrap(),
+                XDATA.len() - size_of_val(&0u32)
+            );
+
+            assert_eq!(info.header.0, 0x08500010);
+            assert_eq!(info.header.version(), 0);
+            assert_eq!(info.header.exception_data_present(), true);
+            assert_eq!(info.header.epilog_in_header(), false);
+
+            assert_eq!(info.unwind_code_bytes, &XDATA[8..12]);
+
+            let scopes = info.epilog_scopes().unwrap();
+            let scopes = scopes.map(Result::unwrap).collect::<Vec<_>>();
+            assert_eq!(scopes.len(), 1);
+            assert_eq!(scopes[0], Arm64EpilogScope(0x0000000D));
+
+            let codes = info.unwind_codes(0).unwrap();
+            let codes = codes.collect::<Vec<_>>();
+            assert_eq!(codes.len(), 4);
+
+            assert_eq!(
+                codes[0].as_ref().unwrap(),
+                &Arm64UnwindCodeData {
+                    offset: 0,
+                    code: Arm64UnwindCode::SaveFpLrPreindexed { offset_bytes: 16 },
+                    len: 1,
+                }
+            );
+            assert_eq!(
+                codes[1].as_ref().unwrap(),
+                &Arm64UnwindCodeData {
+                    offset: 1,
+                    code: Arm64UnwindCode::End,
+                    len: 1,
+                }
+            );
+            assert_eq!(
+                // padding
+                codes[2].as_ref().unwrap(),
+                &Arm64UnwindCodeData {
+                    offset: 2,
+                    code: Arm64UnwindCode::Nop,
+                    len: 1,
+                }
+            );
+            assert_eq!(
+                // padding
+                codes[3].as_ref().unwrap(),
+                &Arm64UnwindCodeData {
+                    offset: 3,
+                    code: Arm64UnwindCode::Nop,
+                    len: 1,
+                }
+            );
+
+            assert_eq!(
+                info.exception_handler,
+                Some(Arm64ExceptionHandler {
+                    rva: 0x00001E8C,
+                    data: &0x000032A0u32.to_le_bytes()
+                })
+            );
+        }
+
+        #[test]
+        fn unwind_code_alloc_large_and_custom_stack() {
+            // Test alloc_l (0xE0), pac_sign_lr (0xFC), custom stack opcodes, and end
+            #[rustfmt::skip]
+            const CODES: &[u8] = &[
+                0xE0, 0x00, 0x01, 0x00, // alloc_l: imm = 0x000100, size = 256 * 16 = 4096
+                0xFC,                    // pac_sign_lr
+                0xE8,                    // MSFT_OP_TRAP_FRAME
+                0xE4,                    // end
+                0xE3,                    // nop (padding)
+            ];
+
+            let iter = Arm64UnwindCodeIterator::new(CODES, 0).unwrap();
+            let codes: Vec<_> = iter.map(|r| r.unwrap()).collect();
+            assert_eq!(codes.len(), 5);
+            assert_eq!(
+                codes[0].code,
+                Arm64UnwindCode::AllocLarge { size_bytes: 4096 }
+            );
+            assert_eq!(codes[0].len, 4);
+            assert_eq!(codes[1].code, Arm64UnwindCode::PacSignLr);
+            assert_eq!(
+                codes[2].code,
+                Arm64UnwindCode::CustomStack(Arm64CustomStackCase::TrapFrame)
+            );
+            assert_eq!(codes[3].code, Arm64UnwindCode::End);
+            assert_eq!(codes[4].code, Arm64UnwindCode::Nop);
+        }
+
+        #[test]
+        fn unwind_code_reserved_opcodes() {
+            // Test reserved multi-byte opcodes
+            #[rustfmt::skip]
+            const CODES: &[u8] = &[
+                0xF8, 0xAB,             // reserved 2-byte
+                0xF9, 0x12, 0x34,       // reserved 3-byte
+                0xE4,                    // end
+                0xE3, 0xE3,             // padding
+            ];
+
+            let iter = Arm64UnwindCodeIterator::new(CODES, 0).unwrap();
+            let codes: Vec<_> = iter.map(|r| r.unwrap()).collect();
+            assert_eq!(codes.len(), 5);
+            assert_eq!(
+                codes[0].code,
+                Arm64UnwindCode::Reserved {
+                    opcode: 0xF8,
+                    data: 0xAB,
+                    data_len: 1
+                }
+            );
+            assert_eq!(codes[0].len, 2);
+            assert_eq!(
+                codes[1].code,
+                Arm64UnwindCode::Reserved {
+                    opcode: 0xF9,
+                    data: 0x1234,
+                    data_len: 2
+                }
+            );
+            assert_eq!(codes[1].len, 3);
+            assert_eq!(codes[2].code, Arm64UnwindCode::End);
+        }
+
+        #[test]
+        fn unwind_code_freg_operations() {
+            // save_fregp (0xD8): b0=0xD8, b1=0x42
+            //   x = ((0xD8 & 0x01) << 2) | ((0x42 >> 6) & 0x03) = (0 << 2) | 1 = 1
+            //   z = 0x42 & 0x3f = 2
+            //   first_reg = 8 + 1 = 9, offset = 2 * 8 = 16
+            //
+            // save_freg_x (0xDE): b1=0x65
+            //   x = (0x65 >> 5) & 0x07 = 3
+            //   z = 0x65 & 0x1f = 5
+            //   reg = 8 + 3 = 11, offset = (5+1) * 8 = 48
+            #[rustfmt::skip]
+            const CODES: &[u8] = &[
+                0xD8, 0x42,             // save_fregp
+                0xDE, 0x65,             // save_freg_x
+            ];
+
+            let iter = Arm64UnwindCodeIterator::new(CODES, 0).unwrap();
+            let codes: Vec<_> = iter.map(|r| r.unwrap()).collect();
+            assert_eq!(codes.len(), 2);
+            assert_eq!(
+                codes[0].code,
+                Arm64UnwindCode::SaveFRegPair {
+                    first_reg: 9,
+                    offset_bytes: 16
+                }
+            );
+            assert_eq!(
+                codes[1].code,
+                Arm64UnwindCode::SaveFRegPreindexed {
+                    reg: 11,
+                    offset_bytes: 48
+                }
+            );
+        }
+
+        #[test]
+        fn unwind_code_iterator_start_index() {
+            // Verify that start_index correctly skips into the byte stream
+            #[rustfmt::skip]
+            const CODES: &[u8] = &[
+                0xE1,                   // set_fp (offset 0)
+                0x87,                   // save_fplr_x (offset 1)
+                0xE4,                   // end (offset 2)
+                0xE3,                   // nop padding (offset 3)
+            ];
+
+            // Start at index 2 -> should see end + nop
+            let iter = Arm64UnwindCodeIterator::new(CODES, 2).unwrap();
+            let codes: Vec<_> = iter.map(|r| r.unwrap()).collect();
+            assert_eq!(codes.len(), 2);
+            assert_eq!(codes[0].code, Arm64UnwindCode::End);
+            assert_eq!(codes[0].offset, 2);
+            assert_eq!(codes[1].code, Arm64UnwindCode::Nop);
+        }
+
+        #[test]
+        fn unwind_code_iterator_bad_length() {
+            // Length not a multiple of 4
+            let result = Arm64UnwindCodeIterator::new(&[0xE4, 0xE3, 0xE3], 0);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn xdata_no_exception_handler() {
+            // Header: func_len=4, ver=0, X=0, E=1, epilog_count=0, code_words=1
+            // X=0 -> no exception data
+            // E=1 -> epilog in header
+            #[rustfmt::skip]
+            const XDATA: &[u8] = &[
+                0x10, 0x00, 0x20, 0x08, // header
+                0x81, 0xE4, 0xE3, 0xE3, // unwind codes
+            ];
+
+            let info = Arm64UnwindInfo::parse(XDATA, 0).unwrap();
+            assert!(!info.header.exception_data_present());
+            assert!(info.header.epilog_in_header());
+            assert!(info.exception_handler.is_none());
+            assert!(info.epilog_scopes().is_none());
+        }
+
+        #[test]
+        fn xdata_size_without_handler() {
+            // Same as above — size should be header (4) + code_words (1*4) = 8
+            #[rustfmt::skip]
+            const XDATA: &[u8] = &[
+                0x10, 0x00, 0x20, 0x08, // header
+                0x81, 0xE4, 0xE3, 0xE3, // unwind codes
+            ];
+
+            assert_eq!(Arm64UnwindInfo::size(XDATA).unwrap(), 8);
+        }
+
+        #[test]
+        fn arm64_len_vs_x64_len() {
+            // Verify len_arm64 gives different (correct) results from len
+            let ed = ExceptionData {
+                bytes: &[0u8; 64],
+                offset: 0,
+                size: 32,
+                file_alignment: 4,
+            };
+            // 32 / 12 = 2 (x64)
+            assert_eq!(ed.len(), 2);
+            // 32 / 8 = 4 (arm64)
+            assert_eq!(ed.len_arm64(), 4);
+        }
     }
 }

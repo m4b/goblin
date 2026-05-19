@@ -1085,7 +1085,7 @@ pub const R_PPC_VLE_SDA21: u32 = 225;
 pub const R_PPC_VLE_SDA21_LO: u32 = 226;
 pub const R_PPC_VLE_SDAREL_LO16A: u32 = 227;
 pub const R_PPC_VLE_SDAREL_LO16D: u32 = 228;
-pub const R_PPC_VLE_SDAREL_HI16A: u32= 229;
+pub const R_PPC_VLE_SDAREL_HI16A: u32 = 229;
 pub const R_PPC_VLE_SDAREL_HI16D: u32 = 230;
 pub const R_PPC_VLE_SDAREL_HA16A: u32 = 231;
 pub const R_PPC_VLE_SDAREL_HA16D: u32 = 232;
@@ -1514,8 +1514,8 @@ pub fn r_to_str(typ: u32, machine: u16) -> &'static str {
             R_X86_64_TLSDESC => "X86_64_TLSDESC",
             R_X86_64_IRELATIVE => "X86_64_IRELATIVE",
             R_X86_64_RELATIVE64 => "X86_64_RELATIVE64",
-            R_X86_64_GOTPCRELX => "R_X86_64_GOTPCRELX",
-            R_X86_64_REX_GOTPCRELX => "R_X86_64_REX_GOTPCRELX",
+            R_X86_64_GOTPCRELX => "X86_64_GOTPCRELX",
+            R_X86_64_REX_GOTPCRELX => "X86_64_REX_GOTPCRELX",
             _ => "R_UNKNOWN_X86_64",
         },
         // openrisc

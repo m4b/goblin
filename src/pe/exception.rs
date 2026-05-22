@@ -1149,13 +1149,13 @@ impl Arm64RuntimeFunction {
         Self::bits(self.unwind_data, 2, 11).wrapping_mul(4)
     }
 
-    /// Returns the frame size in bytes (bits [21:13], multiplied by 16).
+    /// Returns the frame size in bytes (bits [31:23], multiplied by 16).
     #[inline]
     pub const fn frame_size(&self) -> u32 {
-        Self::bits(self.unwind_data, 13, 9).wrapping_mul(16)
+        Self::bits(self.unwind_data, 23, 9).wrapping_mul(16)
     }
 
-    /// Returns the CR (chain/return) field (bits [23:22]).
+    /// Returns the CR (chain/return) field (bits [22:21]).
     ///
     /// Must be one of:
     /// - [ARM64_PDATA_CR_UNCHAINED]
@@ -1164,27 +1164,27 @@ impl Arm64RuntimeFunction {
     /// - [ARM64_PDATA_CR_CHAINED]
     #[inline]
     pub const fn cr(&self) -> u32 {
-        Self::bits(self.unwind_data, 22, 2)
+        Self::bits(self.unwind_data, 21, 2)
     }
 
-    /// Returns `true` if the function homes integer parameter registers x0-x7 (bit [24]).
+    /// Returns `true` if the function homes integer parameter registers x0-x7 (bit [20]).
     #[inline]
     pub const fn h(&self) -> bool {
-        Self::bits(self.unwind_data, 24, 1) != 0
+        Self::bits(self.unwind_data, 20, 1) != 0
     }
 
-    /// Returns the number of saved non-volatile INT registers (x19-x28) (bits [28:25]).
+    /// Returns the number of saved non-volatile INT registers (x19-x28) (bits [19:16]).
     #[inline]
     pub const fn reg_i(&self) -> u32 {
-        Self::bits(self.unwind_data, 25, 4)
+        Self::bits(self.unwind_data, 16, 4)
     }
 
-    /// Returns the number of saved non-volatile FP registers (d8-d15) (bits [31:29]).
+    /// Returns the number of saved non-volatile FP registers (d8-d15) (bits [15:13]).
     ///
     /// 0 means no FP registers saved. Values 1-7 mean `reg_f + 1` registers saved.
     #[inline]
     pub const fn reg_f(&self) -> u32 {
-        Self::bits(self.unwind_data, 29, 3)
+        Self::bits(self.unwind_data, 13, 3)
     }
 
     /// Returns `true` if this unwind data is packed, `false` otherwise.
@@ -2528,17 +2528,17 @@ mod tests {
 
         #[test]
         fn parse_unwind_info_packed() {
-            // unwind_data = 0x00E00021
+            // unwind_data = 0x80600021
             // bits [1:0]   = 01       -> Flag = 1 (packed function)
             // bits [12:2]  = 8        -> FunctionLength = 8 * 4 = 32
-            // bits [21:13] = 256      -> FrameSize = 256 * 16 = 0x1000
-            // bits [23:22] = 11       -> CR = 3 (chained)
-            // bit  [24]    = 0        -> H = false
-            // bits [28:25] = 0000     -> RegI = 0
-            // bits [31:29] = 000      -> RegF = 0
+            // bits [15:13] = 000      -> RegF = 0
+            // bits [19:16] = 0000     -> RegI = 0
+            // bit  [20]    = 0        -> H = false
+            // bits [22:21] = 11       -> CR = 3 (chained)
+            // bits [31:23] = 0x100    -> FrameSize = 256 * 16 = 0x1000
             const DATA: &[u8] = &[
                 0x78, 0x11, 0x00, 0x00, // begin_address
-                0x21, 0x00, 0xE0, 0x00, // unwind_data
+                0x21, 0x00, 0x60, 0x80, // unwind_data
             ];
 
             let func = DATA.pread::<Arm64RuntimeFunction>(0).unwrap();
@@ -2558,17 +2558,17 @@ mod tests {
             // Construct a value where every packed field is non-zero to verify
             // that each accessor extracts from the correct bit position.
             //
-            // unwind_data = 0x6B810041
+            // unwind_data = 0x04556041
             // bits [1:0]   = 01       -> Flag = 1 (packed function)
             // bits [12:2]  = 0x10     -> FunctionLength = 16 * 4 = 64
-            // bits [21:13] = 0x08     -> FrameSize = 8 * 16 = 128
-            // bits [23:22] = 10       -> CR = 2 (chained with PAC)
-            // bit  [24]    = 1        -> H = true
-            // bits [28:25] = 0101     -> RegI = 5
-            // bits [31:29] = 011      -> RegF = 3
+            // bits [15:13] = 011      -> RegF = 3
+            // bits [19:16] = 0101     -> RegI = 5
+            // bit  [20]    = 1        -> H = true
+            // bits [22:21] = 10       -> CR = 2 (chained with PAC)
+            // bits [31:23] = 0x08     -> FrameSize = 8 * 16 = 128
             const DATA: &[u8] = &[
                 0x00, 0x10, 0x00, 0x00, // begin_address
-                0x41, 0x00, 0x81, 0x6B, // unwind_data = 0x6B810041
+                0x41, 0x60, 0x55, 0x04, // unwind_data = 0x04556041
             ];
 
             let func = DATA.pread::<Arm64RuntimeFunction>(0).unwrap();
@@ -2580,6 +2580,110 @@ mod tests {
             assert_eq!(func.h(), true);
             assert_eq!(func.reg_i(), 5);
             assert_eq!(func.reg_f(), 3);
+        }
+
+        #[test]
+        fn parse_packed_bit_positions() {
+            // unwind_data = 0x02424281
+            // bits [1:0]   = 01       -> Flag = 1 (packed function)
+            // bits [12:2]  = 0xA0     -> FunctionLength = 160 * 4 = 640
+            // bits [15:13] = 010      -> RegF = 2
+            // bits [19:16] = 0010     -> RegI = 2
+            // bit  [20]    = 0        -> H = false
+            // bits [22:21] = 10       -> CR = 2 (chained with PAC)
+            // bits [31:23] = 0x04     -> FrameSize = 4 * 16 = 64
+            let func = Arm64RuntimeFunction {
+                begin_address: 0,
+                unwind_data: 0x02424281,
+            };
+            assert_eq!(func.flag(), ARM64_PDATA_PACKED_UNWIND_FUNCTION);
+            assert_eq!(func.function_length(), 640);
+            assert_eq!(func.reg_f(), 2);
+            assert_eq!(func.reg_i(), 2);
+            assert_eq!(func.h(), false);
+            assert_eq!(func.cr(), ARM64_PDATA_CR_CHAINED_WITH_PAC);
+            assert_eq!(func.frame_size(), 64);
+        }
+
+        #[test]
+        fn parse_packed_max_field_values() {
+            // unwind_data = 0xFFFFFFFF
+            // bits [1:0]   = 11       -> Flag = 3
+            // bits [12:2]  = 0x7FF    -> FunctionLength = 0x7FF * 4
+            // bits [15:13] = 111      -> RegF = 7
+            // bits [19:16] = 1111     -> RegI = 15
+            // bit  [20]    = 1        -> H = true
+            // bits [22:21] = 11       -> CR = 3
+            // bits [31:23] = 0x1FF    -> FrameSize = 0x1FF * 16
+            let func = Arm64RuntimeFunction {
+                begin_address: 0,
+                unwind_data: 0xFFFFFFFF,
+            };
+            assert_eq!(func.flag(), 3);
+            assert_eq!(func.function_length(), 0x7FF * 4);
+            assert_eq!(func.reg_f(), 0x7);
+            assert_eq!(func.reg_i(), 0xF);
+            assert_eq!(func.h(), true);
+            assert_eq!(func.cr(), 0x3);
+            assert_eq!(func.frame_size(), 0x1FF * 16);
+        }
+
+        #[test]
+        fn parse_packed_field_isolation() {
+            // bits [31:23] = 0x001    -> FrameSize = 1 * 16 = 16
+            let only_frame = Arm64RuntimeFunction {
+                begin_address: 0,
+                unwind_data: 0x1 << 23,
+            };
+            assert_eq!(only_frame.frame_size(), 16);
+            assert_eq!(only_frame.cr(), 0);
+            assert_eq!(only_frame.h(), false);
+            assert_eq!(only_frame.reg_i(), 0);
+            assert_eq!(only_frame.reg_f(), 0);
+
+            // bits [22:21] = 11       -> CR = 3
+            let only_cr = Arm64RuntimeFunction {
+                begin_address: 0,
+                unwind_data: 0x3 << 21,
+            };
+            assert_eq!(only_cr.cr(), 3);
+            assert_eq!(only_cr.frame_size(), 0);
+            assert_eq!(only_cr.h(), false);
+            assert_eq!(only_cr.reg_i(), 0);
+            assert_eq!(only_cr.reg_f(), 0);
+
+            // bit  [20]    = 1        -> H = true
+            let only_h = Arm64RuntimeFunction {
+                begin_address: 0,
+                unwind_data: 0x1 << 20,
+            };
+            assert_eq!(only_h.h(), true);
+            assert_eq!(only_h.cr(), 0);
+            assert_eq!(only_h.frame_size(), 0);
+            assert_eq!(only_h.reg_i(), 0);
+            assert_eq!(only_h.reg_f(), 0);
+
+            // bits [19:16] = 1111     -> RegI = 15
+            let only_reg_i = Arm64RuntimeFunction {
+                begin_address: 0,
+                unwind_data: 0xF << 16,
+            };
+            assert_eq!(only_reg_i.reg_i(), 15);
+            assert_eq!(only_reg_i.h(), false);
+            assert_eq!(only_reg_i.cr(), 0);
+            assert_eq!(only_reg_i.frame_size(), 0);
+            assert_eq!(only_reg_i.reg_f(), 0);
+
+            // bits [15:13] = 111      -> RegF = 7
+            let only_reg_f = Arm64RuntimeFunction {
+                begin_address: 0,
+                unwind_data: 0x7 << 13,
+            };
+            assert_eq!(only_reg_f.reg_f(), 7);
+            assert_eq!(only_reg_f.reg_i(), 0);
+            assert_eq!(only_reg_f.h(), false);
+            assert_eq!(only_reg_f.cr(), 0);
+            assert_eq!(only_reg_f.frame_size(), 0);
         }
 
         #[test]

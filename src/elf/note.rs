@@ -57,6 +57,12 @@ pub const NT_SIGINFO: u32 = 0x5349_4749;
 ///Description of mapped files.
 pub const NT_FILE: u32 = 0x4649_4c45;
 
+/// A version string (default/unknown namespace).
+pub const NT_VERSION: u32 = 1;
+
+/// Architecture information (default/unknown namespace).
+pub const NT_ARCH: u32 = 2;
+
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "alloc", derive(Pread, Pwrite, IOread, IOwrite, SizeWith))]
 #[repr(C)]
@@ -194,23 +200,40 @@ if_alloc! {
 
     impl<'a> Note<'a> {
         pub fn type_to_str(&self) -> &'static str {
-            // If the Note is from a coredump, match to different tags
-            if self.name == "CORE" {
-                return match self.n_type {
-                    NT_PRPSINFO => "NT_PRPSINFO",
-                    NT_PRSTATUS => "NT_PRSTATUS",
-                    NT_SIGINFO => "NT_SIGINFO",
-                    _ => "NT_UNKNOWN"
-                };
+            match self.name {
+                "CORE" => core_type_to_str(self.n_type),
+                "GNU" => gnu_type_to_str(self.n_type),
+                _ => default_type_to_str(self.n_type),
             }
-            match self.n_type {
-                NT_GNU_ABI_TAG => "NT_GNU_ABI_TAG",
-                NT_GNU_HWCAP => "NT_GNU_HWCAP",
-                NT_GNU_BUILD_ID => "NT_GNU_BUILD_ID",
-                NT_GNU_GOLD_VERSION => "NT_GNU_GOLD_VERSION",
-                NT_GNU_PROPERTY_TYPE_0 => "NT_GNU_PROPERTY_0",
-                _ => "NT_UNKNOWN"
-            }
+        }
+    }
+
+    fn gnu_type_to_str(n_type: u32) -> &'static str {
+        match n_type {
+            NT_GNU_ABI_TAG => "NT_GNU_ABI_TAG",
+            NT_GNU_HWCAP => "NT_GNU_HWCAP",
+            NT_GNU_BUILD_ID => "NT_GNU_BUILD_ID",
+            NT_GNU_GOLD_VERSION => "NT_GNU_GOLD_VERSION",
+            NT_GNU_PROPERTY_TYPE_0 => "NT_GNU_PROPERTY_0",
+            _ => "NT_UNKNOWN",
+        }
+    }
+
+    fn core_type_to_str(n_type: u32) -> &'static str {
+        match n_type {
+            NT_PRSTATUS => "NT_PRSTATUS",
+            NT_PRPSINFO => "NT_PRPSINFO",
+            NT_SIGINFO => "NT_SIGINFO",
+            NT_FILE => "NT_FILE",
+            _ => "NT_UNKNOWN",
+        }
+    }
+
+    fn default_type_to_str(n_type: u32) -> &'static str {
+        match n_type {
+            NT_VERSION => "NT_VERSION",
+            NT_ARCH => "NT_ARCH",
+            _ => "NT_UNKNOWN",
         }
     }
 
@@ -347,6 +370,34 @@ if_alloc! {
             assert!(iter.next().is_some_and(|r| r.is_err()));
             // Second call: must return None, not loop
             assert!(iter.next().is_none());
+        }
+
+        #[test]
+        fn type_to_str_respects_namespace() {
+            let gnu_note = Note {
+                n_type: NT_GNU_ABI_TAG,
+                name: "GNU",
+                desc: &[],
+            };
+            assert_eq!(gnu_note.type_to_str(), "NT_GNU_ABI_TAG");
+
+            let default_note = Note {
+                n_type: NT_VERSION,
+                name: "",
+                desc: &[],
+            };
+            assert_eq!(default_note.type_to_str(), "NT_VERSION");
+
+            let core_note = Note {
+                n_type: NT_PRSTATUS,
+                name: "CORE",
+                desc: &[],
+            };
+            assert_eq!(core_note.type_to_str(), "NT_PRSTATUS");
+
+            // Same numeric type, different namespaces.
+            assert_eq!(NT_GNU_ABI_TAG, NT_PRSTATUS);
+            assert_eq!(NT_GNU_ABI_TAG, NT_VERSION);
         }
     }
 }

@@ -94,9 +94,9 @@ pub fn st_visibility(other: u8) -> u8 {
 
 /// Is this information defining an import?
 #[inline]
-pub fn is_import(info: u8, value: u64) -> bool {
+pub fn is_import(info: u8, shndx: u16) -> bool {
     let bind = st_bind(info);
-    bind == STB_GLOBAL && value == 0
+    (bind == STB_GLOBAL || bind == STB_WEAK) && shndx == crate::elf::section_header::SHN_UNDEF as u16
 }
 
 /// Convenience function to get the &'static str type from the symbols `st_info`.
@@ -167,11 +167,12 @@ macro_rules! elf_sym_std_impl {
         use core::slice;
 
         impl Sym {
-            /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` bind and a `st_value` of 0
+            /// Checks whether this `Sym` is an undefined (imported) global or weak symbol.
             #[inline]
             pub fn is_import(&self) -> bool {
                 let bind = self.st_info >> 4;
-                (bind == STB_GLOBAL || bind == STB_WEAK) && self.st_value == 0
+                (bind == STB_GLOBAL || bind == STB_WEAK)
+                    && self.st_shndx == crate::elf::section_header::SHN_UNDEF as u16
             }
             /// Checks whether this `Sym` has type `STT_FUNC`
             #[inline]
@@ -353,11 +354,12 @@ impl Sym {
     pub fn size(container: Container) -> usize {
         Self::size_with(&Ctx::from(container))
     }
-    /// Checks whether this `Sym` has `STB_GLOBAL`/`STB_WEAK` bind and a `st_value` of 0
+    /// Checks whether this `Sym` is an undefined (imported) global or weak symbol.
     #[inline]
     pub fn is_import(&self) -> bool {
         let bind = self.st_bind();
-        (bind == STB_GLOBAL || bind == STB_WEAK) && self.st_value == 0
+        (bind == STB_GLOBAL || bind == STB_WEAK)
+            && self.st_shndx == crate::elf::section_header::SHN_UNDEF as usize
     }
     /// Checks whether this `Sym` has type `STT_FUNC`
     #[inline]
@@ -681,3 +683,48 @@ if_alloc! {
         }
     }
 } // end if_alloc
+
+#[cfg(test)]
+mod is_import_tests {
+    use super::*;
+    use crate::elf::section_header::SHN_UNDEF;
+
+    #[test]
+    fn undefined_global_with_nonzero_value_is_import() {
+        let sym = Sym {
+            st_name: 0,
+            st_info: (STB_GLOBAL << 4) | STT_FUNC,
+            st_other: 0,
+            st_shndx: SHN_UNDEF as usize,
+            st_value: 0x7d90,
+            st_size: 0,
+        };
+        assert!(sym.is_import());
+    }
+
+    #[test]
+    fn defined_global_is_not_import() {
+        let sym = Sym {
+            st_name: 0,
+            st_info: (STB_GLOBAL << 4) | STT_FUNC,
+            st_other: 0,
+            st_shndx: 13,
+            st_value: 0xa75b0,
+            st_size: 984,
+        };
+        assert!(!sym.is_import());
+    }
+
+    #[test]
+    fn undefined_weak_is_import() {
+        let sym = Sym {
+            st_name: 0,
+            st_info: (STB_WEAK << 4) | STT_FUNC,
+            st_other: 0,
+            st_shndx: SHN_UNDEF as usize,
+            st_value: 0,
+            st_size: 0,
+        };
+        assert!(sym.is_import());
+    }
+}

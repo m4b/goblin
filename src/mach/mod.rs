@@ -146,6 +146,29 @@ impl<'a> MachO<'a> {
             Ok(vec![])
         }
     }
+    /// Returns the minimum macOS version required by this binary, if specified.
+    ///
+    /// Scans `LC_BUILD_VERSION` (platform macOS) and `LC_VERSION_MIN_MACOSX` load commands,
+    /// returning the highest minimum version found.
+    pub fn min_macos_version(&self) -> Option<load_command::MacOSVersion> {
+        use load_command::{CommandVariant, MacOSVersion, PLATFORM_MACOS};
+
+        let mut version = None;
+        for cmd in &self.load_commands {
+            match cmd.command {
+                CommandVariant::BuildVersion(ref build_ver) if build_ver.platform == PLATFORM_MACOS => {
+                    let v = MacOSVersion::from_packed(build_ver.minos);
+                    version = Some(version.map_or(v, |current| core::cmp::max(current, v)));
+                }
+                CommandVariant::VersionMinMacosx(ref ver) => {
+                    let v = MacOSVersion::from_packed(ver.version);
+                    version = Some(version.map_or(v, |current| core::cmp::max(current, v)));
+                }
+                _ => {}
+            }
+        }
+        version
+    }
     /// Parses the Mach-o binary from `bytes` at `offset`
     pub fn parse(bytes: &'a [u8], offset: usize) -> error::Result<MachO<'a>> {
         Self::parse_impl(bytes, offset, false)

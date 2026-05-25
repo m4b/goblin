@@ -17,6 +17,10 @@ pub struct ParseOptions {
     pub parse_resources: bool,
     /// Whether or not to end with an error in case of incorrect data or continue parsing if able. Default: ParseMode::Strict
     pub parse_mode: ParseMode,
+    /// Whether or not to parse import tables. Set to false if you only need headers,
+    /// debug info, or exports. This can dramatically speed up parsing for PE files with
+    /// large or malformed import tables. Default: true
+    pub parse_imports: bool,
 }
 
 impl Default for ParseOptions {
@@ -28,6 +32,7 @@ impl Default for ParseOptions {
             parse_tls_data: true,
             parse_resources: true,
             parse_mode: ParseMode::Strict,
+            parse_imports: true,
         }
     }
 }
@@ -41,6 +46,7 @@ impl ParseOptions {
             parse_tls_data: true,
             parse_resources: true,
             parse_mode: ParseMode::Strict,
+            parse_imports: true,
         }
     }
 
@@ -56,6 +62,11 @@ impl ParseOptions {
 
     pub fn with_parse_resources(mut self, parse_resources: bool) -> Self {
         self.parse_resources = parse_resources;
+        self
+    }
+
+    pub fn with_parse_imports(mut self, parse_imports: bool) -> Self {
+        self.parse_imports = parse_imports;
         self
     }
 }

@@ -699,7 +699,7 @@ impl<'a> Coff<'a> {
         debug!("{:#?}", header);
         // TODO: maybe parse optional header, but it isn't present for Windows.
         *offset += header.size_of_optional_header as usize;
-        let sections = header.sections(bytes, offset)?;
+        let sections = header.sections_with_opts(bytes, offset, &crate::pe::options::ParseOptions::coff())?;
         let symbols = header.symbols(bytes)?;
         let strings = header.strings(bytes)?;
         Ok(Coff {

@@ -17,6 +17,11 @@ pub struct ParseOptions {
     pub parse_resources: bool,
     /// Whether or not to end with an error in case of incorrect data or continue parsing if able. Default: ParseMode::Strict
     pub parse_mode: ParseMode,
+    /// Whether section names may use COFF indirect string table references (`/offset`).
+    ///
+    /// Indirect section names are only valid for COFF object files. PE images store section
+    /// names as UTF-8 in the 8-byte name field. Default: false
+    pub parse_indirect_section_names: bool,
 }
 
 impl Default for ParseOptions {
@@ -28,6 +33,7 @@ impl Default for ParseOptions {
             parse_tls_data: true,
             parse_resources: true,
             parse_mode: ParseMode::Strict,
+            parse_indirect_section_names: false,
         }
     }
 }
@@ -41,6 +47,14 @@ impl ParseOptions {
             parse_tls_data: true,
             parse_resources: true,
             parse_mode: ParseMode::Strict,
+            parse_indirect_section_names: false,
+        }
+    }
+
+    pub(crate) fn coff() -> Self {
+        Self {
+            parse_indirect_section_names: true,
+            ..Self::default()
         }
     }
 

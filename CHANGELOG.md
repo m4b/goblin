@@ -5,6 +5,20 @@ Before 1.0, this project does not adhere to [Semantic Versioning](http://semver.
 
 Goblin is now 0.10, which means we will try our best to ease breaking changes. Tracking issue is here: https://github.com/m4b/goblin/issues/97
 
+## [0.10.6] - 2026-5-25
+## Added
+pe: wrap ResourceData parse in or_permissive_and_default (follow-up to #508), thanks @CalebFenton: https://github.com/m4b/goblin/pull/526
+pe: Add support for ARM64 unwind info (#517), thanks @kkent030315: https://github.com/m4b/goblin/pull/517
+pe.options: added parse_resources option (#521), thanks @prettyroseslover: https://github.com/m4b/goblin/pull/521
+pe.options: add parse_imports option to ParseOptions, thanks @supervacuus: https://github.com/m4b/goblin/pull/522
+
+## Fixed
+elf: fix MIPS64 little-endian relocation parsing, thanks @messense: https://github.com/m4b/goblin/pull/519
+elf: fix inconsistent naming conventions, thanks @crzysdrs: https://github.com/m4b/goblin/pull/520
+elf: terminate NoteDataIterator after parse error to prevent infinite loop, thanks @SAY-5: https://github.com/m4b/goblin/pull/529
+pe: fix arm64 packed pdata field bit shifts (#528), thanks @kkent030315: https://github.com/m4b/goblin/pull/528
+pe: only map file-backed sections to offsets, thanks @supervacuus: https://github.com/m4b/goblin/pull/527
+
 ## [0.10.5] - 2026-2-11
 ## Added
 elf.reloc: Add even more missing powerpc relocations, thanks @ivlzme: https://github.com/m4b/goblin/pull/505

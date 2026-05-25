@@ -132,6 +132,7 @@ In lexicographic order:
 - [@baloo]
 - [@BinFlip]
 - [@burjui]
+- [@CalebFenton]
 - [@chf0x]
 - [@connorkuehl]
 - [@dancrossnyc]
@@ -199,8 +200,10 @@ In lexicographic order:
 - [@ReturnRei]
 - [@rocallahan]
 - [@sanxiyn]
+- [@SAY-5]
 - [@skdltmxn]
 - [@sollyucko]
+- [@supervacuus]
 - [@Swatinem]
 - [@SweetVishnya]
 - [@SquareMan]
@@ -232,6 +235,7 @@ In lexicographic order:
 [@baloo]: https://github.com/baloo
 [@BinFlip]: https://github.com/BinFlip
 [@burjui]: https://github.com/burjui
+[@CalebFenton]: https://github.com/CalebFenton
 [@chf0x]: https://github.com/chf0x
 [@connorkuehl]: https://github.com/connorkuehl
 [@crzysdrs]: https://github.com/crzysdrs
@@ -301,8 +305,10 @@ In lexicographic order:
 [@ReturnRei]: https://github.com/ReturnRei
 [@rocallahan]: https://github.com/rocallahan
 [@sanxiyn]: https://github.com/sanxiyn
+[@SAY-5]: https://github.com/SAY-5
 [@skdltmxn]: https://github.com/skdltmxn
 [@sollyucko]: https://github.com/sollyucko
+[@supervacuus]: https://github.com/supervacuus
 [@suttonbradley]: https://github.com/suttonbradley
 [@Swatinem]: https://github.com/Swatinem
 [@SweetVishnya]: https://github.com/SweetVishnya

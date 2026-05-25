@@ -510,7 +510,7 @@ impl<'a> ImportData<'a> {
 #[derive(Debug)]
 /// A synthesized symbol import, the name is pre-indexed, and the binary offset is computed, as well as which dll it belongs to
 pub struct Import<'a> {
-    pub name: Cow<'a, str>,
+    pub name: Option<Cow<'a, str>>,
     pub dll: &'a str,
     pub ordinal: u16,
     pub offset: usize,
@@ -538,12 +538,13 @@ impl<'a> Import<'a> {
                             // if hint_entry.name = "" && hint_entry.hint = 0 {
                             //     println!("<PE.Import> warning hint/name table rva from {} without hint {:#x}", dll, rva);
                             // }
-                            (rva, Cow::Borrowed(hint_entry.name), hint_entry.hint)
+                            (
+                                rva,
+                                Some(Cow::Borrowed(hint_entry.name)),
+                                hint_entry.hint,
+                            )
                         }
-                        OrdinalNumber(ordinal) => {
-                            let name = format!("ORDINAL {}", ordinal);
-                            (0x0, Cow::Owned(name), ordinal)
-                        }
+                        OrdinalNumber(ordinal) => (0x0, None, ordinal),
                     };
                     let import = Import {
                         name,
@@ -573,7 +574,7 @@ mod tests {
         let binary = crate::pe::PE::parse(NOT_WELL_FORMED_IMPORT).expect("Unable to parse binary");
         assert_eq!(binary.import_data.is_some(), true);
         assert_eq!(binary.imports.len(), 1);
-        assert_eq!(binary.imports[0].name, "ORDINAL 51398");
+        assert_eq!(binary.imports[0].name, None);
         assert_eq!(binary.imports[0].dll, "abcd.dll");
         assert_eq!(binary.imports[0].ordinal, 51398);
         assert_eq!(binary.imports[0].offset, 0x7014);
@@ -586,7 +587,7 @@ mod tests {
         let binary = crate::pe::PE::parse(WELL_FORMED_IMPORT).expect("Unable to parse binary");
         assert_eq!(binary.import_data.is_some(), true);
         assert_eq!(binary.imports.len(), 1);
-        assert_eq!(binary.imports[0].name, "GetLastError");
+        assert_eq!(binary.imports[0].name.as_deref(), Some("GetLastError"));
         assert_eq!(binary.imports[0].dll, "KERNEL32.dll");
         assert_eq!(binary.imports[0].ordinal, 647);
         assert_eq!(binary.imports[0].offset, 0x2000);

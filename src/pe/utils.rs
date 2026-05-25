@@ -51,9 +51,17 @@ fn section_read_size(section: &section_table::SectionTable, file_alignment: u32)
     // {
     //     readsize = min(readsize, (virtsize + 0xfff) & ~0xfff);
     // }
+    //
+    // Only bytes that are actually backed by the file may be mapped into offsets.
+    // Sections with `SizeOfRawData == 0` are virtual-only when parsing an on-disk PE,
+    // even if they have a non-zero `VirtualSize`.
+
+    let size_of_raw_data = section.size_of_raw_data as usize;
+    if size_of_raw_data == 0 {
+        return 0;
+    }
 
     let file_alignment = file_alignment as usize;
-    let size_of_raw_data = section.size_of_raw_data as usize;
     let virtual_size = section.virtual_size as usize;
     let read_size = {
         let read_size =
@@ -65,8 +73,6 @@ fn section_read_size(section: &section_table::SectionTable, file_alignment: u32)
 
     if virtual_size == 0 {
         read_size
-    } else if read_size == 0 {
-        virtual_size
     } else {
         cmp::min(read_size, round_size(virtual_size))
     }
@@ -261,4 +267,46 @@ where
 {
     debug_assert!(align != 0u8.into(), "Align must be non-zero");
     (value + align - 1u8.into()) & !(align - 1u8.into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{find_offset, section_read_size};
+    use crate::pe::options::ParseOptions;
+    use crate::pe::section_table::SectionTable;
+
+    fn section(
+        virtual_address: u32,
+        virtual_size: u32,
+        size_of_raw_data: u32,
+        pointer_to_raw_data: u32,
+    ) -> SectionTable {
+        SectionTable {
+            virtual_address,
+            virtual_size,
+            size_of_raw_data,
+            pointer_to_raw_data,
+            ..SectionTable::default()
+        }
+    }
+
+    #[test]
+    fn virtual_only_sections_are_not_file_backed() {
+        let section = section(0x1fb000, 0x28590, 0, 0);
+        assert_eq!(section_read_size(&section, 0x200), 0);
+        assert_eq!(
+            find_offset(0x215580, &[section], 0x200, &ParseOptions::default()),
+            None,
+        );
+    }
+
+    #[test]
+    fn file_backed_sections_still_map_rvas() {
+        let section = section(0x1000, 0x600, 0x400, 0x200);
+        assert_eq!(section_read_size(&section, 0x200), 0x400);
+        assert_eq!(
+            find_offset(0x1123, &[section], 0x200, &ParseOptions::default()),
+            Some(0x323),
+        );
+    }
 }

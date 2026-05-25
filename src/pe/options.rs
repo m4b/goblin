@@ -11,7 +11,10 @@ pub struct ParseOptions {
     /// memory](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#other-contents-of-the-file).
     /// For on-disk representations, leave as true. Default: true
     pub parse_attribute_certificates: bool,
+    /// Whether or not to parse tls data. Default: true
     pub parse_tls_data: bool,
+    /// Whether or not to parse resources. Default: true
+    pub parse_resources: bool,
     /// Whether or not to end with an error in case of incorrect data or continue parsing if able. Default: ParseMode::Strict
     pub parse_mode: ParseMode,
 }
@@ -23,6 +26,7 @@ impl Default for ParseOptions {
             resolve_rva: true,
             parse_attribute_certificates: true,
             parse_tls_data: true,
+            parse_resources: true,
             parse_mode: ParseMode::Strict,
         }
     }
@@ -35,12 +39,23 @@ impl ParseOptions {
             resolve_rva: false,
             parse_attribute_certificates: false,
             parse_tls_data: true,
+            parse_resources: true,
             parse_mode: ParseMode::Strict,
         }
     }
 
     pub fn with_parse_mode(mut self, parse_mode: ParseMode) -> Self {
         self.parse_mode = parse_mode;
+        self
+    }
+
+    pub fn with_parse_tls_data(mut self, parse_tls_data: bool) -> Self {
+        self.parse_tls_data = parse_tls_data;
+        self
+    }
+
+    pub fn with_parse_resources(mut self, parse_resources: bool) -> Self {
+        self.parse_resources = parse_resources;
         self
     }
 }

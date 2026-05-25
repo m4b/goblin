@@ -378,20 +378,23 @@ impl<'a> PE<'a> {
                 0
             };
 
-            if let Some(&resource_table) = optional_header.data_directories.get_resource_table() {
-                resource_data = resource::ResourceData::parse_with_opts(
-                    bytes,
-                    resource_table,
-                    &sections,
-                    file_alignment,
-                    opts,
-                )
-                .map(Some)
-                .or_permissive_and_default(
-                    opts.parse_mode.is_permissive(),
-                    "Failed to parse resource data",
-                )?;
-                debug!("resource_data data: {:#?}", resource_data);
+            if opts.parse_resources {
+                if let Some(&resource_table) = optional_header.data_directories.get_resource_table()
+                {
+                    resource_data = resource::ResourceData::parse_with_opts(
+                        bytes,
+                        resource_table,
+                        &sections,
+                        file_alignment,
+                        opts,
+                    )
+                    .map(Some)
+                    .or_permissive_and_default(
+                        opts.parse_mode.is_permissive(),
+                        "Failed to parse resource data",
+                    )?;
+                    debug!("resource_data data: {:#?}", resource_data);
+                }
             }
 
             authenticode_excluded_sections = Some(authenticode::ExcludedSections::new(

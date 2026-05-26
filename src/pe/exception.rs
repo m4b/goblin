@@ -874,6 +874,12 @@ impl<'a> ExceptionData<'a> {
             return Err(error::Error::from(scroll::Error::BadOffset(offset)));
         }
 
+        if size + offset > bytes.len() {
+            return Err(error::Error::Malformed(
+                "invalid exception directory table size or offset".to_owned(),
+            ));
+        }
+
         Ok(ExceptionData {
             bytes,
             offset,

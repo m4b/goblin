@@ -156,7 +156,9 @@ impl<'a> MachO<'a> {
         let mut version = None;
         for cmd in &self.load_commands {
             match cmd.command {
-                CommandVariant::BuildVersion(ref build_ver) if build_ver.platform == PLATFORM_MACOS => {
+                CommandVariant::BuildVersion(ref build_ver)
+                    if build_ver.platform == PLATFORM_MACOS =>
+                {
                     let v = MacOSVersion::from_packed(build_ver.minos);
                     version = Some(version.map_or(v, |current| core::cmp::max(current, v)));
                 }

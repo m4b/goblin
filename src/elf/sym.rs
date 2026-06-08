@@ -96,7 +96,8 @@ pub fn st_visibility(other: u8) -> u8 {
 #[inline]
 pub fn is_import(info: u8, shndx: u16) -> bool {
     let bind = st_bind(info);
-    (bind == STB_GLOBAL || bind == STB_WEAK) && shndx == crate::elf::section_header::SHN_UNDEF as u16
+    (bind == STB_GLOBAL || bind == STB_WEAK)
+        && shndx == crate::elf::section_header::SHN_UNDEF as u16
 }
 
 /// Convenience function to get the &'static str type from the symbols `st_info`.

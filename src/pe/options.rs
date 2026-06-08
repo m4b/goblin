@@ -22,6 +22,10 @@ pub struct ParseOptions {
     /// Indirect section names are only valid for COFF object files. PE images store section
     /// names as UTF-8 in the 8-byte name field. Default: false
     pub parse_indirect_section_names: bool,
+    /// Whether or not to parse import tables. Set to false if you only need headers,
+    /// debug info, or exports. This can dramatically speed up parsing for PE files with
+    /// large or malformed import tables. Default: true
+    pub parse_imports: bool,
 }
 
 impl Default for ParseOptions {
@@ -34,6 +38,7 @@ impl Default for ParseOptions {
             parse_resources: true,
             parse_mode: ParseMode::Strict,
             parse_indirect_section_names: false,
+            parse_imports: true,
         }
     }
 }
@@ -48,6 +53,7 @@ impl ParseOptions {
             parse_resources: true,
             parse_mode: ParseMode::Strict,
             parse_indirect_section_names: false,
+            parse_imports: true,
         }
     }
 
@@ -70,6 +76,11 @@ impl ParseOptions {
 
     pub fn with_parse_resources(mut self, parse_resources: bool) -> Self {
         self.parse_resources = parse_resources;
+        self
+    }
+
+    pub fn with_parse_imports(mut self, parse_imports: bool) -> Self {
+        self.parse_imports = parse_imports;
         self
     }
 }

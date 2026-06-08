@@ -549,6 +549,11 @@ impl<'a> Mach<'a> {
             let error = error::Error::Malformed("size is smaller than a magical number".into());
             return Err(error);
         }
+        if bytes.starts_with(b"#!") {
+            return Err(error::Error::Malformed(
+                "input appears to be a script with a shebang (#!), not a Mach-O binary".into(),
+            ));
+        }
         let magic = peek(&bytes, 0)?;
         match magic {
             fat::FAT_MAGIC => {
@@ -567,6 +572,7 @@ impl<'a> Mach<'a> {
 #[cfg(test)]
 mod test {
     use super::{Mach, SingleArch};
+    use crate::error::Error;
 
     #[test]
     fn parse_multi_arch_of_macho_binaries() {
@@ -594,6 +600,18 @@ mod test {
                 }
             }
             Mach::Binary(_) => panic!("expected Mach::Fat, got Mach::Binary"),
+        }
+    }
+
+    #[test]
+    fn parse_rejects_shebang_scripts() {
+        let bytes = b"#!/usr/bin/env bash\necho hello\n";
+        let err = Mach::parse(bytes).unwrap_err();
+        match err {
+            Error::Malformed(msg) => {
+                assert!(msg.contains("shebang"));
+            }
+            other => panic!("expected Malformed shebang error, got {other:?}"),
         }
     }
 

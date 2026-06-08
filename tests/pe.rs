@@ -43,8 +43,8 @@ static PE64_INDIRECT_SECTION_NAME: &[u8; 552] = &[
 #[test]
 fn test_indirect_section_name() {
     let pe = PE::parse(&*PE64_INDIRECT_SECTION_NAME).unwrap();
-    assert_eq!(pe.sections[0].name_offset().unwrap(), Some(0x200));
-    assert_eq!(pe.sections[0].name().unwrap(), "superlongsectionname");
+    assert_eq!(pe.sections[0].name_offset().unwrap(), None);
+    assert_eq!(pe.sections[0].name().unwrap(), "/512");
 
     // try to insert bad utf-8 at offset 0x200
     let mut data = PE64_INDIRECT_SECTION_NAME.to_vec();

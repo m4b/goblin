@@ -593,4 +593,34 @@ mod tests {
         assert_eq!(binary.imports[0].rva, 0x21B8);
         assert_eq!(binary.imports[0].size, 8);
     }
+
+    #[test]
+    fn skip_import_parsing_when_disabled() {
+        let opts = crate::pe::options::ParseOptions::default().with_parse_imports(false);
+        let binary = crate::pe::PE::parse_with_opts(WELL_FORMED_IMPORT, &opts)
+            .expect("Unable to parse binary");
+        assert!(binary.import_data.is_none());
+        assert!(binary.imports.is_empty());
+        assert!(binary.libraries.is_empty());
+        assert!(binary.header.optional_header.is_some());
+        assert!(!binary.sections.is_empty());
+    }
+
+    #[test]
+    fn skip_imports_preserves_debug_data() {
+        // Use a binary with debug directories to verify that skipping imports
+        // does not affect debug data parsing.
+        const MSVC_BIN: &[u8] =
+            include_bytes!("../../tests/bins/pe/debug_directories-msvc.exe.bin");
+        let opts = crate::pe::options::ParseOptions::default().with_parse_imports(false);
+        let binary =
+            crate::pe::PE::parse_with_opts(MSVC_BIN, &opts).expect("Unable to parse binary");
+        assert!(binary.import_data.is_none());
+        assert!(binary.imports.is_empty());
+        let debug_data = binary
+            .debug_data
+            .as_ref()
+            .expect("debug_data should be present");
+        assert!(debug_data.codeview_pdb70_debug_info.is_some());
+    }
 }

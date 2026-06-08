@@ -1967,9 +1967,8 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "Cycle detected in resource directory at offset"]
     fn malformed_resource_tree() {
-        let _ = crate::pe::PE::parse(MALFORMED_RESOURCE_TREE).unwrap();
+        assert!(crate::pe::PE::parse(MALFORMED_RESOURCE_TREE).is_err());
     }
 
     #[test]

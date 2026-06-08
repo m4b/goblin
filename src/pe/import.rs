@@ -538,11 +538,7 @@ impl<'a> Import<'a> {
                             // if hint_entry.name = "" && hint_entry.hint = 0 {
                             //     println!("<PE.Import> warning hint/name table rva from {} without hint {:#x}", dll, rva);
                             // }
-                            (
-                                rva,
-                                Some(Cow::Borrowed(hint_entry.name)),
-                                hint_entry.hint,
-                            )
+                            (rva, Some(Cow::Borrowed(hint_entry.name)), hint_entry.hint)
                         }
                         OrdinalNumber(ordinal) => (0x0, None, ordinal),
                     };

@@ -133,6 +133,10 @@ impl SectionTable {
         &self,
         opts: &crate::pe::options::ParseOptions,
     ) -> error::Result<Option<usize>> {
+        if !opts.parse_indirect_section_names {
+            return Ok(None);
+        }
+
         // Based on https://github.com/llvm-mirror/llvm/blob/af7b1832a03ab6486c42a40d21695b2c03b2d8a3/lib/Object/COFFObjectFile.cpp#L1054
         if self.name[0] == b'/' {
             let idx: usize = if self.name[1] == b'/' {
@@ -354,6 +358,31 @@ mod tests {
     }
 
     #[test]
+    fn pe_section_name_with_slash_is_not_indirect() {
+        let mut section = SectionTable::default();
+        section.name = *b"/1234567";
+        assert_eq!(
+            section
+                .name_offset_with_opts(&crate::pe::options::ParseOptions::default())
+                .unwrap(),
+            None
+        );
+        assert_eq!(section.name().unwrap(), "/1234567");
+    }
+
+    #[test]
+    fn coff_section_name_with_slash_is_indirect() {
+        let mut section = SectionTable::default();
+        section.name = *b"/1234567";
+        assert_eq!(
+            section
+                .name_offset_with_opts(&crate::pe::options::ParseOptions::coff())
+                .unwrap(),
+            Some(1_234_567)
+        );
+    }
+
+    #[test]
     fn set_name_offset() {
         let mut section = SectionTable::default();
         for &(offset, name) in [
@@ -368,7 +397,12 @@ mod tests {
         {
             section.set_name_offset(offset).unwrap();
             assert_eq!(&section.name, name);
-            assert_eq!(section.name_offset().unwrap(), Some(offset));
+            assert_eq!(
+                section
+                    .name_offset_with_opts(&crate::pe::options::ParseOptions::coff())
+                    .unwrap(),
+                Some(offset)
+            );
         }
         #[cfg(target_pointer_width = "64")]
         assert!(section.set_name_offset(0x1_000_000_000).is_err());

@@ -62,6 +62,12 @@ pub struct Section {
     pub nreloc: u32,
     /// flags (section type and attributes
     pub flags: u32,
+    /// reserved (for offset or index)
+    pub reserved1: u32,
+    /// reserved (for count or sizeof)
+    pub reserved2: u32,
+    /// reserved (64-bit Mach-O only)
+    pub reserved3: u32,
 }
 
 impl Section {
@@ -107,9 +113,9 @@ impl From<Section> for Section64 {
             reloff: section.reloff,
             nreloc: section.nreloc,
             flags: section.flags,
-            reserved1: 0,
-            reserved2: 0,
-            reserved3: 0,
+            reserved1: section.reserved1,
+            reserved2: section.reserved2,
+            reserved3: section.reserved3,
         }
     }
 }
@@ -126,8 +132,8 @@ impl From<Section> for Section32 {
             reloff: section.reloff,
             nreloc: section.nreloc,
             flags: section.flags,
-            reserved1: 0,
-            reserved2: 0,
+            reserved1: section.reserved1,
+            reserved2: section.reserved2,
         }
     }
 }
@@ -144,6 +150,9 @@ impl fmt::Debug for Section {
             .field("reloff", &self.reloff)
             .field("nreloc", &self.nreloc)
             .field("flags", &self.flags)
+            .field("reserved1", &self.reserved1)
+            .field("reserved2", &self.reserved2)
+            .field("reserved3", &self.reserved3)
             .finish()
     }
 }
@@ -160,6 +169,9 @@ impl From<Section32> for Section {
             reloff: section.reloff,
             nreloc: section.nreloc,
             flags: section.flags,
+            reserved1: section.reserved1,
+            reserved2: section.reserved2,
+            reserved3: 0,
         }
     }
 }
@@ -176,6 +188,9 @@ impl From<Section64> for Section {
             reloff: section.reloff,
             nreloc: section.nreloc,
             flags: section.flags,
+            reserved1: section.reserved1,
+            reserved2: section.reserved2,
+            reserved3: section.reserved3,
         }
     }
 }
@@ -603,5 +618,33 @@ impl<'a> Segments<'a> {
     // thanks to SpaceManic for figuring out the 'b lifetimes here :)
     pub fn sections<'b>(&'b self) -> Box<dyn Iterator<Item = SectionIterator<'a>> + 'b> {
         Box::new(self.segments.iter().map(|segment| segment.into_iter()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::mach::load_command::Section64;
+
+    #[test]
+    fn section_from_section64_preserves_reserved_fields() {
+        let raw = Section64 {
+            sectname: *b"__stubs\0\0\0\0\0\0\0\0\0",
+            segname: *b"__TEXT\0\0\0\0\0\0\0\0\0\0",
+            addr: 0,
+            size: 0,
+            offset: 0,
+            align: 0,
+            reloff: 0,
+            nreloc: 0,
+            flags: 0,
+            reserved1: 7,
+            reserved2: 12,
+            reserved3: 99,
+        };
+        let section = Section::from(raw);
+        assert_eq!(section.reserved1, 7);
+        assert_eq!(section.reserved2, 12);
+        assert_eq!(section.reserved3, 99);
     }
 }

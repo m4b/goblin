@@ -458,7 +458,13 @@ impl<'a> PE<'a> {
         );
 
         for section in &self.sections {
-            let section_data = section.data(&self.bytes)?.ok_or_else(|| {
+            if section.size_of_raw_data == 0 {
+                // Virtual-only sections, such as .bss, have no on-disk bytes to write.
+                bytes.gwrite_with(section, offset, ctx)?;
+                continue;
+            }
+
+            let section_data = section.data(self.bytes)?.ok_or_else(|| {
                 error::Error::Malformed(format!(
                     "Section data `{}` is malformed",
                     section.name().unwrap_or("unknown name")
@@ -865,7 +871,7 @@ mod tests {
 
     #[test]
     fn string_table_excludes_length() {
-        let coff = Coff::parse(&&COFF_FILE_SINGLE_STRING_IN_STRING_TABLE[..]).unwrap();
+        let coff = Coff::parse(&COFF_FILE_SINGLE_STRING_IN_STRING_TABLE[..]).unwrap();
         let string_table = coff.strings.unwrap().to_vec().unwrap();
 
         assert!(string_table == vec!["ExitProcess"]);
@@ -945,6 +951,81 @@ mod tests {
         assert!(
             permissive_result.is_ok(),
             "Permissive parsing should succeed for packed binary"
+        );
+    }
+
+    #[test]
+    fn write_sections_skips_virtual_only_section_data() {
+        const HEADER_SENTINEL: u8 = 0xA5;
+        const RAW_SECTION_OFFSET: usize = 0x80;
+        const SECTION_TABLE_OFFSET: usize = 0x100;
+        const RAW_SECTION_BYTES: &[u8] = b"raw!";
+
+        let source = {
+            let mut source = vec![0; RAW_SECTION_OFFSET + RAW_SECTION_BYTES.len()];
+            source[RAW_SECTION_OFFSET..RAW_SECTION_OFFSET + RAW_SECTION_BYTES.len()]
+                .copy_from_slice(RAW_SECTION_BYTES);
+            source
+        };
+        let pe = PE {
+            bytes: &source,
+            authenticode_excluded_sections: None,
+            header: header::Header::default(),
+            sections: vec![
+                section_table::SectionTable {
+                    name: *b".text\0\0\0",
+                    virtual_size: RAW_SECTION_BYTES.len() as u32,
+                    size_of_raw_data: RAW_SECTION_BYTES.len() as u32,
+                    pointer_to_raw_data: RAW_SECTION_OFFSET as u32,
+                    ..section_table::SectionTable::default()
+                },
+                section_table::SectionTable {
+                    name: *b".bss\0\0\0\0",
+                    virtual_size: 0x40,
+                    size_of_raw_data: 0,
+                    pointer_to_raw_data: 0,
+                    ..section_table::SectionTable::default()
+                },
+            ],
+            size: source.len(),
+            name: None,
+            is_lib: false,
+            is_64: true,
+            entry: 0,
+            image_base: 0,
+            export_data: None,
+            import_data: None,
+            exports: Vec::new(),
+            imports: Vec::new(),
+            libraries: Vec::new(),
+            debug_data: None,
+            tls_data: None,
+            exception_data: None,
+            relocation_data: None,
+            load_config_data: None,
+            certificates: Vec::new(),
+            resource_data: None,
+            clr_data: None,
+        };
+
+        let mut output = vec![HEADER_SENTINEL; SECTION_TABLE_OFFSET + 0x80];
+        let mut section_table_offset = SECTION_TABLE_OFFSET;
+
+        pe.write_sections(&mut output, &mut section_table_offset, None, scroll::LE)
+            .unwrap();
+
+        assert!(
+            output[..RAW_SECTION_OFFSET]
+                .iter()
+                .all(|byte| *byte == HEADER_SENTINEL)
+        );
+        assert_eq!(
+            &output[RAW_SECTION_OFFSET..RAW_SECTION_OFFSET + RAW_SECTION_BYTES.len()],
+            RAW_SECTION_BYTES
+        );
+        assert_eq!(
+            section_table_offset,
+            SECTION_TABLE_OFFSET + 2 * section_table::SIZEOF_SECTION_TABLE
         );
     }
 }

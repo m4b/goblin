@@ -1068,6 +1068,41 @@ impl VersionMinCommand {
 
 pub const SIZEOF_VERSION_MIN_COMMAND: usize = 16;
 
+/// A macOS minimum version requirement from Mach-O load commands.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct MacOSVersion {
+    /// Major version (e.g. 10 in 10.15).
+    pub major: u16,
+    /// Minor version (e.g. 15 in 10.15).
+    pub minor: u16,
+}
+
+impl MacOSVersion {
+    /// Parse from a packed version used in `LC_BUILD_VERSION` and `LC_VERSION_MIN_MACOSX`.
+    ///
+    /// Format: `xxxx.yy.zz` where `x` is major, `y` is minor, and `z` is patch (ignored).
+    #[allow(clippy::cast_possible_truncation)]
+    pub const fn from_packed(packed: u32) -> Self {
+        Self {
+            major: ((packed >> 16) & 0xFFFF) as u16,
+            minor: ((packed >> 8) & 0xFF) as u16,
+        }
+    }
+}
+
+impl fmt::Display for MacOSVersion {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}.{}", self.major, self.minor)
+    }
+}
+
+impl VersionMinCommand {
+    /// Returns the minimum macOS version encoded in this load command.
+    pub fn macos_min_version(&self) -> MacOSVersion {
+        MacOSVersion::from_packed(self.version)
+    }
+}
+
 #[repr(C)]
 #[derive(Default, Debug, Clone, Copy, Pread, Pwrite, SizeWith)]
 pub struct DyldInfoCommand {
@@ -1202,6 +1237,17 @@ pub struct BuildVersionCommand {
     pub sdk: u32,
     /// number of tool entries following this
     pub ntools: u32,
+}
+
+impl BuildVersionCommand {
+    /// Returns the minimum macOS version if this load command targets macOS.
+    pub fn macos_min_version(&self) -> Option<MacOSVersion> {
+        if self.platform == PLATFORM_MACOS {
+            Some(MacOSVersion::from_packed(self.minos))
+        } else {
+            None
+        }
+    }
 }
 
 /// Build tool version
@@ -1856,5 +1902,67 @@ impl LoadCommand {
             offset: start,
             command,
         })
+    }
+}
+
+#[cfg(test)]
+mod macos_version_tests {
+    use super::*;
+
+    #[test]
+    fn from_packed_parses_major_minor() {
+        let version = MacOSVersion::from_packed(0x000A_0F00);
+        assert_eq!(version.major, 10);
+        assert_eq!(version.minor, 15);
+        assert_eq!(version.to_string(), "10.15");
+    }
+
+    #[test]
+    fn build_version_macos_platform() {
+        let cmd = BuildVersionCommand {
+            cmd: LC_BUILD_VERSION,
+            cmdsize: 24,
+            platform: PLATFORM_MACOS,
+            minos: 0x000B_0000,
+            sdk: 0,
+            ntools: 0,
+        };
+        assert_eq!(
+            cmd.macos_min_version(),
+            Some(MacOSVersion {
+                major: 11,
+                minor: 0
+            })
+        );
+    }
+
+    #[test]
+    fn build_version_non_macos_platform() {
+        let cmd = BuildVersionCommand {
+            cmd: LC_BUILD_VERSION,
+            cmdsize: 24,
+            platform: PLATFORM_IOS,
+            minos: 0x000E_0000,
+            sdk: 0,
+            ntools: 0,
+        };
+        assert_eq!(cmd.macos_min_version(), None);
+    }
+
+    #[test]
+    fn version_min_command_macos() {
+        let cmd = VersionMinCommand {
+            cmd: LC_VERSION_MIN_MACOSX,
+            cmdsize: SIZEOF_VERSION_MIN_COMMAND as u32,
+            version: 0x000A_0D00,
+            sdk: 0,
+        };
+        assert_eq!(
+            cmd.macos_min_version(),
+            MacOSVersion {
+                major: 10,
+                minor: 13
+            }
+        );
     }
 }

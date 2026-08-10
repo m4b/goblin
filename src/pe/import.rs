@@ -60,7 +60,7 @@ impl<'a> Bitfield<'a> for u32 {
         (0xffff & self) as u16
     }
     fn to_rva(&self) -> u32 {
-        (self & IMPORT_RVA_MASK_32) as u32
+        self & IMPORT_RVA_MASK_32
     }
     fn size_of() -> usize {
         4

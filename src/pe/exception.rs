@@ -1962,7 +1962,7 @@ impl<'a> Iterator for Arm64UnwindCodeIterator<'a> {
                     if cls != 3 {
                         let p = ((b1 >> 6) & 1) != 0;
                         let x = ((b1 >> 5) & 1) != 0;
-                        let r = (b1 & 0x1f) as u8;
+                        let r = b1 & 0x1f;
                         let o = (b2 & 0x3f) as u32;
 
                         let offset_bytes = match (cls, x || p) {
@@ -1994,7 +1994,7 @@ impl<'a> Iterator for Arm64UnwindCodeIterator<'a> {
                         )
                     } else {
                         let hi = ((b1 >> 5) & 0x03) as u16;
-                        let r = (b1 & 0x0f) as u8;
+                        let r = b1 & 0x0f;
                         let lo = (b2 & 0x3f) as u16;
                         let o = (hi << 6) | lo;
 

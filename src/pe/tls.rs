@@ -274,7 +274,7 @@ impl<'a> TlsData<'a> {
                 if callback == 0 {
                     break;
                 }
-                if callback < image_base as u64 {
+                if callback < image_base {
                     return Err(error::Error::Malformed(format!(
                         "tls callback ({:#x}) is less than image base ({:#x})",
                         callback, image_base

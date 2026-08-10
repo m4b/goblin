@@ -465,7 +465,7 @@ impl<'a> Archive<'a> {
             let member = Member::parse(buffer, offset)?;
 
             // advance to the next record
-            *offset = member.offset as usize + member.size() as usize;
+            *offset = member.offset as usize + member.size();
 
             let name = member.raw_name();
             if name == INDEX_NAME {

@@ -525,7 +525,7 @@ impl RelocationWord {
 
     /// Returns the relocation offset from the lower 16 bits of [Self::value].
     pub fn offset(&self) -> u16 {
-        (self.value & 0xFFF) as u16
+        self.value & 0xFFF
     }
 }
 

@@ -20,6 +20,7 @@ pub mod load_command;
 pub mod relocation;
 pub mod segment;
 pub mod symbols;
+pub mod version;
 
 pub use self::constants::cputype;
 

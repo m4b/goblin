@@ -100,28 +100,36 @@ impl SectionTable {
     }
 
     pub fn data<'b>(&self, pe_bytes: &'b [u8]) -> error::Result<Option<Cow<'b, [u8]>>> {
+        // Sections with no raw data are virtual-only in an on-disk PE.
+        if self.size_of_raw_data == 0 {
+            return Ok(None);
+        }
+
         let section_start: usize = self.pointer_to_raw_data.try_into().map_err(|_| {
-            Error::Malformed(format!("Virtual address cannot fit in platform `usize`"))
+            Error::Malformed("Virtual address cannot fit in platform `usize`".to_string())
         })?;
 
         // assert!(self.virtual_size <= self.size_of_raw_data);
         // if vsize > size_of_raw_data, the section is zero padded.
         let section_end: usize = section_start
             + usize::try_from(self.size_of_raw_data).map_err(|_| {
-                Error::Malformed(format!("Virtual size cannot fit in platform `usize`"))
+                Error::Malformed("Virtual size cannot fit in platform `usize`".to_string())
             })?;
 
-        let original_bytes = pe_bytes.get(section_start..section_end).map(Cow::Borrowed);
+        let original_bytes = match pe_bytes.get(section_start..section_end) {
+            Some(bytes) => bytes,
+            None => return Ok(None),
+        };
 
-        if original_bytes.is_some() && self.virtual_size > self.size_of_raw_data {
-            let mut bytes: Vec<u8> = Vec::new();
-            bytes.resize(self.size_of_raw_data.try_into()?, 0);
-            bytes.copy_from_slice(&original_bytes.unwrap());
-            bytes.resize(self.virtual_size.try_into()?, 0);
+        if self.virtual_size > self.size_of_raw_data {
+            let virtual_size = self.virtual_size.try_into()?;
+            let mut bytes = Vec::with_capacity(virtual_size);
+            bytes.extend_from_slice(original_bytes);
+            bytes.resize(virtual_size, 0);
 
             Ok(Some(Cow::Owned(bytes)))
         } else {
-            Ok(original_bytes)
+            Ok(Some(Cow::Borrowed(original_bytes)))
         }
     }
 
@@ -344,13 +352,28 @@ mod tests {
     fn test_section_to_bytes() {
         let bytes = vec![0u8; 16];
         let r_bytes = {
-            let mut section = SectionTable::default();
-            section.pointer_to_raw_data = 4;
-            section.size_of_raw_data = 4;
-            section.virtual_size = 4;
+            let section = SectionTable {
+                pointer_to_raw_data: 4,
+                size_of_raw_data: 4,
+                virtual_size: 4,
+                ..SectionTable::default()
+            };
             section.data(&bytes).unwrap().unwrap()
         };
         assert_eq!(*r_bytes, [0, 0, 0, 0])
+    }
+
+    #[test]
+    fn virtual_only_section_has_no_file_backed_data() {
+        let bytes = vec![0u8; 16];
+        let r_bytes = {
+            let section = SectionTable {
+                virtual_size: 16,
+                ..SectionTable::default()
+            };
+            section.data(&bytes).unwrap()
+        };
+        assert_eq!(r_bytes, None)
     }
 
     #[test]

@@ -827,7 +827,7 @@ impl CoffHeader {
             let section = section_table::SectionTable::parse_with_opts(
                 bytes,
                 offset,
-                string_table_offset as usize,
+                string_table_offset,
                 opts,
             )?;
             debug!("({}) {:#?}", i, section);

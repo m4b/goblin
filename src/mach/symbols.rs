@@ -444,8 +444,8 @@ impl<'a> Symbols<'a> {
 
     pub fn iter(&self) -> SymbolIterator<'a> {
         SymbolIterator {
-            offset: self.start as usize,
-            nsyms: self.nsyms as usize,
+            offset: self.start,
+            nsyms: self.nsyms,
             count: 0,
             data: self.data,
             ctx: self.ctx,

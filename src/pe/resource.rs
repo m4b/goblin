@@ -1027,7 +1027,7 @@ impl VsFixedFileInfo {
 
     /// Reinterprets [`VsFixedFileInfo::file_version_ms`] and [`VsFixedFileInfo::file_version_ls`] into a generic [`VersionField`].
     pub fn file_version(&self) -> VersionField {
-        VersionField::from_ms_ls(self.file_date_ms, self.file_date_ls)
+        VersionField::from_ms_ls(self.file_version_ms, self.file_version_ls)
     }
 
     /// Reinterprets [`VsFixedFileInfo::product_version_ms`] and [`VsFixedFileInfo::product_version_ls`] into a generic [`VersionField`].

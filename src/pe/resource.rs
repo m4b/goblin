@@ -1027,7 +1027,7 @@ impl VsFixedFileInfo {
 
     /// Reinterprets [`VsFixedFileInfo::file_version_ms`] and [`VsFixedFileInfo::file_version_ls`] into a generic [`VersionField`].
     pub fn file_version(&self) -> VersionField {
-        VersionField::from_ms_ls(self.file_date_ms, self.file_date_ls)
+        VersionField::from_ms_ls(self.file_version_ms, self.file_version_ls)
     }
 
     /// Reinterprets [`VsFixedFileInfo::product_version_ms`] and [`VsFixedFileInfo::product_version_ls`] into a generic [`VersionField`].
@@ -2000,9 +2000,9 @@ mod tests {
             .expect("Fixed info should be present");
 
         let file_ver = fixed.file_version();
-        assert_eq!(file_ver.major, 0, "File version major");
-        assert_eq!(file_ver.minor, 0, "File version minor");
-        assert_eq!(file_ver.build, 0, "File version build");
+        assert_eq!(file_ver.major, 4, "File version major");
+        assert_eq!(file_ver.minor, 8, "File version minor");
+        assert_eq!(file_ver.build, 3761, "File version build");
         assert_eq!(file_ver.revision, 0, "File version revision");
 
         let product_ver = fixed.product_version();

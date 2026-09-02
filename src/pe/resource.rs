@@ -2002,7 +2002,7 @@ mod tests {
         let file_ver = fixed.file_version();
         assert_eq!(file_ver.major, 4, "File version major");
         assert_eq!(file_ver.minor, 8, "File version minor");
-        assert_eq!(file_ver.build, 0, "File version build");
+        assert_eq!(file_ver.build, 3761, "File version build");
         assert_eq!(file_ver.revision, 0, "File version revision");
 
         let product_ver = fixed.product_version();

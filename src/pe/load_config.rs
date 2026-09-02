@@ -4,6 +4,7 @@ use scroll::{Pread, Pwrite, SizeWith};
 use crate::container::{Container, Ctx};
 use crate::error;
 use crate::pe::data_directories;
+use crate::pe::dynreloc::DynRelocData;
 use crate::pe::options;
 use crate::pe::section_table;
 use crate::pe::utils;
@@ -371,6 +372,37 @@ impl LoadConfigData {
         let directory = bytes.pread_with(0, ctx)?;
 
         Ok(Self { directory })
+    }
+
+    /// Returns [DynRelocData] if dynamic relocation info is set in the load config.
+    pub fn dynamic_relocation<'a>(
+        &self,
+        bytes: &'a [u8],
+        sections: &[section_table::SectionTable],
+        is_64: bool,
+    ) -> Option<error::Result<DynRelocData<'a>>> {
+        if let (Some(offset), Some(sidx)) = (
+            self.directory.dynamic_value_reloc_table_offset,
+            self.directory.dynamic_value_reloc_table_section,
+        ) {
+            if offset == 0 || sidx == 0 {
+                return None;
+            }
+            let section = sections.get(sidx as usize - 1)?;
+            if section.pointer_to_raw_data == 0 || section.pointer_to_raw_data < offset {
+                return None;
+            }
+
+            let offset = section.pointer_to_raw_data + offset;
+            let size = (section.pointer_to_raw_data + section.size_of_raw_data) - offset;
+            let dvrt_bytes = bytes
+                .pread_with::<&[u8]>(offset as usize, size as usize)
+                .ok()?;
+
+            Some(DynRelocData::parse(dvrt_bytes, is_64, 0))
+        } else {
+            None
+        }
     }
 }
 

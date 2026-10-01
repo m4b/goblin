@@ -375,10 +375,27 @@ impl<'a> Iterator for SymbolIterator<'a> {
         } else {
             self.count += 1;
             match self.data.gread_with::<Nlist>(&mut self.offset, self.ctx) {
-                Ok(symbol) => match self.data.pread(self.strtab + symbol.n_strx) {
-                    Ok(name) => Some(Ok((name, symbol))),
-                    Err(e) => Some(Err(e.into())),
-                },
+                Ok(symbol) => {
+                    // `strtab` and `n_strx` both come straight out of the
+                    // file, so their sum can overflow `usize` on 32-bit
+                    // targets. A plain `+` turns a malformed file into a
+                    // panic; checked_add turns it into the error a caller of a
+                    // parser on untrusted input actually wants.
+                    let name_offset = match self.strtab.checked_add(symbol.n_strx) {
+                        Some(offset) => offset,
+                        None => {
+                            return Some(Err(error::Error::Malformed(format!(
+                                "symbol string offset {} + {} overflows",
+                                self.strtab, symbol.n_strx,
+                            ))
+                            .into()));
+                        }
+                    };
+                    match self.data.pread(name_offset) {
+                        Ok(name) => Some(Ok((name, symbol))),
+                        Err(e) => Some(Err(e.into())),
+                    }
+                }
                 Err(e) => Some(Err(e)),
             }
         }

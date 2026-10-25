@@ -524,7 +524,23 @@ macro_rules! elf_dyn_std_impl {
             pub fn from_fd(mut fd: &File, phdrs: &[$phdr]) -> Result<Option<Vec<Dyn>>> {
                 for phdr in phdrs {
                     if phdr.p_type == PT_DYNAMIC {
-                        // FIXME: validate filesz before allocating
+                        // The segment must lie inside the file, mirroring the
+                        // bounds check in Dynamic::parse for byte slices.
+                        // Without it, filesz drives the allocation below
+                        // unchecked, so a crafted header can abort the host
+                        // process with a huge vec! allocation.
+                        let offset = u64::from(phdr.p_offset);
+                        let filesz64 = u64::from(phdr.p_filesz);
+                        let file_len = fd.metadata()?.len();
+                        match offset.checked_add(filesz64) {
+                            Some(end) if end <= file_len => {}
+                            _ => {
+                                return Err(crate::error::Error::Malformed(format!(
+                                    "Invalid PT_DYNAMIC size (offset {:#x}, filesz {:#x})",
+                                    offset, filesz64
+                                )));
+                            }
+                        }
                         let filesz = phdr.p_filesz as usize;
                         let dync = filesz / SIZEOF_DYN;
                         let mut dyns = vec![Dyn::default(); dync];

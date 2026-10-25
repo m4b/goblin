@@ -470,9 +470,44 @@ macro_rules! elf_dyn_std_impl {
         #[cfg(test)]
         mod tests {
             use super::*;
+
             #[test]
             fn size_of() {
                 assert_eq!(::std::mem::size_of::<Dyn>(), SIZEOF_DYN);
+            }
+
+            // tests/bins/elf/dynamic_entries.bin holds 64 bytes:
+            // four (tag, value) u64 pairs.
+            fn fixture_fd() -> ::std::fs::File {
+                let path = ::std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("tests/bins/elf/dynamic_entries.bin");
+                ::std::fs::File::open(path).expect("missing test fixture")
+            }
+
+            fn dynamic_phdr(filesz: u64) -> $phdr {
+                let mut phdr = <$phdr>::default();
+                phdr.p_type = PT_DYNAMIC;
+                phdr.p_offset = 0;
+                phdr.p_filesz = filesz as _;
+                phdr
+            }
+
+            #[test]
+            fn from_fd_rejects_segment_past_eof() {
+                // A filesz running past EOF must be rejected before it
+                // sizes the allocation in from_fd.
+                let fd = fixture_fd();
+                let res = from_fd(&fd, &[dynamic_phdr(u64::MAX)]);
+                assert!(res.is_err(), "expected error, got {res:?}");
+            }
+
+            #[test]
+            fn from_fd_reads_segment_inside_file() {
+                let fd = fixture_fd();
+                let dyns = from_fd(&fd, &[dynamic_phdr(64)])
+                    .expect("segment inside the file should parse")
+                    .expect("PT_DYNAMIC should yield entries");
+                assert_eq!(dyns.len(), 64 / SIZEOF_DYN);
             }
         }
 

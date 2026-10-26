@@ -13,6 +13,9 @@ use scroll::{Pread, Pwrite, SizeWith};
 
 pub const FAT_MAGIC: u32 = 0xcafe_babe;
 pub const FAT_CIGAM: u32 = 0xbeba_feca;
+/// 64-bit fat magic number (for archives with 64-bit offsets/sizes)
+pub const FAT_MAGIC_64: u32 = 0xcafe_babf;
+pub const FAT_CIGAM_64: u32 = 0xbfba_feca;
 
 #[repr(C)]
 #[derive(Clone, Copy, Default, Pread, Pwrite, SizeWith)]
@@ -128,5 +131,105 @@ impl FatArch {
     pub fn parse(bytes: &[u8], offset: usize) -> error::Result<Self> {
         let arch = bytes.pread_with::<FatArch>(offset, scroll::BE)?;
         Ok(arch)
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default, Pread, Pwrite, SizeWith)]
+/// 64-bit version of `FatArch` for fat binaries with large offsets/sizes
+/// Uses u64 for offset and size fields
+pub struct FatArch64 {
+    /// What kind of CPU this binary is
+    pub cputype: u32,
+    pub cpusubtype: u32,
+    /// Where in the fat binary it starts (64-bit)
+    pub offset: u64,
+    /// How big the binary is (64-bit)
+    pub size: u64,
+    pub align: u32,
+    /// Reserved for future use
+    pub reserved: u32,
+}
+
+pub const SIZEOF_FAT_ARCH_64: usize = 32;
+
+impl fmt::Debug for FatArch64 {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("FatArch64")
+            .field("cputype", &self.cputype())
+            .field("cpusubtype", &self.cpusubtype())
+            .field("offset", &format_args!("{:#x}", &self.offset))
+            .field("size", &self.size)
+            .field("align", &self.align)
+            .finish()
+    }
+}
+
+impl FatArch64 {
+    /// Get the slice of bytes this header describes from `bytes`
+    pub fn slice<'a>(&self, bytes: &'a [u8]) -> &'a [u8] {
+        let start = self.offset as usize;
+        match start
+            .checked_add(self.size as usize)
+            .and_then(|end| bytes.get(start..end))
+        {
+            Some(slice) => slice,
+            None => {
+                log::warn!("invalid `FatArch64` offset");
+                &[]
+            }
+        }
+    }
+
+    /// Returns the cpu type
+    pub fn cputype(&self) -> CpuType {
+        self.cputype
+    }
+
+    /// Returns the cpu subtype with the capabilities removed
+    pub fn cpusubtype(&self) -> CpuSubType {
+        self.cpusubtype & !CPU_SUBTYPE_MASK
+    }
+
+    /// Returns the capabilities of the CPU
+    pub fn cpu_caps(&self) -> u32 {
+        (self.cpusubtype & CPU_SUBTYPE_MASK) >> 24
+    }
+
+    /// Whether this fat architecture header describes a 64-bit binary
+    pub fn is_64(&self) -> bool {
+        (self.cputype & CPU_ARCH_ABI64) == CPU_ARCH_ABI64
+    }
+
+    /// Parse a `FatArch64` header from `bytes` at `offset`
+    pub fn parse(bytes: &[u8], offset: usize) -> error::Result<Self> {
+        let arch = bytes.pread_with::<FatArch64>(offset, scroll::BE)?;
+        Ok(arch)
+    }
+}
+
+impl From<FatArch64> for FatArch {
+    /// Convert to a 32-bit FatArch (may lose precision for large values)
+    fn from(arch: FatArch64) -> Self {
+        FatArch {
+            cputype: arch.cputype,
+            cpusubtype: arch.cpusubtype,
+            offset: arch.offset as u32,
+            size: arch.size as u32,
+            align: arch.align,
+        }
+    }
+}
+
+impl From<FatArch> for FatArch64 {
+    fn from(arch: FatArch) -> Self {
+        FatArch64 {
+            cputype: arch.cputype,
+            cpusubtype: arch.cpusubtype,
+            offset: arch.offset as u64,
+            size: arch.size as u64,
+            align: arch.align,
+            reserved: 0,
+        }
     }
 }

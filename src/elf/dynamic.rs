@@ -470,9 +470,44 @@ macro_rules! elf_dyn_std_impl {
         #[cfg(test)]
         mod tests {
             use super::*;
+
             #[test]
             fn size_of() {
                 assert_eq!(::std::mem::size_of::<Dyn>(), SIZEOF_DYN);
+            }
+
+            // tests/bins/elf/dynamic_entries.bin holds 64 bytes:
+            // four (tag, value) u64 pairs.
+            fn fixture_fd() -> ::std::fs::File {
+                let path = ::std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("tests/bins/elf/dynamic_entries.bin");
+                ::std::fs::File::open(path).expect("missing test fixture")
+            }
+
+            fn dynamic_phdr(filesz: u64) -> $phdr {
+                let mut phdr = <$phdr>::default();
+                phdr.p_type = PT_DYNAMIC;
+                phdr.p_offset = 0;
+                phdr.p_filesz = filesz as _;
+                phdr
+            }
+
+            #[test]
+            fn from_fd_rejects_segment_past_eof() {
+                // A filesz running past EOF must be rejected before it
+                // sizes the allocation in from_fd.
+                let fd = fixture_fd();
+                let res = from_fd(&fd, &[dynamic_phdr(u64::MAX)]);
+                assert!(res.is_err(), "expected error, got {res:?}");
+            }
+
+            #[test]
+            fn from_fd_reads_segment_inside_file() {
+                let fd = fixture_fd();
+                let dyns = from_fd(&fd, &[dynamic_phdr(64)])
+                    .expect("segment inside the file should parse")
+                    .expect("PT_DYNAMIC should yield entries");
+                assert_eq!(dyns.len(), 64 / SIZEOF_DYN);
             }
         }
 
@@ -524,7 +559,23 @@ macro_rules! elf_dyn_std_impl {
             pub fn from_fd(mut fd: &File, phdrs: &[$phdr]) -> Result<Option<Vec<Dyn>>> {
                 for phdr in phdrs {
                     if phdr.p_type == PT_DYNAMIC {
-                        // FIXME: validate filesz before allocating
+                        // The segment must lie inside the file, mirroring the
+                        // bounds check in Dynamic::parse for byte slices.
+                        // Without it, filesz drives the allocation below
+                        // unchecked, so a crafted header can abort the host
+                        // process with a huge vec! allocation.
+                        let offset = u64::from(phdr.p_offset);
+                        let filesz64 = u64::from(phdr.p_filesz);
+                        let file_len = fd.metadata()?.len();
+                        match offset.checked_add(filesz64) {
+                            Some(end) if end <= file_len => {}
+                            _ => {
+                                return Err(crate::error::Error::Malformed(format!(
+                                    "Invalid PT_DYNAMIC size (offset {:#x}, filesz {:#x})",
+                                    offset, filesz64
+                                )));
+                            }
+                        }
                         let filesz = phdr.p_filesz as usize;
                         let dync = filesz / SIZEOF_DYN;
                         let mut dyns = vec![Dyn::default(); dync];

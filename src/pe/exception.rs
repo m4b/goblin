@@ -579,7 +579,11 @@ impl Iterator for UnwindCodeIterator<'_> {
             return None;
         }
 
-        Some(self.bytes.gread_with(&mut self.offset, self.context))
+        let code = self.bytes.gread_with(&mut self.offset, self.context);
+        if code.is_err() {
+            self.offset = self.bytes.len();
+        }
+        Some(code)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -2408,6 +2412,26 @@ mod tests {
         };
 
         assert_eq!(unwind_codes[0], expected);
+    }
+
+    #[test]
+    fn test_unwind_codes_stop_after_error() {
+        const BYTES: &[&[u8]] = &[
+            // Unknown op code 11
+            &[0x01, 0x04, 0x01, 0x00, 0x04, 0x0B],
+            // UWOP_ALLOC_LARGE without its extra slot
+            &[0x01, 0x04, 0x01, 0x00, 0x04, 0x01],
+            // UWOP_ALLOC_SMALL, then unknown op code 11
+            &[0x01, 0x04, 0x02, 0x00, 0x04, 0x62, 0x02, 0x0B],
+        ];
+        for bytes in BYTES {
+            let unwind_info = UnwindInfo::parse(bytes, 0).unwrap();
+            let mut codes = unwind_info.unwind_codes();
+            let results = codes.by_ref().take(8).collect::<Vec<_>>();
+            assert_eq!(results.iter().filter(|r| r.is_err()).count(), 1);
+            assert!(results.last().unwrap().is_err());
+            assert!(codes.next().is_none());
+        }
     }
 
     #[rustfmt::skip]

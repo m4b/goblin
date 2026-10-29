@@ -796,6 +796,16 @@ impl<'a> Iterator for POGOEntryIterator<'a> {
     type Item = error::Result<POGOInfoEntry<'a>>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        let entry = self.next_entry()?;
+        if entry.is_err() {
+            self.data = &[];
+        }
+        Some(entry)
+    }
+}
+
+impl<'a> POGOEntryIterator<'a> {
+    fn next_entry(&mut self) -> Option<error::Result<POGOInfoEntry<'a>>> {
         if self.data.is_empty() {
             return None;
         }
@@ -1142,5 +1152,28 @@ mod tests {
             data: MALFORMED_POGO_NAME,
         };
         let _ = entries.collect::<Result<Vec<_>, _>>().unwrap();
+    }
+
+    #[test]
+    fn pogo_entries_stop_after_error() {
+        let cases: &[&[u8]] = &[
+            // Truncated RVA
+            &[0x00, 0x10, 0x00],
+            // Truncated size
+            &[0x00, 0x10, 0x00, 0x00, 0x03],
+            // No room for the name
+            &[0x00, 0x10, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00],
+            // Name without null-terminator
+            &[0x00, 0x10, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x2e, 0x74],
+            // Three valid entries, then a truncated name padding
+            MALFORMED_POGO_NAME,
+        ];
+        for data in cases {
+            let mut entries = POGOEntryIterator { data };
+            let results = entries.by_ref().take(8).collect::<Vec<_>>();
+            assert_eq!(results.iter().filter(|r| r.is_err()).count(), 1);
+            assert!(results.last().unwrap().is_err());
+            assert!(entries.next().is_none());
+        }
     }
 }

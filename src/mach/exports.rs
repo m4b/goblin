@@ -179,19 +179,6 @@ pub struct ExportTrie<'a> {
 }
 
 impl<'a> ExportTrie<'a> {
-    #[inline]
-    fn walk_nodes(
-        &self,
-        libs: &[&'a str],
-        branches: Vec<(String, usize)>,
-        acc: &mut Vec<Export<'a>>,
-    ) -> error::Result<()> {
-        for (symbol, next_node) in branches {
-            self.walk_trie(libs, symbol, next_node, acc)?;
-        }
-        Ok(())
-    }
-
     // current_symbol can be a str iiuc
     fn walk_branches(
         &self,
@@ -221,24 +208,30 @@ impl<'a> ExportTrie<'a> {
         Ok(branches)
     }
 
-    fn walk_trie(
-        &self,
-        libs: &[&'a str],
-        current_symbol: String,
-        start: usize,
-        exports: &mut Vec<Export<'a>>,
-    ) -> error::Result<()> {
-        if start < self.location.end {
+    fn walk_trie(&self, libs: &[&'a str], exports: &mut Vec<Export<'a>>) -> error::Result<()> {
+        let mut visited = vec![false; self.location.len()];
+        let mut stack = vec![(String::new(), self.location.start)];
+        while let Some((current_symbol, start)) = stack.pop() {
+            if start >= self.location.end {
+                continue;
+            }
+            let index = start - self.location.start;
+            if visited[index] {
+                return Err(error::Error::Malformed(format!(
+                    "export trie node at offset {:#x} visited twice",
+                    start
+                )));
+            }
+            visited[index] = true;
             let mut offset = start;
             let terminal_size = Uleb128::read(&self.data, &mut offset)?;
             // let mut input = String::new();
             // ::std::io::stdin().read_line(&mut input).unwrap();
             // println!("@ {:#x} node: {:#x} current_symbol: {}", start, terminal_size, current_symbol);
-            if terminal_size == 0 {
+            let branches = if terminal_size == 0 {
                 let nbranches = Uleb128::read(&self.data, &mut offset)? as usize;
                 //println!("\t@ {:#x} BRAN {}", *offset, nbranches);
-                let branches = self.walk_branches(nbranches, current_symbol, offset)?;
-                self.walk_nodes(libs, branches, exports)
+                self.walk_branches(nbranches, current_symbol, offset)?
             } else {
                 // terminal node, but the tricky part is that they can have children...
                 let pos = offset;
@@ -252,17 +245,15 @@ impl<'a> ExportTrie<'a> {
                 exports.push(export);
                 if nchildren == 0 {
                     // this branch is done
-                    Ok(())
+                    Vec::new()
                 } else {
                     // more branches to walk
-                    let branches =
-                        self.walk_branches(nchildren, current_symbol, *children_start)?;
-                    self.walk_nodes(libs, branches, exports)
+                    self.walk_branches(nchildren, current_symbol, *children_start)?
                 }
-            }
-        } else {
-            Ok(())
+            };
+            stack.extend(branches.into_iter().rev());
         }
+        Ok(())
     }
 
     fn new_impl(bytes: &'a [u8], start: usize, size: usize) -> Self {
@@ -286,10 +277,8 @@ impl<'a> ExportTrie<'a> {
 
     /// Walk the export trie for symbols exported by this binary, using the provided `libs` to resolve re-exports
     pub fn exports(&self, libs: &[&'a str]) -> error::Result<Vec<Export<'a>>> {
-        let offset = self.location.start;
-        let current_symbol = String::new();
         let mut exports = Vec::new();
-        self.walk_trie(libs, current_symbol, offset, &mut exports)?;
+        self.walk_trie(libs, &mut exports)?;
         Ok(exports)
     }
 
@@ -377,5 +366,66 @@ mod tests {
         // FIXME: it would have been nice if this were an `Err`.
         let exports = trie.exports(&[]).unwrap();
         assert_eq!(exports.len(), 0);
+    }
+
+    #[test]
+    fn export_trie_self_cycle() {
+        const EXPORTS: [u8; 4] = [0x00, 0x01, 0x00, 0x00];
+        let mut command = load_command::DyldInfoCommand::default();
+        command.export_size = EXPORTS.len() as u32;
+        let trie = ExportTrie::new(&EXPORTS, &command);
+        assert!(trie.exports(&[]).is_err());
+    }
+
+    fn uleb128_len(mut value: usize) -> usize {
+        let mut len = 1;
+        while value >= 0x80 {
+            value >>= 7;
+            len += 1;
+        }
+        len
+    }
+
+    fn push_uleb128(bytes: &mut Vec<u8>, mut value: usize) {
+        loop {
+            let mut byte = (value & 0x7f) as u8;
+            value >>= 7;
+            if value != 0 {
+                byte |= 0x80;
+            }
+            bytes.push(byte);
+            if value == 0 {
+                break;
+            }
+        }
+    }
+
+    #[test]
+    fn export_trie_deep_chain() {
+        const DEPTH: usize = 100_000;
+        let mut bytes = Vec::new();
+        for _ in 0..DEPTH {
+            // terminal_size 0, one branch with an empty label, then the next node
+            let offset = bytes.len();
+            let mut len = 1;
+            let next = loop {
+                let next = offset + 3 + len;
+                if uleb128_len(next) == len {
+                    break next;
+                }
+                len += 1;
+            };
+            bytes.extend_from_slice(&[0x00, 0x01, 0x00]);
+            push_uleb128(&mut bytes, next);
+        }
+        // terminal node: terminal_size 2, flags 0, address 0, no children
+        bytes.extend_from_slice(&[0x02, 0x00, 0x00, 0x00]);
+        let mut command = load_command::DyldInfoCommand::default();
+        command.export_size = bytes.len() as u32;
+        let trie = ExportTrie::new(&bytes, &command);
+        let exports = trie.exports(&[]).unwrap();
+        assert_eq!(exports.len(), 1);
+        assert_eq!(exports[0].name, "");
+        assert_eq!(exports[0].offset, 0);
     }
 }

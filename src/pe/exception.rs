@@ -874,6 +874,13 @@ impl<'a> ExceptionData<'a> {
             return Err(error::Error::from(scroll::Error::BadOffset(offset)));
         }
 
+        if size + offset > bytes.len() {
+            return Err(error::Error::Malformed(format!(
+                "invalid exception directory table size ({size}) or offset ({offset}) (total size: {})",
+                bytes.len()
+            )));
+        }
+
         Ok(ExceptionData {
             bytes,
             offset,
@@ -2107,6 +2114,8 @@ impl<'a> Iterator for Arm64UnwindCodeIterator<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::pe::data_directories::DataDirectory;
+
     use super::*;
 
     #[test]
@@ -2521,6 +2530,46 @@ mod tests {
             offset: 0,
         };
         let _ = it.collect::<Vec<_>>();
+    }
+
+    #[test]
+    fn parse_malformed_exception_data_incorrect_size_offset() {
+        let ed = ExceptionData::parse_with_opts(
+            &[0u8; RUNTIME_FUNCTION_SIZE * 2],
+            DataDirectory {
+                virtual_address: 0x00,
+                size: RUNTIME_FUNCTION_SIZE as u32 * 3,
+            },
+            &[],
+            1,
+            &options::ParseOptions {
+                resolve_rva: false,
+                ..Default::default()
+            },
+        );
+
+        assert_eq!(
+            &ed.unwrap_err().to_string(),
+            "Malformed entity: invalid exception directory table size (36) or offset (0) (total size: 24)"
+        );
+    }
+
+    #[test]
+    fn parse_exception_data_with_perfect_size() {
+        let _ = ExceptionData::parse_with_opts(
+            &[0u8; RUNTIME_FUNCTION_SIZE * 2],
+            DataDirectory {
+                virtual_address: 0x00,
+                size: RUNTIME_FUNCTION_SIZE as u32 * 2,
+            },
+            &[],
+            1,
+            &options::ParseOptions {
+                resolve_rva: false,
+                ..Default::default()
+            },
+        )
+        .unwrap();
     }
 
     mod arm64 {

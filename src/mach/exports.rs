@@ -8,6 +8,7 @@
 
 use crate::error;
 use crate::mach::load_command;
+use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt::{self, Debug};
@@ -96,7 +97,17 @@ impl<'a> ExportInfo<'a> {
                 tmp.into()
             };
             let lib_symbol_name = bytes.pread::<&str>(offset)?;
-            let lib = libs[lib_ordinal as usize];
+            let lib = usize::try_from(lib_ordinal)
+                .ok()
+                .and_then(|idx| libs.get(idx))
+                .copied()
+                .ok_or_else(|| {
+                    error::Error::Malformed(format!(
+                        "Reexport library ordinal {} is out of bounds (libs len: {})",
+                        lib_ordinal,
+                        libs.len()
+                    ))
+                })?;
             let lib_symbol_name = if lib_symbol_name == "" {
                 None
             } else {
@@ -377,5 +388,42 @@ mod tests {
         // FIXME: it would have been nice if this were an `Err`.
         let exports = trie.exports(&[]).unwrap();
         assert_eq!(exports.len(), 0);
+    }
+
+    #[test]
+    fn reexport_lib_ordinal_bounds() {
+        let libs = ["self"];
+
+        let valid_trie: [u8; 5] = [0x03, 0x08, 0x00, 0x00, 0x00];
+        let mut cmd = load_command::DyldInfoCommand::default();
+        cmd.export_size = valid_trie.len() as u32;
+        let exports = ExportTrie::new(&valid_trie, &cmd).exports(&libs).unwrap();
+        assert_eq!(exports.len(), 1);
+        match exports[0].info {
+            ExportInfo::Reexport {
+                lib,
+                lib_symbol_name,
+                flags,
+            } => {
+                assert_eq!(lib, "self");
+                assert_eq!(lib_symbol_name, None);
+                assert_eq!(flags, EXPORT_SYMBOL_FLAGS_REEXPORT);
+            }
+            ref other => panic!("expected Reexport, got {:?}", other),
+        }
+
+        let oob_trie: [u8; 5] = [0x03, 0x08, 0x0d, 0x00, 0x00];
+        cmd.export_size = oob_trie.len() as u32;
+        assert!(matches!(
+            ExportTrie::new(&oob_trie, &cmd).exports(&libs),
+            Err(error::Error::Malformed(_))
+        ));
+
+        let u64_trunc_trie: [u8; 9] = [0x07, 0x08, 0x80, 0x80, 0x80, 0x80, 0x10, 0x00, 0x00];
+        cmd.export_size = u64_trunc_trie.len() as u32;
+        assert!(matches!(
+            ExportTrie::new(&u64_trunc_trie, &cmd).exports(&libs),
+            Err(error::Error::Malformed(_))
+        ));
     }
 }

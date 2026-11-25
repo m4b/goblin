@@ -8,6 +8,7 @@
 
 use crate::error;
 use crate::mach::load_command;
+use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt::{self, Debug};
@@ -242,7 +243,16 @@ impl<'a> ExportTrie<'a> {
             } else {
                 // terminal node, but the tricky part is that they can have children...
                 let pos = offset;
-                let children_start = &mut (pos + terminal_size as usize);
+                let terminal_size = usize::try_from(terminal_size).map_err(|_| {
+                    error::Error::Malformed(format!(
+                        "Export trie terminal size {terminal_size} does not fit in platform `usize`"
+                    ))
+                })?;
+                let children_start = &mut pos.checked_add(terminal_size).ok_or_else(|| {
+                    error::Error::Malformed(String::from(
+                        "Export trie terminal size overflows the platform `usize`",
+                    ))
+                })?;
                 let nchildren = Uleb128::read(&self.data, children_start)? as usize;
                 let flags = Uleb128::read(&self.data, &mut offset)?;
                 //println!("\t@ {:#x} TERM {} flags: {:#x}", offset, nchildren, flags);

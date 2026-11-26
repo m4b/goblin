@@ -22,9 +22,11 @@ jobs:
           - build: macos
             os: macos-latest
             rust: stable
+          # 32-bit host toolchains are no longer distributed; build i686 from x86_64.
           - build: win32
             os: windows-latest
-            rust: stable-i686-msvc
+            rust: stable-x86_64-msvc
+            target: i686-pc-windows-msvc
           - build: win64
             os: windows-latest
             rust: stable-x86_64-msvc
@@ -45,6 +47,12 @@ jobs:
         export PATH="$HOME/.cargo/bin:$PATH"
         rustup override set ${{ matrix.rust }}
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+    - name: Add 32-bit Windows target
+      if: matrix.target
+      shell: bash
+      run: |
+        rustup target add --toolchain ${{ matrix.rust }} ${{ matrix.target }}
+        echo "CARGO_BUILD_TARGET=${{ matrix.target }}" >> $GITHUB_ENV
     - name: rustfmt
       shell: bash
       if: runner.os == 'Linux' && matrix.rust == 'stable'

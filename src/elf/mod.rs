@@ -158,15 +158,19 @@ if_sylvan! {
             let mut iters = vec![];
             for phdr in &self.program_headers {
                 if phdr.p_type == program_header::PT_NOTE {
-                    let offset = phdr.p_offset as usize;
                     let alignment = phdr.p_align as usize;
 
-                    iters.push(note::NoteDataIterator {
-                        data,
-                        offset,
-                        size: offset.saturating_add(phdr.p_filesz as usize),
-                        ctx: (alignment, self.ctx)
-                    });
+                    if let (Ok(offset), Ok(filesize)) = (
+                        usize::try_from(phdr.p_offset),
+                        usize::try_from(phdr.p_filesz),
+                    ) {
+                        iters.push(note::NoteDataIterator {
+                            data,
+                            offset,
+                            size: offset.saturating_add(filesize),
+                            ctx: (alignment, self.ctx)
+                        });
+                    }
                 }
             }
 

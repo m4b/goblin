@@ -4,6 +4,7 @@ use scroll::{Pread, Pwrite};
 use log::{debug, warn};
 
 use alloc::boxed::Box;
+use alloc::format;
 use alloc::vec::Vec;
 use core::fmt;
 use core::ops::{Deref, DerefMut};
@@ -415,7 +416,17 @@ impl<'a> ctx::IntoCtx<container::Ctx> for Segment<'a> {
 /// Read data that belongs to a segment if the offset is within the boundaries of bytes.
 fn segment_data(bytes: &[u8], fileoff: u64, filesize: u64) -> Result<&[u8], error::Error> {
     let data: &[u8] = if filesize != 0 {
-        bytes.pread_with(fileoff as usize, filesize as usize)?
+        let fileoff = usize::try_from(fileoff).map_err(|_| {
+            error::Error::Malformed(format!(
+                "Segment file offset {fileoff} does not fit in platform `usize`"
+            ))
+        })?;
+        let filesize = usize::try_from(filesize).map_err(|_| {
+            error::Error::Malformed(format!(
+                "Segment file size {filesize} does not fit in platform `usize`"
+            ))
+        })?;
+        bytes.pread_with(fileoff, filesize)?
     } else {
         &[]
     };

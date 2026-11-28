@@ -274,11 +274,9 @@ impl<'a> MachO<'a> {
         // choose the same way here
         let (entry, old_style_entry) = if let Some(offset) = main_entry_offset {
             // map the entrypoint offset to a virtual memory address
-            let base_address = segments
+            let text_segment = segments
                 .iter()
-                .filter(|s| &s.segname[0..7] == b"__TEXT\0")
-                .map(|s| s.vmaddr - s.fileoff)
-                .next()
+                .find(|s| &s.segname[0..7] == b"__TEXT\0")
                 .ok_or_else(|| {
                     error::Error::Malformed(format!(
                         "image specifies LC_MAIN offset {} but has no __TEXT segment",
@@ -286,7 +284,24 @@ impl<'a> MachO<'a> {
                     ))
                 })?;
 
-            (base_address + offset, false)
+            let base_address = text_segment
+                .vmaddr
+                .checked_sub(text_segment.fileoff)
+                .ok_or_else(|| {
+                    error::Error::Malformed(format!(
+                        "__TEXT segment vmaddr ({:#x}) is smaller than fileoff ({:#x}) for LC_MAIN",
+                        text_segment.vmaddr, text_segment.fileoff
+                    ))
+                })?;
+
+            let entry_address = base_address.checked_add(offset).ok_or_else(|| {
+                error::Error::Malformed(format!(
+                    "LC_MAIN entry address overflows u64: base {:#x} + offset {:#x}",
+                    base_address, offset
+                ))
+            })?;
+
+            (entry_address, false)
         } else if let Some(address) = unixthread_entry_address {
             (address, true)
         } else {
@@ -642,5 +657,69 @@ mod test {
             }
             Mach::Binary(_) => panic!("expected Mach::Fat, got Mach::Binary"),
         }
+    }
+
+    fn build_macho64_with_lc_main(vmaddr: u64, fileoff: u64, entryoff: u64) -> alloc::vec::Vec<u8> {
+        let mut buf = alloc::vec::Vec::with_capacity(32 + 72 + 24);
+        // mach_header_64 (32 bytes, little-endian)
+        buf.extend_from_slice(&0xfeed_facfu32.to_le_bytes()); // MH_MAGIC_64
+        buf.extend_from_slice(&0x0100_0007u32.to_le_bytes()); // CPU_TYPE_X86_64
+        buf.extend_from_slice(&3u32.to_le_bytes()); // CPU_SUBTYPE_X86_64_ALL
+        buf.extend_from_slice(&2u32.to_le_bytes()); // MH_EXECUTE
+        buf.extend_from_slice(&2u32.to_le_bytes()); // ncmds
+        buf.extend_from_slice(&(72u32 + 24u32).to_le_bytes()); // sizeofcmds
+        buf.extend_from_slice(&0u32.to_le_bytes()); // flags
+        buf.extend_from_slice(&0u32.to_le_bytes()); // reserved
+
+        // LC_SEGMENT_64 "__TEXT" (72 bytes)
+        buf.extend_from_slice(&0x19u32.to_le_bytes()); // LC_SEGMENT_64
+        buf.extend_from_slice(&72u32.to_le_bytes()); // cmdsize
+        let mut segname = [0u8; 16];
+        segname[..6].copy_from_slice(b"__TEXT");
+        buf.extend_from_slice(&segname);
+        buf.extend_from_slice(&vmaddr.to_le_bytes());
+        buf.extend_from_slice(&0x1000u64.to_le_bytes()); // vmsize
+        buf.extend_from_slice(&fileoff.to_le_bytes());
+        buf.extend_from_slice(&0u64.to_le_bytes()); // filesize
+        buf.extend_from_slice(&5u32.to_le_bytes()); // maxprot
+        buf.extend_from_slice(&5u32.to_le_bytes()); // initprot
+        buf.extend_from_slice(&0u32.to_le_bytes()); // nsects
+        buf.extend_from_slice(&0u32.to_le_bytes()); // flags
+
+        // LC_MAIN (24 bytes)
+        buf.extend_from_slice(&0x8000_0028u32.to_le_bytes()); // LC_MAIN
+        buf.extend_from_slice(&24u32.to_le_bytes()); // cmdsize
+        buf.extend_from_slice(&entryoff.to_le_bytes());
+        buf.extend_from_slice(&0u64.to_le_bytes()); // stacksize
+
+        buf
+    }
+
+    #[test]
+    fn parse_lc_main_valid_entry_address() {
+        let bytes = build_macho64_with_lc_main(0x1_0000_0000, 0x20, 0x100);
+        let macho = super::MachO::parse(&bytes, 0).expect("valid LC_MAIN should parse");
+        assert_eq!(macho.entry, 0x1_0000_0000 - 0x20 + 0x100);
+        assert!(!macho.old_style_entry);
+    }
+
+    #[test]
+    fn parse_lc_main_rejects_fileoff_greater_than_vmaddr() {
+        let bytes = build_macho64_with_lc_main(0x10, 0x20, 0x40);
+        let err = super::MachO::parse(&bytes, 0).unwrap_err();
+        assert!(
+            matches!(err, Error::Malformed(_)),
+            "expected Malformed error on vmaddr < fileoff, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn parse_lc_main_rejects_entry_address_overflow() {
+        let bytes = build_macho64_with_lc_main(u64::MAX - 0x10, 0, 0x20);
+        let err = super::MachO::parse(&bytes, 0).unwrap_err();
+        assert!(
+            matches!(err, Error::Malformed(_)),
+            "expected Malformed error on base + entryoff overflow, got {err:?}"
+        );
     }
 }
